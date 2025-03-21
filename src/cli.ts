@@ -1,0 +1,104 @@
+import readline from 'readline';
+import { LLMFactory } from './llm/llmFactory.js';
+import { LLMType } from './llm/types.js';
+
+// Define the model map with proper type
+const AVAILABLE_MODELS: Record<string, LLMType> = {
+  'gemini': LLMType.Gemini,
+  'claude': LLMType.Claude,
+  'openai': LLMType.OpenAI,
+  'test': LLMType.Test
+} as const;
+
+// Add display names mapping
+const MODEL_DISPLAY_NAMES: Record<string, string> = {
+  'test': 'Test LLM',
+  'gemini': 'Gemini',
+  'claude': 'Claude',
+  'openai': 'OpenAI'
+};
+
+export function setupCLI() {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+  });
+
+  console.log('Welcome to TeamSpark AI Workbench!');
+  console.log('Available commands:');
+  console.log('  /model - List available models');
+  console.log('  /model <name> - Switch to specified model');
+  console.log('  /quit or /exit - Exit the application\n');
+  
+  let currentLLM = LLMFactory.create(LLMType.Test);
+  let currentModel = 'test';
+
+  const findModelName = (input: string): string | undefined => {
+    const normalizedInput = input.toLowerCase();
+    return Object.keys(AVAILABLE_MODELS).find(
+      key => key.toLowerCase() === normalizedInput
+    );
+  };
+
+  const promptUser = () => {
+    const displayName = MODEL_DISPLAY_NAMES[currentModel] || currentModel;
+    rl.question(`${displayName}> `, async (input) => {
+      const command = input.trim().toLowerCase();
+
+      if (command === '/quit' || command === '/exit') {
+        rl.close();
+        process.exit(0);
+      }
+
+      if (command === '/model') {
+        console.log('\nAvailable models:');
+        Object.keys(AVAILABLE_MODELS).forEach(model => {
+          const indicator = model === currentModel ? '* ' : '  ';
+          const displayName = MODEL_DISPLAY_NAMES[model] || model;
+          console.log(`${indicator}${displayName}`);
+        });
+        console.log('');
+        promptUser();
+        return;
+      }
+
+      if (command.startsWith('/model ')) {
+        const inputModelName = command.split(' ')[1].toLowerCase();
+        const modelName = findModelName(inputModelName);
+        
+        if (modelName) {
+          try {
+            currentLLM = LLMFactory.create(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
+            currentModel = modelName;
+            const displayName = MODEL_DISPLAY_NAMES[modelName] || modelName;
+            console.log(`Switched to ${displayName} model`);
+          } catch (error: unknown) {
+            if (error instanceof Error) {
+              console.log('Error switching model:', error.message);
+            } else {
+              console.log('Error switching model');
+            }
+          }
+        } else {
+          console.log('Invalid model name. Use /model to see available models.');
+        }
+        promptUser();
+        return;
+      }
+
+      try {
+        const response = await currentLLM.generateResponse(input);
+        console.log(`AI: ${response}`);
+      } catch (error: unknown) {
+        if (error instanceof Error) {
+          console.error('Error:', error.message);
+        } else {
+          console.error('An unknown error occurred');
+        }
+      }
+      promptUser();
+    });
+  };
+
+  promptUser();
+} 

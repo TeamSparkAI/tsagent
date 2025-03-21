@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'">
+    <title>TeamSpark AI Workbench</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div id="toolbar">
+        <select id="model-select">
+            <option value="test">Test LLM</option>
+            <option value="gemini-flash">Gemini</option>
+            <option value="claude">Claude</option>
+            <option value="openai">OpenAI</option>
+        </select>
+        <button id="debug-button" title="Open DevTools">🛠️</button>
+    </div>
+    <div id="chat-container"></div>
+    <div id="input-container">
+        <input type="text" id="message-input" placeholder="Type your message...">
+        <button id="send-button">Send</button>
+    </div>
+    <script type="module" src="./dist/renderer.js"></script>
+</body>
+</html> 
