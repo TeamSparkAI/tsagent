@@ -134,3 +134,9 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# MCP Configuration
+config/mcp_config.json
+
+# Test files
+test_files/

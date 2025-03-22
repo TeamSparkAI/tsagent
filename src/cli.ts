@@ -1,6 +1,7 @@
 import readline from 'readline';
 import { LLMFactory } from './llm/llmFactory.js';
 import { LLMType } from './llm/types.js';
+import { toolsCommand } from './commands/tools.js';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -28,7 +29,9 @@ export function setupCLI() {
   console.log('Available commands:');
   console.log('  /model - List available models');
   console.log('  /model <name> - Switch to specified model');
-  console.log('  /quit or /exit - Exit the application\n');
+  console.log('  /quit or /exit - Exit the application');
+  console.log('  /tools - List available tools from all configured MCP servers');
+  console.log('\n');
   
   let currentLLM = LLMFactory.create(LLMType.Test);
   let currentModel = 'test';
@@ -82,6 +85,12 @@ export function setupCLI() {
         } else {
           console.log('Invalid model name. Use /model to see available models.');
         }
+        promptUser();
+        return;
+      }
+
+      if (command === '/tools') {
+        toolsCommand();
         promptUser();
         return;
       }
