@@ -1,8 +1,8 @@
 export enum LLMType {
-  Test = 'test',
-  Gemini = 'gemini',
-  Claude = 'claude',
-  OpenAI = 'openai'
+  Test = 'TEST',
+  Gemini = 'GEMINI',
+  Claude = 'CLAUDE',
+  OpenAI = 'OPENAI'
 }
 
 export interface ILLM {

@@ -7,8 +7,8 @@
   "scripts": {
     "start": "npm run build && electron . --ignore-certificate-errors",
     "cli": "npm run build && node dist/main.js --cli",
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && tsc -p tsconfig.preload.json",
-    "watch": "tsc -w -p tsconfig.json & tsc -w -p tsconfig.renderer.json",
+    "build": "tsc -p tsconfig.json && webpack --config webpack.config.cjs && tsc -p tsconfig.preload.json",
+    "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.cjs",
     "test": "jest"
   },
   "devDependencies": {
@@ -21,7 +21,13 @@
     "@anthropic-ai/sdk": "^0.18.0",
     "@google/generative-ai": "^0.1.0",
     "@modelcontextprotocol/sdk": "^1.7.0",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "@types/uuid": "^10.0.0",
     "dotenv": "^16.4.7",
-    "openai": "^4.0.0"
+    "openai": "^4.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "uuid": "^11.1.0"
   }
 }

@@ -1,6 +1,10 @@
+import { LLMType } from '../llm/types';
+
 export interface API {
-  sendMessage: (message: string) => Promise<string>;
-  switchModel: (modelType: string) => Promise<boolean>;
+  _sendMessage: (tabId: string, message: string) => Promise<string>;
+  _switchModel: (tabId: string, modelType: LLMType) => Promise<boolean>;
+  _getCurrentModel: (tabId: string) => Promise<LLMType>;
+  toggleDevTools: () => Promise<boolean>;
 }
 
 declare global {

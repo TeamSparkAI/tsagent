@@ -2,15 +2,25 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "outDir": "./dist",
     "sourceMap": true,
-    "typeRoots": ["./src/types", "./node_modules/@types"]
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
+    "lib": ["DOM", "DOM.Iterable", "ESNext"],
+    "typeRoots": ["./src/types", "./node_modules/@types"],
+    "resolveJsonModule": true,
+    "moduleDetection": "force",
+    "allowJs": true
   },
-  "include": ["src/renderer.ts", "src/types/preload.d.ts"],
+  "include": [
+    "src/renderer.tsx",
+    "src/components/**/*.tsx",
+    "src/types/preload.d.ts"
+  ],
   "exclude": ["node_modules"]
-} 
+}
