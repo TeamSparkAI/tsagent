@@ -29,7 +29,8 @@ if (process.argv.includes('--cli')) {
       }
     });
 
-    mainWindow.loadFile(path.join(__dirname, '../index.html'));
+    mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
+    mainWindow.webContents.reloadIgnoringCache();
   }
 
   // Handle IPC messages

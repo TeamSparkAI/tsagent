@@ -8,7 +8,8 @@
     "start": "npm run build && electron . --ignore-certificate-errors",
     "cli": "npm run build && node dist/main.js --cli",
     "build": "tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && tsc -p tsconfig.preload.json",
-    "watch": "tsc -w -p tsconfig.json & tsc -w -p tsconfig.renderer.json"
+    "watch": "tsc -w -p tsconfig.json & tsc -w -p tsconfig.renderer.json",
+    "test": "jest"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

@@ -93,5 +93,25 @@ class ChatUI {
   }
 }
 
+// Initialize tabs
+document.querySelectorAll('.tab-button').forEach(button => {
+  button.addEventListener('click', (e) => {
+    const target = e.target as HTMLElement;
+    const tabId = target.dataset.tab;
+    
+    // Update button states
+    document.querySelectorAll('.tab-button').forEach(btn => 
+      btn.classList.remove('active')
+    );
+    target.classList.add('active');
+    
+    // Update content visibility
+    document.querySelectorAll('.tab-content').forEach(content => 
+      content.classList.remove('active')
+    );
+    document.getElementById(`${tabId}-tab`)?.classList.add('active');
+  });
+});
+
 // Initialize the UI when the document is loaded
 new ChatUI(); 
