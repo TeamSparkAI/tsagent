@@ -19,8 +19,9 @@ interface ChatState {
   selectedModel: LLMType;
 }
 
-export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId }) => {
+export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type }) => {
   const chatApiRef = useRef<ChatAPI | null>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   if (!chatApiRef.current) {
     chatApiRef.current = new ChatAPI(id);
   }
@@ -41,6 +42,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId }) => {
     };
     initModel();
   }, [id]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [chatState.messages]);
 
   if (!isInitialized) return null;
   if (id !== activeTabId) return null;
@@ -68,6 +75,23 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId }) => {
     setInputValue('');
   };
 
+  const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const modelType = e.target.value as LLMType;
+    const success = await chatApi.switchModel(modelType);
+    if (success) {
+      setChatState(prev => ({
+        ...prev,
+        selectedModel: modelType,
+        messages: [...prev.messages, { type: 'system', content: `Switched to ${modelType} model` }]
+      }));
+    } else {
+      setChatState(prev => ({
+        ...prev,
+        messages: [...prev.messages, { type: 'error', content: 'Failed to switch model' }]
+      }));
+    }
+  };
+
   return (
     <div className="chat-tab">
       <div id="model-container">
@@ -75,22 +99,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId }) => {
         <select
           id="model-select"
           value={chatState.selectedModel}
-          onChange={async (e) => {
-            const modelType = e.target.value as LLMType;
-            const success = await chatApi.switchModel(modelType);
-            if (success) {
-              setChatState(prev => ({
-                ...prev,
-                selectedModel: modelType,
-                messages: [...prev.messages, { type: 'system', content: `Switched to ${modelType} model` }]
-              }));
-            } else {
-              setChatState(prev => ({
-                ...prev,
-                messages: [...prev.messages, { type: 'error', content: 'Failed to switch model' }]
-              }));
-            }
-          }}
+          onChange={handleModelChange}
         >
           <option value={LLMType.Test}>Test LLM</option>
           <option value={LLMType.Gemini}>Gemini</option>
@@ -99,7 +108,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId }) => {
         </select>
       </div>
       
-      <div id="chat-container">
+      <div id="chat-container" ref={chatContainerRef}>
         {chatState.messages.map((msg, idx) => (
           <div key={idx} className={`message ${msg.type}`}>
             <strong>{msg.type.toUpperCase()}:</strong> {msg.content}

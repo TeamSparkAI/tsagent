@@ -116,12 +116,11 @@
         height: 100%;
       }
       #chat-container {
-        flex: 1;
-        min-height: 50px;  /* Allow shrinking to just a couple lines of text */
-        flex-shrink: 1;    /* Allow container to shrink */
         overflow-y: auto;
         padding: 10px;
         border: 1px solid #ccc;
+        flex: 1 1 auto;    /* Allow growing and shrinking */
+        height: 0;         /* Force scrolling when content overflows */
       }
       .message {
         margin-bottom: 10px;
@@ -135,7 +134,7 @@
         display: flex;
         gap: 10px;
         padding: 5px 0;
-        flex-shrink: 0;  /* Prevent input container from shrinking */
+        flex: 0 0 auto;    /* Don't grow or shrink */
       }
       #message-input {
         flex-grow: 1;
@@ -161,6 +160,7 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        flex: 0 0 auto;    /* Don't grow or shrink */
       }
       #model-container label {
         font-weight: 500;
