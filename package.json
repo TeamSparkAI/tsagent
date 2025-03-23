@@ -28,7 +28,7 @@
     "@types/react-dom": "^19.0.4",
     "@types/uuid": "^10.0.0",
     "dotenv": "^16.4.7",
-    "openai": "^4.0.0",
+    "openai": "^4.89.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "uuid": "^11.1.0"
