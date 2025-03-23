@@ -1,11 +1,11 @@
-import { MCPClient } from '../lib/mcp';
+import { MCPClientImpl } from '../mcp/client.js';
 import path from 'path';
 
 describe('MCP Client', () => {
-    let client: MCPClient;
+    let client: MCPClientImpl;
 
     beforeEach(() => {
-        client = new MCPClient();
+        client = new MCPClientImpl();
     });
 
     afterEach(async () => {

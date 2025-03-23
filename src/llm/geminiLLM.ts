@@ -1,16 +1,19 @@
 import { ILLM } from './types.js';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
 import { config } from '../config.js';
+import { MCPClientManager } from '../mcp/manager.js';
 
 export class GeminiLLM implements ILLM {
-  private model: any;
+  private model: GenerativeModel;
+  private mcpManager: MCPClientManager;
 
-  constructor(modelName: string = "gemini-pro") {
+  constructor(modelName: string, mcpManager: MCPClientManager) {
     if (!config.geminiKey) {
       throw new Error('GEMINI_API_KEY must be provided');
     }
     const genAI = new GoogleGenerativeAI(config.geminiKey);
     this.model = genAI.getGenerativeModel({ model: modelName });
+    this.mcpManager = mcpManager;
   }
 
   async generateResponse(prompt: string): Promise<string> {

@@ -1,12 +1,14 @@
 import { ILLM } from './types.js';
 import OpenAI from 'openai';
 import { config } from '../config.js';
+import { MCPClientManager } from '../mcp/manager.js';
 
 export class OpenAILLM implements ILLM {
   private client: OpenAI;
   private model: string;
+  private mcpManager: MCPClientManager;
 
-  constructor(model: string = 'gpt-3.5-turbo') {
+  constructor(model: string, mcpManager: MCPClientManager) {
     if (!config.openaiKey) {
       throw new Error('OPENAI_API_KEY must be provided');
     }
@@ -14,6 +16,7 @@ export class OpenAILLM implements ILLM {
       apiKey: config.openaiKey,
     });
     this.model = model;
+    this.mcpManager = mcpManager;
   }
 
   async generateResponse(prompt: string): Promise<string> {

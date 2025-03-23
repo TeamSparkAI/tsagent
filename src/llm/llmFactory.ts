@@ -3,20 +3,29 @@ import { TestLLM } from './testLLM.js';
 import { GeminiLLM } from './geminiLLM.js';
 import { ClaudeLLM } from './claudeLLM.js';
 import { OpenAILLM } from './openaiLLM.js';
+import { MCPClientManager } from '../mcp/manager.js';
 
 export class LLMFactory {
+  private static mcpManager: MCPClientManager;
+
+  static initialize(mcpManager: MCPClientManager) {
+    this.mcpManager = mcpManager;
+  }
+
   static create(type: LLMType): ILLM {
+    console.log('LLMFactory creating:', type);
     switch (type) {
       case LLMType.Gemini:
-        return new GeminiLLM("gemini-2.0-flash");
+        return new GeminiLLM('gemini-2.0-flash', this.mcpManager);
       case LLMType.Claude:
-        return new ClaudeLLM('claude-3-7-sonnet-20250219');
+        console.log('Creating Claude instance');
+        return new ClaudeLLM('claude-3-7-sonnet-20250219', this.mcpManager);
       case LLMType.OpenAI:
-        return new OpenAILLM('gpt-3.5-turbo');
+        return new OpenAILLM('gpt-3.5-turbo', this.mcpManager);
       case LLMType.Test:
         return new TestLLM();
       default:
         throw new Error(`Unknown LLM type: ${type}`);
     }
   }
-} 
+}

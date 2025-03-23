@@ -1,8 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { MCPClient } from '../lib/mcp.js';
+import { MCPClientImpl } from '../mcp/client.js';
+import { Tool } from "@modelcontextprotocol/sdk/types";
 
-interface MCPConfigServer {
+export interface MCPConfigServer {
   command: string;
   args: string[];
   env?: Record<string, string>;
@@ -28,7 +29,7 @@ export async function toolsCommand() {
       console.log(`Server: ${serverId}`);
       console.log('------------------------');
 
-      const client = new MCPClient();
+      const client = new MCPClientImpl();
       try {
         await client.connectToServer(
           serverConfig.command, 
@@ -40,8 +41,8 @@ export async function toolsCommand() {
         if (client.serverTools.length === 0) {
           console.log('No tools available');
         } else {
-          client.serverTools.forEach(tool => {
-            console.log(`- ${tool.name}: ${tool.description}`);
+          client.serverTools.forEach((tool: Tool) => {
+            console.log(`- ${tool.name}: ${tool.description || 'No description'}`);
           });
         }
       } catch (error) {
