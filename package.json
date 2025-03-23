@@ -22,7 +22,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@google/generative-ai": "^0.1.0",
+    "@google/generative-ai": "^0.24.0",
     "@modelcontextprotocol/sdk": "^1.7.0",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",

@@ -1,28 +1,137 @@
 import { ILLM } from './types.js';
-import { GenerativeModel, GoogleGenerativeAI } from '@google/generative-ai';
+import { GenerativeModel, GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams } from '@google/generative-ai';
 import { config } from '../config.js';
-import { MCPClientManager } from '../mcp/manager.js';
+import { Tool } from "@modelcontextprotocol/sdk/types";
+import { LLMStateManager } from './stateManager.js';
 
 export class GeminiLLM implements ILLM {
   private model: GenerativeModel;
-  private mcpManager: MCPClientManager;
+  private stateManager: LLMStateManager;
+  private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
 
-  constructor(modelName: string, mcpManager: MCPClientManager) {
+  private convertPropertyType(prop: any): { type: string; items?: { type: string } } {
+    const baseType = (prop.type || "string").toUpperCase();
+    if (baseType === "ARRAY") {
+      return {
+        type: baseType,
+        items: {
+          type: "STRING" // Default to STRING for array items
+        }
+      };
+    }
+    return { type: baseType };
+  }
+
+  private convertMCPToolsToGeminiTool(mcpTools: Tool[]): GeminiTool {
+    return {
+      functionDeclarations: mcpTools.map(mcpTool => {
+        const properties = mcpTool.inputSchema.properties || {};
+        const declaration: any = {
+          name: mcpTool.name,
+          description: mcpTool.description || ''
+        };
+
+        if (Object.keys(properties).length > 0) {
+          declaration.parameters = {
+            type: SchemaType.OBJECT,
+            properties: Object.entries(properties).reduce((acc, [key, value]) => {
+              const prop: any = {
+                ...this.convertPropertyType(value)
+              };
+              
+              const desc = (value as any).description;
+              if (desc && desc.trim()) {
+                prop.description = desc;
+              }
+              
+              return {
+                ...acc,
+                [key]: prop
+              };
+            }, {})
+          };
+        }
+
+        return declaration;
+      })
+    };
+  }
+
+  constructor(modelName: string, stateManager: LLMStateManager) {
     if (!config.geminiKey) {
       throw new Error('GEMINI_API_KEY must be provided');
     }
     const genAI = new GoogleGenerativeAI(config.geminiKey);
-    this.model = genAI.getGenerativeModel({ model: modelName });
-    this.mcpManager = mcpManager;
+    const mcpTools = stateManager.getAllTools();
+    const modelOptions: ModelParams = { model: modelName };
+    
+    if (mcpTools.length > 0) {
+      const tools = this.convertMCPToolsToGeminiTool(mcpTools);
+      modelOptions.tools = [tools];
+    }
+    
+    this.model = genAI.getGenerativeModel(modelOptions);
+    this.stateManager = stateManager;
   }
 
   async generateResponse(prompt: string): Promise<string> {
     try {
-      const result = await this.model.generateContent(prompt);
-      if (!result.response) {
-        throw new Error('No response from Gemini');
+      const chat = this.model.startChat({
+        history: [{
+          role: "user",
+          parts: [{ text: this.stateManager.getSystemPrompt() }]
+        }]
+      });
+
+      const finalText = [];
+      let turnCount = 0;
+      let currentPrompt = prompt;
+
+      while (turnCount < this.MAX_TURNS) {
+        turnCount++;
+        console.log(`Sending message prompt "${prompt}", turn count: ${turnCount}`);
+        const result = await chat.sendMessage(currentPrompt);
+        const response = result.response;
+
+        // Check for function calls
+        const candidates = response.candidates?.[0];
+        if (candidates?.content?.parts?.[0]?.functionCall) {
+          const functionCall = candidates.content.parts[0].functionCall;
+          console.log('Function call detected:', functionCall);
+
+          // Call the tool
+          const toolResult = await this.stateManager.callTool(
+            functionCall.name,
+            functionCall.args as Record<string, unknown>
+          );
+          console.log('Tool result:', toolResult);
+
+          // Record the function call and result
+          finalText.push(
+            `[Calling function ${functionCall.name} with args ${JSON.stringify(functionCall.args)}]`
+          );
+          
+          if (toolResult.content[0]?.type === 'text') {
+            const resultText = toolResult.content[0].text;
+            finalText.push(`[Function returned: ${resultText}]`);
+            
+            // Continue the conversation with the tool result
+            currentPrompt = `The function returned: ${resultText}`;
+            continue;
+          }
+        }
+
+        // No function call, just add the response text
+        finalText.push(response.text());
+        break;
       }
-      return result.response.text();
+
+      if (turnCount >= this.MAX_TURNS) {
+        finalText.push("\n[Maximum number of function calls reached]");
+      }
+
+      return finalText.join('\n');
+
     } catch (error: any) {
       console.error('Gemini API error:', error);
       const errorMessage = error.message || 'Unknown error';

@@ -11,10 +11,6 @@ export interface ILLM {
   generateResponse(prompt: string): Promise<string>;
 }
 
-export interface LLM {
-  generateResponse(message: string): Promise<string>;
-}
-
 export interface LLMConstructor {
-  new (mcpManager: MCPClientManager): LLM;
+  new (mcpManager: MCPClientManager): ILLM;
 } 

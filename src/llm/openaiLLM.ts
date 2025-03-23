@@ -1,14 +1,14 @@
 import { ILLM } from './types.js';
 import OpenAI from 'openai';
 import { config } from '../config.js';
-import { MCPClientManager } from '../mcp/manager.js';
+import { LLMStateManager } from './stateManager.js';
 
 export class OpenAILLM implements ILLM {
   private client: OpenAI;
   private model: string;
-  private mcpManager: MCPClientManager;
+  private stateManager: LLMStateManager;
 
-  constructor(model: string, mcpManager: MCPClientManager) {
+  constructor(model: string, stateManager: LLMStateManager) {
     if (!config.openaiKey) {
       throw new Error('OPENAI_API_KEY must be provided');
     }
@@ -16,7 +16,7 @@ export class OpenAILLM implements ILLM {
       apiKey: config.openaiKey,
     });
     this.model = model;
-    this.mcpManager = mcpManager;
+    this.stateManager = stateManager;
   }
 
   async generateResponse(prompt: string): Promise<string> {

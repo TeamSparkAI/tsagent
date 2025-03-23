@@ -1,16 +1,16 @@
 import { ILLM } from './types.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { config } from '../config.js';
-import { MCPClientManager } from '../mcp/manager.js';
 import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index.js';
+import { LLMStateManager } from './stateManager.js';
 
 export class ClaudeLLM implements ILLM {
   private client: Anthropic;
   private model: string;
-  private mcpManager: MCPClientManager;
+  private stateManager: LLMStateManager;
 
-  constructor(model: string = 'claude-3-7-sonnet-20250219', mcpManager: MCPClientManager) {
+  constructor(model: string = 'claude-3-7-sonnet-20250219', stateManager: LLMStateManager) {
     if (!config.anthropicKey) {
       throw new Error('ANTHROPIC_API_KEY must be provided');
     }
@@ -26,7 +26,7 @@ export class ClaudeLLM implements ILLM {
       apiKey: config.anthropicKey,
     });
     this.model = model;
-    this.mcpManager = mcpManager;
+    this.stateManager = stateManager;
   }
 
   async generateResponse(prompt: string): Promise<string> {
@@ -36,7 +36,7 @@ export class ClaudeLLM implements ILLM {
       // not need to pass the tools in previous messages that have already been processed.  We do need to provide
       // all tool responses in the messages collection we send on each call.
       //
-      const tools = this.mcpManager.getAllTools().map((tool: Tool) => {
+      const tools = this.stateManager.getAllTools().map((tool: Tool) => {
         return {
           name: tool.name,
           description: tool.description,
@@ -54,7 +54,7 @@ export class ClaudeLLM implements ILLM {
         model: this.model,
         max_tokens: 1000,
         messages,
-        system: "You are a helpful AI assistant.", // Only need this on the first message in the context collection
+        system: this.stateManager.getSystemPrompt(), // Only need this on the first message in the context collection
         tools,
       });
 
@@ -89,7 +89,7 @@ export class ClaudeLLM implements ILLM {
               content: `[Using tool ${toolName} with input: ${JSON.stringify(toolArgs)}]`
             });
 
-            const result = await this.mcpManager.callTool(toolName, toolArgs);
+            const result = await this.stateManager.callTool(toolName, toolArgs);
             console.log('Tool result:', result);
             toolResults.push(result);
             finalText.push(
