@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { TabManager } from './TabManager';
 import { ChatTab } from './ChatTab';
 import { Tools } from './Tools';
+import { PromptTab } from './PromptTab';
+import { RulesTab } from './RulesTab';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TabInstance {
@@ -14,24 +16,33 @@ export const App: React.FC = () => {
   const [tabs, setTabs] = useState<TabInstance[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
 
-  // Create initial chat tab
+  // Create initial tabs
   useEffect(() => {
-    // Create both tabs on mount
     const initialTabs = [
       {
         id: uuidv4(),
-        type: 'chat',
-        title: 'Chat'
+        type: 'prompt',
+        title: 'Prompt'
+      },
+      {
+        id: uuidv4(),
+        type: 'rules',
+        title: 'Rules'
       },
       {
         id: uuidv4(),
         type: 'tools',
         title: 'Tools'
+      },
+      {
+        id: uuidv4(),
+        type: 'chat',
+        title: 'Chat'
       }
     ];
     setTabs(initialTabs);
-    setActiveTabId(initialTabs[0].id);
-  }, []); // Empty dependency array means this runs once on mount
+    setActiveTabId(initialTabs[3].id);  // Set Chat tab as default
+  }, []);
 
   const handleAddTab = (type: string) => {
     if (type !== 'chat') return; // Only allow creating new chat tabs
@@ -47,8 +58,8 @@ export const App: React.FC = () => {
   };
 
   const handleCloseTab = (id: string) => {
-    // Don't allow closing the Tools tab
-    if (tabs.find(tab => tab.id === id)?.type === 'tools') return;
+    // Only allow closing chat tabs
+    if (tabs.find(tab => tab.id === id)?.type !== 'chat') return;
     
     setTabs(tabs.filter(tab => tab.id !== id));
     if (activeTabId === id) {
@@ -66,9 +77,18 @@ export const App: React.FC = () => {
     >
       {tabs.map(tab => {
         console.log('Rendering tab:', tab);
-        return tab.type === 'chat' 
-          ? <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />
-          : <Tools key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />
+        switch (tab.type) {
+          case 'chat':
+            return <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+          case 'prompt':
+            return <PromptTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+          case 'rules':
+            return <RulesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+          case 'tools':
+            return <Tools key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+          default:
+            return null;
+        }
       })}
     </TabManager>
   );

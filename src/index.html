@@ -51,6 +51,8 @@
         display: flex;
         align-items: center;
         gap: 8px;
+        min-width: 120px;  /* Ensure tabs have enough width for labels */
+        text-align: center;
       }
       .close-button {
         font-size: 18px;
@@ -198,6 +200,9 @@
       }
       .parameters td:nth-child(2) {
         padding-right: 15px; /* Add space after type */
+      }
+      .prompt-tab, .rules-tab {
+        padding: 20px;
       }
     </style>
   </head>
