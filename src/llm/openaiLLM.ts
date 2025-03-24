@@ -62,35 +62,42 @@ export class OpenAILLM implements ILLM {
         }
 
         // Check for function calls
-        if (response.tool_calls?.[0]?.function) {
-          const functionCall = response.tool_calls[0].function;
-          console.log('Function call detected:', functionCall);
+        if (response.tool_calls && response.tool_calls.length > 0) {
+          console.log('tool_calls', response.tool_calls);
+          // Add the assistant's message with the tool calls
+          currentMessages.push(response);
 
-          // Call the tool
-          const toolResult = await this.stateManager.callTool(
-            functionCall.name,
-            JSON.parse(functionCall.arguments)
-          );
-          console.log('Tool result:', toolResult);
+          // Process all tool calls
+          for (const toolCall of response.tool_calls) {
+            if (toolCall.type === 'function') {
+              console.log('Processing function call:', toolCall.function);
 
-          // Record the function call and result
-          finalText.push(
-            `[Calling function ${functionCall.name} with args ${functionCall.arguments}]`
-          );
+              // Call the tool
+              const toolResult = await this.stateManager.callTool(
+                toolCall.function.name,
+                JSON.parse(toolCall.function.arguments)
+              );
+              console.log('Tool result:', toolResult);
 
-          if (toolResult.content[0]?.type === 'text') {
-            const resultText = toolResult.content[0].text;
-            finalText.push(`[Function returned: ${resultText}]`);
+              // Record the function call and result
+              finalText.push(
+                `[Calling function ${toolCall.function.name} with args ${toolCall.function.arguments}]`
+              );
 
-            // Add the function call and result to messages
-            currentMessages.push(response);
-            currentMessages.push({
-              role: 'tool',
-              tool_call_id: response.tool_calls[0].id,
-              content: resultText
-            });
-            continue;
+              if (toolResult.content[0]?.type === 'text') {
+                const resultText = toolResult.content[0].text;
+                finalText.push(`[Function returned: ${resultText}]`);
+
+                // Add the tool result to messages
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.id,
+                  content: resultText
+                });
+              }
+            }
           }
+          continue;  // Continue the conversation after processing all tool calls
         }
 
         // No function call, just add the response text
