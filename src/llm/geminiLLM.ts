@@ -104,7 +104,7 @@ export class GeminiLLM implements ILLM {
           for (const part of candidates.content.parts) {
             // Handle text parts
             if (part.text) {              
-              finalText.push(part.text);
+              finalText.push(part.text.replace(/\\n/g, '\n'));
             }
             
             // Handle function calls

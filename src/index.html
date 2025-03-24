@@ -156,6 +156,28 @@
         margin: 8px 0;
         padding-left: 20px;
       }
+      /* Markdown table styles */
+      .message.ai table {
+        border-collapse: collapse;
+        margin: 10px 0;
+        width: 100%;
+      }
+      .message.ai th,
+      .message.ai td {
+        border: 1px solid #ddd;
+        padding: 8px;
+        text-align: left;
+      }
+      .message.ai th {
+        background-color: #f8f8f8;
+        font-weight: bold;
+      }
+      .message.ai tr:nth-child(even) {
+        background-color: #f9f9f9;
+      }
+      .message.ai tr:hover {
+        background-color: #f5f5f5;
+      }
       .user { background-color: #e3f2fd; }
       .ai { background-color: #f5f5f5; }
       .system { background-color: #fff3e0; }

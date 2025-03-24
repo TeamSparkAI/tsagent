@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChatAPI } from '../api/ChatAPI';
 import { LLMType } from '../llm/types';
+import remarkGfm from 'remark-gfm';
 
 interface ChatTabProps {
   id: string;
@@ -218,6 +219,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
             <strong>{msg.type.toUpperCase()}:</strong>{' '}
             {msg.type === 'ai' ? (
               <ReactMarkdown
+                remarkPlugins={[remarkGfm]}
                 components={{
                   a: ({ node, ...props }) => (
                     <a 
@@ -225,7 +227,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
                       onClick={handleLinkClick}
                       style={{ color: '#007bff', cursor: 'pointer' }}
                     />
-                  )
+                  ),
+                  p: ({children}) => <p style={{whiteSpace: 'pre-wrap'}}>{children}</p>
                 }}
               >
                 {msg.content}
