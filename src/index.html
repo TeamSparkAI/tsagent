@@ -141,6 +141,7 @@
         gap: 10px;
         padding: 5px 0;
         flex: 0 0 auto;    /* Don't grow or shrink */
+        align-items: flex-start;  /* Align items to top */
       }
       #message-input {
         flex-grow: 1;
@@ -148,6 +149,13 @@
         border: 1px solid #ccc;
         border-radius: 4px;
         font-size: 14px;
+        resize: none;
+        height: 38px;  /* Adjusted to prevent scrollbar (line-height + padding + border) */
+        max-height: 200px;
+        overflow-y: auto;
+        line-height: 1.4;
+        font-family: inherit;
+        box-sizing: border-box;  /* Include padding in height calculation */
       }
       #send-button {
         padding: 8px 20px;

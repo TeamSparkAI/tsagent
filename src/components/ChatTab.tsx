@@ -22,6 +22,7 @@ interface ChatState {
 export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type }) => {
   const chatApiRef = useRef<ChatAPI | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   if (!chatApiRef.current) {
     chatApiRef.current = new ChatAPI(id);
   }
@@ -49,6 +50,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
     }
   }, [chatState.messages]);
 
+  useEffect(() => {
+    if (id === activeTabId && textareaRef.current) {
+      adjustTextareaHeight(textareaRef.current);
+    }
+  }, [activeTabId]);
+
   if (!isInitialized) return null;
   if (id !== activeTabId) return null;
 
@@ -73,6 +80,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
       }));
     }
     setInputValue('');
+    if (textareaRef.current) {
+      textareaRef.current.style.height = '38px';
+    }
   };
 
   const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -103,6 +113,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
       const selection = window.getSelection();
       const hasSelection = !!selection?.toString().length;
       window.api.showChatMenu(hasSelection, e.clientX, e.clientY);
+    }
+  };
+
+  const adjustTextareaHeight = (element: HTMLTextAreaElement) => {
+    // Get computed styles
+    const style = window.getComputedStyle(element);
+    const lineHeight = parseFloat(style.lineHeight);
+    const paddingTop = parseFloat(style.paddingTop);
+    const paddingBottom = parseFloat(style.paddingBottom);
+    const borderTop = parseFloat(style.borderTopWidth);
+    const borderBottom = parseFloat(style.borderBottomWidth);
+
+    // Reset height to auto to get proper scrollHeight
+    element.style.height = 'auto';
+
+    // Calculate exact height needed for content
+    const contentHeight = element.scrollHeight - paddingTop - paddingBottom - borderTop - borderBottom;
+    const rows = Math.ceil(contentHeight / lineHeight);
+    const exactHeight = (rows * lineHeight) + paddingTop + paddingBottom + borderTop + borderBottom;
+
+    element.style.height = `${Math.min(exactHeight, 200)}px`;
+    
+    // Keep scrolled to bottom when at max height
+    if (exactHeight > 200) {
+      element.scrollTop = element.scrollHeight;
     }
   };
 
@@ -138,14 +173,23 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
       </div>
       
       <div className="input-container">
-        <input
-          type="text"
+        <textarea
+          ref={textareaRef}
           id="message-input"
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+          onChange={(e) => {
+            setInputValue(e.target.value);
+            adjustTextareaHeight(e.target);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
+          }}
           placeholder="Type your message..."
           onContextMenu={(e) => e.stopPropagation()}
+          rows={1}
         />
         <button id="send-button" onClick={sendMessage}>Send</button>
       </div>
