@@ -302,11 +302,20 @@ const saveServerConfig = async (server: ServerConfig & { name: string }) => {
   try {
     const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
     const config = JSON.parse(configData);
-    config.mcpServers[server.name] = {
-      command: server.command,
-      args: server.args,
-      env: server.env
+    
+    const serverConfig: any = {
+      command: server.command
     };
+    
+    if (server.args?.length > 0) {
+      serverConfig.args = server.args;
+    }
+    
+    if (server.env && Object.keys(server.env).length > 0) {
+      serverConfig.env = server.env;
+    }
+    
+    config.mcpServers[server.name] = serverConfig;
     await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify(config, null, 2));
     
     // Reconnect the client with new config

@@ -22,7 +22,7 @@ export class MCPClientImpl implements MCPClient {
             command,
             args,
             env,
-            // stderr: 'pipe',
+            stderr: 'pipe', // Need to get this somewhere so we can track legit errors
         });
 
         try {
