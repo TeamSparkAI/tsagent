@@ -93,36 +93,53 @@ export class GeminiLLM implements ILLM {
         const result = await chat.sendMessage(currentPrompt);
         const response = result.response;
 
-        // Check for function calls
+        console.log('response', JSON.stringify(response, null, 2));
+
+        // Process all parts of the response
+        let hasFunctionCalls = false;
+        const toolResults: string[] = [];
+        
         const candidates = response.candidates?.[0];
-        if (candidates?.content?.parts?.[0]?.functionCall) {
-          const functionCall = candidates.content.parts[0].functionCall;
-          console.log('Function call detected:', functionCall);
-
-          // Call the tool
-          const toolResult = await this.stateManager.callTool(
-            functionCall.name,
-            functionCall.args as Record<string, unknown>
-          );
-          console.log('Tool result:', toolResult);
-
-          // Record the function call and result
-          finalText.push(
-            `[Calling function ${functionCall.name} with args ${JSON.stringify(functionCall.args)}]`
-          );
-          
-          if (toolResult.content[0]?.type === 'text') {
-            const resultText = toolResult.content[0].text;
-            finalText.push(`[Function returned: ${resultText}]`);
+        if (candidates?.content?.parts) {
+          for (const part of candidates.content.parts) {
+            // Handle text parts
+            if (part.text) {              
+              finalText.push(part.text);
+            }
             
-            // Continue the conversation with the tool result
-            currentPrompt = `The function returned: ${resultText}`;
+            // Handle function calls
+            if (part.functionCall?.name && part.functionCall?.args) {
+              hasFunctionCalls = true;
+              const { name, args } = part.functionCall;
+              console.log('Function call detected:', part.functionCall);
+
+              // Call the tool
+              const toolResult = await this.stateManager.callTool(
+                name,
+                args as Record<string, unknown>
+              );
+              console.log('Tool result:', toolResult);
+
+              // Record the function call and result
+              finalText.push(
+                `[Calling function ${name} with args ${JSON.stringify(args)}]`
+              );
+              
+              if (toolResult.content[0]?.type === 'text') {
+                const resultText = toolResult.content[0].text;
+                finalText.push(`[Function returned: ${resultText}]`);
+                toolResults.push(resultText);
+              }
+            }
+          }
+          
+          // If there were function calls, continue the conversation with all results
+          if (hasFunctionCalls) {
+            currentPrompt = `The functions returned:\n${toolResults.join('\n')}`;
             continue;
           }
         }
 
-        // No function call, just add the response text
-        finalText.push(response.text());
         break;
       }
 
