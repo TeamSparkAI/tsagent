@@ -92,6 +92,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
     }
   };
 
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    // Get clicked element
+    const element = e.target as HTMLElement;
+    
+    // Only handle context menu if we're in the chat container
+    if (element.closest('#chat-container')) {
+      const selection = window.getSelection();
+      const hasSelection = !!selection?.toString().length;
+      window.api.showChatMenu(hasSelection, e.clientX, e.clientY);
+    }
+  };
+
   return (
     <div className="chat-tab">
       <div id="model-container">
@@ -100,6 +114,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
           id="model-select"
           value={chatState.selectedModel}
           onChange={handleModelChange}
+          onContextMenu={(e) => e.stopPropagation()}
         >
           <option value={LLMType.Test}>Test LLM</option>
           <option value={LLMType.Gemini}>Gemini</option>
@@ -108,9 +123,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
         </select>
       </div>
       
-      <div id="chat-container" ref={chatContainerRef}>
+      <div id="chat-container" 
+        ref={chatContainerRef}
+        onContextMenu={handleContextMenu}
+      >
         {chatState.messages.map((msg, idx) => (
-          <div key={idx} className={`message ${msg.type}`}>
+          <div 
+            key={idx} 
+            className={`message ${msg.type}`}
+          >
             <strong>{msg.type.toUpperCase()}:</strong> {msg.content}
           </div>
         ))}
@@ -124,6 +145,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
           onChange={(e) => setInputValue(e.target.value)}
           onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
           placeholder="Type your message..."
+          onContextMenu={(e) => e.stopPropagation()}
         />
         <button id="send-button" onClick={sendMessage}>Send</button>
       </div>

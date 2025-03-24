@@ -6,7 +6,10 @@ const api = {
   _getCurrentModel: (tabId: string) => ipcRenderer.invoke('get-current-model', tabId),
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
   getMCPClient: (serverName: string) => ipcRenderer.invoke('get-mcp-client', serverName),
-  toggleDevTools: () => ipcRenderer.invoke('toggle-dev-tools')
+  toggleDevTools: () => ipcRenderer.invoke('toggle-dev-tools'),
+  getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
+  saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
+  showChatMenu: (hasSelection: boolean) => ipcRenderer.invoke('show-chat-menu', hasSelection)
 };
 
 contextBridge.exposeInMainWorld('api', api); 

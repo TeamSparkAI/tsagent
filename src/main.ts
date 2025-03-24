@@ -5,9 +5,7 @@ import { setupCLI } from './cli.js';
 import { LLMFactory } from './llm/llmFactory.js';
 import { LLMType } from './llm/types.js';
 import { MCPClientImpl } from './mcp/client.js';
-import { MCPClient } from './mcp/types.js';
 import { MCPClientManager } from './mcp/manager.js';
-import { ServerConfig } from './mcp/types.js';
 import { MCPConfigServer } from './commands/tools.js';
 import 'dotenv/config';
 import * as fs from 'fs';
@@ -30,6 +28,11 @@ const loadMCPClients = async () => {
   await mcpManager.loadClients(config.mcpServers);
 };
 
+// Near the top with other state
+const CONFIG_DIR = path.join(process.cwd(), 'config');
+const PROMPT_FILE = path.join(CONFIG_DIR, 'prompt.md');
+const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
+
 // If running in CLI mode, don't initialize Electron
 if (process.argv.includes('--cli')) {
   await loadMCPClients();
@@ -49,12 +52,52 @@ if (process.argv.includes('--cli')) {
       webPreferences: {
         nodeIntegration: false,
         contextIsolation: true,
+        spellcheck: true,
+        defaultEncoding: 'UTF-8',
         preload: path.join(__dirname, 'preload.js')
       }
     });
 
     mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
     mainWindow.webContents.reloadIgnoringCache();
+
+    // Enable native text editing context menu
+    mainWindow.webContents.on('context-menu', (_, props) => {
+      // Show menu only for editable fields
+      if (!props.isEditable) return;
+
+      const menu = electron.Menu.buildFromTemplate([
+        {
+          label: "Cut",
+          accelerator: 'CmdOrCtrl+X',
+          role: props.editFlags.canCut ? 'cut' as const : undefined,
+          enabled: props.editFlags.canCut,
+          visible: props.isEditable
+        },
+        {
+          label: "Copy",
+          accelerator: 'CmdOrCtrl+C',
+          role: props.editFlags.canCopy ? 'copy' as const : undefined,
+          enabled: props.editFlags.canCopy,
+        },
+        {
+          label: "Paste",
+          accelerator: 'CmdOrCtrl+V',
+          role: props.editFlags.canPaste ? 'paste' as const : undefined,
+          enabled: props.editFlags.canPaste,
+          visible: props.isEditable
+        },
+        { type: 'separator' },
+        {
+          label: "Select All",
+          accelerator: 'CmdOrCtrl+A',
+          role: props.editFlags.canSelectAll && props.isEditable ? 'selectAll' as const : undefined,
+          enabled: props.editFlags.canSelectAll,
+          visible: props.isEditable
+        }
+      ]);
+      menu.popup();
+    });
   }
 
   // Handle IPC messages
@@ -127,6 +170,64 @@ if (process.argv.includes('--cli')) {
       serverVersion: client.serverVersion,
       serverTools: client.serverTools
     };
+  });
+
+  ipcMain.handle('get-system-prompt', async () => {
+    try {
+      const prompt = await fs.promises.readFile(PROMPT_FILE, 'utf8');
+      // Initialize LLM state with loaded prompt
+      LLMFactory.getStateManager().setSystemPrompt(prompt);
+      return prompt;
+    } catch (err) {
+      // If file doesn't exist, create it with default prompt
+      await fs.promises.writeFile(PROMPT_FILE, DEFAULT_PROMPT, 'utf8');
+      LLMFactory.getStateManager().setSystemPrompt(DEFAULT_PROMPT);
+      return DEFAULT_PROMPT;
+    }
+  });
+
+  ipcMain.handle('save-system-prompt', async (_, prompt: string) => {
+    await fs.promises.writeFile(PROMPT_FILE, prompt, 'utf8');
+    // Update LLM state with new prompt
+    LLMFactory.getStateManager().setSystemPrompt(prompt);
+  });
+
+  // Add new IPC handler
+  ipcMain.handle('show-chat-menu', (_, hasSelection: boolean, x: number, y: number) => {
+    const menu = electron.Menu.buildFromTemplate([
+      {
+        label: 'Copy',
+        accelerator: 'CmdOrCtrl+C',
+        role: hasSelection ? 'copy' as const : undefined,
+        enabled: hasSelection,
+      },
+      { type: 'separator' },
+      {
+        label: 'Select All',
+        accelerator: 'CmdOrCtrl+A',
+        click: async () => {
+          try {
+            await mainWindow?.webContents.executeJavaScript(`
+              try {
+                const chatContainer = document.getElementById('chat-container');
+                if (chatContainer) {
+                  const selection = window.getSelection();
+                  const range = document.createRange();
+                  range.selectNodeContents(chatContainer);
+                  selection?.removeAllRanges();
+                  selection?.addRange(range);
+                }
+              } catch (err) {
+                console.error('Error in select all:', err);
+              }
+            `);
+          } catch (err) {
+            console.error('Failed to execute select all script:', err);
+          }
+        }
+      }
+    ]);
+    menu.popup();
   });
 
   app.whenReady().then(createWindow);

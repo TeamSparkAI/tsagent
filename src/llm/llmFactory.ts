@@ -10,6 +10,13 @@ export class LLMFactory {
   private static mcpManager: MCPClientManager;
   private static stateManager: LLMStateManager;
 
+  static getStateManager(): LLMStateManager {
+    if (!this.stateManager) {
+      throw new Error('LLMFactory not initialized');
+    }
+    return this.stateManager;
+  }
+
   static initialize(mcpManager: MCPClientManager) {
     this.stateManager = new LLMStateManager(mcpManager);
   }

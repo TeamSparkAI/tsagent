@@ -12,6 +12,8 @@
         height: 100vh;
         box-sizing: border-box; /* Include padding in height calculation */
         overflow: hidden;
+        user-select: text;  /* Enable text selection by default */
+        -webkit-user-select: text;
       }
       #debug-container {
         position: absolute;
@@ -121,10 +123,14 @@
         border: 1px solid #ccc;
         flex: 1 1 auto;    /* Allow growing and shrinking */
         height: 0;         /* Force scrolling when content overflows */
+        user-select: text;  /* Enable text selection */
+        -webkit-user-select: text;  /* For Safari */
       }
       .message {
         margin-bottom: 10px;
         padding: 5px;
+        user-select: text;
+        -webkit-user-select: text;
       }
       .user { background-color: #e3f2fd; }
       .ai { background-color: #f5f5f5; }
@@ -203,6 +209,84 @@
       }
       .prompt-tab, .rules-tab {
         padding: 20px;
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+      }
+      .prompt-tab h2 {
+        margin: 0 0 10px 0;
+        color: #333;
+      }
+      .prompt-tab .prompt-description {
+        margin: 0 0 20px 0;
+        color: #666;
+        font-size: 14px;
+      }
+      .prompt-tab textarea {
+        width: 100%;
+        padding: 8px;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        font-size: 14px;
+        font-family: inherit;
+        resize: none;
+        min-height: 100px;
+        max-height: calc(100vh - 300px);
+        overflow-y: auto;
+        user-select: text;  /* Enable text selection */
+        -webkit-user-select: text;  /* For Safari */
+      }
+      .prompt-tab .button-container {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 20px;
+        flex-shrink: 0;
+        gap: 10px;  /* Space between buttons */
+      }
+      .prompt-tab button {
+        padding: 8px 20px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 14px;
+      }
+      .prompt-tab button:hover:not(:disabled) {
+        background-color: #0056b3;
+      }
+      .prompt-tab button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+      }
+      .prompt-tab button.secondary {
+        background-color: #6c757d;
+      }
+      .prompt-tab button.secondary:hover {
+        background-color: #5a6268;
+      }
+      .context-menu {
+        position: fixed;
+        background: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        padding: 4px 0;
+        min-width: 150px;
+        z-index: 1000;
+      }
+      .menu-item {
+        padding: 6px 12px;
+        cursor: pointer;
+        user-select: none;
+      }
+      .menu-item:hover {
+        background: #f0f0f0;
+      }
+      .menu-separator {
+        height: 1px;
+        background: #ccc;
+        margin: 4px 0;
       }
     </style>
   </head>

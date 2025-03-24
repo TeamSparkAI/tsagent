@@ -1,14 +1,14 @@
 import { MCPClientManager } from '../mcp/manager.js';
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
+import { ILLM } from './types.js';
 
 export class LLMStateManager {
-  private systemPrompt: string;
+  private systemPrompt: string = '';
   private rules: string[];
   private documents: Map<string, string>;
   private mcpManager: MCPClientManager;
 
   constructor(mcpManager: MCPClientManager) {
-    this.systemPrompt = "You are a helpful AI assistant that can use tools to help accomplish tasks. When you need information, use the available tools to get it. Always explain what you're doing before using a tool.";
     this.rules = [];
     this.documents = new Map();
     this.mcpManager = mcpManager;
@@ -44,5 +44,10 @@ export class LLMStateManager {
 
   getDocument(id: string): string | undefined {
     return this.documents.get(id);
+  }
+
+  async generateResponse(prompt: string, llm: ILLM): Promise<string> {
+    const fullPrompt = `${this.systemPrompt}\n\nUser: ${prompt}\nAssistant:`;
+    return await llm.generateResponse(fullPrompt);
   }
 } 
