@@ -9,6 +9,7 @@ import { MCPClientManager } from './mcp/manager.js';
 import { MCPConfigServer } from './commands/tools.js';
 import 'dotenv/config';
 import * as fs from 'fs';
+import { shell } from 'electron';
 
 const { app, BrowserWindow, ipcMain } = electron;
 const __filename = fileURLToPath(import.meta.url);
@@ -228,6 +229,16 @@ if (process.argv.includes('--cli')) {
       }
     ]);
     menu.popup();
+  });
+
+  ipcMain.handle('open-external', async (_, url: string) => {
+    try {
+      await shell.openExternal(url);
+      return true;
+    } catch (error) {
+      console.error('Failed to open external URL:', error);
+      return false;
+    }
   });
 
   app.whenReady().then(createWindow);

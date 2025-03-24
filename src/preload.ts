@@ -9,7 +9,8 @@ const api = {
   toggleDevTools: () => ipcRenderer.invoke('toggle-dev-tools'),
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
-  showChatMenu: (hasSelection: boolean) => ipcRenderer.invoke('show-chat-menu', hasSelection)
+  showChatMenu: (hasSelection: boolean, x: number, y: number) => ipcRenderer.invoke('show-chat-menu', hasSelection, x, y),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url)
 };
 
 contextBridge.exposeInMainWorld('api', api); 

@@ -132,6 +132,30 @@
         user-select: text;
         -webkit-user-select: text;
       }
+      /* Markdown styles */
+      .message.ai {
+        background-color: #f5f5f5;
+      }
+      .message.ai pre {
+        background-color: #f8f8f8;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        padding: 8px;
+        overflow-x: auto;
+      }
+      .message.ai code {
+        background-color: #f0f0f0;
+        padding: 2px 4px;
+        border-radius: 3px;
+        font-family: monospace;
+      }
+      .message.ai p {
+        margin: 8px 0;
+      }
+      .message.ai ul, .message.ai ol {
+        margin: 8px 0;
+        padding-left: 20px;
+      }
       .user { background-color: #e3f2fd; }
       .ai { background-color: #f5f5f5; }
       .system { background-color: #fff3e0; }

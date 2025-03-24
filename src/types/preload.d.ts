@@ -12,6 +12,7 @@ export interface API {
   getSystemPrompt: () => Promise<string>;
   saveSystemPrompt: (prompt: string) => Promise<void>;
   showChatMenu: (hasSelection: boolean, x: number, y: number) => Promise<void>;
+  openExternal: (url: string) => Promise<boolean>;
 }
 
 declare global {

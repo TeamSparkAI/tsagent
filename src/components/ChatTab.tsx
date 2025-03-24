@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { ChatAPI } from '../api/ChatAPI';
 import { LLMType } from '../llm/types';
 
@@ -19,10 +20,23 @@ interface ChatState {
   selectedModel: LLMType;
 }
 
+// Handle external links safely
+const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+  e.preventDefault();
+  const href = e.currentTarget.href;
+  if (href) {
+    window.api.openExternal(href);
+  }
+};
+
 export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type }) => {
   const chatApiRef = useRef<ChatAPI | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const lastMessageCountRef = useRef<number>(1);  // Start with 1 for welcome message
+  const isFirstRenderRef = useRef<boolean>(true);
+  const [scrollPosition, setScrollPosition] = useState(0);
+
   if (!chatApiRef.current) {
     chatApiRef.current = new ChatAPI(id);
   }
@@ -44,11 +58,44 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
     initModel();
   }, [id]);
 
+  // Handle manual scrolling
+  const handleScroll = () => {
+    if (chatContainerRef.current) {
+      const newPosition = chatContainerRef.current.scrollTop;
+      console.log(`Manual scroll in tab ${id}, saving position:`, newPosition);
+      setScrollPosition(newPosition);
+    }
+  };
+
   useEffect(() => {
     if (chatContainerRef.current) {
-      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      if (isFirstRenderRef.current) {
+        // On first render, scroll to bottom
+        console.log(`First render for tab ${id}, scrolling to bottom`);
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+        isFirstRenderRef.current = false;
+      } else if (chatState.messages.length > lastMessageCountRef.current) {
+        // If new messages, scroll to bottom
+        console.log(`New messages in tab ${id}, scrolling to bottom`);
+        chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+      }
+      lastMessageCountRef.current = chatState.messages.length;
     }
   }, [chatState.messages]);
+
+  // Handle scroll position when switching tabs
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      if (id === activeTabId) {
+        // When switching to this tab, restore scroll position
+        console.log(`Restoring scroll position for tab ${id} to:`, scrollPosition);
+        if (scrollPosition > 0) {
+          chatContainerRef.current.scrollTop = scrollPosition;
+          console.log(`After restore, actual scroll position is:`, chatContainerRef.current.scrollTop);
+        }
+      }
+    }
+  }, [activeTabId, scrollPosition]);
 
   useEffect(() => {
     if (id === activeTabId && textareaRef.current) {
@@ -161,13 +208,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
       <div id="chat-container" 
         ref={chatContainerRef}
         onContextMenu={handleContextMenu}
+        onScroll={handleScroll}
       >
         {chatState.messages.map((msg, idx) => (
           <div 
             key={idx} 
             className={`message ${msg.type}`}
           >
-            <strong>{msg.type.toUpperCase()}:</strong> {msg.content}
+            <strong>{msg.type.toUpperCase()}:</strong>{' '}
+            {msg.type === 'ai' ? (
+              <ReactMarkdown
+                components={{
+                  a: ({ node, ...props }) => (
+                    <a 
+                      {...props} 
+                      onClick={handleLinkClick}
+                      style={{ color: '#007bff', cursor: 'pointer' }}
+                    />
+                  )
+                }}
+              >
+                {msg.content}
+              </ReactMarkdown>
+            ) : (
+              msg.content
+            )}
           </div>
         ))}
       </div>
