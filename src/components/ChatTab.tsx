@@ -3,14 +3,9 @@ import ReactMarkdown from 'react-markdown';
 import { ChatAPI } from '../api/ChatAPI';
 import { LLMType } from '../llm/types';
 import remarkGfm from 'remark-gfm';
+import { TabProps } from '../types/TabProps';
 
-interface ChatTabProps {
-  id: string;
-  activeTabId: string | null;
-  name: string;
-  type: string;
-}
-
+// Put ChatMessage interface back in this file where it was originally
 interface ChatMessage {
   type: string;
   content: string;
@@ -30,7 +25,7 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
   }
 };
 
-export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type }) => {
+export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {
   const chatApiRef = useRef<ChatAPI | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -53,7 +48,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
   useEffect(() => {
     const initModel = async () => {
       const model = await window.api._getCurrentModel(id);
-      setChatState(prev => ({ ...prev, selectedModel: model }));
+      setChatState(prev => ({ ...prev, selectedModel: model as LLMType }));
       setIsInitialized(true);
     };
     initModel();
@@ -133,14 +128,13 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
     }
   };
 
-  const handleModelChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    const modelType = e.target.value as LLMType;
-    const success = await chatApi.switchModel(modelType);
+  const handleModelChange = async (model: LLMType) => {
+    const success = await chatApi.switchModel(model);
     if (success) {
       setChatState(prev => ({
         ...prev,
-        selectedModel: modelType,
-        messages: [...prev.messages, { type: 'system', content: `Switched to ${modelType} model` }]
+        selectedModel: model,
+        messages: [...prev.messages, { type: 'system', content: `Switched to ${model} model` }]
       }));
     } else {
       setChatState(prev => ({
@@ -196,7 +190,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type })
         <select
           id="model-select"
           value={chatState.selectedModel}
-          onChange={handleModelChange}
+          onChange={(e) => handleModelChange(e.target.value as LLMType)}
           onContextMenu={(e) => e.stopPropagation()}
         >
           <option value={LLMType.Test}>Test LLM</option>

@@ -1,24 +1,28 @@
 import { LLMType } from '../llm/types';
 
 export class ChatAPI {
-  private currentModel: LLMType = LLMType.Test;
+  private tabId: string;
+  private currentModel: LLMType;
 
-  constructor(private tabId: string) {
-    this.initCurrentModel();
+  constructor(tabId: string) {
+    this.tabId = tabId;
+    this.currentModel = LLMType.Test; // Set default model
+    this.initModel();
   }
 
-  private async initCurrentModel() {
-    this.currentModel = await window.api._getCurrentModel(this.tabId);
+  private async initModel() {
+    const model = await window.api._getCurrentModel(this.tabId);
+    this.currentModel = model as LLMType; // Cast the string to LLMType
   }
 
-  async sendMessage(message: string): Promise<string> {
+  public async sendMessage(message: string): Promise<string> {
     return window.api._sendMessage(this.tabId, message);
   }
 
-  async switchModel(modelType: LLMType): Promise<boolean> {
-    const success = await window.api._switchModel(this.tabId, modelType);
+  public async switchModel(model: LLMType): Promise<boolean> {
+    const success = await window.api._switchModel(this.tabId, model);
     if (success) {
-      this.currentModel = modelType;
+      this.currentModel = model;
     }
     return success;
   }

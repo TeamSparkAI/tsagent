@@ -6,252 +6,65 @@ https://www.anthropic.com/news/model-context-protocol
 
 https://modelcontextprotocol.io/
 
+Chat message
+- System prompt plus user message
+- while response < max turns
+  - record any text reponse (optional)
+  - if any function calls
+    - call functions
+    - reply with function call results
+  - if no function calls
+    - done (break)
 
 
-Main process received message: show me the contents of the files in test_files
-Tool use detected: {
-  type: 'tool_use',
-  id: 'toolu_01NpHsegLRKFpJpdWNgjkrmV',
-  name: 'filesystem_list_directory',
-  input: { path: 'test_files' }
-}
-Tool result: {
-  content: [ { type: 'text', text: '[FILE] foo.md\n[FILE] todo.md' } ]
-}
-Response from tool results message: {
-  id: 'msg_013QaKqdtpdWWfHgWGXSEUXb',
-  type: 'message',
-  role: 'assistant',
-  model: 'claude-3-7-sonnet-20250219',
-  content: [
-    {
-      type: 'text',
-      text: "I'll help you view the contents of the files in the test_files directory. Let me retrieve the contents of both files for you."
-    },
-    {
-      type: 'tool_use',
-      id: 'toolu_01WtANGqLHrFvJfKf2e7vrTj',
-      name: 'filesystem_read_multiple_files',
-      input: [Object]
-    }
-  ],
-  stop_reason: 'tool_use',
-  stop_sequence: null,
-  usage: {
-    input_tokens: 1919,
-    cache_creation_input_tokens: 0,
-    cache_read_input_tokens: 0,
-    output_tokens: 103
-  }
-}
-Tool use detected: {
-  type: 'tool_use',
-  id: 'toolu_01WtANGqLHrFvJfKf2e7vrTj',
-  name: 'filesystem_read_multiple_files',
-  input: { paths: [ 'test_files/foo.md', 'test_files/todo.md' ] }
-}
-Tool result: {
-  content: [
-    {
-      type: 'text',
-      text: 'test_files/foo.md:\n' +
-        '\n' +
-        '\n' +
-        '---\n' +
-        'test_files/todo.md:\n' +
-        '# TeamSpark AI Workbench\n' +
-        '\n' +
-        'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview\n' +
-        '\n' +
-        'https://www.anthropic.com/news/model-context-protocol\n' +
-        '\n' +
-        'https://modelcontextprotocol.io/\n' +
-        '\n' +
-        '\n'
-    }
-  ]
-}
-Response from tool results message: {
-  id: 'msg_01FPoGa9xWZ1WL8tPZA5tVAz',
-  type: 'message',
-  role: 'assistant',
-  model: 'claude-3-7-sonnet-20250219',
-  content: [
-    {
-      type: 'text',
-      text: "I'll show you the contents of the files in the test_files directory. Let me retrieve them for you."
-    },
-    {
-      type: 'tool_use',
-      id: 'toolu_01HMWucVAoJhCNqhL41TuyMa',
-      name: 'filesystem_read_multiple_files',
-      input: [Object]
-    }
-  ],
-  stop_reason: 'tool_use',
-  stop_sequence: null,
-  usage: {
-    input_tokens: 2003,
-    cache_creation_input_tokens: 0,
-    cache_read_input_tokens: 0,
-    output_tokens: 98
-  }
-}
-Tool use detected: {
-  type: 'tool_use',
-  id: 'toolu_01HMWucVAoJhCNqhL41TuyMa',
-  name: 'filesystem_read_multiple_files',
-  input: { paths: [ 'test_files/foo.md', 'test_files/todo.md' ] }
-}
-Tool result: {
-  content: [
-    {
-      type: 'text',
-      text: 'test_files/foo.md:\n' +
-        '\n' +
-        '\n' +
-        '---\n' +
-        'test_files/todo.md:\n' +
-        '# TeamSpark AI Workbench\n' +
-        '\n' +
-        'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview\n' +
-        '\n' +
-        'https://www.anthropic.com/news/model-context-protocol\n' +
-        '\n' +
-        'https://modelcontextprotocol.io/\n' +
-        '\n' +
-        '\n'
-    }
-  ]
-}
-Response from tool results message: {
-  id: 'msg_01WjMydoxKV6En3EMwkBUxDL',
-  type: 'message',
-  role: 'assistant',
-  model: 'claude-3-7-sonnet-20250219',
-  content: [
-    {
-      type: 'text',
-      text: "I'll display the contents of the files in the test_files directory for you.\n" +
-        '\n' +
-        'Let me read these files:'
-    },
-    {
-      type: 'tool_use',
-      id: 'toolu_01KqVWBj5NqeJKH66dXW6kpi',
-      name: 'filesystem_read_multiple_files',
-      input: [Object]
-    }
-  ],
-  stop_reason: 'tool_use',
-  stop_sequence: null,
-  usage: {
-    input_tokens: 2087,
-    cache_creation_input_tokens: 0,
-    cache_read_input_tokens: 0,
-    output_tokens: 99
-  }
-}
-Tool use detected: {
-  type: 'tool_use',
-  id: 'toolu_01KqVWBj5NqeJKH66dXW6kpi',
-  name: 'filesystem_read_multiple_files',
-  input: { paths: [ 'test_files/foo.md', 'test_files/todo.md' ] }
-}
-Tool result: {
-  content: [
-    {
-      type: 'text',
-      text: 'test_files/foo.md:\n' +
-        '\n' +
-        '\n' +
-        '---\n' +
-        'test_files/todo.md:\n' +
-        '# TeamSpark AI Workbench\n' +
-        '\n' +
-        'https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview\n' +
-        '\n' +
-        'https://www.anthropic.com/news/model-context-protocol\n' +
-        '\n' +
-        'https://modelcontextprotocol.io/\n' +
-        '\n' +
-        '\n'
-    }
-  ]
-}
-Response from tool results message: {
-  id: 'msg_0115vMg9ifqdyBjN5ysdGX7g',
-  type: 'message',
-  role: 'assistant',
-  model: 'claude-3-7-sonnet-20250219',
-  content: [
-    {
-      type: 'text',
-      text: "I'll use the filesystem tools to check the contents of the files in the test_files directory."
-    },
-    {
-      type: 'tool_use',
-      id: 'toolu_01QmBCpRTzPPhxUt4K5NP3bs',
-      name: 'filesystem_list_directory',
-      input: [Object]
-    }
-  ],
-  stop_reason: 'tool_use',
-  stop_sequence: null,
-  usage: {
-    input_tokens: 2171,
-    cache_creation_input_tokens: 0,
-    cache_read_input_tokens: 0,
-    output_tokens: 78
-  }
-}
-Tool use detected: {
-  type: 'tool_use',
-  id: 'toolu_01QmBCpRTzPPhxUt4K5NP3bs',
-  name: 'filesystem_list_directory',
-  input: { path: 'test_files' }
-}
-Tool result: {
-  content: [ { type: 'text', text: '[FILE] foo.md\n[FILE] todo.md' } ]
-}
-Response from tool results message: {
-  id: 'msg_01W6jCUv5fGoUKoxj5VyfJir',
-  type: 'message',
-  role: 'assistant',
-  model: 'claude-3-7-sonnet-20250219',
-  content: [
-    {
-      type: 'text',
-      text: "I'll show you the contents of the files in the test_files directory."
-    },
-    {
-      type: 'tool_use',
-      id: 'toolu_01RGEwC681DZDk3BZJA343rz',
-      name: 'filesystem_read_multiple_files',
-      input: [Object]
-    }
-  ],
-  stop_reason: 'tool_use',
-  stop_sequence: null,
-  usage: {
-    input_tokens: 2185,
-    cache_creation_input_tokens: 0,
-    cache_read_input_tokens: 0,
-    output_tokens: 91
-  }
-}
-Tokens used: { input: 1913, output: 92 }
-Main process sending response: I'll help you show the contents of the files in the "test_files" directory. Let me first check if this directory exists and see what files it contains.
-[Calling tool filesystem_list_directory with args {"path":"test_files"}]
-I'll help you view the contents of the files in the test_files directory. Let me retrieve the contents of both files for you.
-[Calling tool filesystem_read_multiple_files with args {"paths":["test_files/foo.md","test_files/todo.md"]}]
-I'll show you the contents of the files in the test_files directory. Let me retrieve them for you.
-[Calling tool filesystem_read_multiple_files with args {"paths":["test_files/foo.md","test_files/todo.md"]}]
-I'll display the contents of the files in the test_files directory for you.
+## Tools
 
-Let me read these files:
-[Calling tool filesystem_read_multiple_files with args {"paths":["test_files/foo.md","test_files/todo.md"]}]
-I'll use the filesystem tools to check the contents of the files in the test_files directory.
-[Calling tool filesystem_list_directory with args {"path":"test_files"}]
+List of installed servers
+Add server (collect info, verify we can connect, get name/version)
+Remove server
+Disable server?
 
-[Maximum number of tool uses reached]
+Configuration
+- Name
+- Command
+- Args (list of strings)
+- Environment (list of kvp )
+
+Resources
+Resource templates?
+Prompts?
+Tools
+
+Test tool - collect params, run, show output
+
+Note: Need array param support (in general)
+
+## Rules
+
+Rule
+- name
+- description
+- enabled
+- text
+- priority level
+
+List in priority order, the alpha by name?
+
+API to CRUD rules
+
+MCP (internal) for rule CRUD
+
+## Context
+
+Context
+- name
+- description
+- enabled
+- context
+
+MCP (internal) for context CRUD
+
+Is/can context be local to a chat, or attached to a role/agent definition, or global?
+
+
+Now we will add rules support.  We will support a collection of rules, where each rule has a name, description, priority level (000 through 999), enabled (boolean), and text.  The rules will be stored in a the settings directory under a rules sub-directory, where each rule has a file named with the rule name and with the extension mdw.  The files themselves will use the YAML front-matter format to store the metadata (name, description, enabled, priority level), with the text following in the body of the markdown file.  Our llm state manager needs to maintain the list of rules so they can be provided to the LLM as needed (the LLMs aren't going to use the rules yet, so don't worry about that part).  The rules tab needs to show the list of rules with the ability to add, edit, and delete rules. The rules tab will list the rules in priority order, the alpha by name.  The rules text is markdown format, so it should be rendered as markdown in the rules tab (when viewing).  Let's manage the rules files and state in a similar way to how we did the prompt.  Please build out the entire solution.

@@ -10,13 +10,20 @@ import { MCPConfigServer } from './commands/tools.js';
 import 'dotenv/config';
 import * as fs from 'fs';
 import { shell } from 'electron';
+import { RulesManager } from './state/RulesManager.js';
 
 const { app, BrowserWindow, ipcMain } = electron;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Initialize MCP Client Manager
+// Define all directory constants at the top
+const CONFIG_DIR = path.join(process.cwd(), 'config');
+const PROMPT_FILE = path.join(CONFIG_DIR, 'prompt.md');
+const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
+
+// Initialize managers
 const mcpManager = new MCPClientManager();
+const rulesManager = new RulesManager(CONFIG_DIR);
 
 // Initialize the LLM Factory with the manager
 LLMFactory.initialize(mcpManager);
@@ -30,9 +37,8 @@ const loadMCPClients = async () => {
 };
 
 // Near the top with other state
-const CONFIG_DIR = path.join(process.cwd(), 'config');
-const PROMPT_FILE = path.join(CONFIG_DIR, 'prompt.md');
-const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
+const settingsDir = path.join(process.cwd(), 'settings');
+const mcpClients = new Map<string, MCPClientImpl>();
 
 // If running in CLI mode, don't initialize Electron
 if (process.argv.includes('--cli')) {
@@ -42,7 +48,6 @@ if (process.argv.includes('--cli')) {
   let mainWindow: (InstanceType<typeof BrowserWindow>) | null = null;
   const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
   const llmTypes = new Map<string, LLMType>();
-  const mcpClients = new Map<string, MCPClientImpl>();
 
   await loadMCPClients();
   function createWindow() {
@@ -239,6 +244,18 @@ if (process.argv.includes('--cli')) {
       console.error('Failed to open external URL:', error);
       return false;
     }
+  });
+
+  ipcMain.handle('get-rules', () => {
+    return rulesManager.getRules();
+  });
+
+  ipcMain.handle('save-rule', (_, rule) => {
+    return rulesManager.saveRule(rule);
+  });
+
+  ipcMain.handle('delete-rule', (_, name) => {
+    return rulesManager.deleteRule(name);
   });
 
   app.whenReady().then(createWindow);

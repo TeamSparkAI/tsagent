@@ -2,15 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { MCPClient } from '../mcp/types.js';
 import { ServerConfig, ToolParameter } from '../mcp/types.js';
 import { Tool } from "@modelcontextprotocol/sdk/types";
+import { TabProps } from '../types/TabProps';
 
-interface ToolsProps {
-  id: string;
-  activeTabId: string | null;
-  name: string;
-  type: string;
-}
-
-export const Tools: React.FC<ToolsProps> = ({ id, activeTabId }) => {
+export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {
   const [mcpServers, setMcpServers] = useState<Map<string, MCPClient>>(new Map());
   const [configs, setConfigs] = useState<ServerConfig[]>([]);
 

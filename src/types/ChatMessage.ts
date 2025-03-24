@@ -1,0 +1,1 @@
+// Delete this file - it wasn't needed for rules functionality 

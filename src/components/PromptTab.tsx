@@ -1,14 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { TabInstance } from './TabManager';
+import { TabProps } from '../types/TabProps';
 
-interface PromptTabProps {
-  id: string;
-  activeTabId: string | null;
-  name: string;
-  type: string;
-}
-
-export const PromptTab: React.FC<PromptTabProps> = ({ id, activeTabId }) => {
+export const PromptTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {
   const [prompt, setPrompt] = useState('');
   const [originalPrompt, setOriginalPrompt] = useState('');
   const [isSaving, setSaving] = useState(false);
