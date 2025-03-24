@@ -6,7 +6,7 @@ import { LLMFactory } from './llm/llmFactory.js';
 import { LLMType } from './llm/types.js';
 import { MCPClientImpl } from './mcp/client.js';
 import { MCPClientManager } from './mcp/manager.js';
-import { MCPConfigServer } from './commands/tools.js';
+import { MCPConfigServer, ServerConfig } from './commands/tools.js';
 import 'dotenv/config';
 import * as fs from 'fs';
 import { shell } from 'electron';
@@ -173,8 +173,7 @@ if (process.argv.includes('--cli')) {
   ipcMain.handle('get-mcp-client', async (_, serverName: string) => {
     let client = mcpClients.get(serverName);
     if (!client) {
-      const configPath = path.join(__dirname, '../config/mcp_config.json');
-      const configData = await fs.promises.readFile(configPath, 'utf8');
+      const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
       const config: { mcpServers: Record<string, MCPConfigServer> } = JSON.parse(configData);
       const serverConfig = config.mcpServers[serverName];
       if (!serverConfig) {
@@ -275,6 +274,14 @@ if (process.argv.includes('--cli')) {
     return rulesManager.deleteRule(name);
   });
 
+  ipcMain.handle('saveServerConfig', async (_, server: ServerConfig & { name: string }) => {
+    await saveServerConfig(server);
+  });
+
+  ipcMain.handle('deleteServerConfig', async (_, serverName: string) => {
+    await deleteServerConfig(serverName);
+  });
+
   app.whenReady().then(createWindow);
 
   app.on('window-all-closed', () => {
@@ -288,4 +295,47 @@ if (process.argv.includes('--cli')) {
       createWindow();
     }
   });
-} 
+}
+
+// Add these functions near the top with other config handling
+const saveServerConfig = async (server: ServerConfig & { name: string }) => {
+  try {
+    const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(configData);
+    config.mcpServers[server.name] = {
+      command: server.command,
+      args: server.args,
+      env: server.env
+    };
+    await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify(config, null, 2));
+    
+    // Reconnect the client with new config
+    const client = mcpClients.get(server.name);
+    if (client) {
+      client.disconnect();
+      mcpClients.delete(server.name);
+    }
+  } catch (err) {
+    console.error('Error saving server config:', err);
+    throw err;
+  }
+};
+
+const deleteServerConfig = async (serverName: string) => {
+  try {
+    const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(configData);
+    delete config.mcpServers[serverName];
+    await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify(config, null, 2));
+    
+    // Disconnect and remove the client
+    const client = mcpClients.get(serverName);
+    if (client) {
+      client.disconnect();
+      mcpClients.delete(serverName);
+    }
+  } catch (err) {
+    console.error('Error deleting server config:', err);
+    throw err;
+  }
+}; 

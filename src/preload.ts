@@ -16,6 +16,8 @@ interface API {
   getRules: () => Promise<Rule[]>;
   saveRule: (rule: Rule) => Promise<void>;
   deleteRule: (name: string) => Promise<void>;
+  saveServerConfig: (server: any) => Promise<void>;
+  deleteServerConfig: (name: string) => Promise<void>;
 }
 
 const api: API = {
@@ -31,7 +33,9 @@ const api: API = {
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   getRules: () => ipcRenderer.invoke('get-rules'),
   saveRule: (rule: Rule) => ipcRenderer.invoke('save-rule', rule),
-  deleteRule: (name: string) => ipcRenderer.invoke('delete-rule', name)
+  deleteRule: (name: string) => ipcRenderer.invoke('delete-rule', name),
+  saveServerConfig: (server) => ipcRenderer.invoke('saveServerConfig', server),
+  deleteServerConfig: (name) => ipcRenderer.invoke('deleteServerConfig', name)
 };
 
 contextBridge.exposeInMainWorld('api', api);

@@ -18,6 +18,8 @@ export interface API {
   getRules: () => Promise<Rule[]>;
   saveRule: (rule: Rule) => Promise<void>;
   deleteRule: (name: string) => Promise<void>;
+  saveServerConfig: (server: ServerConfig & { name: string }) => Promise<void>;
+  deleteServerConfig: (name: string) => Promise<void>;
 }
 
 declare global {

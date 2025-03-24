@@ -22,18 +22,24 @@ export class MCPClientImpl implements MCPClient {
             command,
             args,
             env,
-            stderr: 'pipe'
+            // stderr: 'pipe',
         });
-        await this.mcp.connect(this.transport);
 
-        const serverVersion = this.mcp.getServerVersion();
-        this.serverVersion = serverVersion ? { 
-            name: serverVersion.name, 
-            version: serverVersion.version 
-        } : null;
+        try {
+            await this.mcp.connect(this.transport);
 
-        const toolsResult = await this.mcp.listTools();
-        this.serverTools = toolsResult.tools;
+            const serverVersion = this.mcp.getServerVersion();
+            this.serverVersion = serverVersion ? { 
+                name: serverVersion.name, 
+                version: serverVersion.version 
+            } : null;
+
+            const toolsResult = await this.mcp.listTools();
+            this.serverTools = toolsResult.tools;
+        } catch (err) {
+            console.error('Error connecting to MCP server:', err);
+            throw err;
+        }
     }
 
     async callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResult> {
@@ -41,7 +47,15 @@ export class MCPClientImpl implements MCPClient {
         return result;
     }
 
-    async cleanup() {
+    public async disconnect() {
+        await this.cleanup();
+    }
+
+    public async cleanup() {
+        if (this.transport) {
+            this.transport.close();
+            this.transport = null;
+        }
         await this.mcp.close();
     }
 }

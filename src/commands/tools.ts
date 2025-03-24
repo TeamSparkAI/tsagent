@@ -3,11 +3,13 @@ import path from 'path';
 import { MCPClientImpl } from '../mcp/client.js';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 
-export interface MCPConfigServer {
+export interface ServerConfig {
   command: string;
   args: string[];
-  env?: Record<string, string>;
+  env: Record<string, string>;
 }
+
+export type MCPConfigServer = ServerConfig;
 
 interface MCPConfig {
   mcpServers: {

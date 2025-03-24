@@ -20,38 +20,20 @@ export class MCPClientManager {
 
     getAllTools(): Tool[] {
         const allTools: Tool[] = [];
-        for (const [clientName, client] of this.clients.entries()) {
-            const clientTools = client.serverTools.map(tool => ({
-                ...tool,
-                name: `${clientName}_${tool.name}`
-            }));
-            allTools.push(...clientTools);
+        for (const client of this.clients.values()) {
+            allTools.push(...client.serverTools);
         }
         return allTools;
     }
 
-    async callTool(toolName: string, args?: Record<string, unknown>): Promise<CallToolResult> {
-        const firstUnderscoreIndex = toolName.indexOf('_');
-        if (firstUnderscoreIndex === -1) {
-            throw new Error(`Invalid tool name format: ${toolName}. Expected format: clientName_toolName`);
+    async callTool(name: string, args?: Record<string, unknown>): Promise<CallToolResult> {
+        for (const client of this.clients.values()) {
+            const tool = client.serverTools.find(t => t.name === name);
+            if (tool) {
+                return client.callTool(tool, args);
+            }
         }
-        const clientName = toolName.substring(0, firstUnderscoreIndex);
-        const baseName = toolName.substring(firstUnderscoreIndex + 1);
-        if (!clientName || !baseName) {
-            throw new Error(`Invalid tool name format: ${toolName}. Expected format: clientName_toolName`);
-        }
-
-        const client = this.clients.get(clientName);
-        if (!client) {
-            throw new Error(`Client not found: ${clientName}`);
-        }
-
-        const tool = client.serverTools.find(t => t.name === baseName);
-        if (!tool) {
-            throw new Error(`Tool not found: "${baseName}" in client "${clientName}"`);
-        }
-
-        return client.callTool(tool, args);
+        throw new Error(`Tool ${name} not found in any MCP client`);
     }
 
     getClient(name: string): MCPClient | undefined {
