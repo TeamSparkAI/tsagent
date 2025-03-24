@@ -18,6 +18,7 @@ const __dirname = path.dirname(__filename);
 
 // Define all directory constants at the top
 const CONFIG_DIR = path.join(process.cwd(), 'config');
+const MCP_CONFIG_PATH = path.join(CONFIG_DIR, 'mcp_config.json');
 const PROMPT_FILE = path.join(CONFIG_DIR, 'prompt.md');
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
@@ -30,10 +31,23 @@ LLMFactory.initialize(mcpManager);
 
 // Load MCP clients from config
 const loadMCPClients = async () => {
-  const configPath = path.join(__dirname, '../config/mcp_config.json');
-  const configData = await fs.promises.readFile(configPath, 'utf8');
-  const config = JSON.parse(configData);
-  await mcpManager.loadClients(config.mcpServers);
+  try {
+    // Create config dir if it doesn't exist
+    if (!fs.existsSync(CONFIG_DIR)) {
+      fs.mkdirSync(CONFIG_DIR, { recursive: true });
+    }
+
+    // Create empty config if it doesn't exist
+    if (!fs.existsSync(MCP_CONFIG_PATH)) {
+      await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify({ mcpServers: {} }, null, 2));
+    }
+
+    const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
+    const config = JSON.parse(configData);
+    await mcpManager.loadClients(config.mcpServers);
+  } catch (err) {
+    console.error('Error loading MCP config:', err);
+  }
 };
 
 // Near the top with other state
@@ -144,13 +158,16 @@ if (process.argv.includes('--cli')) {
   });
 
   ipcMain.handle('get-server-configs', async () => {
-    const configPath = path.join(__dirname, '../config/mcp_config.json');
-    const configData = await fs.promises.readFile(configPath, 'utf8');
-    const config: { mcpServers: Record<string, MCPConfigServer> } = JSON.parse(configData);
-    return Object.entries(config.mcpServers).map(([name, serverConfig]) => ({
-      name,
-      ...serverConfig
-    }));
+    try {
+      const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
+      const config: { mcpServers: Record<string, MCPConfigServer> } = JSON.parse(configData);
+      return Object.entries(config.mcpServers).map(([name, serverConfig]) => ({
+        name,
+        ...serverConfig
+      }));
+    } catch (err) {
+      return [];  // Return empty list if no config
+    }
   });
 
   ipcMain.handle('get-mcp-client', async (_, serverName: string) => {
