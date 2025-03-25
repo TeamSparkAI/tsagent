@@ -1,1 +1,4 @@
-// Delete this file - it wasn't needed for rules functionality 
+export interface ChatMessage {
+    type: 'user' | 'ai' | 'system' | 'error';
+    content: string;
+} 

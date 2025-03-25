@@ -4,13 +4,9 @@ import { ChatAPI } from '../api/ChatAPI';
 import { LLMType } from '../llm/types';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
+import { ChatMessage } from '../types/ChatMessage';
 
-// Put ChatMessage interface back in this file where it was originally
-interface ChatMessage {
-  type: string;
-  content: string;
-}
-
+// Add ChatState interface back
 interface ChatState {
   messages: ChatMessage[];
   selectedModel: LLMType;
@@ -40,7 +36,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
 
   const [isInitialized, setIsInitialized] = useState(false);
   const [chatState, setChatState] = useState<ChatState>({
-    messages: [{ type: 'system', content: 'Welcome to TeamSpark AI Workbench!' }],
+    messages: chatApi.getMessages(),
     selectedModel: LLMType.Test
   });
   const [inputValue, setInputValue] = useState('');
@@ -48,7 +44,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   useEffect(() => {
     const initModel = async () => {
       const model = await window.api._getCurrentModel(id);
-      setChatState(prev => ({ ...prev, selectedModel: model as LLMType }));
+      setChatState((prev: ChatState) => ({ 
+        ...prev, 
+        selectedModel: model as LLMType 
+      }));
       setIsInitialized(true);
     };
     initModel();
@@ -105,22 +104,14 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const sendMessage = async () => {
     if (!inputValue.trim()) return;
 
-    setChatState(prev => ({
-      ...prev,
-      messages: [...prev.messages, { type: 'user', content: inputValue }]
-    }));
-
     try {
       const response = await chatApi.sendMessage(inputValue);
-      setChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, { type: 'ai', content: response }]
-      }));
+      setChatState({
+        messages: chatApi.getMessages(),
+        selectedModel: chatApi.getCurrentModel()
+      });
     } catch (error) {
-      setChatState(prev => ({
-        ...prev,
-        messages: [...prev.messages, { type: 'error', content: 'Failed to get response' }]
-      }));
+      console.error('Failed to get response:', error);
     }
     setInputValue('');
     if (textareaRef.current) {
@@ -131,13 +122,13 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const handleModelChange = async (model: LLMType) => {
     const success = await chatApi.switchModel(model);
     if (success) {
-      setChatState(prev => ({
+      setChatState((prev: ChatState) => ({
         ...prev,
         selectedModel: model,
         messages: [...prev.messages, { type: 'system', content: `Switched to ${model} model` }]
       }));
     } else {
-      setChatState(prev => ({
+      setChatState((prev: ChatState) => ({
         ...prev,
         messages: [...prev.messages, { type: 'error', content: 'Failed to switch model' }]
       }));
@@ -205,31 +196,39 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         onContextMenu={handleContextMenu}
         onScroll={handleScroll}
       >
-        {chatState.messages.map((msg, idx) => (
+        {chatState.messages.map((msg: ChatMessage, idx: number) => (
           <div 
             key={idx} 
             className={`message ${msg.type}`}
           >
-            <strong>{msg.type.toUpperCase()}:</strong>{' '}
-            {msg.type === 'ai' ? (
-              <ReactMarkdown
-                remarkPlugins={[remarkGfm]}
-                components={{
-                  a: ({ node, ...props }) => (
-                    <a 
-                      {...props} 
-                      onClick={handleLinkClick}
-                      style={{ color: '#007bff', cursor: 'pointer' }}
-                    />
-                  ),
-                  p: ({children}) => <p style={{whiteSpace: 'pre-wrap'}}>{children}</p>
-                }}
-              >
-                {msg.content}
-              </ReactMarkdown>
-            ) : (
-              msg.content
-            )}
+            <div style={{ display: 'inline' }}>
+              <strong>{msg.type.toUpperCase()}:</strong>{' '}
+              {msg.type === 'ai' ? (
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    a: ({ node, ...props }) => (
+                      <a 
+                        {...props} 
+                        onClick={handleLinkClick}
+                        style={{ color: '#007bff', cursor: 'pointer' }}
+                      />
+                    ),
+                    p: ({children}) => (
+                      <span style={{
+                        whiteSpace: 'pre-wrap',
+                      }}>
+                        {children}
+                      </span>
+                    )
+                  }}
+                >
+                  {msg.content}
+                </ReactMarkdown>
+              ) : (
+                msg.content
+              )}
+            </div>
           </div>
         ))}
       </div>
