@@ -6,6 +6,8 @@ import { MCPClient } from "./types.js";
 export class MCPClientImpl implements MCPClient {
     private mcp: Client;
     private transport: StdioClientTransport | null = null;
+    private errorLog: string[] = [];
+    private readonly MAX_LOG_ENTRIES = 100;  // Keep last 100 error messages
     serverVersion: { name: string; version: string } | null = null;
     serverTools: Tool[] = [];
 
@@ -17,16 +19,54 @@ export class MCPClientImpl implements MCPClient {
         });
     }
 
+    private addErrorMessage(message: string) {
+        if (message.trim()) {
+            this.errorLog.push(message);
+            // Keep only the most recent messages
+            if (this.errorLog.length > this.MAX_LOG_ENTRIES) {
+                this.errorLog.shift();
+            }
+        }
+    }
+
+    // Add getter for error log
+    getErrorLog(): string[] {
+        return [...this.errorLog];
+    }
+
+    // Clear error log
+    clearErrorLog(): void {
+        this.errorLog = [];
+    }
+
     async connectToServer(command: string, args: string[], env?: Record<string, string>) {      
         this.transport = new StdioClientTransport({
             command,
             args,
             env,
-            stderr: 'pipe', // Need to get this somewhere so we can track legit errors
+            stderr: 'pipe'
         });
 
         try {
-            await this.mcp.connect(this.transport);
+            this.transport.onerror = (err: Error) => {
+                const message = `Transport error: ${err.message}`;
+                console.error(message);
+            };
+
+            this.mcp.onerror = (err: Error) => {
+                const message = `MCP client error: ${err.message}`;
+                console.error(message);
+            };
+
+            const connectPromise = this.mcp.connect(this.transport);
+            if (this.transport?.stderr) {
+                this.transport.stderr.on('data', (data: Buffer) => {
+                    const message = `Transport stderr: ${data.toString().trim()}`;
+                    console.error(message);
+                    this.addErrorMessage(message);
+                });
+            }
+            await connectPromise;
 
             const serverVersion = this.mcp.getServerVersion();
             this.serverVersion = serverVersion ? { 
@@ -37,7 +77,9 @@ export class MCPClientImpl implements MCPClient {
             const toolsResult = await this.mcp.listTools();
             this.serverTools = toolsResult.tools;
         } catch (err) {
-            console.error('Error connecting to MCP server:', err);
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`Error connecting to MCP server: ${message}`);
+            this.addErrorMessage(`Error connecting to MCP server: ${message}`);
             throw err;
         }
     }
