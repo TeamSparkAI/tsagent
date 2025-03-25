@@ -80,7 +80,7 @@ export class GeminiLLM implements ILLM {
         history: [{
           role: "user",
           parts: [{ text: this.stateManager.getSystemPrompt() }]
-        }]
+        }],
       });
 
       const finalText = [];

@@ -34,6 +34,12 @@ We probably want to have a list of providers (basically representing an API/SDK)
 
 This is a decent design/start, but isn't complete or up-to-date: https://github.com/fkesheh/any-llm
 
+Need configuration specs for models (what values they take, the type and range, description, etc)
+Pricing config with default (input/output token pricing)
+Need default configuration for each model
+
+Would be nice to have db online with latest models and pricing.
+
 It would be great to have it pluggable, but maybe later.
 
 Do we have a Models tab that lists all the models and let's you view/update their default config?
@@ -68,12 +74,6 @@ Need a way to collect server error stream and display (esp for new server / conn
 MCP (internal) for rule CRUD
 
 ## Rerefences
-
-Reference
-- name
-- description
-- enabled
-- context
 
 MCP (internal) for reference CRUD
 
@@ -139,6 +139,7 @@ Would a hosted version of this be useful?
 - Not clear what tools could be made to work on a hosted server
 
 Maybe we have the concept of a "Workspace" which is a collection of all of our stuff (config, chats)
+- workspaces.json (/config) - list of workspaces
 - workbench.json - config for workspace itself (is there any?  Agent name, notes?)
 - mcp-servers.json - config for MCP servers (or do we put in workspace config?)
 - prompt.md (put this in workspace config?)
