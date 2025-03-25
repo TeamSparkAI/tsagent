@@ -1,5 +1,6 @@
 import { Rule } from './Rule';
 import { MCPConfigServer } from '../commands/tools';
+import { Reference } from './Reference';
 
 export interface API {
   _sendMessage: (tabId: string, message: string) => Promise<string>;
@@ -20,6 +21,9 @@ export interface API {
   deleteRule: (name: string) => Promise<void>;
   saveServerConfig: (server: ServerConfig & { name: string }) => Promise<void>;
   deleteServerConfig: (name: string) => Promise<void>;
+  getReferences: () => Promise<Reference[]>;
+  saveReference: (reference: Reference) => Promise<void>;
+  deleteReference: (name: string) => Promise<void>;
 }
 
 declare global {

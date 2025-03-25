@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { Rule } from './types/Rule';
+import { Reference } from './types/Reference';
 
 // Define the API interface here to ensure TypeScript recognizes it
 interface API {
@@ -18,6 +19,9 @@ interface API {
   deleteRule: (name: string) => Promise<void>;
   saveServerConfig: (server: any) => Promise<void>;
   deleteServerConfig: (name: string) => Promise<void>;
+  getReferences: () => Promise<Reference[]>;
+  saveReference: (reference: Reference) => Promise<void>;
+  deleteReference: (name: string) => Promise<void>;
 }
 
 const api: API = {
@@ -35,7 +39,10 @@ const api: API = {
   saveRule: (rule: Rule) => ipcRenderer.invoke('save-rule', rule),
   deleteRule: (name: string) => ipcRenderer.invoke('delete-rule', name),
   saveServerConfig: (server) => ipcRenderer.invoke('saveServerConfig', server),
-  deleteServerConfig: (name) => ipcRenderer.invoke('deleteServerConfig', name)
+  deleteServerConfig: (name: string) => ipcRenderer.invoke('deleteServerConfig', name),
+  getReferences: () => ipcRenderer.invoke('get-references'),
+  saveReference: (reference) => ipcRenderer.invoke('save-reference', reference),
+  deleteReference: (name: string) => ipcRenderer.invoke('delete-reference', name)
 };
 
 contextBridge.exposeInMainWorld('api', api);

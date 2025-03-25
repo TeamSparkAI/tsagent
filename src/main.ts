@@ -11,6 +11,7 @@ import 'dotenv/config';
 import * as fs from 'fs';
 import { shell } from 'electron';
 import { RulesManager } from './state/RulesManager.js';
+import { ReferencesManager } from './state/ReferencesManager.js';
 
 const { app, BrowserWindow, ipcMain } = electron;
 const __filename = fileURLToPath(import.meta.url);
@@ -25,6 +26,7 @@ const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to hel
 // Initialize managers
 const mcpManager = new MCPClientManager();
 const rulesManager = new RulesManager(CONFIG_DIR);
+const referencesManager = new ReferencesManager(CONFIG_DIR);
 
 // Initialize the LLM Factory with the manager
 LLMFactory.initialize(mcpManager);
@@ -280,6 +282,18 @@ if (process.argv.includes('--cli')) {
 
   ipcMain.handle('deleteServerConfig', async (_, serverName: string) => {
     await deleteServerConfig(serverName);
+  });
+
+  ipcMain.handle('get-references', () => {
+    return referencesManager.getReferences();
+  });
+
+  ipcMain.handle('save-reference', (_, reference) => {
+    return referencesManager.saveReference(reference);
+  });
+
+  ipcMain.handle('delete-reference', (_, name) => {
+    return referencesManager.deleteReference(name);
   });
 
   app.whenReady().then(createWindow);

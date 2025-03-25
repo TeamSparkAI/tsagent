@@ -4,6 +4,7 @@ import { ChatTab } from './ChatTab';
 import { Tools } from './Tools';
 import { PromptTab } from './PromptTab';
 import { RulesTab } from './RulesTab';
+import { ReferencesTab } from './ReferencesTab';
 import { v4 as uuidv4 } from 'uuid';
 
 interface TabInstance {
@@ -26,6 +27,11 @@ export const App: React.FC = () => {
       },
       {
         id: uuidv4(),
+        type: 'references',
+        title: 'References'
+      },
+      {
+        id: uuidv4(),
         type: 'rules',
         title: 'Rules'
       },
@@ -41,7 +47,7 @@ export const App: React.FC = () => {
       }
     ];
     setTabs(initialTabs);
-    setActiveTabId(initialTabs[3].id);  // Set Chat tab as default
+    setActiveTabId(initialTabs[4].id);  // Update index to keep Chat as default
   }, []);
 
   const handleAddTab = (type: string) => {
@@ -80,6 +86,8 @@ export const App: React.FC = () => {
         return <PromptTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
       case 'rules':
         return <RulesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
+      case 'references':
+        return <ReferencesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
       case 'tools':
         return <Tools key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
       default:

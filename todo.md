@@ -139,6 +139,11 @@ Would a hosted version of this be useful?
 - Not clear what tools could be made to work on a hosted server
 
 Maybe we have the concept of a "Workspace" which is a collection of all of our stuff (config, chats)
+- workbench.json - config for workspace itself (is there any?  Agent name, notes?)
+- mcp-servers.json - config for MCP servers (or do we put in workspace config?)
+- prompt.md (put this in workspace config?)
+- refs (dir of md files)
+- rules (dir of md files)
 
 A rule could refer to a reference or a toolset/tool (or any combination of instances of both)
 - When the users asks about files, use [tool:filesystem](tool:filesystem)

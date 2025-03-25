@@ -2,6 +2,7 @@ import React from 'react';
 import { RulesTab } from './RulesTab';
 import { PromptTab } from './PromptTab';
 import { ChatTab } from './ChatTab';
+import { ReferencesTab } from './ReferencesTab';
 import { TabContent } from '../types/TabContent';
 import '../styles/AppLayout.css';
 
@@ -33,6 +34,16 @@ export const AppLayout: React.FC = () => {
         activeTabId={activeTabId}
         name="Rules"
         type="rules"
+      />
+    },
+    {
+      id: 'references',
+      label: 'References',
+      content: <ReferencesTab 
+        id="references"
+        activeTabId={activeTabId}
+        name="References"
+        type="references"
       />
     }
   ];
