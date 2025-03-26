@@ -7,6 +7,12 @@ export interface McpConfig {
   env?: Record<string, string>;
 }
 
+export interface McpConfigFileServerConfig {
+  command: string;
+  args: string[];
+  env?: Record<string, string>;
+}
+
 export interface ToolParameter {
   type: string;
   description: string;

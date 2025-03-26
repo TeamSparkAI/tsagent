@@ -1,7 +1,7 @@
 import { ILLM } from './types';
 import OpenAI from 'openai';
-import { getConfigValue } from '../config';
 import { LLMStateManager } from './stateManager';
+import { ConfigManager } from '../state/ConfigManager';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 
@@ -9,6 +9,7 @@ export class OpenAILLM implements ILLM {
   private client!: OpenAI;
   private readonly modelName: string;
   private readonly stateManager: LLMStateManager;
+  private readonly configManager: ConfigManager;
   private readonly MAX_TURNS = 5;
   private initialized = false;
 
@@ -24,23 +25,21 @@ export class OpenAILLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, stateManager: LLMStateManager) {
+  constructor(modelName: string, stateManager: LLMStateManager, configManager: ConfigManager) {
     this.modelName = modelName;
     this.stateManager = stateManager;
+    this.configManager = configManager;
     this.initialize();
   }
 
   async initialize(): Promise<void> {
     try {
-      const apiKey = getConfigValue('OPENAI_API_KEY');
-      if (!apiKey) {
-        throw new Error('OPENAI_API_KEY not set in config.json');
-      }
+      const apiKey = await this.configManager.getConfigValue('OPENAI_API_KEY');
       this.client = new OpenAI({ apiKey });
       this.initialized = true;
-      console.log('OpenAI LLM initialized successfully');
+      log.info('OpenAI LLM initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize OpenAI LLM:', error);
+      log.error('Failed to initialize OpenAI LLM:', error);
       throw error;
     }
   }

@@ -1,12 +1,11 @@
 import { Rule } from './Rule';
 import { Reference } from './Reference';
-import { McpConfigFileServerConfig } from '../commands/tools';
-import { McpConfig } from '../mcp/types';
+import { McpConfig, McpConfigFileServerConfig } from '../mcp/types';
 
 export interface API {
-  _sendMessage: (tabId: string, message: string) => Promise<string>;
-  _switchModel: (tabId: string, modelType: string) => Promise<{ success: boolean; error?: string }>;
-  _getCurrentModel: (tabId: string) => Promise<string>;
+  sendMessage: (tabId: string, message: string) => Promise<string>;
+  switchModel: (tabId: string, modelType: string) => Promise<{ success: boolean; error?: string }>;
+  getCurrentModel: (tabId: string) => Promise<string>;
   getServerConfigs: () => Promise<McpConfig[]>;
   getMCPClient: (serverName: string) => Promise<{
     serverVersion: string;

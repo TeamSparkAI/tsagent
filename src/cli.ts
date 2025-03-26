@@ -1,8 +1,11 @@
 import readline from 'readline';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
-import { toolsCommand } from './commands/tools';
+import { ConfigManager } from './state/ConfigManager';
+
 import log from 'electron-log';
+import { MCPClientImpl } from './mcp/client';
+import { Tool } from '@modelcontextprotocol/sdk/types';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -20,19 +23,61 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'openai': 'OpenAI'
 };
 
+async function toolsCommand() {
+  try {
+    const configManager = ConfigManager.getInstance(false);
+    const mcpServers = await configManager.getMcpConfig();
+
+    console.log('Checking available tools on MCP servers...\n');
+
+    // Connect to each server and list tools
+    for (const [serverId, serverConfig] of Object.entries(mcpServers)) {
+      console.log(`Server: ${serverId}`);
+      console.log('------------------------');
+
+      const client = new MCPClientImpl();
+      try {
+        await client.connectToServer(
+          serverConfig.command, 
+          serverConfig.args, 
+          serverConfig.env
+        );
+        
+        // Tools are now available in client.serverTools
+        if (client.serverTools.length === 0) {
+          console.log('No tools available');
+        } else {
+          client.serverTools.forEach((tool: Tool) => {
+            console.log(`- ${tool.name}: ${tool.description || 'No description'}`);
+          });
+        }
+      } catch (error) {
+        log.error(`Error connecting to ${serverId}:`, error);
+      } finally {
+        await client.cleanup();
+      }
+      console.log('\n');
+    }
+  } catch (error) {
+    log.error('Failed to read MCP configuration:', error);
+    process.exit(1);
+  }
+}
+
 export function setupCLI() {
+  const configManager = ConfigManager.getInstance(false);
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
   });
 
-  log.info('Welcome to TeamSpark AI Workbench!');
-  log.info('Available commands:');
-  log.info('  /model - List available models');
-  log.info('  /model <name> - Switch to specified model');
-  log.info('  /quit or /exit - Exit the application');
-  log.info('  /tools - List available tools from all configured MCP servers');
-  log.info('\n');
+  console.log('Welcome to TeamSpark AI Workbench!');
+  console.log('Available commands:');
+  console.log('  /model - List available models');
+  console.log('  /model <name> - Switch to specified model');
+  console.log('  /quit or /exit - Exit the application');
+  console.log('  /tools - List available tools from all configured MCP servers');
+  console.log('\n');  
   
   let currentLLM = LLMFactory.create(LLMType.Test);
   let currentModel = 'test';
@@ -55,13 +100,13 @@ export function setupCLI() {
       }
 
       if (command === '/model') {
-        log.info('\nAvailable models:');
+        console.log('\nAvailable models:');
         Object.keys(AVAILABLE_MODELS).forEach(model => {
           const indicator = model === currentModel ? '* ' : '  ';
           const displayName = MODEL_DISPLAY_NAMES[model] || model;
-          log.info(`${indicator}${displayName}`);
+          console.log(`${indicator}${displayName}`);
         });
-        log.info('');
+        console.log('');
         promptUser();
         return;
       }
@@ -75,16 +120,16 @@ export function setupCLI() {
             currentLLM = LLMFactory.create(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
             currentModel = modelName;
             const displayName = MODEL_DISPLAY_NAMES[modelName] || modelName;
-            log.info(`Switched to ${displayName} model`);
+            console.log(`Switched to ${displayName} model`);
           } catch (error: unknown) {
             if (error instanceof Error) {
-              log.info('Error switching model:', error.message);
+              console.error('Error switching model:', error.message);
             } else {
-              log.info('Error switching model');
+              console.error('Error switching model');
             }
           }
         } else {
-          log.info('Invalid model name. Use /model to see available models.');
+          console.log('Invalid model name. Use /model to see available models.');
         }
         promptUser();
         return;
@@ -98,12 +143,12 @@ export function setupCLI() {
 
       try {
         const response = await currentLLM.generateResponse(input);
-        log.info(`AI: ${response}`);
+        console.log(`AI: ${response}`);
       } catch (error: unknown) {
         if (error instanceof Error) {
-          log.error('Error:', error.message);
+          console.error('Error:', error.message);
         } else {
-          log.error('An unknown error occurred');
+          console.error('An unknown error occurred');
         }
       }
       promptUser();

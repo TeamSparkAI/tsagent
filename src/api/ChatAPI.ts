@@ -18,7 +18,7 @@ export class ChatAPI {
   }
 
   private async initModel() {
-    const model = await window.api._getCurrentModel(this.tabId);
+    const model = await window.api.getCurrentModel(this.tabId);
     this.currentModel = model as LLMType; // Cast the string to LLMType
   }
 
@@ -27,7 +27,7 @@ export class ChatAPI {
     this.messages.push({ type: 'user', content: message });
 
     try {
-      const response = await window.api._sendMessage(this.tabId, message);
+      const response = await window.api.sendMessage(this.tabId, message);
       // Trim any leading/trailing whitespace from the response
       const trimmedResponse = response.trimStart();
       this.messages.push({ type: 'ai', content: trimmedResponse });
@@ -41,9 +41,7 @@ export class ChatAPI {
 
   public async switchModel(model: LLMType): Promise<boolean> {
     try {
-      log.info('ChatAPI: Attempting to switch model to:', model);
-      const result = await window.api._switchModel(this.tabId, model);
-      log.info('ChatAPI: Received switch model result:', result);
+      const result = await window.api.switchModel(this.tabId, model);
       if (result.success) {
         this.currentModel = model;
         this.messages.push({ 
@@ -75,7 +73,7 @@ export class ChatAPI {
     return [...this.messages];
   }
 
-  getCurrentModel(): LLMType {
+  public getCurrentModel(): LLMType {
     return this.currentModel;
   }
 } 

@@ -1,8 +1,8 @@
 import { ILLM } from './types';
 import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType } from '@google/generative-ai';
-import { getConfigValue } from '../config';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { LLMStateManager } from './stateManager';
+import { ConfigManager } from '../state/ConfigManager';
 import log from 'electron-log';
 
 export class GeminiLLM implements ILLM {
@@ -11,6 +11,7 @@ export class GeminiLLM implements ILLM {
   private initialized = false;
   private readonly modelName: string;
   private readonly stateManager: LLMStateManager;
+  private readonly configManager: ConfigManager;
   private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
 
   private convertPropertyType(prop: any): { type: string; items?: { type: string } } {
@@ -61,24 +62,22 @@ export class GeminiLLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, stateManager: LLMStateManager) {
+  constructor(modelName: string, stateManager: LLMStateManager, configManager: ConfigManager) {
     this.modelName = modelName;
     this.stateManager = stateManager;
+    this.configManager = configManager;
     this.initialize();
   }
 
   async initialize(): Promise<void> {
     try {
-      const apiKey = getConfigValue('GEMINI_API_KEY');
-      if (!apiKey) {
-        throw new Error('GEMINI_API_KEY not set in config.json');
-      }
+      const apiKey = await this.configManager.getConfigValue('GEMINI_API_KEY');
       this.genAI = new GoogleGenerativeAI(apiKey);
       this.model = this.genAI.getGenerativeModel({ model: this.modelName });
       this.initialized = true;
-      console.log('Gemini LLM initialized successfully');
+      log.info('Gemini LLM initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Gemini LLM:', error);
+      log.error('Failed to initialize Gemini LLM:', error);
       throw error;
     }
   }

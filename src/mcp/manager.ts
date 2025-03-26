@@ -1,6 +1,5 @@
-import { MCPClient } from './types';
+import { MCPClient, McpConfigFileServerConfig } from './types';
 import { MCPClientImpl } from './client';
-import { McpConfigFileServerConfig } from '../commands/tools';
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 

@@ -1,34 +1,33 @@
 import { ILLM } from './types';
 import Anthropic from '@anthropic-ai/sdk';
-import { getConfigValue } from '../config';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 import { LLMStateManager } from './stateManager';
+import { ConfigManager } from '../state/ConfigManager';
 import log from 'electron-log';
 
 export class ClaudeLLM implements ILLM {
   private client!: Anthropic;
   private readonly modelName: string;
   private readonly stateManager: LLMStateManager;
+  private readonly configManager: ConfigManager;
   private initialized: boolean = false;
 
-  constructor(modelName: string, stateManager: LLMStateManager) {
+  constructor(modelName: string, stateManager: LLMStateManager, configManager: ConfigManager) {
     this.modelName = modelName;
     this.stateManager = stateManager;
+    this.configManager = configManager;
     this.initialize();
   }
 
   async initialize(): Promise<void> {
     try {
-      const apiKey = getConfigValue('ANTHROPIC_API_KEY');
-      if (!apiKey) {
-        throw new Error('ANTHROPIC_API_KEY not set in config.json');
-      }
+      const apiKey = await this.configManager.getConfigValue('ANTHROPIC_API_KEY');
       this.client = new Anthropic({ apiKey });
       this.initialized = true;
-      console.log('Claude LLM initialized successfully');
+      log.info('Claude LLM initialized successfully');
     } catch (error) {
-      console.error('Failed to initialize Claude LLM:', error);
+      log.error('Failed to initialize Claude LLM:', error);
       throw error;
     }
   }

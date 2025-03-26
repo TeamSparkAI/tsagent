@@ -4,7 +4,6 @@ import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
 import { MCPClientImpl } from './mcp/client';
 import { MCPClientManager } from './mcp/manager';
-import { getDataDirectory } from './config';
 import { RulesManager } from './state/RulesManager';
 import { ReferencesManager } from './state/ReferencesManager';
 import log from 'electron-log';
@@ -12,32 +11,36 @@ import 'dotenv/config';
 import * as fs from 'fs';
 import { setupCLI } from './cli';
 import { McpConfig } from './mcp/types';
-import { McpConfigFileServerConfig } from './commands/tools';
+import { ConfigManager } from './state/ConfigManager';
 
 // Configure electron-log
-log.initialize({ preload: true }); // Required to wire up the renderer (will crash the CLI)
-log.transports.file.resolvePathFn = () => path.join(getDataDirectory(), 'app.log');
-log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
-log.info('App starting...');
-
+let configManager: ConfigManager;
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
 let mcpManager: MCPClientManager;
 let rulesManager: RulesManager;
 let referencesManager: ReferencesManager;
-let MCP_CONFIG_PATH: string;
-let PROMPT_FILE: string;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
+function intializeLogging(isElectron: boolean) {
+  if (isElectron) {
+    log.initialize({ preload: true }); // Required to wire up the renderer (will crash the CLI)
+    log.transports.file.resolvePathFn = () => path.join(configManager.getDataDirectory(), 'app.log');
+    log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
+  } else {
+    // In CLI mode, only show error and above to the console, no file logging
+    log.transports.console.level = 'error';
+  }
+  log.info('App starting...');
+}
+
 // Initialize paths and managers
-const initialize = () => {
+async function initialize() {
   log.info('Starting initialization process');
   
   // Initialize paths using app.getPath
-  const CONFIG_DIR = path.join(getDataDirectory(), 'config');
-  MCP_CONFIG_PATH = path.join(CONFIG_DIR, 'mcp_config.json');
-  PROMPT_FILE = path.join(CONFIG_DIR, 'prompt.md');
+  const CONFIG_DIR = configManager.getConfigDir();
   
   log.info('Initializing with config directory:', CONFIG_DIR);
   
@@ -55,39 +58,36 @@ const initialize = () => {
 
   // Initialize the LLM Factory with the manager
   log.info('Initializing LLMFactory with MCPManager');
-  LLMFactory.initialize(mcpManager);
-  log.info('Initialization complete');
-};
+  LLMFactory.initialize(mcpManager, configManager);
 
-// Load MCP clients from config
-const loadMCPClients = async () => {
+  log.info("Loaded MCP clients");
   try {
-    // Create empty config if it doesn't exist
-    if (!fs.existsSync(MCP_CONFIG_PATH)) {
-      await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify({ mcpServers: {} }, null, 2));
-    }
-
-    const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
-    const config = JSON.parse(configData);
-    await mcpManager.loadClients(config.mcpServers);
+    const mcpServers = await configManager.getMcpConfig();
+    await mcpManager.loadClients(mcpServers);
   } catch (err) {
     log.error('Error loading MCP config:', err);
   }
-};
+
+  log.info('Initialization complete');
+}
 
 // Near the top with other state
 const mcpClients = new Map<string, MCPClientImpl>();
 
-const startApp = async () => {
-  // If running in CLI mode, don't initialize Electron
+async function startApp() {
   if (process.argv.includes('--cli')) {
-    initialize();
-    await loadMCPClients();
+    configManager = ConfigManager.getInstance(false);
+    intializeLogging(false);
+    await initialize();
     setupCLI();
   } else {
+    configManager = ConfigManager.getInstance(app.isPackaged);
+    
     // Set app name before anything else
     process.env.ELECTRON_APP_NAME = 'TeamSpark Workbench';
     app.setName('TeamSpark Workbench');
+
+    intializeLogging(true);
 
     let mainWindow: (InstanceType<typeof BrowserWindow>) | null = null;
     const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
@@ -203,9 +203,8 @@ const startApp = async () => {
 
     ipcMain.handle('get-server-configs', async () => {
       try {
-        const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
-        const config: { mcpServers: Record<string, McpConfigFileServerConfig> } = JSON.parse(configData);
-        return Object.entries(config.mcpServers).map(([name, serverConfig]) => ({
+        const mcpServers = await configManager.getMcpConfig();
+        return Object.entries(mcpServers).map(([name, serverConfig]) => ({
           name,
           ...serverConfig
         }));
@@ -219,9 +218,8 @@ const startApp = async () => {
       try {
         let client = mcpClients.get(serverName);
         if (!client) {
-          const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
-          const config: { mcpServers: Record<string, McpConfig> } = JSON.parse(configData);
-          const serverConfig = config.mcpServers[serverName];
+          const mcpServers = await configManager.getMcpConfig();
+          const serverConfig = mcpServers[serverName];
           if (!serverConfig) {
             log.error(`No configuration found for server: ${serverName}`);
             throw new Error(`No configuration found for server: ${serverName}`);
@@ -247,14 +245,14 @@ const startApp = async () => {
 
     ipcMain.handle('get-system-prompt', async () => {
       try {
-        const prompt = await fs.promises.readFile(PROMPT_FILE, 'utf8');
+        const prompt = await configManager.getSystemPrompt();
         // Initialize LLM state with loaded prompt
         LLMFactory.getStateManager().setSystemPrompt(prompt);
         return prompt;
       } catch (err) {
         log.error('Error reading system prompt, using default:', err);
         // If file doesn't exist, create it with default prompt
-        await fs.promises.writeFile(PROMPT_FILE, DEFAULT_PROMPT, 'utf8');
+        await configManager.saveSystemPrompt(DEFAULT_PROMPT);
         LLMFactory.getStateManager().setSystemPrompt(DEFAULT_PROMPT);
         return DEFAULT_PROMPT;
       }
@@ -262,7 +260,7 @@ const startApp = async () => {
 
     ipcMain.handle('save-system-prompt', async (_, prompt: string) => {
       try {
-        await fs.promises.writeFile(PROMPT_FILE, prompt, 'utf8');
+        await configManager.saveSystemPrompt(prompt);
         // Update LLM state with new prompt
         LLMFactory.getStateManager().setSystemPrompt(prompt);
         log.info('System prompt saved successfully');
@@ -337,10 +335,8 @@ const startApp = async () => {
     // Move initialization into the ready event
     app.whenReady().then(async () => {
       log.info('App ready, starting initialization');
-      initialize();
-      log.info('Loading MCP clients');
-      await loadMCPClients();
-      log.info('MCP clients loaded, creating window');
+      await initialize();
+      log.info('Initialization complete, creating window');
       createWindow();
     });
 
@@ -358,28 +354,11 @@ const startApp = async () => {
     });
   }
 }
-startApp();
 
 // Add these functions near the top with other config handling
-const saveServerConfig = async (server: McpConfig) => {
+async function saveServerConfig(server: McpConfig) {
   try {
-    const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
-    const config = JSON.parse(configData);
-    
-    const serverConfig: any = {
-      command: server.command
-    };
-    
-    if (server.args?.length > 0) {
-      serverConfig.args = server.args;
-    }
-    
-    if (server.env && Object.keys(server.env).length > 0) {
-      serverConfig.env = server.env;
-    }
-    
-    config.mcpServers[server.name] = serverConfig;
-    await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify(config, null, 2));
+    await configManager.saveMcpConfig(server);
     
     // Reconnect the client with new config
     const client = mcpClients.get(server.name);
@@ -391,14 +370,11 @@ const saveServerConfig = async (server: McpConfig) => {
     log.error('Error saving server config:', err);
     throw err;
   }
-};
+}
 
-const deleteServerConfig = async (serverName: string) => {
+async function deleteServerConfig(serverName: string) {
   try {
-    const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
-    const config = JSON.parse(configData);
-    delete config.mcpServers[serverName];
-    await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify(config, null, 2));
+    await configManager.deleteMcpConfig(serverName);
     
     // Disconnect and remove the client
     const client = mcpClients.get(serverName);
@@ -410,4 +386,6 @@ const deleteServerConfig = async (serverName: string) => {
     log.error('Error deleting server config:', err);
     throw err;
   }
-}; 
+}
+
+startApp(); 

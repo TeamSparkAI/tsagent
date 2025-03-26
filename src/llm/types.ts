@@ -1,4 +1,5 @@
-import { MCPClientManager } from '../mcp/manager';
+import { LLMStateManager } from './stateManager';
+import { ConfigManager } from '../state/ConfigManager';
 
 export enum LLMType {
   Test = 'TEST',
@@ -12,5 +13,5 @@ export interface ILLM {
 }
 
 export interface LLMConstructor {
-  new (mcpManager: MCPClientManager): ILLM;
+  new (modelName: string, stateManager: LLMStateManager, configManager: ConfigManager): ILLM;
 } 
