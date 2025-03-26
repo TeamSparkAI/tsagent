@@ -1,7 +1,8 @@
 import readline from 'readline';
-import { LLMFactory } from './llm/llmFactory.js';
-import { LLMType } from './llm/types.js';
-import { toolsCommand } from './commands/tools.js';
+import { LLMFactory } from './llm/llmFactory';
+import { LLMType } from './llm/types';
+import { toolsCommand } from './commands/tools';
+import log from 'electron-log';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -25,13 +26,13 @@ export function setupCLI() {
     output: process.stdout
   });
 
-  console.log('Welcome to TeamSpark AI Workbench!');
-  console.log('Available commands:');
-  console.log('  /model - List available models');
-  console.log('  /model <name> - Switch to specified model');
-  console.log('  /quit or /exit - Exit the application');
-  console.log('  /tools - List available tools from all configured MCP servers');
-  console.log('\n');
+  log.info('Welcome to TeamSpark AI Workbench!');
+  log.info('Available commands:');
+  log.info('  /model - List available models');
+  log.info('  /model <name> - Switch to specified model');
+  log.info('  /quit or /exit - Exit the application');
+  log.info('  /tools - List available tools from all configured MCP servers');
+  log.info('\n');
   
   let currentLLM = LLMFactory.create(LLMType.Test);
   let currentModel = 'test';
@@ -54,13 +55,13 @@ export function setupCLI() {
       }
 
       if (command === '/model') {
-        console.log('\nAvailable models:');
+        log.info('\nAvailable models:');
         Object.keys(AVAILABLE_MODELS).forEach(model => {
           const indicator = model === currentModel ? '* ' : '  ';
           const displayName = MODEL_DISPLAY_NAMES[model] || model;
-          console.log(`${indicator}${displayName}`);
+          log.info(`${indicator}${displayName}`);
         });
-        console.log('');
+        log.info('');
         promptUser();
         return;
       }
@@ -74,16 +75,16 @@ export function setupCLI() {
             currentLLM = LLMFactory.create(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
             currentModel = modelName;
             const displayName = MODEL_DISPLAY_NAMES[modelName] || modelName;
-            console.log(`Switched to ${displayName} model`);
+            log.info(`Switched to ${displayName} model`);
           } catch (error: unknown) {
             if (error instanceof Error) {
-              console.log('Error switching model:', error.message);
+              log.info('Error switching model:', error.message);
             } else {
-              console.log('Error switching model');
+              log.info('Error switching model');
             }
           }
         } else {
-          console.log('Invalid model name. Use /model to see available models.');
+          log.info('Invalid model name. Use /model to see available models.');
         }
         promptUser();
         return;
@@ -97,12 +98,12 @@ export function setupCLI() {
 
       try {
         const response = await currentLLM.generateResponse(input);
-        console.log(`AI: ${response}`);
+        log.info(`AI: ${response}`);
       } catch (error: unknown) {
         if (error instanceof Error) {
-          console.error('Error:', error.message);
+          log.error('Error:', error.message);
         } else {
-          console.error('An unknown error occurred');
+          log.error('An unknown error occurred');
         }
       }
       promptUser();

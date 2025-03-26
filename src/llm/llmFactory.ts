@@ -1,40 +1,65 @@
-import { ILLM, LLMType } from './types.js';
-import { TestLLM } from './testLLM.js';
-import { GeminiLLM } from './geminiLLM.js';
-import { ClaudeLLM } from './claudeLLM.js';
-import { OpenAILLM } from './openaiLLM.js';
-import { MCPClientManager } from '../mcp/manager.js';
-import { LLMStateManager } from './stateManager.js';
+import { ILLM, LLMType } from './types';
+import { TestLLM } from './testLLM';
+import { GeminiLLM } from './geminiLLM';
+import { ClaudeLLM } from './claudeLLM';
+import { OpenAILLM } from './openaiLLM';
+import { MCPClientManager } from '../mcp/manager';
+import { LLMStateManager } from './stateManager';
+import log from 'electron-log';
 
 export class LLMFactory {
   private static mcpManager: MCPClientManager;
   private static stateManager: LLMStateManager;
+  private static initialized = false;
 
   static getStateManager(): LLMStateManager {
-    if (!this.stateManager) {
+    if (!this.initialized || !this.stateManager) {
+      log.error('LLMFactory not properly initialized');
       throw new Error('LLMFactory not initialized');
     }
     return this.stateManager;
   }
 
   static initialize(mcpManager: MCPClientManager) {
+    log.info('Initializing LLMFactory with MCPManager');
+    if (!mcpManager) {
+      throw new Error('MCPManager is required for initialization');
+    }
+    this.mcpManager = mcpManager;
     this.stateManager = new LLMStateManager(mcpManager);
+    this.initialized = true;
+    log.info('LLMFactory initialized successfully');
   }
 
   static create(type: LLMType): ILLM {
-    console.log('LLMFactory creating:', type);
-    switch (type) {
-      case LLMType.Gemini:
-        return new GeminiLLM('gemini-2.0-flash', this.stateManager);
-      case LLMType.Claude:
-        console.log('Creating Claude instance');
-        return new ClaudeLLM('claude-3-7-sonnet-20250219', this.stateManager);
-      case LLMType.OpenAI:
-        return new OpenAILLM('gpt-3.5-turbo', this.stateManager);
-      case LLMType.Test:
-        return new TestLLM();
-      default:
-        throw new Error(`Unknown LLM type: ${type}`);
+    log.info('LLMFactory creating:', type);
+    if (!this.mcpManager.isReady()) {
+      throw new Error('MCPClientManager not ready');
+    }
+    if (!this.initialized) {
+      log.error('LLMFactory not initialized before create');
+      throw new Error('LLMFactory not initialized');
+    }
+    try {
+      switch (type) {
+        case LLMType.Gemini:
+          return new GeminiLLM('gemini-2.0-flash', this.stateManager);
+        case LLMType.Claude:
+          log.info('Creating Claude instance');
+          return new ClaudeLLM('claude-3-7-sonnet-20250219', this.stateManager);
+        case LLMType.OpenAI:
+          return new OpenAILLM('gpt-3.5-turbo', this.stateManager);
+        case LLMType.Test:
+          return new TestLLM();
+        default:
+          throw new Error(`Unknown LLM type: ${type}`);
+      }
+    } catch (error) {
+      log.error('Error creating LLM:', error);
+      if (error instanceof Error) {
+        log.error('Error details:', error.message, error.stack);
+      }
+      throw error;
     }
   }
 }

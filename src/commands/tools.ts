@@ -1,35 +1,35 @@
 import fs from 'fs/promises';
-import path from 'path';
-import { MCPClientImpl } from '../mcp/client.js';
+import * as path from 'path';
+import { MCPClientImpl } from '../mcp/client';
 import { Tool } from "@modelcontextprotocol/sdk/types";
+import log from 'electron-log';
+import { getDataDirectory } from '../config';
 
-export interface ServerConfig {
+export interface McpConfigFileServerConfig {
   command: string;
   args: string[];
-  env: Record<string, string>;
+  env?: Record<string, string>;
 }
 
-export type MCPConfigServer = ServerConfig;
-
-interface MCPConfig {
+interface MCPConfigFile {
   mcpServers: {
-    [key: string]: MCPConfigServer;
+    [key: string]: McpConfigFileServerConfig;
   };
 }
 
 export async function toolsCommand() {
   try {
     // Read and parse the config file
-    const configPath = path.join(process.cwd(), 'config', 'mcp_config.json');
+    const configPath = path.join(getDataDirectory(), 'config', 'mcp_config.json');
     const configContent = await fs.readFile(configPath, 'utf-8');
-    const config: MCPConfig = JSON.parse(configContent);
+    const config: MCPConfigFile = JSON.parse(configContent);
 
-    console.log('Checking available tools on MCP servers...\n');
+    log.info('Checking available tools on MCP servers...\n');
 
     // Connect to each server and list tools
     for (const [serverId, serverConfig] of Object.entries(config.mcpServers)) {
-      console.log(`Server: ${serverId}`);
-      console.log('------------------------');
+      log.info(`Server: ${serverId}`);
+      log.info('------------------------');
 
       const client = new MCPClientImpl();
       try {
@@ -41,21 +41,21 @@ export async function toolsCommand() {
         
         // Tools are now available in client.serverTools
         if (client.serverTools.length === 0) {
-          console.log('No tools available');
+          log.info('No tools available');
         } else {
           client.serverTools.forEach((tool: Tool) => {
-            console.log(`- ${tool.name}: ${tool.description || 'No description'}`);
+            log.info(`- ${tool.name}: ${tool.description || 'No description'}`);
           });
         }
       } catch (error) {
-        console.error(`Error connecting to ${serverId}:`, error);
+        log.error(`Error connecting to ${serverId}:`, error);
       } finally {
         await client.cleanup();
       }
-      console.log('\n');
+      log.info('\n');
     }
   } catch (error) {
-    console.error('Failed to read MCP configuration:', error);
+    log.error('Failed to read MCP configuration:', error);
     process.exit(1);
   }
-} 
+}

@@ -1,7 +1,8 @@
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+import { MCPClient } from './types';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
+import { Client } from '@modelcontextprotocol/sdk/client/index';
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
-import { MCPClient } from "./types.js";
+import log from 'electron-log';
 
 export class MCPClientImpl implements MCPClient {
     private mcp: Client;
@@ -39,7 +40,7 @@ export class MCPClientImpl implements MCPClient {
         this.errorLog = [];
     }
 
-    async connectToServer(command: string, args: string[], env?: Record<string, string>) {      
+    async connectToServer(command: string, args: string[], env?: Record<string, string>) {
         this.transport = new StdioClientTransport({
             command,
             args,
@@ -50,19 +51,19 @@ export class MCPClientImpl implements MCPClient {
         try {
             this.transport.onerror = (err: Error) => {
                 const message = `Transport error: ${err.message}`;
-                console.error(message);
+                log.error(message);
             };
 
             this.mcp.onerror = (err: Error) => {
                 const message = `MCP client error: ${err.message}`;
-                console.error(message);
+                log.error(message);
             };
 
             const connectPromise = this.mcp.connect(this.transport);
             if (this.transport?.stderr) {
                 this.transport.stderr.on('data', (data: Buffer) => {
                     const message = `Transport stderr: ${data.toString().trim()}`;
-                    console.error(message);
+                    log.error(message);
                     this.addErrorMessage(message);
                 });
             }
@@ -78,7 +79,7 @@ export class MCPClientImpl implements MCPClient {
             this.serverTools = toolsResult.tools;
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
-            console.error(`Error connecting to MCP server: ${message}`);
+            log.error(`Error connecting to MCP server: ${message}`);
             this.addErrorMessage(`Error connecting to MCP server: ${message}`);
             throw err;
         }
@@ -95,7 +96,7 @@ export class MCPClientImpl implements MCPClient {
 
     public async cleanup() {
         if (this.transport) {
-            this.transport.close();
+            await this.transport.close();
             this.transport = null;
         }
         await this.mcp.close();

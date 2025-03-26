@@ -1,19 +1,69 @@
-import { config as dotenvConfig } from 'dotenv';
-import { resolve } from 'path';
+import { app } from 'electron';
+import * as path from 'path';
+import * as fs from 'fs';
+import log from 'electron-log';
 
-// Load .env.local first, fall back to .env
-dotenvConfig({ path: resolve(process.cwd(), '.env.local') });
-dotenvConfig({ path: resolve(process.cwd(), '.env') });
+interface ConfigFile {
+  config: Record<string, string>;
+}
 
-export const config = {
-  geminiKey: process.env.GEMINI_API_KEY || '',
-  openaiKey: process.env.OPENAI_API_KEY || '',
-  anthropicKey: process.env.ANTHROPIC_API_KEY || ''
-};
+let configFile: ConfigFile | null = null;
 
-// Validate required keys are present
-export function validateApiKey(key: string, service: string): void {
-  if (!key) {
-    throw new Error(`${service} API key not found. Please set ${service.toUpperCase()}_API_KEY environment variable.`);
+export function getDataDirectory(): string {
+  if (app.isPackaged) {
+    return app.getPath('userData');
+  } else {
+    return process.cwd();
   }
+}
+
+function getConfigPath(): string {
+  const dataDir = getDataDirectory();
+  const configDir = path.join(dataDir, 'config');
+  if (!fs.existsSync(configDir)) {
+    fs.mkdirSync(configDir, { recursive: true });
+  }
+  return path.join(configDir, 'config.json');
+}
+
+function loadConfig(): ConfigFile {
+  const configPath = getConfigPath();
+  
+  // Create default config if it doesn't exist
+  if (!fs.existsSync(configPath)) {
+    const defaultConfig: ConfigFile = {
+      config: {}
+    };
+    fs.writeFileSync(configPath, JSON.stringify(defaultConfig, null, 2));
+    return defaultConfig;
+  }
+
+  try {
+    const data = fs.readFileSync(configPath, 'utf8');
+    return JSON.parse(data);
+  } catch (error) {
+    log.error('Error loading config:', error);
+    throw new Error('Failed to load config.json');
+  }
+}
+
+export function getConfigValue(key: string): string {
+  if (!configFile) {
+    configFile = loadConfig();
+  }
+  const value = configFile.config[key];
+  if (!value) {
+    throw new Error(`${key} not set in config.json`);
+  }
+  return value;
+}
+
+export function updateConfigValue(key: string, value: string): void {
+  if (!configFile) {
+    configFile = loadConfig();
+  }
+  
+  configFile.config[key] = value;
+  const configPath = getConfigPath();
+  fs.writeFileSync(configPath, JSON.stringify(configFile, null, 2));
 } 

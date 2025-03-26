@@ -1,4 +1,4 @@
-import { MCPClientManager } from '../mcp/manager.js';
+import { MCPClientManager } from '../mcp/manager';
 
 export enum LLMType {
   Test = 'TEST',

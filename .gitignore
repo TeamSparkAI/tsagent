@@ -140,3 +140,28 @@ dist
 
 # Test files
 test_files/
+
+# Build output
+dist/
+release/
+build/
+
+# Electron builder output
+*.dmg
+*.exe
+*.deb
+*.AppImage
+*.snap
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Config and settings
+config/
+settings/
+
+# macOS
+.DS_Store

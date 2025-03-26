@@ -2,6 +2,7 @@ import { Rule } from '../types/Rule';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import log from 'electron-log';
 
 export class RulesManager {
     private rules: Rule[] = [];
@@ -37,9 +38,10 @@ export class RulesManager {
                         text: text
                     };
                     this.rules.push(rule);
+                    log.info(`Loaded rule: ${rule.name}`);
                 }
             } catch (error) {
-                console.error(`Error loading rule from ${file}:`, error);
+                log.error(`Error loading rule from ${file}:`, error);
             }
         }
         
@@ -74,6 +76,7 @@ export class RulesManager {
         fs.writeFileSync(filePath, content, 'utf-8');
         
         this.loadRules();
+        log.info(`Saved rule: ${rule.name}`);
     }
 
     public deleteRule(name: string) {
@@ -81,6 +84,7 @@ export class RulesManager {
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             this.loadRules();
+            log.info(`Deleted rule: ${name}`);
         }
     }
 } 

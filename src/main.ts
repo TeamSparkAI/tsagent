@@ -1,44 +1,67 @@
-import electron from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import * as path from 'path';
-import { fileURLToPath } from 'url';
-import { setupCLI } from './cli.js';
-import { LLMFactory } from './llm/llmFactory.js';
-import { LLMType } from './llm/types.js';
-import { MCPClientImpl } from './mcp/client.js';
-import { MCPClientManager } from './mcp/manager.js';
-import { MCPConfigServer, ServerConfig } from './commands/tools.js';
+import { LLMFactory } from './llm/llmFactory';
+import { LLMType } from './llm/types';
+import { MCPClientImpl } from './mcp/client';
+import { MCPClientManager } from './mcp/manager';
+import { getDataDirectory } from './config';
+import { RulesManager } from './state/RulesManager';
+import { ReferencesManager } from './state/ReferencesManager';
+import log from 'electron-log';
 import 'dotenv/config';
 import * as fs from 'fs';
-import { shell } from 'electron';
-import { RulesManager } from './state/RulesManager.js';
-import { ReferencesManager } from './state/ReferencesManager.js';
+import { setupCLI } from './cli';
+import { McpConfig } from './mcp/types';
+import { McpConfigFileServerConfig } from './commands/tools';
 
-const { app, BrowserWindow, ipcMain } = electron;
-const __filename = fileURLToPath(import.meta.url);
+// Configure electron-log
+log.initialize({ preload: true }); // Required to wire up the renderer (will crash the CLI)
+log.transports.file.resolvePathFn = () => path.join(getDataDirectory(), 'app.log');
+log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
+log.info('App starting...');
+
 const __dirname = path.dirname(__filename);
 
-// Define all directory constants at the top
-const CONFIG_DIR = path.join(process.cwd(), 'config');
-const MCP_CONFIG_PATH = path.join(CONFIG_DIR, 'mcp_config.json');
-const PROMPT_FILE = path.join(CONFIG_DIR, 'prompt.md');
+// Declare managers and paths
+let mcpManager: MCPClientManager;
+let rulesManager: RulesManager;
+let referencesManager: ReferencesManager;
+let MCP_CONFIG_PATH: string;
+let PROMPT_FILE: string;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
-// Initialize managers
-const mcpManager = new MCPClientManager();
-const rulesManager = new RulesManager(CONFIG_DIR);
-const referencesManager = new ReferencesManager(CONFIG_DIR);
+// Initialize paths and managers
+const initialize = () => {
+  log.info('Starting initialization process');
+  
+  // Initialize paths using app.getPath
+  const CONFIG_DIR = path.join(getDataDirectory(), 'config');
+  MCP_CONFIG_PATH = path.join(CONFIG_DIR, 'mcp_config.json');
+  PROMPT_FILE = path.join(CONFIG_DIR, 'prompt.md');
+  
+  log.info('Initializing with config directory:', CONFIG_DIR);
+  
+  // Create config directory
+  if (!fs.existsSync(CONFIG_DIR)) {
+    log.info('Creating config directory:', CONFIG_DIR);
+    fs.mkdirSync(CONFIG_DIR, { recursive: true });
+  }
 
-// Initialize the LLM Factory with the manager
-LLMFactory.initialize(mcpManager);
+  // Initialize managers
+  log.info('Initializing managers with config directory:', CONFIG_DIR);
+  mcpManager = new MCPClientManager();
+  rulesManager = new RulesManager(CONFIG_DIR);
+  referencesManager = new ReferencesManager(CONFIG_DIR);
+
+  // Initialize the LLM Factory with the manager
+  log.info('Initializing LLMFactory with MCPManager');
+  LLMFactory.initialize(mcpManager);
+  log.info('Initialization complete');
+};
 
 // Load MCP clients from config
 const loadMCPClients = async () => {
   try {
-    // Create config dir if it doesn't exist
-    if (!fs.existsSync(CONFIG_DIR)) {
-      fs.mkdirSync(CONFIG_DIR, { recursive: true });
-    }
-
     // Create empty config if it doesn't exist
     if (!fs.existsSync(MCP_CONFIG_PATH)) {
       await fs.promises.writeFile(MCP_CONFIG_PATH, JSON.stringify({ mcpServers: {} }, null, 2));
@@ -48,271 +71,297 @@ const loadMCPClients = async () => {
     const config = JSON.parse(configData);
     await mcpManager.loadClients(config.mcpServers);
   } catch (err) {
-    console.error('Error loading MCP config:', err);
+    log.error('Error loading MCP config:', err);
   }
 };
 
 // Near the top with other state
-const settingsDir = path.join(process.cwd(), 'settings');
 const mcpClients = new Map<string, MCPClientImpl>();
 
-// If running in CLI mode, don't initialize Electron
-if (process.argv.includes('--cli')) {
-  await loadMCPClients();
-  setupCLI();
-} else {
-  let mainWindow: (InstanceType<typeof BrowserWindow>) | null = null;
-  const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
-  const llmTypes = new Map<string, LLMType>();
+const startApp = async () => {
+  // If running in CLI mode, don't initialize Electron
+  if (process.argv.includes('--cli')) {
+    initialize();
+    await loadMCPClients();
+    setupCLI();
+  } else {
+    // Set app name before anything else
+    process.env.ELECTRON_APP_NAME = 'TeamSpark Workbench';
+    app.setName('TeamSpark Workbench');
 
-  await loadMCPClients();
-  function createWindow() {
-    mainWindow = new BrowserWindow({
-      width: 1200,
-      height: 800,
-      title: 'TeamSpark AI Workbench',
-      webPreferences: {
-        nodeIntegration: false,
-        contextIsolation: true,
-        spellcheck: true,
-        defaultEncoding: 'UTF-8',
-        preload: path.join(__dirname, 'preload.js')
+    let mainWindow: (InstanceType<typeof BrowserWindow>) | null = null;
+    const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
+    const llmTypes = new Map<string, LLMType>();
+
+    function createWindow() {
+      mainWindow = new BrowserWindow({
+        width: 1200,
+        height: 800,
+        title: 'TeamSpark AI Workbench',
+        webPreferences: {
+          nodeIntegration: false,
+          contextIsolation: true,
+          spellcheck: true,
+          defaultEncoding: 'UTF-8',
+          preload: path.join(__dirname, 'preload.js')
+        }
+      });
+
+      // Handle both development and production paths
+      log.info('__dirname:', __dirname);
+      const indexPath = path.join(__dirname, 'index.html');
+      
+      log.info('Loading index.html from:', indexPath);
+      log.info('File exists:', fs.existsSync(indexPath));
+      mainWindow.loadFile(indexPath);
+
+      // Enable native text editing context menu
+      mainWindow.webContents.on('context-menu', (_, props) => {
+        // Show menu only for editable fields
+        if (!props.isEditable) return;
+
+        const menu = Menu.buildFromTemplate([
+          {
+            label: "Cut",
+            accelerator: 'CmdOrCtrl+X',
+            role: props.editFlags.canCut ? 'cut' as const : undefined,
+            enabled: props.editFlags.canCut,
+            visible: props.isEditable
+          },
+          {
+            label: "Copy",
+            accelerator: 'CmdOrCtrl+C',
+            role: props.editFlags.canCopy ? 'copy' as const : undefined,
+            enabled: props.editFlags.canCopy,
+            visible: props.isEditable
+          },
+          {
+            label: "Paste",
+            accelerator: 'CmdOrCtrl+V',
+            role: props.editFlags.canPaste ? 'paste' as const : undefined,
+            enabled: props.editFlags.canPaste,
+            visible: props.isEditable
+          },
+          { type: 'separator' },
+          {
+            label: "Select All",
+            accelerator: 'CmdOrCtrl+A',
+            role: 'selectAll' as const,
+            enabled: props.isEditable,
+            visible: props.isEditable
+          }
+        ]);
+
+        if (mainWindow) {
+          menu.popup({ window: mainWindow });
+        }
+      });
+    }
+  
+    // Handle IPC messages
+    ipcMain.handle('send-message', async (_, tabId: string, message: string) => {
+      log.info('Main process received message:', message);
+      let llm = llmInstances.get(tabId);
+      if (!llm) {
+        log.info('Creating new LLM instance');
+        llm = LLMFactory.create(LLMType.Test);
+        llmInstances.set(tabId, llm);
+        llmTypes.set(tabId, LLMType.Test);
+      }
+      const response = await llm.generateResponse(message);
+      log.info('Main process sending response:', response);
+      return response;
+    });
+
+    ipcMain.handle('switch-model', (_, tabId: string, modelType: LLMType) => {
+      try {
+        const llm = LLMFactory.create(modelType);
+        llmInstances.set(tabId, llm);
+        llmTypes.set(tabId, modelType);
+        return { success: true };
+      } catch (error) {
+        log.error('Error switching model:', error);
+        // Check for specific API key errors
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        const response = { 
+          success: false, 
+          error: errorMessage
+        };
+        log.info('Sending error response:', response);
+        return response;
       }
     });
 
-    mainWindow.loadFile(path.join(__dirname, '../src/index.html'));
-    mainWindow.webContents.reloadIgnoringCache();
+    ipcMain.handle('toggle-dev-tools', () => {
+      mainWindow?.webContents.toggleDevTools();
+      return true;
+    });
 
-    // Enable native text editing context menu
-    mainWindow.webContents.on('context-menu', (_, props) => {
-      // Show menu only for editable fields
-      if (!props.isEditable) return;
+    ipcMain.handle('get-current-model', (_, tabId: string) => {
+      return llmTypes.get(tabId) || LLMType.Test;
+    });
 
-      const menu = electron.Menu.buildFromTemplate([
+    ipcMain.handle('get-server-configs', async () => {
+      try {
+        const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
+        const config: { mcpServers: Record<string, McpConfigFileServerConfig> } = JSON.parse(configData);
+        return Object.entries(config.mcpServers).map(([name, serverConfig]) => ({
+          name,
+          ...serverConfig
+        }));
+      } catch (err) {
+        log.error('Error getting server configs:', err);
+        return [];  // Return empty list if no config
+      }
+    });
+
+    ipcMain.handle('get-mcp-client', async (_, serverName: string) => {
+      try {
+        let client = mcpClients.get(serverName);
+        if (!client) {
+          const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
+          const config: { mcpServers: Record<string, McpConfig> } = JSON.parse(configData);
+          const serverConfig = config.mcpServers[serverName];
+          if (!serverConfig) {
+            log.error(`No configuration found for server: ${serverName}`);
+            throw new Error(`No configuration found for server: ${serverName}`);
+          }
+          
+          client = new MCPClientImpl();
+          await client.connectToServer(
+            serverConfig.command,
+            serverConfig.args,
+            serverConfig.env
+          );
+          mcpClients.set(serverName, client);
+        }
+        return {
+          serverVersion: client.serverVersion,
+          serverTools: client.serverTools
+        };
+      } catch (err) {
+        log.error('Error getting MCP client:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('get-system-prompt', async () => {
+      try {
+        const prompt = await fs.promises.readFile(PROMPT_FILE, 'utf8');
+        // Initialize LLM state with loaded prompt
+        LLMFactory.getStateManager().setSystemPrompt(prompt);
+        return prompt;
+      } catch (err) {
+        log.error('Error reading system prompt, using default:', err);
+        // If file doesn't exist, create it with default prompt
+        await fs.promises.writeFile(PROMPT_FILE, DEFAULT_PROMPT, 'utf8');
+        LLMFactory.getStateManager().setSystemPrompt(DEFAULT_PROMPT);
+        return DEFAULT_PROMPT;
+      }
+    });
+
+    ipcMain.handle('save-system-prompt', async (_, prompt: string) => {
+      try {
+        await fs.promises.writeFile(PROMPT_FILE, prompt, 'utf8');
+        // Update LLM state with new prompt
+        LLMFactory.getStateManager().setSystemPrompt(prompt);
+        log.info('System prompt saved successfully');
+      } catch (err) {
+        log.error('Error saving system prompt:', err);
+        throw err;
+      }
+    });
+
+    // Add new IPC handler
+    ipcMain.handle('show-chat-menu', (_, hasSelection: boolean, x: number, y: number) => {
+      const menu = Menu.buildFromTemplate([
         {
-          label: "Cut",
-          accelerator: 'CmdOrCtrl+X',
-          role: props.editFlags.canCut ? 'cut' as const : undefined,
-          enabled: props.editFlags.canCut,
-          visible: props.isEditable
-        },
-        {
-          label: "Copy",
+          label: 'Copy',
           accelerator: 'CmdOrCtrl+C',
-          role: props.editFlags.canCopy ? 'copy' as const : undefined,
-          enabled: props.editFlags.canCopy,
-        },
-        {
-          label: "Paste",
-          accelerator: 'CmdOrCtrl+V',
-          role: props.editFlags.canPaste ? 'paste' as const : undefined,
-          enabled: props.editFlags.canPaste,
-          visible: props.isEditable
+          role: hasSelection ? 'copy' as const : undefined,
+          enabled: hasSelection,
         },
         { type: 'separator' },
         {
-          label: "Select All",
+          label: 'Select All',
           accelerator: 'CmdOrCtrl+A',
-          role: props.editFlags.canSelectAll && props.isEditable ? 'selectAll' as const : undefined,
-          enabled: props.editFlags.canSelectAll,
-          visible: props.isEditable
+          role: 'selectAll' as const,
         }
       ]);
-      menu.popup();
+
+      menu.popup({ x, y });
+    });
+
+    ipcMain.handle('open-external', async (_, url: string) => {
+      try {
+        await shell.openExternal(url);
+        return true;
+      } catch (error) {
+        log.error('Failed to open external URL:', error);
+        return false;
+      }
+    });
+
+    ipcMain.handle('get-rules', () => {
+      return rulesManager.getRules();
+    });
+
+    ipcMain.handle('save-rule', (_, rule) => {
+      return rulesManager.saveRule(rule);
+    });
+
+    ipcMain.handle('delete-rule', (_, name) => {
+      return rulesManager.deleteRule(name);
+    });
+
+    ipcMain.handle('saveServerConfig', async (_, server: McpConfig) => {
+      await saveServerConfig(server);
+    });
+
+    ipcMain.handle('deleteServerConfig', async (_, serverName: string) => {
+      await deleteServerConfig(serverName);
+    });
+
+    ipcMain.handle('get-references', () => {
+      return referencesManager.getReferences();
+    });
+
+    ipcMain.handle('save-reference', (_, reference) => {
+      return referencesManager.saveReference(reference);
+    });
+
+    ipcMain.handle('delete-reference', (_, name) => {
+      return referencesManager.deleteReference(name);
+    });
+
+    // Move initialization into the ready event
+    app.whenReady().then(async () => {
+      log.info('App ready, starting initialization');
+      initialize();
+      log.info('Loading MCP clients');
+      await loadMCPClients();
+      log.info('MCP clients loaded, creating window');
+      createWindow();
+    });
+
+    // Add a small delay before quitting to ensure cleanup
+    app.on('window-all-closed', () => {
+      setTimeout(() => {
+        app.quit();
+      }, 100);
+    });
+
+    app.on('activate', () => {
+      if (mainWindow === null) {
+        createWindow();
+      }
     });
   }
-
-  // Handle IPC messages
-  ipcMain.handle('send-message', async (_, tabId: string, message: string) => {
-    console.log('Main process received message:', message);
-    let llm = llmInstances.get(tabId);
-    if (!llm) {
-      console.log('Creating new LLM instance');
-      llm = LLMFactory.create(LLMType.Test);
-      llmInstances.set(tabId, llm);
-      llmTypes.set(tabId, LLMType.Test);
-    }
-    const response = await llm.generateResponse(message);
-    console.log('Main process sending response:', response);
-    return response;
-  });
-
-  ipcMain.handle('switch-model', (_, tabId: string, modelType: LLMType) => {
-    console.log('Switching model to:', modelType);
-    try {
-      const llm = LLMFactory.create(modelType);
-      llmInstances.set(tabId, llm);
-      llmTypes.set(tabId, modelType);
-      return true;
-    } catch (error) {
-      console.error('Error switching model:', error);
-      return false;
-    }
-  });
-
-  ipcMain.handle('toggle-dev-tools', () => {
-    mainWindow?.webContents.toggleDevTools();
-    return true;
-  });
-
-  ipcMain.handle('get-current-model', (_, tabId: string) => {
-    return llmTypes.get(tabId) || LLMType.Test;
-  });
-
-  ipcMain.handle('get-server-configs', async () => {
-    try {
-      const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
-      const config: { mcpServers: Record<string, MCPConfigServer> } = JSON.parse(configData);
-      return Object.entries(config.mcpServers).map(([name, serverConfig]) => ({
-        name,
-        ...serverConfig
-      }));
-    } catch (err) {
-      return [];  // Return empty list if no config
-    }
-  });
-
-  ipcMain.handle('get-mcp-client', async (_, serverName: string) => {
-    let client = mcpClients.get(serverName);
-    if (!client) {
-      const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
-      const config: { mcpServers: Record<string, MCPConfigServer> } = JSON.parse(configData);
-      const serverConfig = config.mcpServers[serverName];
-      if (!serverConfig) {
-        throw new Error(`No configuration found for server: ${serverName}`);
-      }
-      
-      client = new MCPClientImpl();
-      await client.connectToServer(
-        serverConfig.command,
-        serverConfig.args,
-        serverConfig.env
-      );
-      mcpClients.set(serverName, client);
-    }
-    return {
-      serverVersion: client.serverVersion,
-      serverTools: client.serverTools
-    };
-  });
-
-  ipcMain.handle('get-system-prompt', async () => {
-    try {
-      const prompt = await fs.promises.readFile(PROMPT_FILE, 'utf8');
-      // Initialize LLM state with loaded prompt
-      LLMFactory.getStateManager().setSystemPrompt(prompt);
-      return prompt;
-    } catch (err) {
-      // If file doesn't exist, create it with default prompt
-      await fs.promises.writeFile(PROMPT_FILE, DEFAULT_PROMPT, 'utf8');
-      LLMFactory.getStateManager().setSystemPrompt(DEFAULT_PROMPT);
-      return DEFAULT_PROMPT;
-    }
-  });
-
-  ipcMain.handle('save-system-prompt', async (_, prompt: string) => {
-    await fs.promises.writeFile(PROMPT_FILE, prompt, 'utf8');
-    // Update LLM state with new prompt
-    LLMFactory.getStateManager().setSystemPrompt(prompt);
-  });
-
-  // Add new IPC handler
-  ipcMain.handle('show-chat-menu', (_, hasSelection: boolean, x: number, y: number) => {
-    const menu = electron.Menu.buildFromTemplate([
-      {
-        label: 'Copy',
-        accelerator: 'CmdOrCtrl+C',
-        role: hasSelection ? 'copy' as const : undefined,
-        enabled: hasSelection,
-      },
-      { type: 'separator' },
-      {
-        label: 'Select All',
-        accelerator: 'CmdOrCtrl+A',
-        click: async () => {
-          try {
-            await mainWindow?.webContents.executeJavaScript(`
-              try {
-                const chatContainer = document.getElementById('chat-container');
-                if (chatContainer) {
-                  const selection = window.getSelection();
-                  const range = document.createRange();
-                  range.selectNodeContents(chatContainer);
-                  selection?.removeAllRanges();
-                  selection?.addRange(range);
-                }
-              } catch (err) {
-                console.error('Error in select all:', err);
-              }
-            `);
-          } catch (err) {
-            console.error('Failed to execute select all script:', err);
-          }
-        }
-      }
-    ]);
-    menu.popup();
-  });
-
-  ipcMain.handle('open-external', async (_, url: string) => {
-    try {
-      await shell.openExternal(url);
-      return true;
-    } catch (error) {
-      console.error('Failed to open external URL:', error);
-      return false;
-    }
-  });
-
-  ipcMain.handle('get-rules', () => {
-    return rulesManager.getRules();
-  });
-
-  ipcMain.handle('save-rule', (_, rule) => {
-    return rulesManager.saveRule(rule);
-  });
-
-  ipcMain.handle('delete-rule', (_, name) => {
-    return rulesManager.deleteRule(name);
-  });
-
-  ipcMain.handle('saveServerConfig', async (_, server: ServerConfig & { name: string }) => {
-    await saveServerConfig(server);
-  });
-
-  ipcMain.handle('deleteServerConfig', async (_, serverName: string) => {
-    await deleteServerConfig(serverName);
-  });
-
-  ipcMain.handle('get-references', () => {
-    return referencesManager.getReferences();
-  });
-
-  ipcMain.handle('save-reference', (_, reference) => {
-    return referencesManager.saveReference(reference);
-  });
-
-  ipcMain.handle('delete-reference', (_, name) => {
-    return referencesManager.deleteReference(name);
-  });
-
-  app.whenReady().then(createWindow);
-
-  app.on('window-all-closed', () => {
-    if (process.platform !== 'darwin') {
-      app.quit();
-    }
-  });
-
-  app.on('activate', () => {
-    if (mainWindow === null) {
-      createWindow();
-    }
-  });
 }
+startApp();
 
 // Add these functions near the top with other config handling
-const saveServerConfig = async (server: ServerConfig & { name: string }) => {
+const saveServerConfig = async (server: McpConfig) => {
   try {
     const configData = await fs.promises.readFile(MCP_CONFIG_PATH, 'utf8');
     const config = JSON.parse(configData);
@@ -339,7 +388,7 @@ const saveServerConfig = async (server: ServerConfig & { name: string }) => {
       mcpClients.delete(server.name);
     }
   } catch (err) {
-    console.error('Error saving server config:', err);
+    log.error('Error saving server config:', err);
     throw err;
   }
 };
@@ -358,7 +407,7 @@ const deleteServerConfig = async (serverName: string) => {
       mcpClients.delete(serverName);
     }
   } catch (err) {
-    console.error('Error deleting server config:', err);
+    log.error('Error deleting server config:', err);
     throw err;
   }
 }; 

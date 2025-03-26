@@ -1,14 +1,16 @@
-import { ILLM } from './types.js';
+import { ILLM } from './types';
 import OpenAI from 'openai';
-import { config } from '../config.js';
-import { LLMStateManager } from './stateManager.js';
+import { getConfigValue } from '../config';
+import { LLMStateManager } from './stateManager';
 import { Tool } from "@modelcontextprotocol/sdk/types";
+import log from 'electron-log';
 
 export class OpenAILLM implements ILLM {
-  private client: OpenAI;
-  private model: string;
-  private stateManager: LLMStateManager;
+  private client!: OpenAI;
+  private readonly modelName: string;
+  private readonly stateManager: LLMStateManager;
   private readonly MAX_TURNS = 5;
+  private initialized = false;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
     return {
@@ -22,19 +24,30 @@ export class OpenAILLM implements ILLM {
     };
   }
 
-  constructor(model: string, stateManager: LLMStateManager) {
-    if (!config.openaiKey) {
-      throw new Error('OPENAI_API_KEY must be provided');
-    }
-    this.client = new OpenAI({
-      apiKey: config.openaiKey,
-    });
-    this.model = model;
+  constructor(modelName: string, stateManager: LLMStateManager) {
+    this.modelName = modelName;
     this.stateManager = stateManager;
+    this.initialize();
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      const apiKey = getConfigValue('OPENAI_API_KEY');
+      if (!apiKey) {
+        throw new Error('OPENAI_API_KEY not set in config.json');
+      }
+      this.client = new OpenAI({ apiKey });
+      this.initialized = true;
+      console.log('OpenAI LLM initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize OpenAI LLM:', error);
+      throw error;
+    }
   }
 
   async generateResponse(prompt: string): Promise<string> {
     try {
+      log.info('Generating response with OpenAI');
       const finalText = [];
       let turnCount = 0;
       let currentMessages: OpenAI.ChatCompletionMessageParam[] = [
@@ -47,10 +60,10 @@ export class OpenAILLM implements ILLM {
 
       while (turnCount < this.MAX_TURNS) {
         turnCount++;
-        console.log(`Processing turn ${turnCount}`);
+        log.info(`Processing turn ${turnCount}`);
 
         const completion = await this.client.chat.completions.create({
-          model: this.model,
+          model: this.modelName,
           messages: currentMessages,
           tools: functions.length > 0 ? functions.map(fn => ({ type: 'function', function: fn })) : undefined,
           tool_choice: functions.length > 0 ? 'auto' : undefined
@@ -63,21 +76,21 @@ export class OpenAILLM implements ILLM {
 
         // Check for function calls
         if (response.tool_calls && response.tool_calls.length > 0) {
-          console.log('tool_calls', response.tool_calls);
+          log.info('tool_calls', response.tool_calls);
           // Add the assistant's message with the tool calls
           currentMessages.push(response);
 
           // Process all tool calls
           for (const toolCall of response.tool_calls) {
             if (toolCall.type === 'function') {
-              console.log('Processing function call:', toolCall.function);
+              log.info('Processing function call:', toolCall.function);
 
               // Call the tool
               const toolResult = await this.stateManager.callTool(
                 toolCall.function.name,
                 JSON.parse(toolCall.function.arguments)
               );
-              console.log('Tool result:', toolResult);
+              log.info('Tool result:', toolResult);
 
               // Record the function call and result
               finalText.push(
@@ -109,10 +122,11 @@ export class OpenAILLM implements ILLM {
         finalText.push("\n[Maximum number of function calls reached]");
       }
 
-      return finalText.join('\n');
-
+      const responseText = finalText.join('\n');
+      log.info('OpenAI response generated successfully');
+      return responseText;
     } catch (error: any) {
-      console.error('OpenAI API error:', error);
+      log.error('OpenAI API error:', error);
       const errorMessage = error.message || 'Unknown error';
       return `Error: Failed to generate response from OpenAI - ${errorMessage}`;
     }

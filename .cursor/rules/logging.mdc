@@ -1,0 +1,13 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+Use electron-log exclusively for all logging in this project
+Never use console.log, console.error, console.warn, or any other console methods
+Use appropriate log levels:
+log.error() for errors and exceptions
+log.warn() for warnings
+log.info() for general information
+log.debug() for detailed debugging information
+This rule ensures consistent logging behavior across both development and production environments, with proper log file management and formatting handled by electron-log.

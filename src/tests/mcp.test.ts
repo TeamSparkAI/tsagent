@@ -1,4 +1,4 @@
-import { MCPClientImpl } from '../mcp/client.js';
+import { MCPClientImpl } from '../mcp/client';
 import path from 'path';
 
 describe('MCP Client', () => {

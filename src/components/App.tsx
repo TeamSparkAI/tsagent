@@ -1,4 +1,4 @@
-import React, { useState, useEffect, CSSProperties } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TabManager } from './TabManager';
 import { ChatTab } from './ChatTab';
 import { Tools } from './Tools';
@@ -73,23 +73,17 @@ export const App: React.FC = () => {
   };
 
   const renderTabContent = (tab: TabInstance) => {
-    // Properly type the style object
-    const style: CSSProperties | undefined = tab.id !== activeTabId ? {
-      visibility: 'hidden' as const,
-      position: 'absolute' as const
-    } : undefined;
-
     switch (tab.type) {
       case 'chat':
-        return <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
+        return <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'prompt':
-        return <PromptTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
+        return <PromptTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'rules':
-        return <RulesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
+        return <RulesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'references':
-        return <ReferencesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
+        return <ReferencesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'tools':
-        return <Tools key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} style={style} />;
+        return <Tools key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       default:
         return <div key={tab.id} />;
     }

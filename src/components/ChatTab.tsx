@@ -5,6 +5,7 @@ import { LLMType } from '../llm/types';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { ChatMessage } from '../types/ChatMessage';
+import log from 'electron-log';
 
 // Add ChatState interface back
 interface ChatState {
@@ -57,7 +58,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const handleScroll = () => {
     if (chatContainerRef.current) {
       const newPosition = chatContainerRef.current.scrollTop;
-      console.log(`Manual scroll in tab ${id}, saving position:`, newPosition);
+      log.info(`Manual scroll in tab ${id}, saving position:`, newPosition);
       setScrollPosition(newPosition);
     }
   };
@@ -66,12 +67,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     if (chatContainerRef.current) {
       if (isFirstRenderRef.current) {
         // On first render, scroll to bottom
-        console.log(`First render for tab ${id}, scrolling to bottom`);
+        log.info(`First render for tab ${id}, scrolling to bottom`);
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
         isFirstRenderRef.current = false;
       } else if (chatState.messages.length > lastMessageCountRef.current) {
         // If new messages, scroll to bottom
-        console.log(`New messages in tab ${id}, scrolling to bottom`);
+        log.info(`New messages in tab ${id}, scrolling to bottom`);
         chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
       }
       lastMessageCountRef.current = chatState.messages.length;
@@ -83,10 +84,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     if (chatContainerRef.current) {
       if (id === activeTabId) {
         // When switching to this tab, restore scroll position
-        console.log(`Restoring scroll position for tab ${id} to:`, scrollPosition);
+        log.info(`Restoring scroll position for tab ${id} to:`, scrollPosition);
         if (scrollPosition > 0) {
           chatContainerRef.current.scrollTop = scrollPosition;
-          console.log(`After restore, actual scroll position is:`, chatContainerRef.current.scrollTop);
+          log.info(`After restore, actual scroll position is:`, chatContainerRef.current.scrollTop);
         }
       }
     }
@@ -111,7 +112,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         selectedModel: chatApi.getCurrentModel()
       });
     } catch (error) {
-      console.error('Failed to get response:', error);
+      log.error('Failed to get response:', error);
     }
     setInputValue('');
     if (textareaRef.current) {
@@ -120,18 +121,23 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   };
 
   const handleModelChange = async (model: LLMType) => {
-    const success = await chatApi.switchModel(model);
-    if (success) {
+    try {
+      log.info('Switching to model:', model);
+      const success = await chatApi.switchModel(model);
       setChatState((prev: ChatState) => ({
         ...prev,
-        selectedModel: model,
-        messages: [...prev.messages, { type: 'system', content: `Switched to ${model} model` }]
+        selectedModel: success ? model : prev.selectedModel,
+        messages: chatApi.getMessages()
       }));
-    } else {
+      log.info('Successfully switched to model:', model);
+    } catch (error) {
+      // Revert the model selection
       setChatState((prev: ChatState) => ({
         ...prev,
-        messages: [...prev.messages, { type: 'error', content: 'Failed to switch model' }]
+        selectedModel: prev.selectedModel,
+        messages: chatApi.getMessages()
       }));
+      log.error('Error switching model:', error);
     }
   };
 

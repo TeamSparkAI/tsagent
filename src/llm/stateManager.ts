@@ -1,6 +1,6 @@
-import { MCPClientManager } from '../mcp/manager.js';
+import { MCPClientManager } from '../mcp/manager';
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
-import { ILLM } from './types.js';
+import { ILLM } from './types';
 
 export class LLMStateManager {
   private systemPrompt: string = '';

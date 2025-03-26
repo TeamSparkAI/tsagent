@@ -1,24 +1,39 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './components/App';
+import log from 'electron-log';
 
-console.log('Renderer starting...');
+// Handle any uncaught errors
+window.onerror = (message, source, lineno, colno, error) => {
+  log.error('Window error:', { message, source, lineno, colno, error });
+  return false;
+};
 
-// Setup debug button
+// Handle any unhandled promise rejections
+window.onunhandledrejection = (event) => {
+  log.error('Unhandled promise rejection:', event.reason);
+};
+
+// Add event handler for dev tools button
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM loaded, setting up debug button');
-  document.getElementById('debug-button')?.addEventListener('click', () => {
-    console.log('Debug button clicked');
-    window.api.toggleDevTools();
-  });
-});
+  const container = document.querySelector('.tab-container');
+  if (!container) {
+    log.error('Tab container not found');
+    throw new Error('Tab container not found');
+  }
 
-// Initialize React app
-const container = document.querySelector('.tab-container');
-console.log('Found container:', container);
-if (container) {
-  console.log('Creating React root');
   const root = createRoot(container);
-  console.log('Rendering App');
-  root.render(<App />);
-} 
+  root.render(
+    <React.StrictMode>
+      <App />
+    </React.StrictMode>
+  );
+
+  // Add event handler for dev tools button
+  const debugButton = document.getElementById('debug-button');
+  if (debugButton) {
+    debugButton.addEventListener('click', () => {
+      window.api.toggleDevTools();
+    });
+  }
+}); 

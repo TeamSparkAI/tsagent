@@ -1,36 +1,41 @@
-import { ILLM } from './types.js';
+import { ILLM } from './types';
 import Anthropic from '@anthropic-ai/sdk';
-import { config } from '../config.js';
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
-import { MessageParam } from '@anthropic-ai/sdk/resources/index.js';
-import { LLMStateManager } from './stateManager.js';
+import { getConfigValue } from '../config';
+import { Tool } from '@modelcontextprotocol/sdk/types';
+import { MessageParam } from '@anthropic-ai/sdk/resources/index';
+import { LLMStateManager } from './stateManager';
+import log from 'electron-log';
 
 export class ClaudeLLM implements ILLM {
-  private client: Anthropic;
-  private model: string;
-  private stateManager: LLMStateManager;
+  private client!: Anthropic;
+  private readonly modelName: string;
+  private readonly stateManager: LLMStateManager;
+  private initialized: boolean = false;
 
-  constructor(model: string = 'claude-3-7-sonnet-20250219', stateManager: LLMStateManager) {
-    if (!config.anthropicKey) {
-      throw new Error('ANTHROPIC_API_KEY must be provided');
-    }
-    console.log('Initializing Claude with model:', model);
-    
-    // Log key length to debug without exposing the key
-    console.log('Anthropic key length:', config.anthropicKey.length);
-    
-    // Log key prefix to verify format without exposing key
-    console.log('Anthropic key prefix:', config.anthropicKey.substring(0, 10) + '...');
-    
-    this.client = new Anthropic({
-      apiKey: config.anthropicKey,
-    });
-    this.model = model;
+  constructor(modelName: string, stateManager: LLMStateManager) {
+    this.modelName = modelName;
     this.stateManager = stateManager;
+    this.initialize();
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      const apiKey = getConfigValue('ANTHROPIC_API_KEY');
+      if (!apiKey) {
+        throw new Error('ANTHROPIC_API_KEY not set in config.json');
+      }
+      this.client = new Anthropic({ apiKey });
+      this.initialized = true;
+      console.log('Claude LLM initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Claude LLM:', error);
+      throw error;
+    }
   }
 
   async generateResponse(prompt: string): Promise<string> {
     try {
+      log.info('Generating response with Claude');
       // In order to maintain context, we need to pass the previous messages to each create call.  If we want
       // to allow subsequent calls to use tools, we need to pass the tools in those messages.  However, we do
       // not need to pass the tools in previous messages that have already been processed.  We do need to provide
@@ -51,7 +56,7 @@ export class ClaudeLLM implements ILLM {
         },
       ];
       const message = await this.client.messages.create({
-        model: this.model,
+        model: this.modelName,
         max_tokens: 1000,
         messages,
         system: this.stateManager.getSystemPrompt(), // Only need this on the first message in the context collection
@@ -78,7 +83,7 @@ export class ClaudeLLM implements ILLM {
             finalText.push(content.text);
           } else if (content.type === 'tool_use') {
             hasToolUse = true;
-            console.log('Tool use detected:', content);
+            log.info('Tool use detected:', content);
             const toolName = content.name;
             const toolUseId = content.id;
             const toolArgs = content.input as { [x: string]: unknown } | undefined;
@@ -90,7 +95,7 @@ export class ClaudeLLM implements ILLM {
             });
 
             const result = await this.stateManager.callTool(toolName, toolArgs);
-            console.log('Tool result:', result);
+            log.info('Tool result:', result);
             toolResults.push(result);
             finalText.push(
               `[Calling tool ${toolName} with args ${JSON.stringify(toolArgs)}]`
@@ -106,12 +111,12 @@ export class ClaudeLLM implements ILLM {
             }
       
             currentResponse = await this.client.messages.create({
-              model: this.model,
+              model: this.modelName,
               max_tokens: 1000,
               messages,
               tools,
             });
-            console.log('Response from tool results message:', currentResponse);
+            log.info('Response from tool results message:', currentResponse);
           }
         }
        
@@ -124,14 +129,16 @@ export class ClaudeLLM implements ILLM {
       }
 
       // Log token usage for monitoring
-      console.log('Tokens used:', {
+      log.info('Tokens used:', {
         input: message.usage.input_tokens,
         output: message.usage.output_tokens
       });
 
-      return finalText.join('\n');
+      const response = finalText.join('\n');
+      log.info('Claude response generated successfully');
+      return response;
     } catch (error: any) {
-      console.error('Claude API error:', error.message);
+      log.error('Claude API error:', error.message);
       return `Error: Failed to generate response from Claude - ${error.message}`;
     }
   }

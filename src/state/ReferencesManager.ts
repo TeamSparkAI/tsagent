@@ -2,25 +2,26 @@ import { Reference } from '../types/Reference';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
+import log from 'electron-log';
 
 export class ReferencesManager {
     private references: Reference[] = [];
-    private refsDir: string;
+    private referencesDir: string;
 
     constructor(configDir: string) {
-        this.refsDir = path.join(configDir, 'refs');
-        if (!fs.existsSync(this.refsDir)) {
-            fs.mkdirSync(this.refsDir, { recursive: true });
+        this.referencesDir = path.join(configDir, 'refs');
+        if (!fs.existsSync(this.referencesDir)) {
+            fs.mkdirSync(this.referencesDir, { recursive: true });
         }
         this.loadReferences();
     }
 
     private loadReferences() {
         this.references = [];
-        const files = fs.readdirSync(this.refsDir).filter(file => file.endsWith('.mdw'));
+        const files = fs.readdirSync(this.referencesDir).filter(file => file.endsWith('.mdw'));
         
         for (const file of files) {
-            const filePath = path.join(this.refsDir, file);
+            const filePath = path.join(this.referencesDir, file);
             const content = fs.readFileSync(filePath, 'utf-8');
             
             try {
@@ -39,7 +40,7 @@ export class ReferencesManager {
                     this.references.push(reference);
                 }
             } catch (error) {
-                console.error(`Error loading reference from ${file}:`, error);
+                log.error(`Error loading reference from ${file}:`, error);
             }
         }
         
@@ -61,7 +62,7 @@ export class ReferencesManager {
 
     public saveReference(reference: Reference) {
         const fileName = `${reference.name}.mdw`;
-        const filePath = path.join(this.refsDir, fileName);
+        const filePath = path.join(this.referencesDir, fileName);
         
         const metadata = {
             name: reference.name,
@@ -77,7 +78,7 @@ export class ReferencesManager {
     }
 
     public deleteReference(name: string) {
-        const filePath = path.join(this.refsDir, `${name}.mdw`);
+        const filePath = path.join(this.referencesDir, `${name}.mdw`);
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             this.loadReferences();

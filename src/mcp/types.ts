@@ -1,6 +1,6 @@
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
 
-export interface ServerConfig {
+export interface McpConfig {
   name: string;
   command: string;
   args: string[];
@@ -19,4 +19,4 @@ export interface MCPClient {
   connectToServer(command: string, args: string[], env?: Record<string, string>): Promise<void>;
   callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResult>;
   cleanup(): Promise<void>;
-} 
+}

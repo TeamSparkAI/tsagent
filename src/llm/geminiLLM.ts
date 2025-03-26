@@ -1,12 +1,16 @@
-import { ILLM } from './types.js';
-import { GenerativeModel, GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams } from '@google/generative-ai';
-import { config } from '../config.js';
+import { ILLM } from './types';
+import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType } from '@google/generative-ai';
+import { getConfigValue } from '../config';
 import { Tool } from "@modelcontextprotocol/sdk/types";
-import { LLMStateManager } from './stateManager.js';
+import { LLMStateManager } from './stateManager';
+import log from 'electron-log';
 
 export class GeminiLLM implements ILLM {
-  private model: GenerativeModel;
-  private stateManager: LLMStateManager;
+  private genAI: GoogleGenerativeAI | null = null;
+  private model: any = null;
+  private initialized = false;
+  private readonly modelName: string;
+  private readonly stateManager: LLMStateManager;
   private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
 
   private convertPropertyType(prop: any): { type: string; items?: { type: string } } {
@@ -58,20 +62,25 @@ export class GeminiLLM implements ILLM {
   }
 
   constructor(modelName: string, stateManager: LLMStateManager) {
-    if (!config.geminiKey) {
-      throw new Error('GEMINI_API_KEY must be provided');
-    }
-    const genAI = new GoogleGenerativeAI(config.geminiKey);
-    const mcpTools = stateManager.getAllTools();
-    const modelOptions: ModelParams = { model: modelName };
-    
-    if (mcpTools.length > 0) {
-      const tools = this.convertMCPToolsToGeminiTool(mcpTools);
-      modelOptions.tools = [tools];
-    }
-    
-    this.model = genAI.getGenerativeModel(modelOptions);
+    this.modelName = modelName;
     this.stateManager = stateManager;
+    this.initialize();
+  }
+
+  async initialize(): Promise<void> {
+    try {
+      const apiKey = getConfigValue('GEMINI_API_KEY');
+      if (!apiKey) {
+        throw new Error('GEMINI_API_KEY not set in config.json');
+      }
+      this.genAI = new GoogleGenerativeAI(apiKey);
+      this.model = this.genAI.getGenerativeModel({ model: this.modelName });
+      this.initialized = true;
+      console.log('Gemini LLM initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Gemini LLM:', error);
+      throw error;
+    }
   }
 
   async generateResponse(prompt: string): Promise<string> {
@@ -89,11 +98,11 @@ export class GeminiLLM implements ILLM {
 
       while (turnCount < this.MAX_TURNS) {
         turnCount++;
-        console.log(`Sending message prompt "${prompt}", turn count: ${turnCount}`);
+        log.info(`Sending message prompt "${prompt}", turn count: ${turnCount}`);
         const result = await chat.sendMessage(currentPrompt);
         const response = result.response;
 
-        console.log('response', JSON.stringify(response, null, 2));
+        log.info('response', JSON.stringify(response, null, 2));
 
         // Process all parts of the response
         let hasFunctionCalls = false;
@@ -111,14 +120,14 @@ export class GeminiLLM implements ILLM {
             if (part.functionCall?.name && part.functionCall?.args) {
               hasFunctionCalls = true;
               const { name, args } = part.functionCall;
-              console.log('Function call detected:', part.functionCall);
+              log.info('Function call detected:', part.functionCall);
 
               // Call the tool
               const toolResult = await this.stateManager.callTool(
                 name,
                 args as Record<string, unknown>
               );
-              console.log('Tool result:', toolResult);
+              log.info('Tool result:', toolResult);
 
               // Record the function call and result
               finalText.push(
@@ -150,7 +159,7 @@ export class GeminiLLM implements ILLM {
       return finalText.join('\n');
 
     } catch (error: any) {
-      console.error('Gemini API error:', error);
+      log.error('Gemini API error:', error);
       const errorMessage = error.message || 'Unknown error';
       return `Error: Failed to generate response from Gemini - ${errorMessage}`;
     }

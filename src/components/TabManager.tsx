@@ -47,17 +47,19 @@ export const TabManager: React.FC<TabManagerProps> = ({
         ))}
         <button className="new-tab-button" onClick={() => onAddTab('chat')}>+ New Chat</button>
       </div>
-      <div className="tab-content active">
-        {React.Children.map(children, child => {
-          if (React.isValidElement<TabChildProps>(child)) {
-            return React.cloneElement(child, {
-              ...child.props,
-              activeTabId
-            });
-          }
-          return child;
-        })}
-      </div>
+      {React.Children.map(children, child => {
+        if (React.isValidElement<TabChildProps>(child)) {
+          return (
+            <div className={`tab-content ${activeTabId === child.props.id ? 'active' : ''}`}>
+              {React.cloneElement(child, {
+                ...child.props,
+                activeTabId
+              })}
+            </div>
+          );
+        }
+        return child;
+      })}
     </div>
   );
 }; 

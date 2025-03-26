@@ -1,12 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { MCPClient } from '../mcp/types.js';
-import { ServerConfig, ToolParameter } from '../mcp/types.js';
+import { McpConfig } from '../mcp/types';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { TabProps } from '../types/TabProps';
+import log from 'electron-log';
+
+interface ServerInfo {
+    serverVersion: string;
+    serverTools: any[];
+}
 
 interface EditServerModalProps {
-    server?: ServerConfig & { name: string };
-    onSave: (server: ServerConfig & { name: string }) => void;
+    server?: McpConfig;
+    onSave: (server: McpConfig) => void;
     onCancel: () => void;
 }
 
@@ -137,11 +142,12 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
 };
 
 export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
-    const [servers, setServers] = useState<ServerConfig[]>([]);
-    const [selectedServer, setSelectedServer] = useState<ServerConfig | null>(null);
-    const [mcpClients, setMcpClients] = useState<Map<string, MCPClient>>(new Map());
-    const [isEditing, setIsEditing] = useState(false);
-    const [editingServer, setEditingServer] = useState<(ServerConfig & { name: string }) | undefined>(undefined);
+    const [servers, setServers] = useState<McpConfig[]>([]);
+    const [selectedServer, setSelectedServer] = useState<McpConfig | null>(null);
+    const [showAddModal, setShowAddModal] = useState(false);
+    const [showEditModal, setShowEditModal] = useState(false);
+    const [editingServer, setEditingServer] = useState<(McpConfig) | undefined>(undefined);
+    const [serverInfo, setServerInfo] = useState<Record<string, ServerInfo>>({});
 
     useEffect(() => {
         loadServers();
@@ -149,39 +155,40 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     const loadServers = async () => {
         const serverConfigs = await window.api.getServerConfigs();
+        log.info('serverConfigs', serverConfigs);
         setServers(serverConfigs);
         
-        const clientsMap = new Map<string, MCPClient>();
+        const infoMap: Record<string, ServerInfo> = {};
         for (const config of serverConfigs) {
             try {
-                const client = await window.api.getMCPClient(config.name);
-                clientsMap.set(config.name, client);
+                const info = await window.api.getMCPClient(config.name) as ServerInfo;
+                infoMap[config.name] = info;
             } catch (err) {
-                console.error(`Failed to connect to server ${config.name}:`, err);
+                log.error(`Failed to connect to server ${config.name}:`, err);
             }
         }
-        setMcpClients(clientsMap);
+        setServerInfo(infoMap);
     };
 
     const handleAddServer = () => {
         setEditingServer(undefined);
-        setIsEditing(true);
+        setShowEditModal(true);
         setSelectedServer(null);
     };
 
-    const handleEditServer = (server: ServerConfig & { name: string }) => {
+    const handleEditServer = (server: McpConfig) => {
         setEditingServer(server);
-        setIsEditing(true);
+        setShowEditModal(true);
     };
 
-    const handleSaveServer = async (server: ServerConfig & { name: string }) => {
+    const handleSaveServer = async (server: McpConfig) => {
         await window.api.saveServerConfig(server);
-        setIsEditing(false);
+        setShowEditModal(false);
         await loadServers();
         setSelectedServer(server);
     };
 
-    const handleDeleteServer = async (server: ServerConfig & { name: string }) => {
+    const handleDeleteServer = async (server: McpConfig) => {
         if (confirm(`Are you sure you want to delete the server "${server.name}"?`)) {
             await window.api.deleteServerConfig(server.name);
             setSelectedServer(null);
@@ -203,16 +210,16 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                     {servers.map(server => (
                         <div
                             key={server.name}
-                            onClick={() => !isEditing && setSelectedServer(server)}
+                            onClick={() => !showEditModal && setSelectedServer(server)}
                             style={{
                                 padding: '8px 16px',
-                                cursor: isEditing ? 'not-allowed' : 'pointer',
+                                cursor: showEditModal ? 'not-allowed' : 'pointer',
                                 backgroundColor: selectedServer?.name === server.name ? '#e0e0e0' : 'transparent',
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '8px',
-                                filter: isEditing ? 'grayscale(0.5)' : 'none',
-                                pointerEvents: isEditing ? 'none' : 'auto'
+                                filter: showEditModal ? 'grayscale(0.5)' : 'none',
+                                pointerEvents: showEditModal ? 'none' : 'auto'
                             }}
                         >
                             <span>{server.name}</span>
@@ -223,11 +230,11 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
             {/* Right side - Server Details or Edit Form */}
             <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
-                {isEditing ? (
+                {showEditModal ? (
                     <EditServerModal
                         server={editingServer}
                         onSave={handleSaveServer}
-                        onCancel={() => setIsEditing(false)}
+                        onCancel={() => setShowEditModal(false)}
                     />
                 ) : selectedServer ? (
                     <div>
@@ -244,7 +251,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                             </div>
                         </div>
 
-                        {mcpClients.get(selectedServer.name)?.serverTools.map((tool: Tool) => (
+                        {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => (
                             <div key={tool.name} className="tool-item" style={{ marginBottom: '20px' }}>
                                 <h3>{tool.name}</h3>
                                 <p>{tool.description || 'No description'}</p>

@@ -1,5 +1,6 @@
 import { LLMType } from '../llm/types';
 import { ChatMessage } from '../types/ChatMessage';
+import log from 'electron-log';
 
 export class ChatAPI {
   private tabId: string;
@@ -39,20 +40,35 @@ export class ChatAPI {
   }
 
   public async switchModel(model: LLMType): Promise<boolean> {
-    const success = await window.api._switchModel(this.tabId, model);
-    if (success) {
-      this.currentModel = model;
-      this.messages.push({ 
-        type: 'system', 
-        content: `Switched to ${model} model` 
-      });
-    } else {
+    try {
+      log.info('ChatAPI: Attempting to switch model to:', model);
+      const result = await window.api._switchModel(this.tabId, model);
+      log.info('ChatAPI: Received switch model result:', result);
+      if (result.success) {
+        this.currentModel = model;
+        this.messages.push({ 
+          type: 'system', 
+          content: `Switched to ${model} model` 
+        });
+        return true;
+      } else {
+        log.info('ChatAPI: Model switch failed:', result.error);
+        const errorMessage = result.error || 'Failed to switch model';
+        log.info('ChatAPI: Adding error message to chat:', errorMessage);
+        this.messages.push({ 
+          type: 'error', 
+          content: errorMessage
+        });
+        return false;
+      }
+    } catch (error) {
+      log.error('ChatAPI: Error in switchModel:', error);
       this.messages.push({ 
         type: 'error', 
-        content: 'Failed to switch model' 
+        content: error instanceof Error ? error.message : 'Failed to switch model' 
       });
+      return false;
     }
-    return success;
   }
 
   public getMessages(): ChatMessage[] {
