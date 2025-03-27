@@ -44,6 +44,17 @@ export class ClaudeLLM implements ILLM {
         }
       });
 
+      // If the first message is the system prompt, we will to remove it from the messages array and we'll inject it as a 
+      // system message using the specific property on the create call.  We originally did this by just sticking the system
+      // prompt in the first position of the messages array as a user message and it seemed to work, but this is the more
+      // explicit "Anthropic way" of doing it.
+      //
+      var systemPrompt = null;
+      if (messages[0].role === 'system') {
+        systemPrompt = messages[0].content;
+        messages.shift();
+      }
+
       // Turn our ChatMessage[] into a Anthropic API MessageParam[]
       const turnMessages: MessageParam[] = messages.map(message => {
         return {
@@ -53,11 +64,12 @@ export class ClaudeLLM implements ILLM {
         }
       });
 
+      // We could check to see if the first message is the system prompt and inject it as a system message, but we'll just
       const message = await this.client.messages.create({
         model: this.modelName,
         max_tokens: 1000,
         messages: turnMessages,
-        system: this.stateManager.getSystemPrompt(), // Only need this on the first message in the context collection
+        system: systemPrompt || undefined,
         tools,
       });
 

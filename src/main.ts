@@ -13,6 +13,7 @@ import { setupCLI } from './cli';
 import { McpConfig } from './mcp/types';
 import { ConfigManager } from './state/ConfigManager';
 import { ChatSessionManager } from './state/ChatSessionManager';
+import { AppState } from './state/AppState';
 
 // Configure electron-log
 let configManager: ConfigManager;
@@ -61,7 +62,12 @@ async function initialize() {
   mcpManager = new MCPClientManager();
   rulesManager = new RulesManager(CONFIG_DIR);
   referencesManager = new ReferencesManager(CONFIG_DIR);
-  chatSessionManager = new ChatSessionManager();
+
+  // Create AppState
+  const appState = new AppState(configManager, rulesManager, referencesManager, mcpManager);
+  
+  // Initialize ChatSessionManager with AppState
+  chatSessionManager = new ChatSessionManager(appState);
 
   // Initialize the LLM Factory with the manager
   log.info('Initializing LLMFactory with MCPManager');
@@ -281,24 +287,18 @@ async function startApp() {
     ipcMain.handle('get-system-prompt', async () => {
       try {
         const prompt = await configManager.getSystemPrompt();
-        // Initialize LLM state with loaded prompt
-        LLMFactory.getStateManager().setSystemPrompt(prompt);
         return prompt;
       } catch (err) {
         log.error('Error reading system prompt, using default:', err);
-        // If file doesn't exist, create it with default prompt
-        await configManager.saveSystemPrompt(DEFAULT_PROMPT);
-        LLMFactory.getStateManager().setSystemPrompt(DEFAULT_PROMPT);
-        return DEFAULT_PROMPT;
+        throw err;
       }
     });
 
     ipcMain.handle('save-system-prompt', async (_, prompt: string) => {
       try {
         await configManager.saveSystemPrompt(prompt);
-        // Update LLM state with new prompt
-        LLMFactory.getStateManager().setSystemPrompt(prompt);
         log.info('System prompt saved successfully');
+        return { success: true };
       } catch (err) {
         log.error('Error saving system prompt:', err);
         throw err;

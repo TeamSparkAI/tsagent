@@ -1,12 +1,15 @@
 import { ChatSession, ChatSessionOptions, ChatState, ChatMessage, MessageUpdate } from '../types/ChatSession';
 import { LLMType } from '../llm/types';
 import { LLMFactory } from '../llm/llmFactory';
+import { AppState } from './AppState';
 import log from 'electron-log';
-
-const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
 export class ChatSessionManager {
   private sessions = new Map<string, ChatSession>();
+  
+  constructor(private appState: AppState) {
+    log.info('ChatSessionManager initialized');
+  }
   
   createSession(tabId: string, options: ChatSessionOptions = {}): ChatSession {
     // Don't create if already exists
@@ -30,8 +33,8 @@ export class ChatSessionManager {
       ],
       lastSyncId: 0,
       currentModel: modelType,
-      systemPrompt: options.systemPrompt || DEFAULT_PROMPT,
-      llm
+      llm,
+      appState: this.appState
     };
     
     this.sessions.set(tabId, session);
@@ -119,6 +122,9 @@ export class ChatSessionManager {
   async handleMessage(tabId: string, message: string): Promise<MessageUpdate> {
     const session = this.getSession(tabId);
 
+    // Get system prompt from config
+    const systemPrompt = await session.appState.getConfigManager().getSystemPrompt();
+
     // For now, ChatMessage[] is just going to be the system prompt and the user message
     const userMessage: ChatMessage = {
       role: 'user',
@@ -126,7 +132,7 @@ export class ChatSessionManager {
     };
     
     const messages: ChatMessage[] = [
-      { role: 'system', content: session.systemPrompt },
+      { role: 'system', content: systemPrompt },
       userMessage
     ];
       

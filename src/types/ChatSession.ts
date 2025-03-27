@@ -1,5 +1,6 @@
 import { LLMType } from '../llm/types';
 import { ILLM } from '../llm/types';
+import { AppState } from '../state/AppState';
 
 // These represent the Electron-side chat history (requests and responses)
 export interface ChatMessage {
@@ -11,8 +12,8 @@ export interface ChatSession {
   messages: ChatMessage[];
   lastSyncId: number;
   currentModel: LLMType;
-  systemPrompt: string;
   llm: ILLM;
+  appState: AppState;
 }
 
 export interface ChatState {
@@ -28,7 +29,6 @@ export interface MessageUpdate {
 
 export interface ChatSessionOptions {
   modelType?: LLMType;
-  systemPrompt?: string;
   initialMessages?: ChatMessage[];
 }
 
