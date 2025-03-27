@@ -1,12 +1,12 @@
 import { LLMType } from '../llm/types';
-import { ChatMessage } from '../types/ChatMessage';
-import { Message } from '../types/ChatSession';
+import { RendererChatMessage } from '../types/ChatMessage';
+import { ChatMessage } from '../types/ChatSession';
 import log from 'electron-log';
 
 export class ChatAPI {
   private tabId: string;
   private currentModel: LLMType;
-  private messages: ChatMessage[] = [];
+  private messages: RendererChatMessage[] = [];
 
   constructor(tabId: string) {
     this.tabId = tabId;
@@ -21,7 +21,7 @@ export class ChatAPI {
     this.messages = state.messages.map(this.convertMessageToChatMessage);
   }
 
-  private convertMessageToChatMessage(message: Message): ChatMessage {
+  private convertMessageToChatMessage(message: ChatMessage): RendererChatMessage {
     return {
       type: message.role === 'assistant' ? 'ai' : message.role,
       content: message.content
@@ -58,7 +58,7 @@ export class ChatAPI {
     }
   }
 
-  public getMessages(): ChatMessage[] {
+  public getMessages(): RendererChatMessage[] {
     return [...this.messages];
   }
 

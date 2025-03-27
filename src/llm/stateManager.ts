@@ -45,9 +45,4 @@ export class LLMStateManager {
   getDocument(id: string): string | undefined {
     return this.documents.get(id);
   }
-
-  async generateResponse(prompt: string, llm: ILLM): Promise<string> {
-    const fullPrompt = `${this.systemPrompt}\n\nUser: ${prompt}\nAssistant:`;
-    return await llm.generateResponse(fullPrompt);
-  }
 } 

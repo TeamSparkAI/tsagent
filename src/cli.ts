@@ -6,6 +6,7 @@ import { ConfigManager } from './state/ConfigManager';
 import log from 'electron-log';
 import { MCPClientImpl } from './mcp/client';
 import { Tool } from '@modelcontextprotocol/sdk/types';
+import { ChatMessage } from './types/ChatSession';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -142,7 +143,11 @@ export function setupCLI() {
       }
 
       try {
-        const response = await currentLLM.generateResponse(input);
+        const messages: ChatMessage[] = [
+          { role: 'system', content: await configManager.getSystemPrompt() },
+          { role: 'user', content: input }
+        ];
+        const response = await currentLLM.generateResponse(messages);
         console.log(`AI: ${response}`);
       } catch (error: unknown) {
         if (error instanceof Error) {

@@ -1,5 +1,6 @@
 import { LLMStateManager } from './stateManager';
 import { ConfigManager } from '../state/ConfigManager';
+import { ChatMessage } from '../types/ChatSession';
 
 export enum LLMType {
   Test = 'TEST',
@@ -9,7 +10,7 @@ export enum LLMType {
 }
 
 export interface ILLM {
-  generateResponse(prompt: string): Promise<string>;
+  generateResponse(messages: ChatMessage[]): Promise<string>;
 }
 
 export interface LLMConstructor {

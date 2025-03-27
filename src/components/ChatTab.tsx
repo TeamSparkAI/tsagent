@@ -4,12 +4,12 @@ import { ChatAPI } from '../api/ChatAPI';
 import { LLMType } from '../llm/types';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
-import { ChatMessage } from '../types/ChatMessage';
+import { RendererChatMessage } from '../types/ChatMessage';
 import log from 'electron-log';
 
 // Add ChatState interface back
 interface ChatState {
-  messages: ChatMessage[];
+  messages: RendererChatMessage[];
   selectedModel: LLMType;
 }
 
@@ -219,7 +219,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         onContextMenu={handleContextMenu}
         onScroll={handleScroll}
       >
-        {chatState.messages.map((msg: ChatMessage, idx: number) => (
+        {chatState.messages.map((msg: RendererChatMessage, idx: number) => (
           <div 
             key={idx} 
             className={`message ${msg.type}`}

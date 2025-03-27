@@ -1,9 +1,10 @@
 import { ILLM } from './types';
-import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType } from '@google/generative-ai';
+import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams } from '@google/generative-ai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { LLMStateManager } from './stateManager';
 import { ConfigManager } from '../state/ConfigManager';
 import log from 'electron-log';
+import { ChatMessage } from '../types/ChatSession';
 
 export class GeminiLLM implements ILLM {
   private genAI: GoogleGenerativeAI;
@@ -69,7 +70,13 @@ export class GeminiLLM implements ILLM {
     try {
       const apiKey = this.configManager.getConfigValue('GEMINI_API_KEY');
       this.genAI = new GoogleGenerativeAI(apiKey);
-      this.model = this.genAI.getGenerativeModel({ model: this.modelName });
+      const modelOptions: ModelParams = { model: modelName };
+      const tools = this.stateManager.getAllTools();
+      if (tools.length > 0) {
+        const modelTools = this.convertMCPToolsToGeminiTool(tools);
+        modelOptions.tools = [modelTools];
+      }
+      this.model = this.genAI.getGenerativeModel(modelOptions);
       log.info('Gemini LLM initialized successfully');
     } catch (error) {
       log.error('Failed to initialize Gemini LLM:', error);
@@ -77,22 +84,25 @@ export class GeminiLLM implements ILLM {
     }
   }
 
-  async generateResponse(prompt: string): Promise<string> {
+  async generateResponse(messages: ChatMessage[]): Promise<string> {
     try {
+      // Split messages into history and current prompt
+      const history = messages.slice(0, -1).map(message => ({
+        role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
+        parts:[{ text: message.content }]
+      }));
+      var currentPrompt = messages[messages.length - 1].content;
+
       const chat = this.model.startChat({
-        history: [{
-          role: "user",
-          parts: [{ text: this.stateManager.getSystemPrompt() }]
-        }],
+        history
       });
 
       const finalText = [];
       let turnCount = 0;
-      let currentPrompt = prompt;
 
       while (turnCount < this.MAX_TURNS) {
         turnCount++;
-        log.info(`Sending message prompt "${prompt}", turn count: ${turnCount}`);
+        log.info(`Sending message prompt "${currentPrompt}", turn count: ${turnCount}`);
         const result = await chat.sendMessage(currentPrompt);
         const response = result.response;
 

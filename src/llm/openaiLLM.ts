@@ -4,6 +4,8 @@ import { LLMStateManager } from './stateManager';
 import { ConfigManager } from '../state/ConfigManager';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
+import { MessageParam } from '@anthropic-ai/sdk/resources/messages';
+import { ChatMessage } from '../types/ChatSession';
 
 export class OpenAILLM implements ILLM {
   private client!: OpenAI;
@@ -38,16 +40,22 @@ export class OpenAILLM implements ILLM {
       throw error;
     }
   }
-
-  async generateResponse(prompt: string): Promise<string> {
+  async generateResponse(messages: ChatMessage[]): Promise<string> {
     try {
       log.info('Generating response with OpenAI');
       const finalText = [];
       let turnCount = 0;
-      let currentMessages: OpenAI.ChatCompletionMessageParam[] = [
-        { role: 'system', content: this.stateManager.getSystemPrompt() },
-        { role: 'user', content: prompt }
-      ];
+
+      // Turn our ChatMessage[] into a OpenAPI API ChatCompletionMessageParam[]
+      let currentMessages: OpenAI.ChatCompletionMessageParam[] = messages.map(message => {
+          return {
+          // Conver to a role that OpenAI API accepts (user or assistant)
+          role: message.role === 'error' ? 'assistant' : message.role,
+          content: message.content,
+        }
+      });
+
+      log.info('Starting OpenAI LLM with messages:', currentMessages);
 
       const tools = this.stateManager.getAllTools();
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));

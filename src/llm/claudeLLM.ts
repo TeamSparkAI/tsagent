@@ -5,6 +5,7 @@ import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 import { LLMStateManager } from './stateManager';
 import { ConfigManager } from '../state/ConfigManager';
 import log from 'electron-log';
+import { ChatMessage } from '../types/ChatSession';
 
 export class ClaudeLLM implements ILLM {
   private client!: Anthropic;
@@ -27,7 +28,7 @@ export class ClaudeLLM implements ILLM {
     }
   }
 
-  async generateResponse(prompt: string): Promise<string> {
+  async generateResponse(messages: ChatMessage[]): Promise<string> {
     try {
       log.info('Generating response with Claude');
       // In order to maintain context, we need to pass the previous messages to each create call.  If we want
@@ -43,16 +44,19 @@ export class ClaudeLLM implements ILLM {
         }
       });
 
-      const messages: MessageParam[] = [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ];
+      // Turn our ChatMessage[] into a Anthropic API MessageParam[]
+      const turnMessages: MessageParam[] = messages.map(message => {
+        return {
+          // Conver to a role that Anthropic API accepts (user or assistant)
+          role: message.role === 'system' || message.role === 'error' ? 'assistant' : message.role,
+          content: message.content,
+        }
+      });
+
       const message = await this.client.messages.create({
         model: this.modelName,
         max_tokens: 1000,
-        messages,
+        messages: turnMessages,
         system: this.stateManager.getSystemPrompt(), // Only need this on the first message in the context collection
         tools,
       });
@@ -70,7 +74,7 @@ export class ClaudeLLM implements ILLM {
         for (const content of currentResponse.content) {
           if (content.type === 'text') {
             // Need to keep all of the text responses in the messages collection for context
-            messages.push({
+            turnMessages.push({
               role: "assistant",
               content: content.text,
             });
@@ -83,7 +87,7 @@ export class ClaudeLLM implements ILLM {
             const toolArgs = content.input as { [x: string]: unknown } | undefined;
            
             // Record the tool use request in the message context
-            messages.push({
+            turnMessages.push({
               role: "assistant",
               content: `[Using tool ${toolName} with input: ${JSON.stringify(toolArgs)}]`
             });
@@ -98,7 +102,7 @@ export class ClaudeLLM implements ILLM {
             const toolResultContent = result.content[0];
             // Record the tool result in the message context
             if (toolResultContent && toolResultContent.type === 'text') {
-              messages.push({
+              turnMessages.push({
                 role: "user",
                 content: `[Tool ${toolName} returned: ${toolResultContent.text}]`,
               });
@@ -107,7 +111,7 @@ export class ClaudeLLM implements ILLM {
             currentResponse = await this.client.messages.create({
               model: this.modelName,
               max_tokens: 1000,
-              messages,
+              messages: turnMessages,
               tools,
             });
             log.info('Response from tool results message:', currentResponse);

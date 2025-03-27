@@ -1,13 +1,14 @@
 import { LLMType } from '../llm/types';
 import { ILLM } from '../llm/types';
 
-export interface Message {
+// These represent the Electron-side chat history (requests and responses)
+export interface ChatMessage {
   role: 'user' | 'assistant' | 'system' | 'error';
   content: string;
 }
 
 export interface ChatSession {
-  messages: Message[];
+  messages: ChatMessage[];
   lastSyncId: number;
   currentModel: LLMType;
   systemPrompt: string;
@@ -15,25 +16,25 @@ export interface ChatSession {
 }
 
 export interface ChatState {
-  messages: Message[];
+  messages: ChatMessage[];
   lastSyncId: number;
   currentModel: LLMType;
 }
 
 export interface MessageUpdate {
-  updates: Message[];
+  updates: ChatMessage[];
   lastSyncId: number;
 }
 
 export interface ChatSessionOptions {
   modelType?: LLMType;
   systemPrompt?: string;
-  initialMessages?: Message[];
+  initialMessages?: ChatMessage[];
 }
 
 export interface ChatSessionResponse {
   success: boolean;
   error?: string;
-  updates: Message[];
+  updates: ChatMessage[];
   lastSyncId: number;
 } 

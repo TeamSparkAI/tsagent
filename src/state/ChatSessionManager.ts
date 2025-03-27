@@ -1,4 +1,4 @@
-import { ChatSession, ChatSessionOptions, ChatState, Message, MessageUpdate } from '../types/ChatSession';
+import { ChatSession, ChatSessionOptions, ChatState, ChatMessage, MessageUpdate } from '../types/ChatSession';
 import { LLMType } from '../llm/types';
 import { LLMFactory } from '../llm/llmFactory';
 import log from 'electron-log';
@@ -59,14 +59,27 @@ export class ChatSessionManager {
     return this.sessions.has(tabId);
   }
 
-  // !!! We're going to pass in a bag of messages
+
+  // !!! Notes:
+  //
+  //  Based on the user message, we will determine references and rules to include with the request
+  //  UserMessage:
+  //    - Message (text)
+  //    - References (set)
+  //      - reference id
+  //    - Rules (set)
+  //      - rule id
+  //
+  //  We're going to construct and pass a bag of messages to the LLM
   //     - System prompt
   //     - Historical messages (set)
-  //       - User prompt
+  //       - User prompt (references and rules?)
   //       - Server reply (set)
   //         - Text reply (when no tool call, final message, when tool call, explanatory text related to tool call)
   //         - Tool call
   //         - Tool call result (coorrelated to call)
+  //     - References (set)
+  //     - Rules (set)
   //     - User prompt
   //
   // We may inject references or rules as appropriate (do we maintain historical references/rules in all cases, or do we curate the list
@@ -105,15 +118,26 @@ export class ChatSessionManager {
   //
   async handleMessage(tabId: string, message: string): Promise<MessageUpdate> {
     const session = this.getSession(tabId);
+
+    // For now, ChatMessage[] is just going to be the system prompt and the user message
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: message
+    };
     
+    const messages: ChatMessage[] = [
+      { role: 'system', content: session.systemPrompt },
+      userMessage
+    ];
+      
     try {
-      const response = await session.llm.generateResponse(message);
+      const response = await session.llm.generateResponse(messages);
       if (!response) {
         throw new Error(`Failed to generate response from ${session.currentModel}`);
       }
 
-      const updates: Message[] = [
-        { role: 'user' as const, content: message },
+      const updates: ChatMessage[] = [
+        userMessage,
         { role: 'assistant' as const, content: response }
       ];
       
@@ -145,7 +169,7 @@ export class ChatSessionManager {
       session.llm = llm;
 
       // Add a system message about the model switch
-      const systemMessage: Message = {
+      const systemMessage: ChatMessage = {
         role: 'system',
         content: `Switched to ${modelType} model`
       };

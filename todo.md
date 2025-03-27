@@ -6,16 +6,6 @@ https://www.anthropic.com/news/model-context-protocol
 
 https://modelcontextprotocol.io/
 
-Chat message
-- System prompt plus user message
-- while response < max turns
-  - record any text reponse (optional)
-  - if any function calls
-    - call functions
-    - reply with function call results
-  - if no function calls
-    - done (break)
-
 ## Model abstraction
 
 We probably want to have a list of providers (basically representing an API/SDK)
@@ -50,6 +40,8 @@ If we tied a chat window to a model, we could have a "settings" button that lets
 
 mcp client can specify cwd to stdio transport (workspace implications)
 
+parse command, if it's a URL, use SSE transport (or support special config - look at what mcp/Anthro does)
+
 To run MCP test app: npx @modelcontextprotocol/inspector
 
 Resources
@@ -62,6 +54,7 @@ Test tool - collect params, run, show output
 - For for params (incliding array params)
 - Test Tool button
 - Tool output shown below
+- Elapsed time
 
 "History" for each tool call that shows JSON request (tool name, params) and response
 
@@ -87,14 +80,14 @@ Show tool calls / results in chat in compact items where you can click for full 
 
 Show tools/rules/contexts included in chat somehow?
 
-Allow user to @mention a tool, rule, or context to force include in the chat
+Allow user to @mention a tool, rule, or referencec to force include in the chat
 
-Allow user to pick any chat element and store it as context
+Allow user to pick any chat element and store it as a reference
 
 Maybe as you type we add in scope that you can see (and you can remove if you don't want it)
 
 Debug logic
-- Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, contexts, etc)
+- Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 
 ## Logic
 
@@ -156,3 +149,14 @@ A rule could be correlated to a reference or a toolset/tool
   - terms: file directory
   - tool: filesystem (anytime you use filesystem tools, this rule will be applied)
   - ref: product (anytime you use this reference, this rule will be applied)
+
+## Tool Permission
+
+Allow tool from [server name]?
+
+  Run [toolname] from [server/server name]
+
+Malicious MCP Servers or conversation content could potentially trick xxxxx into attempting harmful actions through your installed tools.
+<bold>Review each action carefully before approving</bold>
+
+[Allow for this chat] [Allow once] [Deny]
