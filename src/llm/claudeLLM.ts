@@ -11,20 +11,15 @@ export class ClaudeLLM implements ILLM {
   private readonly modelName: string;
   private readonly stateManager: LLMStateManager;
   private readonly configManager: ConfigManager;
-  private initialized: boolean = false;
 
   constructor(modelName: string, stateManager: LLMStateManager, configManager: ConfigManager) {
     this.modelName = modelName;
     this.stateManager = stateManager;
     this.configManager = configManager;
-    this.initialize();
-  }
-
-  async initialize(): Promise<void> {
+    
     try {
-      const apiKey = await this.configManager.getConfigValue('ANTHROPIC_API_KEY');
+      const apiKey = this.configManager.getConfigValue('ANTHROPIC_API_KEY');
       this.client = new Anthropic({ apiKey });
-      this.initialized = true;
       log.info('Claude LLM initialized successfully');
     } catch (error) {
       log.error('Failed to initialize Claude LLM:', error);

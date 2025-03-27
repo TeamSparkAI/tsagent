@@ -12,6 +12,7 @@ import * as fs from 'fs';
 import { setupCLI } from './cli';
 import { McpConfig } from './mcp/types';
 import { ConfigManager } from './state/ConfigManager';
+import { ChatSessionManager } from './state/ChatSessionManager';
 
 // Configure electron-log
 let configManager: ConfigManager;
@@ -21,6 +22,7 @@ const __dirname = path.dirname(__filename);
 let mcpManager: MCPClientManager;
 let rulesManager: RulesManager;
 let referencesManager: ReferencesManager;
+let chatSessionManager: ChatSessionManager;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
 function intializeLogging(isElectron: boolean) {
@@ -50,11 +52,16 @@ async function initialize() {
     fs.mkdirSync(CONFIG_DIR, { recursive: true });
   }
 
+  // Load config first
+  log.info('Loading config...');
+  await configManager.loadConfig();
+
   // Initialize managers
   log.info('Initializing managers with config directory:', CONFIG_DIR);
   mcpManager = new MCPClientManager();
   rulesManager = new RulesManager(CONFIG_DIR);
   referencesManager = new ReferencesManager(CONFIG_DIR);
+  chatSessionManager = new ChatSessionManager();
 
   // Initialize the LLM Factory with the manager
   log.info('Initializing LLMFactory with MCPManager');
@@ -159,36 +166,64 @@ async function startApp() {
     }
   
     // Handle IPC messages
-    ipcMain.handle('send-message', async (_, tabId: string, message: string) => {
-      log.info('Main process received message:', message);
-      let llm = llmInstances.get(tabId);
-      if (!llm) {
-        log.info('Creating new LLM instance');
-        llm = LLMFactory.create(LLMType.Test);
-        llmInstances.set(tabId, llm);
-        llmTypes.set(tabId, LLMType.Test);
+    ipcMain.handle('create-chat-tab', (_, tabId: string) => {
+      try {
+        chatSessionManager.createSession(tabId);
+        return { success: true };
+      } catch (error) {
+        log.error('Error creating chat tab:', error);
+        return { 
+          success: false, 
+          error: error instanceof Error ? error.message : String(error)
+        };
       }
-      const response = await llm.generateResponse(message);
-      log.info('Main process sending response:', response);
-      return response;
+    });
+
+    ipcMain.handle('close-chat-tab', (_, tabId: string) => {
+      try {
+        chatSessionManager.deleteSession(tabId);
+        return { success: true };
+      } catch (error) {
+        log.error('Error closing chat tab:', error);
+        return { 
+          success: false, 
+          error: error instanceof Error ? error.message : String(error)
+        };
+      }
+    });
+
+    ipcMain.handle('get-chat-state', (_, tabId: string) => {
+      try {
+        return chatSessionManager.getSessionState(tabId);
+      } catch (error) {
+        log.error('Error getting chat state:', error);
+        throw error;
+      }
+    });
+
+    ipcMain.handle('send-message', async (_, tabId: string, message: string) => {
+      try {
+        return await chatSessionManager.handleMessage(tabId, message);
+      } catch (error) {
+        log.error('Error sending message:', error);
+        throw error;
+      }
     });
 
     ipcMain.handle('switch-model', (_, tabId: string, modelType: LLMType) => {
       try {
-        const llm = LLMFactory.create(modelType);
-        llmInstances.set(tabId, llm);
-        llmTypes.set(tabId, modelType);
-        return { success: true };
+        const result = chatSessionManager.switchModel(tabId, modelType);
+        return { 
+          success: true,
+          updates: result.updates,
+          lastSyncId: result.lastSyncId
+        };
       } catch (error) {
         log.error('Error switching model:', error);
-        // Check for specific API key errors
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        const response = { 
+        return { 
           success: false, 
-          error: errorMessage
+          error: error instanceof Error ? error.message : String(error)
         };
-        log.info('Sending error response:', response);
-        return response;
       }
     });
 

@@ -1,5 +1,6 @@
 import { LLMType } from '../llm/types';
 import { ChatMessage } from '../types/ChatMessage';
+import { Message } from '../types/ChatSession';
 import log from 'electron-log';
 
 export class ChatAPI {
@@ -11,30 +12,30 @@ export class ChatAPI {
     this.tabId = tabId;
     this.currentModel = LLMType.Test; // Set default model
     this.initModel();
-    this.messages.push({ 
-      type: 'system', 
-      content: 'Welcome to TeamSpark AI Workbench!' 
-    });
   }
 
   private async initModel() {
-    const model = await window.api.getCurrentModel(this.tabId);
-    this.currentModel = model as LLMType; // Cast the string to LLMType
+    const state = await window.api.getChatState(this.tabId);
+    this.currentModel = state.currentModel;
+    // Convert any existing messages from the session
+    this.messages = state.messages.map(this.convertMessageToChatMessage);
+  }
+
+  private convertMessageToChatMessage(message: Message): ChatMessage {
+    return {
+      type: message.role === 'assistant' ? 'ai' : message.role,
+      content: message.content
+    };
   }
 
   public async sendMessage(message: string): Promise<string> {
-    // Add user message to history
-    this.messages.push({ type: 'user', content: message });
-
     try {
-      const response = await window.api.sendMessage(this.tabId, message);
-      // Trim any leading/trailing whitespace from the response
-      const trimmedResponse = response.trimStart();
-      this.messages.push({ type: 'ai', content: trimmedResponse });
-      return trimmedResponse;
+      const result = await window.api.sendMessage(this.tabId, message);
+      // Update messages with the new updates
+      this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
+      return result.updates[1].content; // Return the assistant's response
     } catch (error) {
-      const errorMsg = 'Failed to get response';
-      this.messages.push({ type: 'error', content: errorMsg });
+      log.error('Error sending message:', error);
       throw error;
     }
   }
@@ -44,27 +45,15 @@ export class ChatAPI {
       const result = await window.api.switchModel(this.tabId, model);
       if (result.success) {
         this.currentModel = model;
-        this.messages.push({ 
-          type: 'system', 
-          content: `Switched to ${model} model` 
-        });
+        // Update messages with the new updates
+        this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
         return true;
       } else {
         log.info('ChatAPI: Model switch failed:', result.error);
-        const errorMessage = result.error || 'Failed to switch model';
-        log.info('ChatAPI: Adding error message to chat:', errorMessage);
-        this.messages.push({ 
-          type: 'error', 
-          content: errorMessage
-        });
         return false;
       }
     } catch (error) {
       log.error('ChatAPI: Error in switchModel:', error);
-      this.messages.push({ 
-        type: 'error', 
-        content: error instanceof Error ? error.message : 'Failed to switch model' 
-      });
       return false;
     }
   }

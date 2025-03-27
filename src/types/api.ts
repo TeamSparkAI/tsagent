@@ -1,11 +1,17 @@
 import { Rule } from './Rule';
 import { Reference } from './Reference';
 import { McpConfig, McpConfigFileServerConfig } from '../mcp/types';
+import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
 
 export interface API {
-  sendMessage: (tabId: string, message: string) => Promise<string>;
-  switchModel: (tabId: string, modelType: string) => Promise<{ success: boolean; error?: string }>;
-  getCurrentModel: (tabId: string) => Promise<string>;
+  // Chat session management
+  createChatTab: (tabId: string) => Promise<ChatSessionResponse>;
+  closeChatTab: (tabId: string) => Promise<ChatSessionResponse>;
+  getChatState: (tabId: string) => Promise<ChatState>;
+  sendMessage: (tabId: string, message: string) => Promise<MessageUpdate>;
+  switchModel: (tabId: string, modelType: string) => Promise<ChatSessionResponse>;
+
+  // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;
   getMCPClient: (serverName: string) => Promise<{
     serverVersion: string;

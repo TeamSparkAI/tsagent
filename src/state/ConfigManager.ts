@@ -11,6 +11,7 @@ export class ConfigManager {
   private promptFile: string;
   private readonly DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
   private readonly isPackaged: boolean;
+  private configLoaded = false;
 
   private constructor(isPackaged: boolean) {
     this.isPackaged = isPackaged;
@@ -54,34 +55,38 @@ export class ConfigManager {
     return this.promptFile;
   }
 
-  async getConfigValue(key: string): Promise<string> {
-    if (!this.configFile) {
-      await this.loadConfig();
-    }
-    const value = this.configFile?.config[key];
-    if (!value) {
-      throw new Error(`${key} not set in config.json`);
-    }
-    return value;
-  }
+  async loadConfig(): Promise<void> {
+    if (this.configLoaded) return;
 
-  private async loadConfig(): Promise<void> {
     const configPath = path.join(this.configDir, 'config.json');
     
     // Create default config if it doesn't exist
     if (!fs.existsSync(configPath)) {
       this.configFile = { config: {} };
       await fs.promises.writeFile(configPath, JSON.stringify(this.configFile, null, 2));
+      this.configLoaded = true;
       return;
     }
 
     try {
       const data = await fs.promises.readFile(configPath, 'utf8');
       this.configFile = JSON.parse(data);
+      this.configLoaded = true;
     } catch (error) {
       log.error('Error loading config:', error);
       throw new Error('Failed to load config.json');
     }
+  }
+
+  getConfigValue(key: string): string {
+    if (!this.configLoaded) {
+      throw new Error('Config not loaded. Call loadConfig() first.');
+    }
+    const value = this.configFile?.config[key];
+    if (!value) {
+      throw new Error(`${key} not set in config.json`);
+    }
+    return value;
   }
 
   async getSystemPrompt(): Promise<string> {

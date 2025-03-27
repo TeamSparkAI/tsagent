@@ -2,9 +2,14 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { API } from './types/api';
 
 const api: API = {
+  // Chat session management
+  createChatTab: (tabId: string) => ipcRenderer.invoke('create-chat-tab', tabId),
+  closeChatTab: (tabId: string) => ipcRenderer.invoke('close-chat-tab', tabId),
+  getChatState: (tabId: string) => ipcRenderer.invoke('get-chat-state', tabId),
   sendMessage: (tabId: string, message: string) => ipcRenderer.invoke('send-message', tabId, message),
   switchModel: (tabId: string, model: string) => ipcRenderer.invoke('switch-model', tabId, model),
-  getCurrentModel: (tabId: string) => ipcRenderer.invoke('get-current-model', tabId),
+
+  // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
   getMCPClient: (serverName: string) => ipcRenderer.invoke('get-mcp-client', serverName),
   toggleDevTools: () => ipcRenderer.invoke('toggle-dev-tools'),

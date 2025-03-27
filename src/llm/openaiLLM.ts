@@ -11,7 +11,6 @@ export class OpenAILLM implements ILLM {
   private readonly stateManager: LLMStateManager;
   private readonly configManager: ConfigManager;
   private readonly MAX_TURNS = 5;
-  private initialized = false;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
     return {
@@ -29,14 +28,10 @@ export class OpenAILLM implements ILLM {
     this.modelName = modelName;
     this.stateManager = stateManager;
     this.configManager = configManager;
-    this.initialize();
-  }
-
-  async initialize(): Promise<void> {
+    
     try {
-      const apiKey = await this.configManager.getConfigValue('OPENAI_API_KEY');
+      const apiKey = this.configManager.getConfigValue('OPENAI_API_KEY');
       this.client = new OpenAI({ apiKey });
-      this.initialized = true;
       log.info('OpenAI LLM initialized successfully');
     } catch (error) {
       log.error('Failed to initialize OpenAI LLM:', error);

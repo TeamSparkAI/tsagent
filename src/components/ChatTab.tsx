@@ -29,29 +29,46 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const lastMessageCountRef = useRef<number>(1);  // Start with 1 for welcome message
   const isFirstRenderRef = useRef<boolean>(true);
   const [scrollPosition, setScrollPosition] = useState(0);
-
-  if (!chatApiRef.current) {
-    chatApiRef.current = new ChatAPI(id);
-  }
-  const chatApi = chatApiRef.current;
-
   const [isInitialized, setIsInitialized] = useState(false);
   const [chatState, setChatState] = useState<ChatState>({
-    messages: chatApi.getMessages(),
+    messages: [],
     selectedModel: LLMType.Test
   });
   const [inputValue, setInputValue] = useState('');
 
   useEffect(() => {
     const initModel = async () => {
-      const model = await window.api._getCurrentModel(id);
-      setChatState((prev: ChatState) => ({ 
-        ...prev, 
-        selectedModel: model as LLMType 
-      }));
-      setIsInitialized(true);
+      try {
+        // First create the chat session with initial welcome message
+        await window.api.createChatTab(id);
+        // Then initialize the ChatAPI
+        chatApiRef.current = new ChatAPI(id);
+        // Then get its state
+        const state = await window.api.getChatState(id);
+        setChatState((prev: ChatState) => ({ 
+          ...prev, 
+          selectedModel: state.currentModel,
+          messages: state.messages.map(msg => ({
+            type: msg.role === 'assistant' ? 'ai' : msg.role,
+            content: msg.content
+          }))
+        }));
+        setIsInitialized(true);
+      } catch (error) {
+        log.error('Error initializing chat tab:', error);
+      }
     };
     initModel();
+  }, [id]);
+
+  // Add cleanup when component unmounts
+  useEffect(() => {
+    return () => {
+      // Clean up the chat session when the tab is closed
+      window.api.closeChatTab(id).catch(error => {
+        log.error('Error closing chat tab:', error);
+      });
+    };
   }, [id]);
 
   // Handle manual scrolling
@@ -106,10 +123,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     if (!inputValue.trim()) return;
 
     try {
-      const response = await chatApi.sendMessage(inputValue);
+      const response = await chatApiRef.current!.sendMessage(inputValue);
       setChatState({
-        messages: chatApi.getMessages(),
-        selectedModel: chatApi.getCurrentModel()
+        messages: chatApiRef.current!.getMessages(),
+        selectedModel: chatApiRef.current!.getCurrentModel()
       });
     } catch (error) {
       log.error('Failed to get response:', error);
@@ -123,11 +140,11 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const handleModelChange = async (model: LLMType) => {
     try {
       log.info('Switching to model:', model);
-      const success = await chatApi.switchModel(model);
+      const success = await chatApiRef.current!.switchModel(model);
       setChatState((prev: ChatState) => ({
         ...prev,
         selectedModel: success ? model : prev.selectedModel,
-        messages: chatApi.getMessages()
+        messages: chatApiRef.current!.getMessages()
       }));
       log.info('Successfully switched to model:', model);
     } catch (error) {
@@ -135,7 +152,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       setChatState((prev: ChatState) => ({
         ...prev,
         selectedModel: prev.selectedModel,
-        messages: chatApi.getMessages()
+        messages: chatApiRef.current!.getMessages()
       }));
       log.error('Error switching model:', error);
     }
