@@ -160,3 +160,17 @@ Malicious MCP Servers or conversation content could potentially trick xxxxx into
 <bold>Review each action carefully before approving</bold>
 
 [Allow for this chat] [Allow once] [Deny]
+
+## Chat display of llmreply
+
+I have modified the LLMs to return the new LlmReply, which contains a list of turns, where each turn may have a message and/or a series of tool calls, or an error. We need to modify the ChatSessionManager to maintain a single message history list composed of interleaved messages of two types:
+1. ChatMessage (for system/user messages)
+2. LlmReply (for assistant messages with turns)
+
+The message history should be a single sequential list where these two types are interleaved based on the conversation flow. We then need to synchronize this unified list with the chat tab.
+
+The chat tab should display this unified message history, where each LlmReply message can show its turns (including any tool calls) as part of the assistant's response. Do not change anything on the backend except the handleMessage logic and any required ipc (specifically do not touch any of the LLM implementations). You should not need to update the Turn interface (we want to be able to send that exact data to the front end so it can display the turns, including any error message that is present in a turn).
+
+The chat tab UX should remain unchanged except for the logic to display the new LlmReply messages. The structure of the chat tabs should not need to be updated (only the message display).
+
+When introducing new types, be careful to have a strategy that avoids circular dependencies.

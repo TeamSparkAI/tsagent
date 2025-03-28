@@ -94,9 +94,21 @@ export class GeminiLLM implements ILLM {
       // Split messages into history and current prompt
       const history = messages.slice(0, -1).map(message => ({
         role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
-        parts:[{ text: message.content }]
+        parts: [{ 
+          text: message.role === 'assistant' 
+            ? message.llmReply.turns[message.llmReply.turns.length - 1].message ?? ''
+            : message.content 
+        }]
       }));
-      var currentPrompt = messages[messages.length - 1].content;
+
+      // For the current prompt check
+      const lastMessage = messages[messages.length - 1];
+      var currentPrompt = lastMessage.role === 'assistant'
+        ? lastMessage.llmReply.turns[lastMessage.llmReply.turns.length - 1].message ?? ''
+        : lastMessage.content;
+
+      log.info('history', JSON.stringify(history, null, 2));
+      log.info('currentPrompt', currentPrompt);
 
       const chat = this.model.startChat({
         history

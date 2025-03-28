@@ -342,6 +342,77 @@
         background: #ccc;
         margin: 4px 0;
       }
+      /* Tool call styles */
+      .tool-call {
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+        background-color: #fff;
+        border: 1px solid #dee2e6;
+        border-radius: 4px;
+      }
+      .tool-call-header {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        user-select: none;
+        padding: 0.25rem;
+        border-radius: 4px;
+        position: relative;
+      }
+      .tool-call-header:hover {
+        background-color: #f8f9fa;
+      }
+      .tool-call-header::before {
+        content: '▶';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 1.2em;
+        height: 1.2em;
+        line-height: 1.2em;
+        text-align: center;
+        transition: transform 0.2s ease;
+        color: #6c757d;
+      }
+      .tool-call-header.expanded::before {
+        transform: translateY(-50%) rotate(90deg);
+      }
+      .tool-call-name {
+        font-family: monospace;
+        color: #495057;
+        margin-left: 1.5em;
+        font-size: 0.9em;
+        font-weight: 600;
+        color: #2c3e50;
+      }
+      .tool-call-details {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background-color: #f8f9fa;
+        border-radius: 4px;
+        font-family: monospace;
+        font-size: 0.9em;
+      }
+      .tool-call-output {
+        margin: 0.5rem 0;
+        padding: 0.5rem;
+        background-color: #1e1e1e;
+        color: #d4d4d4;
+        border-radius: 4px;
+        font-family: monospace;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .tool-call-error,
+      .turn-error {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background-color: #fff3f3;
+        border: 1px solid #ffcdd2;
+        border-radius: 4px;
+        color: #d32f2f;
+      }
     </style>
   </head>
   <body>

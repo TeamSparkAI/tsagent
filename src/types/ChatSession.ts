@@ -1,12 +1,16 @@
 import { LLMType } from '../llm/types';
 import { ILLM } from '../llm/types';
 import { AppState } from '../state/AppState';
+import { LlmReply } from './LlmReply';
 
 // These represent the Electron-side chat history (requests and responses)
-export interface ChatMessage {
-  role: 'user' | 'assistant' | 'system' | 'error';
+export type ChatMessage = {
+  role: 'user' | 'system' | 'error';
   content: string;
-}
+} | {
+  role: 'assistant';
+  llmReply: LlmReply;
+};
 
 export interface ChatSession {
   messages: ChatMessage[];

@@ -62,13 +62,10 @@ export class ClaudeLLM implements ILLM {
       }
 
       // Turn our ChatMessage[] into a Anthropic API MessageParam[]
-      const turnMessages: MessageParam[] = messages.map(message => {
-        return {
-          // Conver to a role that Anthropic API accepts (user or assistant)
-          role: message.role === 'system' || message.role === 'error' ? 'assistant' : message.role,
-          content: message.content,
-        }
-      });
+      const turnMessages: MessageParam[] = messages.map(message => ({
+        role: message.role === 'system' || message.role === 'error' ? 'assistant' : message.role,
+        content: 'content' in message ? message.content : ''
+      }));
 
       // We could check to see if the first message is the system prompt and inject it as a system message, but we'll just
       const message = await this.client.messages.create({

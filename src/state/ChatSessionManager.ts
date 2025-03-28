@@ -119,12 +119,12 @@ export class ChatSessionManager {
 
       log.info('All turns', JSON.stringify(response.turns, null, 2));
 
-      // get the text of the last turn message
-      const lastTurnMessage = response.turns[response.turns.length - 1].message ?? "Error: No response from LLM";
-
       const updates: ChatMessage[] = [
         userMessage,
-        { role: 'assistant' as const, content: lastTurnMessage }
+        { 
+          role: 'assistant' as const, 
+          llmReply: response
+        }
       ];
       
       session.messages.push(...updates);

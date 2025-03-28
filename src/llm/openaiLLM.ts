@@ -52,10 +52,14 @@ export class OpenAILLM implements ILLM {
 
       // Turn our ChatMessage[] into a OpenAPI API ChatCompletionMessageParam[]
       let currentMessages: OpenAI.ChatCompletionMessageParam[] = messages.map(message => {
-          return {
-          // Conver to a role that OpenAI API accepts (user or assistant)
+        const content = message.role === 'assistant'
+          ? message.llmReply.turns[message.llmReply.turns.length - 1].message ?? ''
+          : message.content;
+        
+        return {
+          // Convert to a role that OpenAI API accepts (user or assistant)
           role: message.role === 'error' ? 'assistant' : message.role,
-          content: message.content,
+          content,
         }
       });
 

@@ -5,11 +5,12 @@ import { LLMType } from '../llm/types';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
+import { LlmReply } from '../types/LlmReply';
 import log from 'electron-log';
 
 // Add ChatState interface back
 interface ChatState {
-  messages: RendererChatMessage[];
+  messages: (RendererChatMessage & { llmReply?: LlmReply })[];
   selectedModel: LLMType;
 }
 
@@ -35,6 +36,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     selectedModel: LLMType.Test
   });
   const [inputValue, setInputValue] = useState('');
+  const [expandedToolCalls, setExpandedToolCalls] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const initModel = async () => {
@@ -50,7 +52,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           selectedModel: state.currentModel,
           messages: state.messages.map(msg => ({
             type: msg.role === 'assistant' ? 'ai' : msg.role,
-            content: msg.content
+            content: msg.role === 'assistant' ? '' : msg.content,
+            llmReply: msg.role === 'assistant' ? msg.llmReply : undefined
           }))
         }));
         setIsInitialized(true);
@@ -197,6 +200,19 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
+  const toggleToolCall = (messageIndex: number, turnIndex: number, toolIndex: number) => {
+    const key = `${messageIndex}-${turnIndex}-${toolIndex}`;
+    setExpandedToolCalls(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) {
+        next.delete(key);
+      } else {
+        next.add(key);
+      }
+      return next;
+    });
+  };
+
   return (
     <div className="chat-tab">
       <div id="model-container">
@@ -219,35 +235,83 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         onContextMenu={handleContextMenu}
         onScroll={handleScroll}
       >
-        {chatState.messages.map((msg: RendererChatMessage, idx: number) => (
+        {chatState.messages.map((msg: RendererChatMessage & { llmReply?: LlmReply }, msgIdx: number) => (
           <div 
-            key={idx} 
+            key={msgIdx} 
             className={`message ${msg.type}`}
           >
             <div style={{ display: 'inline' }}>
               <strong>{msg.type.toUpperCase()}:</strong>{' '}
               {msg.type === 'ai' ? (
-                <ReactMarkdown
-                  remarkPlugins={[remarkGfm]}
-                  components={{
-                    a: ({ node, ...props }) => (
-                      <a 
-                        {...props} 
-                        onClick={handleLinkClick}
-                        style={{ color: '#007bff', cursor: 'pointer' }}
-                      />
-                    ),
-                    p: ({children}) => (
-                      <span style={{
-                        whiteSpace: 'pre-wrap',
-                      }}>
-                        {children}
-                      </span>
-                    )
-                  }}
-                >
-                  {msg.content}
-                </ReactMarkdown>
+                <>
+                  {msg.llmReply && (
+                    <div className="llm-reply-turns">
+                      {msg.llmReply.turns.map((turn, turnIdx) => (
+                        <div key={turnIdx} className="turn">
+                          {turn.message && (
+                            <div className="turn-message">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  a: ({ node, ...props }) => (
+                                    <a 
+                                      {...props} 
+                                      onClick={handleLinkClick}
+                                      style={{ color: '#007bff', cursor: 'pointer' }}
+                                    />
+                                  ),
+                                  p: ({children}) => (
+                                    <span style={{
+                                      whiteSpace: 'pre-wrap',
+                                    }}>
+                                      {children}
+                                    </span>
+                                  )
+                                }}
+                              >
+                                {turn.message}
+                              </ReactMarkdown>
+                            </div>
+                          )}
+                          {turn.toolCalls && turn.toolCalls.map((toolCall, toolIdx) => {
+                            const key = `${msgIdx}-${turnIdx}-${toolIdx}`;
+                            const isExpanded = expandedToolCalls.has(key);
+                            return (
+                              <div key={toolIdx} className="tool-call">
+                                <div 
+                                  className={`tool-call-header ${isExpanded ? 'expanded' : ''}`}
+                                  onClick={() => toggleToolCall(msgIdx, turnIdx, toolIdx)}
+                                >
+                                  <span className="tool-call-name">Tool Call: {toolCall.serverName}.{toolCall.toolName}</span>
+                                </div>
+                                {isExpanded && (
+                                  <div className="tool-call-details">
+                                    <div>Arguments:</div>
+                                    <pre>{JSON.stringify(toolCall.args, null, 2)}</pre>
+                                    <div>Result:</div>
+                                    <div className="tool-call-output">
+                                      {toolCall.output}
+                                    </div>
+                                    {toolCall.error && (
+                                      <div className="tool-call-error">
+                                        <strong>Error:</strong> {toolCall.error}
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          {turn.error && (
+                            <div className="turn-error">
+                              <strong>Error:</strong> {turn.error}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </>
               ) : (
                 msg.content
               )}
