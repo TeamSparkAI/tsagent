@@ -8,7 +8,7 @@ export interface LlmReply {
 }
 
 export interface Turn {
-  message?: ChatMessage;
+  message?: string;
   toolCalls?: ToolCall[];
   error?: string;
 }

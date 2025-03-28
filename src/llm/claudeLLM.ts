@@ -5,12 +5,13 @@ import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 import { AppState } from '../state/AppState';
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
-import { LlmReply } from '../types/LlmReply';
+import { LlmReply, Turn } from '../types/LlmReply';
 
 export class ClaudeLLM implements ILLM {
   private readonly appState: AppState;
   private readonly modelName: string;
   private client!: Anthropic;
+  private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
 
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
@@ -27,6 +28,13 @@ export class ClaudeLLM implements ILLM {
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
+    const llmReply: LlmReply = {
+      inputTokens: 0,
+      outputTokens: 0,
+      timestamp: Date.now(),
+      turns: []
+    }
+
     try {
       log.info('Generating response with Claude');
       // In order to maintain context, we need to pass the previous messages to each create call.  If we want
@@ -71,13 +79,11 @@ export class ClaudeLLM implements ILLM {
         tools,
       });
 
-      const finalText = [];
-      const toolResults = [];
-      const MAX_TOOL_TURNS = 5; // Prevent infinite loops
       let currentResponse = message;
-      let turnCount = 0;
 
-      while (turnCount < MAX_TOOL_TURNS) {
+      let turnCount = 0;
+      while (turnCount < this.MAX_TURNS) {
+        const turn: Turn = {};
         turnCount++;
         let hasToolUse = false;
 
@@ -88,7 +94,7 @@ export class ClaudeLLM implements ILLM {
               role: "assistant",
               content: content.text,
             });
-            finalText.push(content.text);
+            turn.message = (turn.message || '') +content.text;
           } else if (content.type === 'tool_use') {
             hasToolUse = true;
             log.info('Tool use detected:', content);
@@ -104,20 +110,27 @@ export class ClaudeLLM implements ILLM {
 
             const result = await this.appState.getMCPManager().callTool(toolName, toolArgs);
             log.info('Tool result:', result);
-            toolResults.push(result);
-            finalText.push(
-              `[Calling tool ${toolName} with args ${JSON.stringify(toolArgs)}]`
-            );
 
             const toolResultContent = result.content[0];
-            // Record the tool result in the message context
             if (toolResultContent && toolResultContent.type === 'text') {
               turnMessages.push({
                 role: "user",
                 content: `[Tool ${toolName} returned: ${toolResultContent.text}]`,
               });
+
+              if (!turn.toolCalls) {
+                turn.toolCalls = [];
+              }
+
+              turn.toolCalls.push({
+                serverName: this.appState.getMCPManager().getToolServerName(toolName),
+                toolName: this.appState.getMCPManager().getToolName(toolName),
+                args: toolArgs ?? {},
+                output: toolResultContent?.text ?? '',
+                  elapsedTimeMs: 0,
+                  error: undefined
+              });
             }
-      
             currentResponse = await this.client.messages.create({
               model: this.modelName,
               max_tokens: 1000,
@@ -127,48 +140,30 @@ export class ClaudeLLM implements ILLM {
             log.info('Response from tool results message:', currentResponse);
           }
         }
-       
+
+        llmReply.turns.push(turn);  
+
         // Break if no tool uses in this turn
         if (!hasToolUse) break;
       }
       
-      if (turnCount >= MAX_TOOL_TURNS) {
-        finalText.push("\n[Maximum number of tool uses reached]");
+      if (turnCount >= this.MAX_TURNS) {
+        llmReply.turns.push({
+          error: 'Maximum number of tool uses reached'
+        });
       }
 
-      // Log token usage for monitoring
-      log.info('Tokens used:', {
-        input: message.usage.input_tokens,
-        output: message.usage.output_tokens
-      });
+      llmReply.inputTokens = message.usage.input_tokens;
+      llmReply.outputTokens = message.usage.output_tokens;
 
-      const response = finalText.join('\n');
       log.info('Claude response generated successfully');
-      return {
-        inputTokens: message.usage.input_tokens,
-        outputTokens: message.usage.output_tokens,
-        timestamp: Date.now(),
-        turns: [
-          {
-            message: {
-              role: 'assistant',
-              content: response
-            }
-          }
-        ]
-      }
+      return llmReply;
     } catch (error: any) {
       log.error('Claude API error:', error.message);
-      return {
-        inputTokens: 0,
-        outputTokens: 0,
-        timestamp: Date.now(),
-        turns: [
-          {
-            error: `Error: Failed to generate response from Claude - ${error.message}`
-          }
-        ]
-      }
+      llmReply.turns.push({
+        error: `Error: Failed to generate response from Claude - ${error.message}`
+      });
+      return llmReply;
     }
   }
 } 

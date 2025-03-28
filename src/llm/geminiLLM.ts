@@ -4,7 +4,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
 import { AppState } from '../state/AppState';
-import { LlmReply } from '../types/LlmReply';
+import { LlmReply, Turn } from '../types/LlmReply';
 
 export class GeminiLLM implements ILLM {
   private readonly appState: AppState;
@@ -83,6 +83,13 @@ export class GeminiLLM implements ILLM {
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
+    const llmReply: LlmReply = {
+      inputTokens: 0,
+      outputTokens: 0,
+      timestamp: Date.now(),
+      turns: []
+    }
+
     try {
       // Split messages into history and current prompt
       const history = messages.slice(0, -1).map(message => ({
@@ -95,10 +102,9 @@ export class GeminiLLM implements ILLM {
         history
       });
 
-      const finalText = [];
       let turnCount = 0;
-
       while (turnCount < this.MAX_TURNS) {
+        const turn: Turn = {};
         turnCount++;
         log.info(`Sending message prompt "${currentPrompt}", turn count: ${turnCount}`);
         const result = await chat.sendMessage(currentPrompt);
@@ -114,35 +120,44 @@ export class GeminiLLM implements ILLM {
         if (candidates?.content?.parts) {
           for (const part of candidates.content.parts) {
             // Handle text parts
-            if (part.text) {              
-              finalText.push(part.text.replace(/\\n/g, '\n'));
+            if (part.text) {
+              turn.message = (turn.message || '') + part.text.replace(/\\n/g, '\n');
             }
             
             // Handle function calls
             if (part.functionCall?.name && part.functionCall?.args) {
               hasFunctionCalls = true;
-              const { name, args } = part.functionCall;
+              const { name: toolName, args } = part.functionCall;
               log.info('Function call detected:', part.functionCall);
 
               // Call the tool
               const toolResult = await this.appState.getMCPManager().callTool(
-                name,
+                toolName,
                 args as Record<string, unknown>
               );
               log.info('Tool result:', toolResult);
 
               // Record the function call and result
-              finalText.push(
-                `[Calling function ${name} with args ${JSON.stringify(args)}]`
-              );
               
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
-                finalText.push(`[Function returned: ${resultText}]`);
                 toolResults.push(resultText);
+                if (!turn.toolCalls) {
+                  turn.toolCalls = [];
+                }
+                turn.toolCalls.push({
+                  serverName: this.appState.getMCPManager().getToolServerName(toolName),
+                  toolName: this.appState.getMCPManager().getToolName(toolName),
+                  args: args ?? {},
+                  output: resultText,
+                  elapsedTimeMs: 0,
+                  error: undefined
+                });
               }
             }
           }
+
+          llmReply.turns.push(turn);
           
           // If there were function calls, continue the conversation with all results
           if (hasFunctionCalls) {
@@ -150,35 +165,22 @@ export class GeminiLLM implements ILLM {
             continue;
           }
         }
-
         break;
       }
 
       if (turnCount >= this.MAX_TURNS) {
-        finalText.push("\n[Maximum number of function calls reached]");
+        llmReply.turns.push({
+          error: 'Maximum number of tool uses reached'
+        });
       }
 
-      return {
-        inputTokens: 0,
-        outputTokens: 0,
-        timestamp: Date.now(),
-        turns: [
-          { message: { role: 'assistant', content: finalText.join('\n') } }
-        ]
-      }
+      return llmReply;
     } catch (error: any) {
       log.error('Gemini API error:', error);
-      const errorMessage = error.message || 'Unknown error';
-      return {
-        inputTokens: 0,
-        outputTokens: 0,
-        timestamp: Date.now(),
-        turns: [
-          {
-            error: `Error: Failed to generate response from Gemini - ${errorMessage}`
-          }
-        ]
-      }
+      llmReply.turns.push({
+        error: `Error: Failed to generate response from Gemini- ${error.message}`
+      });
+      return llmReply;
     }
   }
 } 

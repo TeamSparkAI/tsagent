@@ -5,7 +5,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { ChatMessage } from '../types/ChatSession';
-import { LlmReply } from '../types/LlmReply';
+import { LlmReply, Turn } from '../types/LlmReply';
 
 export class OpenAILLM implements ILLM {
   private readonly appState: AppState;
@@ -40,10 +40,15 @@ export class OpenAILLM implements ILLM {
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
+    const llmReply: LlmReply = {
+      inputTokens: 0,
+      outputTokens: 0,
+      timestamp: Date.now(),
+      turns: []
+    }
+
     try {
       log.info('Generating response with OpenAI');
-      const finalText = [];
-      let turnCount = 0;
 
       // Turn our ChatMessage[] into a OpenAPI API ChatCompletionMessageParam[]
       let currentMessages: OpenAI.ChatCompletionMessageParam[] = messages.map(message => {
@@ -59,7 +64,10 @@ export class OpenAILLM implements ILLM {
       const tools = this.appState.getMCPManager().getAllTools();
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
 
+      let turnCount = 0;
       while (turnCount < this.MAX_TURNS) {
+        const turn: Turn = {};
+        let hasToolUse = false;
         turnCount++;
         log.info(`Processing turn ${turnCount}`);
 
@@ -75,9 +83,11 @@ export class OpenAILLM implements ILLM {
           throw new Error('No response from OpenAI');
         }
 
-        // Check for function calls
-        if (response.tool_calls && response.tool_calls.length > 0) {
+        if (response.content) {
+          turn.message = (turn.message || '') + response.content;
+        } else if (response.tool_calls && response.tool_calls.length > 0) {
           log.info('tool_calls', response.tool_calls);
+          hasToolUse = true;
           // Add the assistant's message with the tool calls
           currentMessages.push(response);
 
@@ -93,15 +103,22 @@ export class OpenAILLM implements ILLM {
               );
               log.info('Tool result:', toolResult);
 
-              // Record the function call and result
-              finalText.push(
-                `[Calling function ${toolCall.function.name} with args ${toolCall.function.arguments}]`
-              );
-
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
-                finalText.push(`[Function returned: ${resultText}]`);
-
+                if (!turn.toolCalls) {
+                  turn.toolCalls = [];
+                }
+  
+                // Record the function call and result
+                turn.toolCalls.push({
+                  serverName: this.appState.getMCPManager().getToolServerName(toolCall.function.name),
+                  toolName: this.appState.getMCPManager().getToolName(toolCall.function.name),
+                  args: JSON.parse(toolCall.function.arguments),
+                  output: resultText,
+                  elapsedTimeMs: 0,
+                  error: undefined
+                });
+  
                 // Add the tool result to messages
                 currentMessages.push({
                   role: 'tool',
@@ -111,43 +128,25 @@ export class OpenAILLM implements ILLM {
               }
             }
           }
-          continue;  // Continue the conversation after processing all tool calls
         }
-
-        // No function call, just add the response text
-        finalText.push(response.content || '');
-        break;
+        llmReply.turns.push(turn);
+        if (!hasToolUse) break;
       }
 
       if (turnCount >= this.MAX_TURNS) {
-        finalText.push("\n[Maximum number of function calls reached]");
+        llmReply.turns.push({
+          error: 'Maximum number of tool uses reached'
+        });
       }
 
-      const responseText = finalText.join('\n');
       log.info('OpenAI response generated successfully');
-
-      return {
-        inputTokens: 0,
-        outputTokens: 0,
-        timestamp: Date.now(),
-        turns: [
-          { message: { role: 'assistant', content: responseText } }
-        ]
-      }
+      return llmReply;
     } catch (error: any) {
       log.error('OpenAI API error:', error);
-      const errorMessage = error.message || 'Unknown error';
-      return {
-        inputTokens: 0,
-        outputTokens: 0,
-        timestamp: Date.now(),
-        turns: [
-          {
-            error: `Error: Failed to generate response from OpenAI - ${errorMessage}`
-          }
-        ]
-      }
-      
+      llmReply.turns.push({
+        error: `Error: Failed to generate response from OpenAI - ${error.message}`
+      });
+      return llmReply;            
     }
   }
 } 

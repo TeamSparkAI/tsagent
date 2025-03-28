@@ -13,10 +13,7 @@ export class TestLLM implements ILLM {
       timestamp: Date.now(),
       turns: [
         {
-          message: {
-            role: 'assistant',
-            content: 'Happy Birthday!'
-          }
+          message: 'Happy Birthday!'
         }
       ]
     };

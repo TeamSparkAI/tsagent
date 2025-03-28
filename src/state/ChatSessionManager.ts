@@ -90,29 +90,9 @@ export class ChatSessionManager {
   // but if we do include them (esp rules), it might be a lot of rules that the LLM has to sort out (and prioritize).  We should make sure
   // to include the priority of both either way.
   //
-  // Note: Sometimes we get multiple tool calls in one turn
-  //       Sometimes we get explanatory text with a tool call
-  //
-  // LlmReply: 
-  //   - Input tokens
-  //   - Output tokens
-  //   - Timestamp (elapsed time?)
-  //   - Turn[]
-  //
-  // Turn:  
-  //   - Message[]
-  //   - ToolCall[]
-  //
-  // ToolCall:
-  //   - Server name
-  //   - Tool name
-  //   - Args
-  //   - ElapsedTimeMs (timestamp?)
-  //   - Output
-  //   - Error (if applicable)
-  //
-  // It might make sense to combine the ToolCall and ToolCallResult into a single object (the argument for separating them would be if we
-  // had a human in the loop that needed to review the tool call).
+  // LlmReply type gives us metadata and turn results - inclding message, tool calls (possibly multiple), and an error if applicable
+  // - Sometimes we get multiple tool calls in one turn
+  // - Sometimes we get explanatory text with a tool call (or multiple tool calls)
   //
   async handleMessage(tabId: string, message: string): Promise<MessageUpdate> {
     const session = this.getSession(tabId);
@@ -137,8 +117,10 @@ export class ChatSessionManager {
         throw new Error(`Failed to generate response from ${session.currentModel}`);
       }
 
+      log.info('All turns', JSON.stringify(response.turns, null, 2));
+
       // get the text of the last turn message
-      const lastTurnMessage = response.turns[response.turns.length - 1].message?.content ?? "Error: No response from LLM";
+      const lastTurnMessage = response.turns[response.turns.length - 1].message ?? "Error: No response from LLM";
 
       const updates: ChatMessage[] = [
         userMessage,
