@@ -1,18 +1,13 @@
-import { LLMStateManager } from './stateManager';
-import { ConfigManager } from '../state/ConfigManager';
+import { AppState } from '../state/AppState';
 import { ChatMessage } from '../types/ChatSession';
 
 export enum LLMType {
-  Test = 'TEST',
-  Gemini = 'GEMINI',
-  Claude = 'CLAUDE',
-  OpenAI = 'OPENAI'
+  Test = 'test',
+  Claude = 'claude',
+  OpenAI = 'openai',
+  Gemini = 'gemini'
 }
 
 export interface ILLM {
   generateResponse(messages: ChatMessage[]): Promise<string>;
-}
-
-export interface LLMConstructor {
-  new (modelName: string, stateManager: LLMStateManager, configManager: ConfigManager): ILLM;
 } 

@@ -69,9 +69,9 @@ async function initialize() {
   // Initialize ChatSessionManager with AppState
   chatSessionManager = new ChatSessionManager(appState);
 
-  // Initialize the LLM Factory with the manager
-  log.info('Initializing LLMFactory with MCPManager');
-  LLMFactory.initialize(mcpManager, configManager);
+  // Initialize the LLM Factory with AppState
+  log.info('Initializing LLMFactory with AppState');
+  LLMFactory.initialize(appState);
 
   log.info("Loaded MCP clients");
   try {

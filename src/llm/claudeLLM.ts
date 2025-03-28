@@ -2,24 +2,21 @@ import { ILLM } from './types';
 import Anthropic from '@anthropic-ai/sdk';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
-import { LLMStateManager } from './stateManager';
-import { ConfigManager } from '../state/ConfigManager';
+import { AppState } from '../state/AppState';
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
 
 export class ClaudeLLM implements ILLM {
-  private client!: Anthropic;
+  private readonly appState: AppState;
   private readonly modelName: string;
-  private readonly stateManager: LLMStateManager;
-  private readonly configManager: ConfigManager;
+  private client!: Anthropic;
 
-  constructor(modelName: string, stateManager: LLMStateManager, configManager: ConfigManager) {
+  constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
-    this.stateManager = stateManager;
-    this.configManager = configManager;
+    this.appState = appState;
     
     try {
-      const apiKey = this.configManager.getConfigValue('ANTHROPIC_API_KEY');
+      const apiKey = this.appState.getConfigManager().getConfigValue('ANTHROPIC_API_KEY');
       this.client = new Anthropic({ apiKey });
       log.info('Claude LLM initialized successfully');
     } catch (error) {
@@ -36,7 +33,7 @@ export class ClaudeLLM implements ILLM {
       // not need to pass the tools in previous messages that have already been processed.  We do need to provide
       // all tool responses in the messages collection we send on each call.
       //
-      const tools = this.stateManager.getAllTools().map((tool: Tool) => {
+      const tools = this.appState.getMCPManager().getAllTools().map((tool: Tool) => {
         return {
           name: tool.name,
           description: tool.description,
@@ -104,7 +101,7 @@ export class ClaudeLLM implements ILLM {
               content: `[Using tool ${toolName} with input: ${JSON.stringify(toolArgs)}]`
             });
 
-            const result = await this.stateManager.callTool(toolName, toolArgs);
+            const result = await this.appState.getMCPManager().callTool(toolName, toolArgs);
             log.info('Tool result:', result);
             toolResults.push(result);
             finalText.push(

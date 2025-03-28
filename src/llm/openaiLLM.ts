@@ -1,17 +1,15 @@
 import { ILLM } from './types';
 import OpenAI from 'openai';
-import { LLMStateManager } from './stateManager';
-import { ConfigManager } from '../state/ConfigManager';
+import { AppState } from '../state/AppState';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { ChatMessage } from '../types/ChatSession';
 
 export class OpenAILLM implements ILLM {
-  private client!: OpenAI;
+  private readonly appState: AppState;
   private readonly modelName: string;
-  private readonly stateManager: LLMStateManager;
-  private readonly configManager: ConfigManager;
+  private client!: OpenAI;
   private readonly MAX_TURNS = 5;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
@@ -26,13 +24,12 @@ export class OpenAILLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, stateManager: LLMStateManager, configManager: ConfigManager) {
+  constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
-    this.stateManager = stateManager;
-    this.configManager = configManager;
+    this.appState = appState;
     
     try {
-      const apiKey = this.configManager.getConfigValue('OPENAI_API_KEY');
+      const apiKey = this.appState.getConfigManager().getConfigValue('OPENAI_API_KEY');
       this.client = new OpenAI({ apiKey });
       log.info('OpenAI LLM initialized successfully');
     } catch (error) {
@@ -40,6 +37,7 @@ export class OpenAILLM implements ILLM {
       throw error;
     }
   }
+
   async generateResponse(messages: ChatMessage[]): Promise<string> {
     try {
       log.info('Generating response with OpenAI');
@@ -57,7 +55,7 @@ export class OpenAILLM implements ILLM {
 
       log.info('Starting OpenAI LLM with messages:', currentMessages);
 
-      const tools = this.stateManager.getAllTools();
+      const tools = this.appState.getMCPManager().getAllTools();
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
 
       while (turnCount < this.MAX_TURNS) {
@@ -88,7 +86,7 @@ export class OpenAILLM implements ILLM {
               log.info('Processing function call:', toolCall.function);
 
               // Call the tool
-              const toolResult = await this.stateManager.callTool(
+              const toolResult = await this.appState.getMCPManager().callTool(
                 toolCall.function.name,
                 JSON.parse(toolCall.function.arguments)
               );

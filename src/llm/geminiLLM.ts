@@ -1,17 +1,15 @@
 import { ILLM } from './types';
 import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams } from '@google/generative-ai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
-import { LLMStateManager } from './stateManager';
-import { ConfigManager } from '../state/ConfigManager';
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
+import { AppState } from '../state/AppState';
 
 export class GeminiLLM implements ILLM {
+  private readonly appState: AppState;
+  private readonly modelName: string;
   private genAI: GoogleGenerativeAI;
   private model: any;
-  private readonly modelName: string;
-  private readonly stateManager: LLMStateManager;
-  private readonly configManager: ConfigManager;
   private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
 
   private convertPropertyType(prop: any): { type: string; items?: { type: string } } {
@@ -62,16 +60,15 @@ export class GeminiLLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, stateManager: LLMStateManager, configManager: ConfigManager) {
+  constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
-    this.stateManager = stateManager;
-    this.configManager = configManager;
+    this.appState = appState;
     
     try {
-      const apiKey = this.configManager.getConfigValue('GEMINI_API_KEY');
+      const apiKey = this.appState.getConfigManager().getConfigValue('GEMINI_API_KEY');
       this.genAI = new GoogleGenerativeAI(apiKey);
-      const modelOptions: ModelParams = { model: modelName };
-      const tools = this.stateManager.getAllTools();
+      const modelOptions: ModelParams = { model: this.modelName };
+      const tools = this.appState.getMCPManager().getAllTools();
       if (tools.length > 0) {
         const modelTools = this.convertMCPToolsToGeminiTool(tools);
         modelOptions.tools = [modelTools];
@@ -127,7 +124,7 @@ export class GeminiLLM implements ILLM {
               log.info('Function call detected:', part.functionCall);
 
               // Call the tool
-              const toolResult = await this.stateManager.callTool(
+              const toolResult = await this.appState.getMCPManager().callTool(
                 name,
                 args as Record<string, unknown>
               );
