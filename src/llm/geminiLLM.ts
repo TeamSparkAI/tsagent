@@ -162,7 +162,7 @@ export class GeminiLLM implements ILLM {
                   toolName: this.appState.getMCPManager().getToolName(toolName),
                   args: args ?? {},
                   output: resultText,
-                  elapsedTimeMs: 0,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
                   error: undefined
                 });
               }

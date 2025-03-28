@@ -1,6 +1,7 @@
 import { MCPClient, McpConfigFileServerConfig } from './types';
 import { MCPClientImpl } from './client';
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
+import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
 
 export class MCPClientManager {
@@ -64,7 +65,7 @@ export class MCPClientManager {
         return name.substring(firstUnderscoreIndex + 1);
     }
 
-    async callTool(name: string, args?: Record<string, unknown>): Promise<CallToolResult> {
+    async callTool(name: string, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime> {
         if (!this.ready) {
             throw new Error('MCPClientManager not ready');
         }

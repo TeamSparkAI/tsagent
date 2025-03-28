@@ -6,6 +6,7 @@ import log from 'electron-log';
 import { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { ChatMessage } from '../types/ChatSession';
 import { LlmReply, Turn } from '../types/LlmReply';
+import { CallToolResultWithElapsedTime } from '../mcp/types';
 
 export class OpenAILLM implements ILLM {
   private readonly appState: AppState;
@@ -119,7 +120,7 @@ export class OpenAILLM implements ILLM {
                   toolName: this.appState.getMCPManager().getToolName(toolCall.function.name),
                   args: JSON.parse(toolCall.function.arguments),
                   output: resultText,
-                  elapsedTimeMs: 0,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
                   error: undefined
                 });
   

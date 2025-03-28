@@ -124,8 +124,8 @@ export class ClaudeLLM implements ILLM {
                 toolName: this.appState.getMCPManager().getToolName(toolName),
                 args: toolArgs ?? {},
                 output: toolResultContent?.text ?? '',
-                  elapsedTimeMs: 0,
-                  error: undefined
+                elapsedTimeMs: result.elapsedTimeMs,
+                error: undefined
               });
             }
             currentResponse = await this.client.messages.create({

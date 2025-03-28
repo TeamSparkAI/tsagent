@@ -282,7 +282,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                                   className={`tool-call-header ${isExpanded ? 'expanded' : ''}`}
                                   onClick={() => toggleToolCall(msgIdx, turnIdx, toolIdx)}
                                 >
-                                  <span className="tool-call-name">Tool Call: {toolCall.serverName}.{toolCall.toolName}</span>
+                                  <span className="tool-call-name">Tool Call: {toolCall.serverName}.{toolCall.toolName} ({toolCall.elapsedTimeMs.toFixed(2)}ms)</span>
                                 </div>
                                 {isExpanded && (
                                   <div className="tool-call-details">

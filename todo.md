@@ -139,12 +139,15 @@ Maybe we have the concept of a "Workspace" which is a collection of all of our s
 - refs (dir of md files)
 - rules (dir of md files)
 
+References could have keywords (regex?) - anytime the user prompt contains keyword, inject rule?  Same for rules?
+
 A rule could refer to a reference or a toolset/tool (or any combination of instances of both)
 - When the users asks about files, use [tool:filesystem](tool:filesystem)
 - When the user asks about the product, use [ref:product](ref:product)
 
 A rule could be correlated to a reference or a toolset/tool
 - Anytime you use this reference or tool, this rule will be applied
+- I think the best we can do here is to inject the rule after the tool use, so the rule would govern processing of the results, not usage of the tool
 - In rule frontmatter:
   - terms: file directory
   - tool: filesystem (anytime you use filesystem tools, this rule will be applied)
@@ -154,23 +157,15 @@ A rule could be correlated to a reference or a toolset/tool
 
 Allow tool from [server name]?
 
-  Run [toolname] from [server/server name]
+  Run [toolname] from [server/server name] (maybe pop this open to see server/tool config)
 
 Malicious MCP Servers or conversation content could potentially trick xxxxx into attempting harmful actions through your installed tools.
 <bold>Review each action carefully before approving</bold>
 
 [Allow for this chat] [Allow once] [Deny]
 
-## Chat display of llmreply
+## Context Management
 
-I have modified the LLMs to return the new LlmReply, which contains a list of turns, where each turn may have a message and/or a series of tool calls, or an error. We need to modify the ChatSessionManager to maintain a single message history list composed of interleaved messages of two types:
-1. ChatMessage (for system/user messages)
-2. LlmReply (for assistant messages with turns)
-
-The message history should be a single sequential list where these two types are interleaved based on the conversation flow. We then need to synchronize this unified list with the chat tab.
-
-The chat tab should display this unified message history, where each LlmReply message can show its turns (including any tool calls) as part of the assistant's response. Do not change anything on the backend except the handleMessage logic and any required ipc (specifically do not touch any of the LLM implementations). You should not need to update the Turn interface (we want to be able to send that exact data to the front end so it can display the turns, including any error message that is present in a turn).
-
-The chat tab UX should remain unchanged except for the logic to display the new LlmReply messages. The structure of the chat tabs should not need to be updated (only the message display).
-
-When introducing new types, be careful to have a strategy that avoids circular dependencies.
+For each LLM, need to convert previous LllReply messages to native messages
+- Process each turn
+- If tool call, assistant role message for the call, user role message for the response?

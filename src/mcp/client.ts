@@ -2,6 +2,7 @@ import { MCPClient } from './types';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
 import { Client } from '@modelcontextprotocol/sdk/client/index';
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
+import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
 
 export class MCPClientImpl implements MCPClient {
@@ -85,9 +86,15 @@ export class MCPClientImpl implements MCPClient {
         }
     }
 
-    async callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResult> {
+    async callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime> {
+        const startTime = performance.now();
         const result = await this.mcp.callTool({name: tool.name, arguments: args}) as CallToolResult;
-        return result;
+        const elapsedTimeMs = performance.now() - startTime;
+        
+        return {
+            ...result,
+            elapsedTimeMs
+        };
     }
 
     public async disconnect() {
