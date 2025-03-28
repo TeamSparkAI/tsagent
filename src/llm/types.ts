@@ -1,5 +1,5 @@
-import { AppState } from '../state/AppState';
 import { ChatMessage } from '../types/ChatSession';
+import { LlmReply } from '../types/LlmReply';
 
 export enum LLMType {
   Test = 'test',
@@ -9,5 +9,5 @@ export enum LLMType {
 }
 
 export interface ILLM {
-  generateResponse(messages: ChatMessage[]): Promise<string>;
+  generateResponse(messages: ChatMessage[]): Promise<LlmReply>;
 } 

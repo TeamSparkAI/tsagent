@@ -5,6 +5,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { ChatMessage } from '../types/ChatSession';
+import { LlmReply } from '../types/LlmReply';
 
 export class OpenAILLM implements ILLM {
   private readonly appState: AppState;
@@ -38,7 +39,7 @@ export class OpenAILLM implements ILLM {
     }
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<string> {
+  async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
     try {
       log.info('Generating response with OpenAI');
       const finalText = [];
@@ -124,11 +125,29 @@ export class OpenAILLM implements ILLM {
 
       const responseText = finalText.join('\n');
       log.info('OpenAI response generated successfully');
-      return responseText;
+
+      return {
+        inputTokens: 0,
+        outputTokens: 0,
+        timestamp: Date.now(),
+        turns: [
+          { message: { role: 'assistant', content: responseText } }
+        ]
+      }
     } catch (error: any) {
       log.error('OpenAI API error:', error);
       const errorMessage = error.message || 'Unknown error';
-      return `Error: Failed to generate response from OpenAI - ${errorMessage}`;
+      return {
+        inputTokens: 0,
+        outputTokens: 0,
+        timestamp: Date.now(),
+        turns: [
+          {
+            error: `Error: Failed to generate response from OpenAI - ${errorMessage}`
+          }
+        ]
+      }
+      
     }
   }
 } 

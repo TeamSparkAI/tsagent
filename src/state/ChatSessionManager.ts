@@ -102,16 +102,11 @@ export class ChatSessionManager {
   // Turn:  
   //   - Message[]
   //   - ToolCall[]
-  //   - ToolCallResult[]
   //
   // ToolCall:
   //   - Server name
   //   - Tool name
   //   - Args
-  //   - Call ID (if not provided, make a synthetic on)
-  //
-  // ToolCallResult:
-  //   - Call ID
   //   - ElapsedTimeMs (timestamp?)
   //   - Output
   //   - Error (if applicable)
@@ -142,9 +137,12 @@ export class ChatSessionManager {
         throw new Error(`Failed to generate response from ${session.currentModel}`);
       }
 
+      // get the text of the last turn message
+      const lastTurnMessage = response.turns[response.turns.length - 1].message?.content ?? "Error: No response from LLM";
+
       const updates: ChatMessage[] = [
         userMessage,
-        { role: 'assistant' as const, content: response }
+        { role: 'assistant' as const, content: lastTurnMessage }
       ];
       
       session.messages.push(...updates);

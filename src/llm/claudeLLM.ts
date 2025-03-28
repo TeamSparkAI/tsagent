@@ -5,6 +5,7 @@ import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 import { AppState } from '../state/AppState';
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
+import { LlmReply } from '../types/LlmReply';
 
 export class ClaudeLLM implements ILLM {
   private readonly appState: AppState;
@@ -25,7 +26,7 @@ export class ClaudeLLM implements ILLM {
     }
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<string> {
+  async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
     try {
       log.info('Generating response with Claude');
       // In order to maintain context, we need to pass the previous messages to each create call.  If we want
@@ -143,10 +144,31 @@ export class ClaudeLLM implements ILLM {
 
       const response = finalText.join('\n');
       log.info('Claude response generated successfully');
-      return response;
+      return {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
+        timestamp: Date.now(),
+        turns: [
+          {
+            message: {
+              role: 'assistant',
+              content: response
+            }
+          }
+        ]
+      }
     } catch (error: any) {
       log.error('Claude API error:', error.message);
-      return `Error: Failed to generate response from Claude - ${error.message}`;
+      return {
+        inputTokens: 0,
+        outputTokens: 0,
+        timestamp: Date.now(),
+        turns: [
+          {
+            error: `Error: Failed to generate response from Claude - ${error.message}`
+          }
+        ]
+      }
     }
   }
 } 

@@ -4,6 +4,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
 import { AppState } from '../state/AppState';
+import { LlmReply } from '../types/LlmReply';
 
 export class GeminiLLM implements ILLM {
   private readonly appState: AppState;
@@ -81,7 +82,7 @@ export class GeminiLLM implements ILLM {
     }
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<string> {
+  async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
     try {
       // Split messages into history and current prompt
       const history = messages.slice(0, -1).map(message => ({
@@ -157,12 +158,27 @@ export class GeminiLLM implements ILLM {
         finalText.push("\n[Maximum number of function calls reached]");
       }
 
-      return finalText.join('\n');
-
+      return {
+        inputTokens: 0,
+        outputTokens: 0,
+        timestamp: Date.now(),
+        turns: [
+          { message: { role: 'assistant', content: finalText.join('\n') } }
+        ]
+      }
     } catch (error: any) {
       log.error('Gemini API error:', error);
       const errorMessage = error.message || 'Unknown error';
-      return `Error: Failed to generate response from Gemini - ${errorMessage}`;
+      return {
+        inputTokens: 0,
+        outputTokens: 0,
+        timestamp: Date.now(),
+        turns: [
+          {
+            error: `Error: Failed to generate response from Gemini - ${errorMessage}`
+          }
+        ]
+      }
     }
   }
 } 
