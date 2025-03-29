@@ -27,6 +27,10 @@ export class ClaudeLLM implements ILLM {
     }
   }
 
+  // Note: The Anthropic API is stateless, so we need to establish the initial state using our ChatMessage[] context (passed in
+  //       as messages).  Then as we are processing turns, we also need to add any reponses we receive from the model, as well as
+  //       any replies we make (such as tool call results), to this state.
+  //
   async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
     const llmReply: LlmReply = {
       inputTokens: 0,
@@ -37,11 +41,7 @@ export class ClaudeLLM implements ILLM {
 
     try {
       log.info('Generating response with Claude');
-      // In order to maintain context, we need to pass the previous messages to each create call.  If we want
-      // to allow subsequent calls to use tools, we need to pass the tools in those messages.  However, we do
-      // not need to pass the tools in previous messages that have already been processed.  We do need to provide
-      // all tool responses in the messages collection we send on each call.
-      //
+
       const tools = this.appState.getMCPManager().getAllTools().map((tool: Tool) => {
         return {
           name: tool.name,
@@ -112,15 +112,13 @@ export class ClaudeLLM implements ILLM {
         }
       }
 
-      const message = await this.client.messages.create({
+      let currentResponse = await this.client.messages.create({
         model: this.modelName,
         max_tokens: 1000,
         messages: turnMessages,
         system: systemPrompt || undefined,
         tools,
       });
-
-      let currentResponse = message;
 
       let turnCount = 0;
       while (turnCount < this.MAX_TURNS) {
@@ -208,8 +206,8 @@ export class ClaudeLLM implements ILLM {
         });
       }
 
-      llmReply.inputTokens = message.usage.input_tokens;
-      llmReply.outputTokens = message.usage.output_tokens;
+      llmReply.inputTokens = currentResponse.usage.input_tokens;
+      llmReply.outputTokens = currentResponse.usage.output_tokens;
 
       log.info('Claude response generated successfully');
       return llmReply;

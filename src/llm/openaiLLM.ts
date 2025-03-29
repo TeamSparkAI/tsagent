@@ -3,10 +3,9 @@ import OpenAI from 'openai';
 import { AppState } from '../state/AppState';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
-import { MessageParam } from '@anthropic-ai/sdk/resources/messages';
 import { ChatMessage } from '../types/ChatSession';
 import { LlmReply, Turn } from '../types/LlmReply';
-import { CallToolResultWithElapsedTime } from '../mcp/types';
+import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
 export class OpenAILLM implements ILLM {
   private readonly appState: AppState;
@@ -26,6 +25,10 @@ export class OpenAILLM implements ILLM {
     };
   }
 
+  // Note: The OpenAI API is stateless, so we need to establish the initial state using our ChatMessage[] context (passed in
+  //       as messages).  Then as we are processing turns, we also need to add any reponses we receive from the model, as well as
+  //       any replies we make (such as tool call results), to this state.
+  //
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
     this.appState = appState;
@@ -52,17 +55,55 @@ export class OpenAILLM implements ILLM {
       log.info('Generating response with OpenAI');
 
       // Turn our ChatMessage[] into a OpenAPI API ChatCompletionMessageParam[]
-      let currentMessages: OpenAI.ChatCompletionMessageParam[] = messages.map(message => {
-        const content = message.role === 'assistant'
-          ? message.llmReply.turns[message.llmReply.turns.length - 1].message ?? ''
-          : message.content;
-        
-        return {
-          // Convert to a role that OpenAI API accepts (user or assistant)
-          role: message.role === 'error' ? 'assistant' : message.role,
-          content,
-        }
-      });
+      let currentMessages: OpenAI.ChatCompletionMessageParam[] = [];
+      for (const message of messages) {
+        if ('llmReply' in message) {
+          // Process each turn in the LLM reply
+          for (const turn of message.llmReply.turns) {
+            // Add the assistant's message (including any tool calls)
+            const reply: ChatCompletionMessageParam = {
+              role: "assistant" as const,
+              content: turn.message ?? undefined,
+            };
+            // Add the tool calls, if any
+            if (turn.toolCalls && turn.toolCalls.length > 0) {
+              reply.tool_calls = [];
+              for (const toolCall of turn.toolCalls) {
+                // Push the tool call
+                reply.tool_calls.push({
+                  type: 'function',
+                  id: toolCall.toolCallId!,
+                  function: {
+                    name: toolCall.toolName,
+                    arguments: JSON.stringify(toolCall.args ?? {}),
+                  },
+                });
+              }
+            }
+            // !!! Validate that this is the same as what we got from the model
+            currentMessages.push(reply);
+
+            // Add the tool call results, if any
+            if (turn.toolCalls && turn.toolCalls.length > 0) {
+              for (const toolCall of turn.toolCalls) {
+                // Push the tool call result
+                currentMessages.push({
+                  role: 'tool',
+                  tool_call_id: toolCall.toolCallId!,
+                  content: toolCall.output
+                });
+              }
+            }
+          }
+        } else {
+          // Handle regular messages
+          currentMessages.push({
+            // Convert to a role that OpenAI API accepts (user or assistant)
+            role: message.role === 'error' ? 'assistant' : message.role,
+            content: message.content,
+          });
+      }
+      }
 
       log.info('Starting OpenAI LLM with messages:', currentMessages);
 
@@ -90,10 +131,13 @@ export class OpenAILLM implements ILLM {
 
         if (response.content) {
           turn.message = (turn.message || '') + response.content;
-        } else if (response.tool_calls && response.tool_calls.length > 0) {
+        }
+        
+        if (response.tool_calls && response.tool_calls.length > 0) {
           log.info('tool_calls', response.tool_calls);
           hasToolUse = true;
-          // Add the assistant's message with the tool calls
+          // Add the assistant's message with the tool calls (we add it here because we only need it in the state if we're calling
+          // a tool and then doing another turn that relies on that state).
           currentMessages.push(response);
 
           // Process all tool calls
