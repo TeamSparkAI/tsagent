@@ -77,6 +77,10 @@ export class ReferencesManager {
         this.loadReferences();
     }
 
+    public getReference(name: string) {
+        return this.references.find(r => r.name === name);
+    }
+
     public deleteReference(name: string) {
         const filePath = path.join(this.referencesDir, `${name}.mdw`);
         if (fs.existsSync(filePath)) {

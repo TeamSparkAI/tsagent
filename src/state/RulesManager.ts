@@ -66,6 +66,10 @@ export class RulesManager {
     this.loadRules();
   }
 
+  public getRule(name: string) {
+    return this.rules.find(r => r.name === name);
+  }
+
   public deleteRule(name: string) {
     const filePath = path.join(this.rulesDir, `${name}.mdw`);
     if (fs.existsSync(filePath)) {

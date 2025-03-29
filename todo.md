@@ -62,27 +62,20 @@ When configuring a new tool (or when saving it?) - test connection to tool?  Tes
 
 Need a way to collect server error stream and display (esp for new server / connection type errors)
 
-## Rules
-
-MCP (internal) for rule CRUD
-
-## Rerefences
-
-MCP (internal) for reference CRUD
-
-Is/can reference be local to a chat, or attached to a role/agent definition, or global?
-
-Need way to control chat session context (message history, both sides, including tool calls and results)
-
 ## Misc UX
 
-Show tool calls / results in chat in compact items where you can click for full details
+Need way to control chat session context (message history, both sides, including tool calls and results)
 
 Show tools/rules/contexts included in chat somehow?
 
 Allow user to @mention a tool, rule, or referencec to force include in the chat
+- @ref:[referenceName]
+- @rule:[ruleName]
+- @tool:[toolset,toolset.tool,tool] (not clear if selective tool inclusion is the right idea, maybe configurable - use all tools, determine tools, explicit tool use only?)
 
 Allow user to pick any chat element and store it as a reference
+
+Provide internal MCP tooling for LLM to CRUD references and rules
 
 Maybe as you type we add in scope that you can see (and you can remove if you don't want it)
 
@@ -91,7 +84,7 @@ Debug logic
 
 ## Logic
 
-Can we have an LLM help us determine scope for a chat message? 
+Can we have an LLM help us determine context scope for a chat message? 
 - This could be the LLM we're using
 - Or maybe we could run a local LLM that just specialized in this
 
@@ -139,19 +132,22 @@ Maybe we have the concept of a "Workspace" which is a collection of all of our s
 - refs (dir of md files)
 - rules (dir of md files)
 
-References could have keywords (regex?) - anytime the user prompt contains keyword, inject rule?  Same for rules?
+## References and Rules config
 
-A rule could refer to a reference or a toolset/tool (or any combination of instances of both)
-- When the users asks about files, use [tool:filesystem](tool:filesystem)
-- When the user asks about the product, use [ref:product](ref:product)
+Store config in YAML frontmatter
 
-A rule could be correlated to a reference or a toolset/tool
-- Anytime you use this reference or tool, this rule will be applied
-- I think the best we can do here is to inject the rule after the tool use, so the rule would govern processing of the results, not usage of the tool
-- In rule frontmatter:
-  - terms: file directory
-  - tool: filesystem (anytime you use filesystem tools, this rule will be applied)
-  - ref: product (anytime you use this reference, this rule will be applied)
+References
+- Keywords - apply reference whenever these keywords appear in the user prompt (* is always)
+- Tools - when this tool is used, apply this reference
+- Rules - whem this rule is used, apply this reference (rule will be applied at the time of tool output processing)
+
+Rules
+- Keywords - apply rule whenever these keywords appear in the user prompt (* is always)
+- Tools - when this tool is used, apply this rule (rule will be applied at the time of tool output processing)
+- References - when this reference is used, apply this rule
+
+Examples:
+- ???
 
 ## Tool Permission
 
@@ -169,3 +165,12 @@ Malicious MCP Servers or conversation content could potentially trick xxxxx into
 For each LLM, need to convert previous LllReply messages to native messages
 - Process each turn
 - If tool call, assistant role message for the call, user role message for the response?
+- Proper text formatting (to identify tool, args, result, etc)
+- Maybe a member function to convert a ToolCall to native messages (set, usually two)
+- Maybe another member function to convert an LlmReply to a set of native messages
+
+We should probably store references and rules with client ChatMessage
+
+As we accumulate ChatMessages into list, we should track, but not yet include, all included references and rules
+
+At the end, we will convert references and rules to "user" ChatMessage components to send into LLM state

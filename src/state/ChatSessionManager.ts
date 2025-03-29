@@ -99,18 +99,57 @@ export class ChatSessionManager {
 
     // Get system prompt from config
     const systemPrompt = await session.appState.getConfigManager().getSystemPrompt();
-
-    // For now, ChatMessage[] is just going to be the system prompt and the user message
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: message
-    };
-    
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      userMessage
     ];
-      
+
+    // Search user message for each instance of @ref:[referenceName] and @rule:[ruleName] and inject found references and rules into messages array
+    //
+    const referenceRegex = /@ref:(\w+)/g;
+    const ruleRegex = /@rule:(\w+)/g;
+    const referenceMatches = message.match(referenceRegex);
+    const ruleMatches = message.match(ruleRegex);
+
+    // Clean up the message by removing the references
+    let cleanMessage = message;
+    if (referenceMatches) {
+      cleanMessage = cleanMessage.replace(referenceRegex, '');
+      for (const match of referenceMatches) {
+        const referenceName = match.replace('@ref:', '');
+        const reference = this.appState.getReferencesManager().getReference(referenceName);
+        if (reference) {
+          messages.push({
+            role: 'user',
+            content: `Reference: ${reference.text}`
+          }); 
+        }
+      }
+    }
+
+    if (ruleMatches) {
+      cleanMessage = cleanMessage.replace(ruleRegex, '');
+      for (const match of ruleMatches) {
+        const ruleName = match.replace('@rule:', '');
+        const rule = this.appState.getRulesManager().getRule(ruleName);
+        if (rule) {
+          messages.push({
+            role: 'user',
+            content: `Rule: ${rule.text}`
+          });
+        }
+      }
+    }
+
+    // Clean up any extra whitespace that might have been left
+    cleanMessage = cleanMessage.replace(/\s+/g, ' ').trim();
+
+    // Finish off with the user message
+    const userMessage: ChatMessage = {
+      role: 'user',
+      content: cleanMessage
+    };
+    messages.push(userMessage);
+
     try {
       const response = await session.llm.generateResponse(messages);
       if (!response) {
@@ -120,7 +159,10 @@ export class ChatSessionManager {
       log.info('All turns', JSON.stringify(response.turns, null, 2));
 
       const updates: ChatMessage[] = [
-        userMessage,
+        {
+          role: 'user',
+          content: message
+        },
         { 
           role: 'assistant' as const, 
           llmReply: response
