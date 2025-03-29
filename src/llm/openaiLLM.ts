@@ -120,8 +120,8 @@ export class OpenAILLM implements ILLM {
                   toolName: this.appState.getMCPManager().getToolName(toolCall.function.name),
                   args: JSON.parse(toolCall.function.arguments),
                   output: resultText,
+                  toolCallId: toolCall.id,
                   elapsedTimeMs: toolResult.elapsedTimeMs,
-                  error: undefined
                 });
   
                 // Add the tool result to messages

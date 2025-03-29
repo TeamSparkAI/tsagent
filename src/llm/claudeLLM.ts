@@ -61,13 +61,57 @@ export class ClaudeLLM implements ILLM {
         messages.shift();
       }
 
-      // Turn our ChatMessage[] into a Anthropic API MessageParam[]
-      const turnMessages: MessageParam[] = messages.map(message => ({
-        role: message.role === 'system' || message.role === 'error' ? 'assistant' : message.role,
-        content: 'content' in message ? message.content : ''
-      }));
+      // Turn our ChatMessage[] into an Anthropic API MessageParam[]
+      const turnMessages: MessageParam[] = messages.map(message => {
+        if ('llmReply' in message) {
+          // For LLM replies, we need to construct messages for each turn
+          const messages: MessageParam[] = [];
+          for (const turn of message.llmReply.turns) {
+            // Add the assistant's message (including any tool calls)
+            if (turn.message) {
+              messages.push({
+                role: 'assistant' as const,
+                content: turn.message
+              });
+            }
+            // Add the tool calls, if any
+            if (turn.toolCalls && turn.toolCalls.length > 0) {
+              for (const toolCall of turn.toolCalls) {
+                // Push the tool call
+                messages.push({
+                  role: 'assistant' as const,
+                  content: [
+                    {
+                      type: 'tool_use',
+                      id: toolCall.toolCallId!,
+                      name: toolCall.toolName,
+                      input: toolCall.args,
+                    }
+                  ]
+                });
+                // Push the tool call result
+                messages.push({
+                  role: 'user' as const,
+                  content: [
+                    {
+                      type: 'tool_result',
+                      tool_use_id: toolCall.toolCallId!,
+                      content: toolCall.output,
+                    }
+                  ]
+                });
+              }
+            }
+          }
+          return messages;
+        }
+        // For regular messages, map them as before
+        return {
+          role: message.role === 'system' || message.role === 'error' ? 'assistant' as const : message.role as 'user' | 'assistant',
+          content: 'content' in message ? message.content : ''
+        };
+      }).flat(); // Flatten the array since some messages might return arrays of messages
 
-      // We could check to see if the first message is the system prompt and inject it as a system message, but we'll just
       const message = await this.client.messages.create({
         model: this.modelName,
         max_tokens: 1000,
@@ -102,7 +146,14 @@ export class ClaudeLLM implements ILLM {
             // Record the tool use request in the message context
             turnMessages.push({
               role: "assistant",
-              content: `[Using tool ${toolName} with input: ${JSON.stringify(toolArgs)}]`
+              content: [
+                {
+                  type: 'tool_use',
+                  id: toolUseId,
+                  name: toolName,
+                  input: toolArgs,
+                }
+              ]
             });
 
             const result = await this.appState.getMCPManager().callTool(toolName, toolArgs);
@@ -111,8 +162,14 @@ export class ClaudeLLM implements ILLM {
             const toolResultContent = result.content[0];
             if (toolResultContent && toolResultContent.type === 'text') {
               turnMessages.push({
-                role: "user",
-                content: `[Tool ${toolName} returned: ${toolResultContent.text}]`,
+                role: 'user',
+                content: [
+                  {
+                    type: 'tool_result',
+                    tool_use_id: toolUseId,
+                    content: toolResultContent.text,
+                  }
+                ]
               });
 
               if (!turn.toolCalls) {
@@ -123,6 +180,7 @@ export class ClaudeLLM implements ILLM {
                 serverName: this.appState.getMCPManager().getToolServerName(toolName),
                 toolName: this.appState.getMCPManager().getToolName(toolName),
                 args: toolArgs ?? {},
+                toolCallId: toolUseId,
                 output: toolResultContent?.text ?? '',
                 elapsedTimeMs: result.elapsedTimeMs,
                 error: undefined

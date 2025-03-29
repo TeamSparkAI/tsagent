@@ -16,7 +16,8 @@ export interface Turn {
 export interface ToolCall {
   serverName: string;
   toolName: string;
-  args: Record<string, unknown>;
+  args?: Record<string, unknown>;
+  toolCallId?: string; // optional, may be provided to correlate tool call with tool result
   elapsedTimeMs: number;
   output: string;
   error?: string;

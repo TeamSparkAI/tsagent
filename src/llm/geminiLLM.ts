@@ -1,5 +1,5 @@
 import { ILLM } from './types';
-import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams } from '@google/generative-ai';
+import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams, GenerativeModel } from '@google/generative-ai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
@@ -10,7 +10,7 @@ export class GeminiLLM implements ILLM {
   private readonly appState: AppState;
   private readonly modelName: string;
   private genAI: GoogleGenerativeAI;
-  private model: any;
+  private model: GenerativeModel;
   private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
 
   private convertPropertyType(prop: any): { type: string; items?: { type: string } } {
@@ -91,6 +91,29 @@ export class GeminiLLM implements ILLM {
     }
 
     try {
+      // Note: The messages we actually get back from the API seem to use "model" as the role for the assistant's response.
+      //
+      // Vertex messages are in the format:
+      // [
+      //   {
+      //     role: 'user',
+      //     parts: [{ text: 'Hello, world!' }]
+      //   },
+      //   {
+      //     role: 'model',
+      //     parts: [
+      //       { text: 'Hello, world!' },
+      //       { functionCall: { name: 'my_function', args: { param1: 'value1', param2: 'value2' } } } 
+      //     ]
+      //   },
+      //   {
+      //     role: 'user',
+      //     parts: [
+      //       { functionResponse: { name: 'my_function', response: 'Hello, world!' } }
+      //     ]
+      //   }
+      // ]
+
       // Split messages into history and current prompt
       const history = messages.slice(0, -1).map(message => ({
         role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
@@ -140,13 +163,11 @@ export class GeminiLLM implements ILLM {
             if (part.functionCall?.name && part.functionCall?.args) {
               hasFunctionCalls = true;
               const { name: toolName, args } = part.functionCall;
+              const toolArgs = args ? (args as Record<string, unknown>) : undefined;
               log.info('Function call detected:', part.functionCall);
 
               // Call the tool
-              const toolResult = await this.appState.getMCPManager().callTool(
-                toolName,
-                args as Record<string, unknown>
-              );
+              const toolResult = await this.appState.getMCPManager().callTool(toolName, toolArgs);
               log.info('Tool result:', toolResult);
 
               // Record the function call and result
@@ -160,7 +181,7 @@ export class GeminiLLM implements ILLM {
                 turn.toolCalls.push({
                   serverName: this.appState.getMCPManager().getToolServerName(toolName),
                   toolName: this.appState.getMCPManager().getToolName(toolName),
-                  args: args ?? {},
+                  args: toolArgs,
                   output: resultText,
                   elapsedTimeMs: toolResult.elapsedTimeMs,
                   error: undefined

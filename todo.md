@@ -174,3 +174,23 @@ We should probably store references and rules with client ChatMessage
 As we accumulate ChatMessages into list, we should track, but not yet include, all included references and rules
 
 At the end, we will convert references and rules to "user" ChatMessage components to send into LLM state
+
+## Keyword matching
+
+We have references and rules with keywords (comma separated, quoted strings?, wildcards?)
+- Separate by any combination of commas/spaces
+We have prompt text
+We want to see which reference or rules have keywords that are found in the prompt text
+Ideally we want to match regardless of plurality or tense of word (Stemming via natural.js or stemmer)
+We could do fuzzy matches with wildcards (Fuse.js) - only use Fuse for wildcarded keywords?  Just *?
+We could also support literal quoted exact match keywords
+
+Gather all bare keywords, stem them, stem the prompt, determine which keywords are found
+Gather all quoted keywords and wildcard keywords, convert to regex, search text, determine which keywords were found
+- Quoted string is word boundary before and after
+
+## Tool matching
+
+Each rule and reference has a list of tools
+The tool list can include server or server.tool
+When a tool fires, it gets the list of references and rules that match the server/server.tool
