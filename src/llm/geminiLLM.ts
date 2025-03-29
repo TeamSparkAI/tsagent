@@ -1,5 +1,5 @@
 import { ILLM } from './types';
-import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams, GenerativeModel } from '@google/generative-ai';
+import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams, GenerativeModel, Content, Part } from '@google/generative-ai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
@@ -114,21 +114,58 @@ export class GeminiLLM implements ILLM {
       //   }
       // ]
 
-      // Split messages into history and current prompt
-      const history = messages.slice(0, -1).map(message => ({
-        role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
-        parts: [{ 
-          text: message.role === 'assistant' 
-            ? message.llmReply.turns[message.llmReply.turns.length - 1].message ?? ''
-            : message.content 
-        }]
-      }));
+      // Turn our ChatMessage[] into a VertexAI Content[]
+      const history: Content[] = [];
+      for (const message of messages) {
+        if ('llmReply' in message) {
+          // Process each turn in the LLM reply
+          for (const turn of message.llmReply.turns) {
+            // Add the assistant's message (including any tool calls)
+            if (turn.message) {
+              history.push({
+                role: 'assistant',
+                parts: [{ text: turn.message ?? '' }]
+              });
+            }
+            // Add the tool calls, if any
+            if (turn.toolCalls && turn.toolCalls.length > 0) {
+              for (const toolCall of turn.toolCalls) {
+                // Push the tool call
+                history.push({
+                  role: 'assistant', // !!! Should this be "model" instead?
+                  parts: [{
+                    functionCall: {
+                      name: toolCall.toolName,
+                      args: toolCall.args ?? {} // !!! Verify this in the logs - make sure toolCall.args gets serilized as an object correctly
+                    }
+                  }]
+                });
+                // Push the tool call result
+                history.push({
+                  role: 'user',
+                  parts: [{
+                    functionResponse: {
+                      name: toolCall.toolName,
+                      response: {
+                        text: toolCall.output
+                      }
+                    }
+                  }]
+                });
+              }
+            }
+          }
+        } else {
+          // Handle regular messages
+          history.push({
+            role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
+            parts: [{ text: message.content }]
+          });
+        }
+      } 
 
-      // For the current prompt check
-      const lastMessage = messages[messages.length - 1];
-      var currentPrompt = lastMessage.role === 'assistant'
-        ? lastMessage.llmReply.turns[lastMessage.llmReply.turns.length - 1].message ?? ''
-        : lastMessage.content;
+      const lastMessage = history.pop()!;
+      var currentPrompt: Part[] = lastMessage.parts;
 
       log.info('history', JSON.stringify(history, null, 2));
       log.info('currentPrompt', currentPrompt);
@@ -148,8 +185,10 @@ export class GeminiLLM implements ILLM {
         log.info('response', JSON.stringify(response, null, 2));
 
         // Process all parts of the response
-        let hasFunctionCalls = false;
+        let hasToolUse = false;
         const toolResults: string[] = [];
+
+        currentPrompt = [];
         
         const candidates = response.candidates?.[0];
         if (candidates?.content?.parts) {
@@ -161,7 +200,7 @@ export class GeminiLLM implements ILLM {
             
             // Handle function calls
             if (part.functionCall?.name && part.functionCall?.args) {
-              hasFunctionCalls = true;
+              hasToolUse = true;
               const { name: toolName, args } = part.functionCall;
               const toolArgs = args ? (args as Record<string, unknown>) : undefined;
               log.info('Function call detected:', part.functionCall);
@@ -186,19 +225,15 @@ export class GeminiLLM implements ILLM {
                   elapsedTimeMs: toolResult.elapsedTimeMs,
                   error: undefined
                 });
+                currentPrompt.push({ functionResponse: { name: toolName, response: { text: resultText } } });
               }
             }
           }
-
-          llmReply.turns.push(turn);
-          
-          // If there were function calls, continue the conversation with all results
-          if (hasFunctionCalls) {
-            currentPrompt = `The functions returned:\n${toolResults.join('\n')}`;
-            continue;
-          }
         }
-        break;
+        llmReply.turns.push(turn);
+          
+        // Break if no tool uses in this turn
+        if (!hasToolUse) break;
       }
 
       if (turnCount >= this.MAX_TURNS) {

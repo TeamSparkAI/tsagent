@@ -135,6 +135,8 @@ export class OpenAILLM implements ILLM {
           }
         }
         llmReply.turns.push(turn);
+          
+        // Break if no tool uses in this turn
         if (!hasToolUse) break;
       }
 

@@ -62,14 +62,14 @@ export class ClaudeLLM implements ILLM {
       }
 
       // Turn our ChatMessage[] into an Anthropic API MessageParam[]
-      const turnMessages: MessageParam[] = messages.map(message => {
+      const turnMessages: MessageParam[] = [];
+      for (const message of messages) {
         if ('llmReply' in message) {
-          // For LLM replies, we need to construct messages for each turn
-          const messages: MessageParam[] = [];
+          // Process each turn in the LLM reply
           for (const turn of message.llmReply.turns) {
             // Add the assistant's message (including any tool calls)
             if (turn.message) {
-              messages.push({
+              turnMessages.push({
                 role: 'assistant' as const,
                 content: turn.message
               });
@@ -78,7 +78,7 @@ export class ClaudeLLM implements ILLM {
             if (turn.toolCalls && turn.toolCalls.length > 0) {
               for (const toolCall of turn.toolCalls) {
                 // Push the tool call
-                messages.push({
+                turnMessages.push({
                   role: 'assistant' as const,
                   content: [
                     {
@@ -90,7 +90,7 @@ export class ClaudeLLM implements ILLM {
                   ]
                 });
                 // Push the tool call result
-                messages.push({
+                turnMessages.push({
                   role: 'user' as const,
                   content: [
                     {
@@ -103,14 +103,14 @@ export class ClaudeLLM implements ILLM {
               }
             }
           }
-          return messages;
+        } else {
+          // Handle regular messages
+          turnMessages.push({
+            role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
+            content: 'content' in message ? message.content : ''
+          });
         }
-        // For regular messages, map them as before
-        return {
-          role: message.role === 'system' || message.role === 'error' ? 'assistant' as const : message.role as 'user' | 'assistant',
-          content: 'content' in message ? message.content : ''
-        };
-      }).flat(); // Flatten the array since some messages might return arrays of messages
+      }
 
       const message = await this.client.messages.create({
         model: this.modelName,
