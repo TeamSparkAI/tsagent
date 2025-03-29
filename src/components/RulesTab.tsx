@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Rule } from '../types/Rule';
 import ReactMarkdown from 'react-markdown';
 import { TabProps } from '../types/TabProps';
+import { TabState, TabMode } from '../types/TabState';
+import { AboutView } from './AboutView';
 
 interface EditRuleModalProps {
     rule?: Rule;
@@ -30,7 +32,6 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
         <div style={{ padding: '20px' }}>
             <h2 style={{ marginTop: 0 }}>{rule ? 'Edit Rule' : 'New Rule'}</h2>
             
-            {/* Metadata fields in a table layout */}
             <div style={{ 
                 display: 'grid', 
                 gridTemplateColumns: '120px 1fr',
@@ -78,7 +79,6 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                 </div>
             </div>
 
-            {/* Rule text section */}
             <div style={{ marginBottom: '20px' }}>
                 <label style={{ 
                     display: 'block', 
@@ -100,18 +100,12 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                 />
             </div>
 
-            {/* Action buttons */}
             <div style={{ 
                 display: 'flex',
                 justifyContent: 'flex-end',
                 gap: '8px'
             }}>
-                <button 
-                    onClick={onCancel}
-                    style={{ padding: '6px 12px' }}
-                >
-                    Cancel
-                </button>
+                <button onClick={onCancel}>Cancel</button>
                 <button 
                     onClick={handleSave}
                     style={{ 
@@ -135,6 +129,7 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
     const [selectedRule, setSelectedRule] = useState<Rule | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editingRule, setEditingRule] = useState<Rule | undefined>(undefined);
+    const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
 
     useEffect(() => {
         loadRules();
@@ -171,73 +166,144 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
         }
     };
 
+    const renderContent = () => {
+        if (tabState.mode === 'about') {
+            return (
+                <AboutView
+                    title="About Rules"
+                    description={
+                        <div>
+                            <p>
+                                Rules are guidelines or constraints that help shape the AI's behavior and responses. 
+                                They can be used to enforce specific policies, maintain consistency, or provide 
+                                additional context for how the AI should interact.
+                            </p>
+                            <p>
+                                Rules are automatically included in the AI's context when processing messages. 
+                                They help ensure that the AI's responses align with your requirements and preferences.
+                            </p>
+                        </div>
+                    }
+                />
+            );
+        }
+
+        // Item view rendering logic
+        const rule = rules.find(r => r.name === tabState.selectedItemId);
+        if (!rule) return null;
+
+        return (
+            <div>
+                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ margin: 0 }}>{rule.name}</h2>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleEditRule(rule)}>Edit</button>
+                        <button onClick={() => handleDeleteRule(rule)}>Delete</button>
+                    </div>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Description</h3>
+                    <p style={{ margin: 0 }}>{rule.description}</p>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Priority Level</h3>
+                    <p style={{ margin: 0, fontFamily: 'monospace' }}>
+                        {rule.priorityLevel.toString().padStart(3, '0')}
+                    </p>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Status</h3>
+                    <p style={{ margin: 0 }}>{rule.enabled ? 'Enabled' : 'Disabled'}</p>
+                </div>
+                <div>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Content</h3>
+                    <div style={{ 
+                        padding: '16px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '4px',
+                        border: '1px solid #dee2e6'
+                    }}>
+                        <ReactMarkdown>{rule.text}</ReactMarkdown>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     if (id !== activeTabId) return null;
 
     return (
-        <div style={{ display: 'flex', height: '100%' }}>
-            {/* Left side - Rules List */}
-            <div style={{ width: '250px', borderRight: '1px solid #ccc', overflow: 'auto' }}>
-                <div style={{ padding: '16px', borderBottom: '1px solid #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ margin: 0 }}>Rules</h2>
-                    <button onClick={handleAddRule}>Add</button>
-                </div>
-                <div>
-                    {rules.map(rule => (
-                        <div
-                            key={rule.name}
-                            onClick={() => !isEditing && setSelectedRule(rule)}
-                            style={{
-                                padding: '8px 16px',
-                                cursor: isEditing ? 'not-allowed' : 'pointer',
-                                backgroundColor: selectedRule?.name === rule.name ? '#e0e0e0' : 'transparent',
-                                opacity: rule.enabled ? 1 : 0.5,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                filter: isEditing ? 'grayscale(0.5)' : 'none',
-                                pointerEvents: isEditing ? 'none' : 'auto'
-                            }}
-                        >
-                            <span style={{ fontFamily: 'monospace', color: '#666' }}>
-                                {rule.priorityLevel.toString().padStart(3, '0')}
-                            </span>
-                            <span>{rule.name}</span>
+        <div className={`tab-content ${activeTabId === id ? 'active' : ''}`}>
+            {isEditing ? (
+                <EditRuleModal
+                    rule={editingRule}
+                    onSave={handleSaveRule}
+                    onCancel={() => {
+                        setIsEditing(false);
+                        setEditingRule(undefined);
+                    }}
+                />
+            ) : (
+                <div className="references-container">
+                    <div className="references-sidebar">
+                        <div className="sidebar-header">
+                            <h3>Rules</h3>
+                            <button onClick={handleAddRule}>Add</button>
                         </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Right side - Rule Details or Edit Form */}
-            <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
-                {isEditing ? (
-                    <EditRuleModal
-                        rule={editingRule}
-                        onSave={handleSaveRule}
-                        onCancel={() => setIsEditing(false)}
-                    />
-                ) : selectedRule ? (
-                    <div>
-                        <h2>{selectedRule.name}</h2>
-                        <p>{selectedRule.description}</p>
-                        <div style={{ margin: '16px 0' }}>
-                            <button onClick={() => handleEditRule(selectedRule)}>Edit</button>
-                            <button 
-                                onClick={() => handleDeleteRule(selectedRule)}
-                                style={{ marginLeft: '8px' }}
+                        <div className="references-list">
+                            <div 
+                                className={`reference-item ${tabState.mode === 'about' ? 'selected' : ''}`}
+                                onClick={() => {
+                                    setTabState({ mode: 'about' });
+                                    setSelectedRule(null);
+                                }}
+                                style={{
+                                    padding: '8px 16px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    backgroundColor: tabState.mode === 'about' ? '#e0e0e0' : 'transparent',
+                                }}
                             >
-                                Delete
-                            </button>
-                        </div>
-                        <div style={{ marginTop: '16px', padding: '16px', background: '#f5f5f5', borderRadius: '4px' }}>
-                            <ReactMarkdown>{selectedRule.text}</ReactMarkdown>
+                                <span style={{ color: '#666' }}>ℹ️</span>
+                                <span>About Rules</span>
+                            </div>
+                            {rules.map(rule => (
+                                <div
+                                    key={rule.name}
+                                    className={`reference-item ${selectedRule?.name === rule.name ? 'selected' : ''}`}
+                                    onClick={() => {
+                                        if (!isEditing) {
+                                            setSelectedRule(rule);
+                                            setTabState({ mode: 'item', selectedItemId: rule.name });
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '8px 16px',
+                                        cursor: isEditing ? 'not-allowed' : 'pointer',
+                                        backgroundColor: selectedRule?.name === rule.name ? '#e0e0e0' : 'transparent',
+                                        opacity: rule.enabled ? 1 : 0.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        filter: isEditing ? 'grayscale(0.5)' : 'none',
+                                        pointerEvents: isEditing ? 'none' : 'auto'
+                                    }}
+                                >
+                                    <span style={{ fontFamily: 'monospace', color: '#666' }}>
+                                        {rule.priorityLevel.toString().padStart(3, '0')}
+                                    </span>
+                                    <span>{rule.name}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
-                ) : (
-                    <div style={{ textAlign: 'center', color: '#666', marginTop: '40px' }}>
-                        Select a rule to view or edit it, or click Add Rule to create a new one.
+                    <div className="references-main">
+                        {renderContent()}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }; 

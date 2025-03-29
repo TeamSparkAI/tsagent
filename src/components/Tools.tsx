@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { McpConfig } from '../mcp/types';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { TabProps } from '../types/TabProps';
+import { TabState, TabMode } from '../types/TabState';
+import { AboutView } from './AboutView';
 import log from 'electron-log';
 
 interface ServerInfo {
@@ -148,6 +150,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editingServer, setEditingServer] = useState<(McpConfig) | undefined>(undefined);
     const [serverInfo, setServerInfo] = useState<Record<string, ServerInfo>>({});
+    const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
 
     useEffect(() => {
         loadServers();
@@ -198,6 +201,16 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     if (id !== activeTabId) return null;
 
+    if (showEditModal) {
+        return (
+            <EditServerModal
+                server={editingServer}
+                onSave={handleSaveServer}
+                onCancel={() => setShowEditModal(false)}
+            />
+        );
+    }
+
     return (
         <div style={{ display: 'flex', height: '100%' }}>
             {/* Left side - Servers List */}
@@ -207,10 +220,32 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                     <button onClick={handleAddServer}>Add Server</button>
                 </div>
                 <div>
+                    <div 
+                        onClick={() => {
+                            setTabState({ mode: 'about' });
+                            setSelectedServer(null);
+                        }}
+                        style={{
+                            padding: '8px 16px',
+                            cursor: 'pointer',
+                            backgroundColor: tabState.mode === 'about' ? '#e0e0e0' : 'transparent',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '8px',
+                        }}
+                    >
+                        <span style={{ color: '#666' }}>ℹ️</span>
+                        <span>About Tools</span>
+                    </div>
                     {servers.map(server => (
                         <div
                             key={server.name}
-                            onClick={() => !showEditModal && setSelectedServer(server)}
+                            onClick={() => {
+                                if (!showEditModal) {
+                                    setSelectedServer(server);
+                                    setTabState({ mode: 'item', selectedItemId: server.name });
+                                }
+                            }}
                             style={{
                                 padding: '8px 16px',
                                 cursor: showEditModal ? 'not-allowed' : 'pointer',
@@ -228,16 +263,43 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                 </div>
             </div>
 
-            {/* Right side - Server Details or Edit Form */}
-            <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
-                {showEditModal ? (
-                    <EditServerModal
-                        server={editingServer}
-                        onSave={handleSaveServer}
-                        onCancel={() => setShowEditModal(false)}
+            {/* Right side - Server Details */}
+            <div style={{ flex: 1, overflow: 'auto' }}>
+                {tabState.mode === 'about' ? (
+                    <AboutView
+                        title="About Tools"
+                        description={
+                            <div>
+                                <p>
+                                    Tools are specialized functions or capabilities that the AI can use to perform specific tasks. 
+                                    They extend the AI's abilities beyond just conversation, allowing it to interact with external 
+                                    systems, process data, or perform complex operations.
+                                </p>
+                                <p>
+                                    Tools are automatically available to the AI when processing messages. They help the AI 
+                                    accomplish tasks more effectively and provide more comprehensive assistance.
+                                </p>
+                                <p>
+                                    This application uses the Model Context Protocol (MCP) to manage and interact with tools. 
+                                    MCP is an open protocol that standardizes how applications provide context to LLMs, 
+                                    similar to how USB-C provides a standardized way to connect devices.
+                                </p>
+                                <p>
+                                    For more information about MCP, visit the official documentation at{' '}
+                                    <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener noreferrer">
+                                        modelcontextprotocol.io
+                                    </a>
+                                    . You can also explore the official collection of MCP servers at{' '}
+                                    <a href="https://github.com/modelcontextprotocol/servers/" target="_blank" rel="noopener noreferrer">
+                                        github.com/modelcontextprotocol/servers
+                                    </a>
+                                    .
+                                </p>
+                            </div>
+                        }
                     />
                 ) : selectedServer ? (
-                    <div>
+                    <div style={{ padding: '20px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                             <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
                             <div>
@@ -282,7 +344,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                         ))}
                     </div>
                 ) : (
-                    <div style={{ textAlign: 'center', color: '#666', marginTop: '40px' }}>
+                    <div style={{ padding: '20px', color: '#666' }}>
                         Select a server to view or edit it, or click Add Server to create a new one.
                     </div>
                 )}

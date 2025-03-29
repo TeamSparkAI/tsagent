@@ -2,6 +2,10 @@ import React, { useState } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { ChatTab } from './ChatTab';
 import { Tools } from './Tools';
+import { RulesTab } from './RulesTab';
+import { ReferencesTab } from './ReferencesTab';
+import { PromptTab } from './PromptTab';
+import { TabProps } from '../types/TabProps';
 
 export interface TabInstance {
   id: string;

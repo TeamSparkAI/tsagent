@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Reference } from '../types/Reference';
 import ReactMarkdown from 'react-markdown';
 import { TabProps } from '../types/TabProps';
+import { TabState, TabMode } from '../types/TabState';
+import { AboutView } from './AboutView';
 
 interface EditReferenceModalProps {
     reference?: Reference;
@@ -127,6 +129,7 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
     const [selectedReference, setSelectedReference] = useState<Reference | null>(null);
     const [isEditing, setIsEditing] = useState(false);
     const [editingReference, setEditingReference] = useState<Reference | undefined>(undefined);
+    const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
 
     useEffect(() => {
         loadReferences();
@@ -163,73 +166,152 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
         }
     };
 
+    const handleItemSelect = (itemId: string) => {
+        setTabState({ mode: 'item', selectedItemId: itemId });
+    };
+
+    const handleBackToAbout = () => {
+        setTabState({ mode: 'about' });
+    };
+
+    const renderContent = () => {
+        if (tabState.mode === 'about') {
+            return (
+                <AboutView
+                    title="About References"
+                    description={
+                        <div>
+                            <p>
+                                References are documents or pieces of information that can be included in your chat context. 
+                                They help provide background information, guidelines, or specific details that the AI can 
+                                reference when responding to your questions.
+                            </p>
+                            <p>
+                                To use a reference in your chat, simply mention it using @ref:referenceName in your message. 
+                                The AI will automatically include the reference's content in its context when formulating a response.
+                            </p>
+                        </div>
+                    }
+                />
+            );
+        }
+
+        // Item view rendering logic
+        const reference = references.find(r => r.name === tabState.selectedItemId);
+        if (!reference) return null;
+
+        return (
+            <div>
+                <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h2 style={{ margin: 0 }}>{reference.name}</h2>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleEditReference(reference)}>Edit</button>
+                        <button onClick={() => handleDeleteReference(reference)}>Delete</button>
+                    </div>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Description</h3>
+                    <p style={{ margin: 0 }}>{reference.description}</p>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Priority Level</h3>
+                    <p style={{ margin: 0, fontFamily: 'monospace' }}>
+                        {reference.priorityLevel.toString().padStart(3, '0')}
+                    </p>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Status</h3>
+                    <p style={{ margin: 0 }}>{reference.enabled ? 'Enabled' : 'Disabled'}</p>
+                </div>
+                <div>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Content</h3>
+                    <div style={{ 
+                        padding: '16px',
+                        backgroundColor: '#f8f9fa',
+                        borderRadius: '4px',
+                        border: '1px solid #dee2e6'
+                    }}>
+                        <ReactMarkdown>{reference.text}</ReactMarkdown>
+                    </div>
+                </div>
+            </div>
+        );
+    };
+
     if (id !== activeTabId) return null;
 
     return (
-        <div style={{ display: 'flex', height: '100%' }}>
-            {/* Left side - References List */}
-            <div style={{ width: '250px', borderRight: '1px solid #ccc', overflow: 'auto' }}>
-                <div style={{ padding: '16px', borderBottom: '1px solid #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <h2 style={{ margin: 0 }}>References</h2>
-                    <button onClick={handleAddReference}>Add</button>
-                </div>
-                <div>
-                    {references.map(reference => (
-                        <div
-                            key={reference.name}
-                            onClick={() => !isEditing && setSelectedReference(reference)}
-                            style={{
-                                padding: '8px 16px',
-                                cursor: isEditing ? 'not-allowed' : 'pointer',
-                                backgroundColor: selectedReference?.name === reference.name ? '#e0e0e0' : 'transparent',
-                                opacity: reference.enabled ? 1 : 0.5,
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                filter: isEditing ? 'grayscale(0.5)' : 'none',
-                                pointerEvents: isEditing ? 'none' : 'auto'
-                            }}
-                        >
-                            <span style={{ fontFamily: 'monospace', color: '#666' }}>
-                                {reference.priorityLevel.toString().padStart(3, '0')}
-                            </span>
-                            <span>{reference.name}</span>
+        <div className={`tab-content ${activeTabId === id ? 'active' : ''}`}>
+            {isEditing ? (
+                <EditReferenceModal
+                    reference={editingReference}
+                    onSave={handleSaveReference}
+                    onCancel={() => {
+                        setIsEditing(false);
+                        setEditingReference(undefined);
+                    }}
+                />
+            ) : (
+                <div className="references-container">
+                    <div className="references-sidebar">
+                        <div className="sidebar-header">
+                            <h3>References</h3>
+                            <button onClick={handleAddReference}>Add</button>
                         </div>
-                    ))}
-                </div>
-            </div>
-
-            {/* Right side - Reference Details or Edit Form */}
-            <div style={{ flex: 1, padding: '20px', overflow: 'auto' }}>
-                {isEditing ? (
-                    <EditReferenceModal
-                        reference={editingReference}
-                        onSave={handleSaveReference}
-                        onCancel={() => setIsEditing(false)}
-                    />
-                ) : selectedReference ? (
-                    <div>
-                        <h2>{selectedReference.name}</h2>
-                        <p>{selectedReference.description}</p>
-                        <div style={{ margin: '16px 0' }}>
-                            <button onClick={() => handleEditReference(selectedReference)}>Edit</button>
-                            <button 
-                                onClick={() => handleDeleteReference(selectedReference)}
-                                style={{ marginLeft: '8px' }}
+                        <div className="references-list">
+                            <div 
+                                className={`reference-item ${tabState.mode === 'about' ? 'selected' : ''}`}
+                                onClick={() => {
+                                    setTabState({ mode: 'about' });
+                                    setSelectedReference(null);
+                                }}
+                                style={{
+                                    padding: '8px 16px',
+                                    cursor: 'pointer',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '8px',
+                                    backgroundColor: tabState.mode === 'about' ? '#e0e0e0' : 'transparent',
+                                }}
                             >
-                                Delete
-                            </button>
-                        </div>
-                        <div style={{ marginTop: '16px', padding: '16px', background: '#f5f5f5', borderRadius: '4px' }}>
-                            <ReactMarkdown>{selectedReference.text}</ReactMarkdown>
+                                <span style={{ color: '#666' }}>ℹ️</span>
+                                <span>About References</span>
+                            </div>
+                            {references.map(reference => (
+                                <div
+                                    key={reference.name}
+                                    className={`reference-item ${selectedReference?.name === reference.name ? 'selected' : ''}`}
+                                    onClick={() => {
+                                        if (!isEditing) {
+                                            setSelectedReference(reference);
+                                            setTabState({ mode: 'item', selectedItemId: reference.name });
+                                        }
+                                    }}
+                                    style={{
+                                        padding: '8px 16px',
+                                        cursor: isEditing ? 'not-allowed' : 'pointer',
+                                        backgroundColor: selectedReference?.name === reference.name ? '#e0e0e0' : 'transparent',
+                                        opacity: reference.enabled ? 1 : 0.5,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        gap: '8px',
+                                        filter: isEditing ? 'grayscale(0.5)' : 'none',
+                                        pointerEvents: isEditing ? 'none' : 'auto'
+                                    }}
+                                >
+                                    <span style={{ fontFamily: 'monospace', color: '#666' }}>
+                                        {reference.priorityLevel.toString().padStart(3, '0')}
+                                    </span>
+                                    <span>{reference.name}</span>
+                                </div>
+                            ))}
                         </div>
                     </div>
-                ) : (
-                    <div style={{ textAlign: 'center', color: '#666', marginTop: '40px' }}>
-                        Select a reference to view or edit it, or click Add Reference to create a new one.
+                    <div className="references-main">
+                        {renderContent()}
                     </div>
-                )}
-            </div>
+                </div>
+            )}
         </div>
     );
 }; 

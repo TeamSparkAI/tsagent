@@ -6,6 +6,7 @@ import { PromptTab } from './PromptTab';
 import { RulesTab } from './RulesTab';
 import { ReferencesTab } from './ReferencesTab';
 import { v4 as uuidv4 } from 'uuid';
+import { TabProps } from '../types/TabProps';
 
 interface TabInstance {
   id: string;
