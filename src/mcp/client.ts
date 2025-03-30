@@ -63,8 +63,8 @@ export class MCPClientImpl implements MCPClient {
             const connectPromise = this.mcp.connect(this.transport);
             if (this.transport?.stderr) {
                 this.transport.stderr.on('data', (data: Buffer) => {
-                    const message = `Transport stderr: ${data.toString().trim()}`;
-                    log.error(message);
+                    const message = data.toString().trim();
+                    log.error('Transport stderr: ' + message);
                     this.addErrorMessage(message);
                 });
             }

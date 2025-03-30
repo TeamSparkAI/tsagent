@@ -279,7 +279,8 @@ async function startApp() {
             name: client.serverVersion.name,
             version: client.serverVersion.version
           } : null,
-          serverTools: client.serverTools
+          serverTools: client.serverTools,
+          errorLog: client.getErrorLog()
         };
       } catch (err) {
         log.error('Error getting MCP client:', err);

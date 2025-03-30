@@ -183,3 +183,30 @@ Gather all quoted keywords and wildcard keywords, convert to regex, search text,
 Each rule and reference has a list of tools
 The tool list can include server or server.tool
 When a tool fires, it gets the list of references and rules that match the server/server.tool
+
+## MCP / Tools Work
+
+Tool details in right pane
+Include STDERR from tool startup
+Ping functionality
+Connected?
+
+Add support for SSE server
+- Local weather server in /mcp-sse
+  - uv run weather.py
+
+Add support for "local" transport
+- References
+  - List references (metadata)
+  - Get reference
+  - Add reference
+  - Update reference
+  - Delete reference
+- Rules
+  - Same as above
+
+Add support for "built-in" MCP clients (refs and rules)
+- Show in tools client
+- Allow to be enabled/disabled, but not deleted/edited
+
+Make sure LLMs gettings tools only get enabled tools

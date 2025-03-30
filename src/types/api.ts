@@ -16,6 +16,7 @@ export interface API {
   getMCPClient: (serverName: string) => Promise<{
     serverVersion: { name: string; version: string } | null;
     serverTools: any[];
+    errorLog: string[];
   }>;
   callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => Promise<CallToolResultWithElapsedTime>;
   toggleDevTools: () => Promise<boolean>;

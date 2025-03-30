@@ -29,4 +29,5 @@ export interface MCPClient {
   connectToServer(command: string, args: string[], env?: Record<string, string>): Promise<void>;
   callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime>;
   cleanup(): Promise<void>;
+  getErrorLog(): string[];
 }
