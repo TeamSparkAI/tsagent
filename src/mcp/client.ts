@@ -12,6 +12,7 @@ export class MCPClientImpl implements MCPClient {
     private readonly MAX_LOG_ENTRIES = 100;  // Keep last 100 error messages
     serverVersion: { name: string; version: string } | null = null;
     serverTools: Tool[] = [];
+    private connected: boolean = false;
 
     constructor() {
         this.mcp = new Client({
@@ -41,7 +42,11 @@ export class MCPClientImpl implements MCPClient {
         this.errorLog = [];
     }
 
-    async connectToServer(command: string, args: string[], env?: Record<string, string>) {
+    isConnected(): boolean {
+        return this.connected;
+    }
+
+    async connectToServer(command: string, args: string[], env?: Record<string, string>): Promise<boolean> {
         this.transport = new StdioClientTransport({
             command,
             args,
@@ -70,6 +75,8 @@ export class MCPClientImpl implements MCPClient {
             }
             await connectPromise;
 
+            this.connected = true;
+
             const serverVersion = this.mcp.getServerVersion();
             this.serverVersion = serverVersion ? { 
                 name: serverVersion.name, 
@@ -82,8 +89,11 @@ export class MCPClientImpl implements MCPClient {
             const message = err instanceof Error ? err.message : String(err);
             log.error(`Error connecting to MCP server: ${message}`);
             this.addErrorMessage(`Error connecting to MCP server: ${message}`);
-            throw err;
+            this.connected = false;
+            //throw err;
         }
+
+        return this.connected;
     }
 
     async callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime> {

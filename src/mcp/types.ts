@@ -26,8 +26,9 @@ export interface ToolParameter {
 export interface MCPClient {
   serverVersion: { name: string; version: string } | null;
   serverTools: Tool[];
-  connectToServer(command: string, args: string[], env?: Record<string, string>): Promise<void>;
+  connectToServer(command: string, args: string[], env?: Record<string, string>): Promise<boolean>;
   callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime>;
   cleanup(): Promise<void>;
   getErrorLog(): string[];
+  isConnected(): boolean;
 }
