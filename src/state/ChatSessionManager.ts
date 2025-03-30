@@ -101,6 +101,7 @@ export class ChatSessionManager {
     const systemPrompt = await session.appState.getConfigManager().getSystemPrompt();
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
+      ...session.messages.filter(m => m.role !== 'system')
     ];
 
     // Search user message for each instance of @ref:[referenceName] and @rule:[ruleName] and inject found references and rules into messages array
@@ -109,6 +110,20 @@ export class ChatSessionManager {
     const ruleRegex = /@rule:(\w+)/g;
     const referenceMatches = message.match(referenceRegex);
     const ruleMatches = message.match(ruleRegex);
+
+    // Note: We are going to inject references and rules as messages into the messages array we sent to the model.  But we are not
+    //       keeping track of that anywhere.  In reality, if we inject references or rules into the context, we should inject them
+    //       every time we send a message to the model (so it has consistent context).
+    //
+    //       The ChatSession will end up having a state of whatever has been "attached" as context (rules and references for now),
+    //       which will get sent every time, and may be added to as we process new messages.
+    //
+    //       We may want to be able to communicate this state to the UX and allow them to modify it (add or remove references and rules).
+    //
+    //       It's possible that the UX might want to participate in the context discovery process (references and rules) - meaning as
+    //       @ menntions of refs or rules are entered, or as keywords are entered, the UX can determine which contexts will be added
+    //       and can display them to the user interactively.
+    //
 
     // Clean up the message by removing the references
     let cleanMessage = message;

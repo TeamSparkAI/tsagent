@@ -91,6 +91,8 @@ export class GeminiLLM implements ILLM {
     }
 
     try {
+      // Note: Gemini valid roles: ["user", "model", "function", "system"]
+      //
       // Note: The messages we actually get back from the API seem to use "model" as the role for the assistant's response.
       //
       // Vertex messages are in the format:
@@ -121,48 +123,58 @@ export class GeminiLLM implements ILLM {
           // Process each turn in the LLM reply
           for (const turn of message.llmReply.turns) {
             // Add the assistant's message (including any tool calls)
+            const replyContent: Content = {
+              role: 'model',
+              parts: []
+            };
+
             if (turn.message) {
-              history.push({
-                role: 'assistant',
-                parts: [{ text: turn.message ?? '' }]
-              });
+              replyContent.parts.push({ text: turn.message ?? '' });
             }
             // Add the tool calls, if any
             if (turn.toolCalls && turn.toolCalls.length > 0) {
               for (const toolCall of turn.toolCalls) {
                 // Push the tool call
-                history.push({
-                  role: 'assistant', // !!! Should this be "model" instead?
-                  parts: [{
-                    functionCall: {
-                      name: toolCall.toolName,
-                      args: toolCall.args ?? {} // !!! Verify this in the logs - make sure toolCall.args gets serilized as an object correctly
-                    }
-                  }]
-                });
-                // Push the tool call result
-                history.push({
-                  role: 'user',
-                  parts: [{
-                    functionResponse: {
-                      name: toolCall.toolName,
-                      response: {
-                        text: toolCall.output
-                      }
-                    }
-                  }]
+                replyContent.parts.push({
+                  functionCall: {
+                    name: toolCall.toolName,
+                    args: toolCall.args ?? {}
+                  }
                 });
               }
+            }
+            history.push(replyContent);
+
+            // Add the tool call results, if any
+            if (turn.toolCalls && turn.toolCalls.length > 0) {
+              const toolResultsContent: Content = {
+                role: 'function',
+                parts: []
+              };
+
+              for (const toolCall of turn.toolCalls) {
+                toolResultsContent.parts.push({
+                  functionResponse: {
+                    name: toolCall.toolName,
+                    response: {
+                      text: toolCall.output
+                    }
+                  }
+                });
+              }
+              history.push(toolResultsContent);
             }
           }
         } else {
           // Handle regular messages
           history.push({
-            role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
+            role: message.role === 'system' ? 'user' : message.role === 'error' ? 'model' : message.role,
             parts: [{ text: message.content }]
           });
         }
       } 
+      
+      // log.info('Gemini message history', JSON.stringify(history, null, 2));
 
       const lastMessage = history.pop()!;
       var currentPrompt: Part[] = lastMessage.parts;
@@ -210,7 +222,6 @@ export class GeminiLLM implements ILLM {
               log.info('Tool result:', toolResult);
 
               // Record the function call and result
-              
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
                 toolResults.push(resultText);
@@ -221,6 +232,7 @@ export class GeminiLLM implements ILLM {
                   serverName: this.appState.getMCPManager().getToolServerName(toolName),
                   toolName: this.appState.getMCPManager().getToolName(toolName),
                   args: toolArgs,
+                  toolCallId: Math.random().toString(16).slice(2, 10), // Random ID, since VertexAI doesn't provide one
                   output: resultText,
                   elapsedTimeMs: toolResult.elapsedTimeMs,
                   error: undefined

@@ -80,7 +80,6 @@ export class OpenAILLM implements ILLM {
                 });
               }
             }
-            // !!! Validate that this is the same as what we got from the model
             currentMessages.push(reply);
 
             // Add the tool call results, if any
@@ -105,7 +104,7 @@ export class OpenAILLM implements ILLM {
       }
       }
 
-      log.info('Starting OpenAI LLM with messages:', currentMessages);
+      // log.info('Starting OpenAI LLM with messages:', JSON.stringify(currentMessages, null, 2));
 
       const tools = this.appState.getMCPManager().getAllTools();
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
@@ -128,6 +127,8 @@ export class OpenAILLM implements ILLM {
         if (!response) {
           throw new Error('No response from OpenAI');
         }
+
+        // log.info('OpenAIresponse', JSON.stringify(response, null, 2));
 
         if (response.content) {
           turn.message = (turn.message || '') + response.content;
