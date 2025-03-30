@@ -11,7 +11,7 @@ export class ClaudeLLM implements ILLM {
   private readonly appState: AppState;
   private readonly modelName: string;
   private client!: Anthropic;
-  private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
+  private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;

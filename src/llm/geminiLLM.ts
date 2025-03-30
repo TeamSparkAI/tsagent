@@ -11,18 +11,45 @@ export class GeminiLLM implements ILLM {
   private readonly modelName: string;
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
-  private readonly MAX_TURNS = 5;  // Maximum number of tool use turns
+  private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
-  private convertPropertyType(prop: any): { type: string; items?: { type: string } } {
-    const baseType = (prop.type || "string").toUpperCase();
-    if (baseType === "ARRAY") {
-      return {
-        type: baseType,
-        items: {
-          type: "STRING" // Default to STRING for array items
-        }
-      };
+  private convertPropertyType(prop: any): { type: SchemaType; items?: { type: SchemaType; properties?: Record<string, any>; required?: string[] }; description?: string } {
+    const baseType = (prop.type || "string").toLowerCase() as SchemaType;
+    
+    if (baseType === SchemaType.ARRAY) {
+      const itemSchema = prop.items;
+      if (itemSchema.type === 'object') {
+        // Handle array of objects
+        const properties: Record<string, any> = {};
+        const required: string[] = [];
+
+        Object.entries(itemSchema.properties || {}).forEach(([key, value]: [string, any]) => {
+          properties[key] = this.convertPropertyType(value);
+          if (itemSchema.required?.includes(key)) {
+            required.push(key);
+          }
+        });
+
+        return {
+          type: SchemaType.ARRAY,
+          items: {
+            type: SchemaType.OBJECT,
+            properties,
+            required
+          }
+        };
+      } else {
+        // Handle array of primitives
+        return {
+          type: SchemaType.ARRAY,
+          items: {
+            type: (itemSchema.type || "string").toLowerCase() as SchemaType
+          }
+        };
+      }
     }
+    
+    // For non-array types, include an empty items field to satisfy the schema
     return { type: baseType };
   }
 
@@ -39,9 +66,7 @@ export class GeminiLLM implements ILLM {
           declaration.parameters = {
             type: SchemaType.OBJECT,
             properties: Object.entries(properties).reduce((acc, [key, value]) => {
-              const prop: any = {
-                ...this.convertPropertyType(value)
-              };
+              const prop = this.convertPropertyType(value);
               
               const desc = (value as any).description;
               if (desc && desc.trim()) {

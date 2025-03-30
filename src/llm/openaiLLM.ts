@@ -11,7 +11,7 @@ export class OpenAILLM implements ILLM {
   private readonly appState: AppState;
   private readonly modelName: string;
   private client!: OpenAI;
-  private readonly MAX_TURNS = 5;
+  private readonly MAX_TURNS = 10;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
     return {
