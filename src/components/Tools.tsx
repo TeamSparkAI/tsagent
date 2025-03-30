@@ -258,11 +258,31 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         }
     };
 
-    const handleParamChange = (name: string, value: string) => {
-        setTestParams(prev => ({
-            ...prev,
-            [name]: value
-        }));
+    const handleParamChange = (name: string, value: string | boolean, isArray: boolean = false, index?: number) => {
+        setTestParams(prev => {
+            if (isArray) {
+                const currentArray = Array.isArray(prev[name]) ? prev[name] as string[] : [];
+                if (index !== undefined) {
+                    // Update existing array element
+                    const newArray = [...currentArray];
+                    newArray[index] = value as string;
+                    return { ...prev, [name]: newArray };
+                } else {
+                    // Add new array element
+                    return { ...prev, [name]: [...currentArray, value as string] };
+                }
+            } else {
+                // Handle non-array parameters
+                return { ...prev, [name]: value };
+            }
+        });
+    };
+
+    const handleRemoveArrayElement = (name: string, index: number) => {
+        setTestParams(prev => {
+            const currentArray = Array.isArray(prev[name]) ? prev[name] as string[] : [];
+            return { ...prev, [name]: currentArray.filter((_, i) => i !== index) };
+        });
     };
 
     if (id !== activeTabId) return null;
@@ -442,12 +462,49 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                 <label style={{ display: 'block', marginBottom: '4px' }}>
                                                     {name} ({param.type || 'unknown'})
                                                 </label>
-                                                <input
-                                                    type="text"
-                                                    value={testParams[name] as string || ''}
-                                                    onChange={(e) => handleParamChange(name, e.target.value)}
-                                                    style={{ width: '100%', padding: '4px 8px' }}
-                                                />
+                                                {param.type === 'array' ? (
+                                                    <div>
+                                                        {(testParams[name] as string[] || []).map((value, index) => (
+                                                            <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                                                <input
+                                                                    type="text"
+                                                                    value={value}
+                                                                    onChange={(e) => handleParamChange(name, e.target.value, true, index)}
+                                                                    style={{ flex: 1, padding: '4px 8px' }}
+                                                                />
+                                                                <button 
+                                                                    onClick={() => handleRemoveArrayElement(name, index)}
+                                                                    style={{ padding: '4px 8px' }}
+                                                                >
+                                                                    Remove
+                                                                </button>
+                                                            </div>
+                                                        ))}
+                                                        <button 
+                                                            onClick={() => handleParamChange(name, '', true)}
+                                                            style={{ marginTop: '4px' }}
+                                                        >
+                                                            Add Value
+                                                        </button>
+                                                    </div>
+                                                ) : param.type === 'boolean' ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={testParams[name] as boolean || false}
+                                                            onChange={(e) => handleParamChange(name, e.target.checked)}
+                                                            style={{ margin: 0 }}
+                                                        />
+                                                        <span style={{ color: '#666' }}>{param.description || 'Enable this option'}</span>
+                                                    </div>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        value={testParams[name] as string || ''}
+                                                        onChange={(e) => handleParamChange(name, e.target.value)}
+                                                        style={{ width: '100%', padding: '4px 8px' }}
+                                                    />
+                                                )}
                                             </div>
                                         ))}
                                         <button 
