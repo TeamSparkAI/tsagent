@@ -18,6 +18,8 @@ export interface ChatSession {
   currentModel: LLMType;
   llm: ILLM;
   appState: AppState;
+  rules: string[];
+  references: string[];
 }
 
 export interface ChatState {

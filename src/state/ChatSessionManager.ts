@@ -34,7 +34,9 @@ export class ChatSessionManager {
       lastSyncId: 0,
       currentModel: modelType,
       llm,
-      appState: this.appState
+      appState: this.appState,
+      rules: [],
+      references: []
     };
     
     this.sessions.set(tabId, session);
@@ -111,12 +113,11 @@ export class ChatSessionManager {
     const referenceMatches = message.match(referenceRegex);
     const ruleMatches = message.match(ruleRegex);
 
-    // Note: We are going to inject references and rules as messages into the messages array we sent to the model.  But we are not
-    //       keeping track of that anywhere.  In reality, if we inject references or rules into the context, we should inject them
-    //       every time we send a message to the model (so it has consistent context).
+    // Note: We are going to inject references and rules as messages into the messages array we send to the model. 
+    // 
+    //       We we will track them in the session so that we can send them every time (to maintain consistent context).
     //
-    //       The ChatSession will end up having a state of whatever has been "attached" as context (rules and references for now),
-    //       which will get sent every time, and may be added to as we process new messages.
+    //       The ChatSession will end up having a state of whatever has been "attached" as context (rules and references for now).
     //
     //       We may want to be able to communicate this state to the UX and allow them to modify it (add or remove references and rules).
     //
@@ -125,38 +126,50 @@ export class ChatSessionManager {
     //       and can display them to the user interactively.
     //
 
-    // Clean up the message by removing the references
+    // Find any @ mentioned rules or referneces, add them to the session, remove the references from the message text
+    //
     let cleanMessage = message;
     if (referenceMatches) {
       cleanMessage = cleanMessage.replace(referenceRegex, '');
       for (const match of referenceMatches) {
         const referenceName = match.replace('@ref:', '');
-        const reference = this.appState.getReferencesManager().getReference(referenceName);
-        if (reference) {
-          messages.push({
-            role: 'user',
-            content: `Reference: ${reference.text}`
-          }); 
+        if (!session.references.includes(referenceName)) {
+          session.references.push(referenceName);
         }
       }
     }
-
     if (ruleMatches) {
       cleanMessage = cleanMessage.replace(ruleRegex, '');
       for (const match of ruleMatches) {
         const ruleName = match.replace('@rule:', '');
-        const rule = this.appState.getRulesManager().getRule(ruleName);
-        if (rule) {
-          messages.push({
-            role: 'user',
-            content: `Rule: ${rule.text}`
-          });
+        if (!session.rules.includes(ruleName)) {
+          session.rules.push(ruleName);
         }
       }
     }
-
     // Clean up any extra whitespace that might have been left
     cleanMessage = cleanMessage.replace(/\s+/g, ' ').trim();
+
+    // Add the references and rules to the messages array (both new and existing)
+    //
+    for (const referenceName of session.references) {
+      const reference = this.appState.getReferencesManager().getReference(referenceName);
+      if (reference) {
+        messages.push({
+          role: 'user',
+          content: `Reference: ${reference.text}`
+        }); 
+      }
+    }
+    for (const ruleName of session.rules) {
+      const rule = this.appState.getRulesManager().getRule(ruleName);
+      if (rule) {
+        messages.push({
+          role: 'user',
+          content: `Rule: ${rule.text}`
+        });
+      }
+    }
 
     // Finish off with the user message
     const userMessage: ChatMessage = {
