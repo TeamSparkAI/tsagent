@@ -12,6 +12,8 @@ const api: API = {
   // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
   getMCPClient: (serverName: string) => ipcRenderer.invoke('get-mcp-client', serverName),
+  callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => 
+    ipcRenderer.invoke('call-tool', serverName, toolName, args),
   toggleDevTools: () => ipcRenderer.invoke('toggle-dev-tools'),
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),

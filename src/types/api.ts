@@ -1,6 +1,6 @@
 import { Rule } from './Rule';
 import { Reference } from './Reference';
-import { McpConfig, McpConfigFileServerConfig } from '../mcp/types';
+import { McpConfig, McpConfigFileServerConfig, CallToolResultWithElapsedTime } from '../mcp/types';
 import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
 
 export interface API {
@@ -14,9 +14,10 @@ export interface API {
   // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;
   getMCPClient: (serverName: string) => Promise<{
-    serverVersion: string;
+    serverVersion: { name: string; version: string } | null;
     serverTools: any[];
   }>;
+  callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => Promise<CallToolResultWithElapsedTime>;
   toggleDevTools: () => Promise<boolean>;
   getSystemPrompt: () => Promise<string>;
   saveSystemPrompt: (prompt: string) => Promise<void>;

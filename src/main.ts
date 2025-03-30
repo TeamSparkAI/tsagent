@@ -275,11 +275,34 @@ async function startApp() {
           mcpClients.set(serverName, client);
         }
         return {
-          serverVersion: client.serverVersion,
+          serverVersion: client.serverVersion ? {
+            name: client.serverVersion.name,
+            version: client.serverVersion.version
+          } : null,
           serverTools: client.serverTools
         };
       } catch (err) {
         log.error('Error getting MCP client:', err);
+        throw err;
+      }
+    });
+
+    ipcMain.handle('call-tool', async (_, serverName: string, toolName: string, args: Record<string, unknown>) => {
+      try {
+        log.info('Calling tool:', { serverName, toolName, args });
+        const client = mcpClients.get(serverName);
+        if (!client) {
+          throw new Error(`Client not found: ${serverName}`);
+        }
+        const tool = client.serverTools.find(t => t.name === toolName);
+        if (!tool) {
+          throw new Error(`Tool not found: ${toolName}`);
+        }
+        const result = await client.callTool(tool, args);
+        log.info('Tool call completed:', result);
+        return result;
+      } catch (err) {
+        log.error('Error calling tool:', err);
         throw err;
       }
     });

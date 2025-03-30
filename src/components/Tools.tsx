@@ -4,11 +4,18 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
+import { CallToolResultWithElapsedTime } from '../mcp/types';
 import log from 'electron-log';
 
 interface ServerInfo {
-    serverVersion: string;
+    serverVersion: { name: string; version: string } | null;
     serverTools: any[];
+}
+
+interface ToolTestResult {
+    elapsedTime: number;
+    args: Record<string, unknown>;
+    result: unknown;
 }
 
 interface EditServerModalProps {
@@ -151,10 +158,20 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [editingServer, setEditingServer] = useState<(McpConfig) | undefined>(undefined);
     const [serverInfo, setServerInfo] = useState<Record<string, ServerInfo>>({});
     const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
+    const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+    const [testResults, setTestResults] = useState<ToolTestResult | null>(null);
+    const [testParams, setTestParams] = useState<Record<string, unknown>>({});
+    const [isTesting, setIsTesting] = useState(false);
 
     useEffect(() => {
         loadServers();
     }, []);
+
+    // Clear test results when server or tool selection changes
+    useEffect(() => {
+        setTestResults(null);
+        setTestParams({});
+    }, [selectedServer, selectedTool]);
 
     const loadServers = async () => {
         const serverConfigs = await window.api.getServerConfigs();
@@ -197,6 +214,55 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             setSelectedServer(null);
             loadServers();
         }
+    };
+
+    const handleTestTool = async () => {
+        if (!selectedTool || !selectedServer) return;
+        
+        setIsTesting(true);
+        const startTime = Date.now();
+        
+        try {
+            log.info('Calling tool:', { server: selectedServer.name, tool: selectedTool.name, args: testParams });
+            const result = await window.api.callTool(selectedServer.name, selectedTool.name, testParams);
+            log.info('Tool call result:', result);
+            
+            // Extract the result content
+            const resultContent = result.content[0];
+            let resultText: string;
+            
+            if (resultContent?.type === 'text') {
+                resultText = resultContent.text;
+            } else if (resultContent?.type === 'image') {
+                resultText = `[Image: ${resultContent.mimeType}]`;
+            } else if (resultContent?.type === 'resource') {
+                resultText = `[Resource: ${resultContent.mimeType}]`;
+            } else {
+                resultText = JSON.stringify(resultContent);
+            }
+            
+            setTestResults({
+                elapsedTime: result.elapsedTimeMs,
+                args: testParams,
+                result: resultText
+            });
+        } catch (error) {
+            log.error('Error testing tool:', error);
+            setTestResults({
+                elapsedTime: Date.now() - startTime,
+                args: testParams,
+                result: { error: error instanceof Error ? error.message : 'Unknown error' }
+            });
+        } finally {
+            setIsTesting(false);
+        }
+    };
+
+    const handleParamChange = (name: string, value: string) => {
+        setTestParams(prev => ({
+            ...prev,
+            [name]: value
+        }));
     };
 
     if (id !== activeTabId) return null;
@@ -244,6 +310,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                 if (!showEditModal) {
                                     setSelectedServer(server);
                                     setTabState({ mode: 'item', selectedItemId: server.name });
+                                    setSelectedTool(null);
                                 }
                             }}
                             style={{
@@ -264,7 +331,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             </div>
 
             {/* Right side - Server Details */}
-            <div style={{ flex: 1, overflow: 'auto' }}>
+            <div style={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
                 {tabState.mode === 'about' ? (
                     <AboutView
                         title="About Tools"
@@ -299,50 +366,145 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                         }
                     />
                 ) : selectedServer ? (
-                    <div style={{ padding: '20px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
-                            <div>
-                                <button onClick={() => handleEditServer(selectedServer)}>Edit</button>
-                                <button 
-                                    onClick={() => handleDeleteServer(selectedServer)}
-                                    style={{ marginLeft: '8px' }}
-                                >
-                                    Delete
-                                </button>
+                    <>
+                        {/* Left side - Tool List */}
+                        <div style={{ width: '50%', borderRight: '1px solid #ccc', overflow: 'auto' }}>
+                            <div style={{ padding: '20px', paddingBottom: '40px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                    <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
+                                    <div>
+                                        <button onClick={() => handleEditServer(selectedServer)}>Edit</button>
+                                        <button 
+                                            onClick={() => handleDeleteServer(selectedServer)}
+                                            style={{ marginLeft: '8px' }}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </div>
+                                <div>
+                                    {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => (
+                                        <div 
+                                            key={tool.name} 
+                                            className="tool-item" 
+                                            style={{ 
+                                                marginBottom: '10px',
+                                                padding: '10px',
+                                                cursor: 'pointer',
+                                                backgroundColor: selectedTool?.name === tool.name ? '#e0e0e0' : 'transparent',
+                                                borderRadius: '4px'
+                                            }}
+                                            onClick={() => setSelectedTool(tool)}
+                                        >
+                                            <h3 style={{ margin: 0 }}>{tool.name}</h3>
+                                            <p style={{ margin: '5px 0 0 0', color: '#666' }}>{tool.description || 'No description'}</p>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         </div>
 
-                        {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => (
-                            <div key={tool.name} className="tool-item" style={{ marginBottom: '20px' }}>
-                                <h3>{tool.name}</h3>
-                                <p>{tool.description || 'No description'}</p>
-                                {tool.inputSchema?.properties && Object.keys(tool.inputSchema.properties).length > 0 && (
-                                    <div className="parameters">
-                                        <h4>Parameters:</h4>
-                                        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                                            <thead>
-                                                <tr>
-                                                    <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ccc' }}>Name</th>
-                                                    <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ccc' }}>Type</th>
-                                                    <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ccc' }}>Description</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {Object.entries(tool.inputSchema.properties).map(([name, param]: [string, any]) => (
-                                                    <tr key={name}>
-                                                        <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{name}</td>
-                                                        <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}><code>{param.type || 'unknown'}</code></td>
-                                                        <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{param.description || ''}</td>
+                        {/* Right side - Tool Details */}
+                        <div style={{ width: '50%', overflow: 'auto' }}>
+                            {selectedTool ? (
+                                <div style={{ padding: '20px', paddingBottom: '40px' }}>
+                                    <h2 style={{ margin: 0, marginBottom: '20px' }}>{selectedTool.name}</h2>
+                                    <p style={{ color: '#666', marginBottom: '20px' }}>{selectedTool.description || 'No description'}</p>
+                                    
+                                    {selectedTool.inputSchema?.properties && Object.keys(selectedTool.inputSchema.properties).length > 0 && (
+                                        <div className="parameters">
+                                            <h3 style={{ marginBottom: '10px' }}>Parameters:</h3>
+                                            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                                <thead>
+                                                    <tr>
+                                                        <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ccc' }}>Name</th>
+                                                        <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ccc' }}>Type</th>
+                                                        <th style={{ textAlign: 'left', padding: '8px', borderBottom: '1px solid #ccc' }}>Description</th>
                                                     </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                </thead>
+                                                <tbody>
+                                                    {Object.entries(selectedTool.inputSchema.properties).map(([name, param]: [string, any]) => (
+                                                        <tr key={name}>
+                                                            <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{name}</td>
+                                                            <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}><code>{param.type || 'unknown'}</code></td>
+                                                            <td style={{ padding: '8px', borderBottom: '1px solid #eee' }}>{param.description || ''}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )}
+
+                                    <div style={{ marginTop: '20px' }}>
+                                        <h3 style={{ marginBottom: '10px' }}>Run Tool:</h3>
+                                        {selectedTool.inputSchema?.properties && Object.entries(selectedTool.inputSchema.properties).map(([name, param]: [string, any]) => (
+                                            <div key={name} style={{ marginBottom: '10px' }}>
+                                                <label style={{ display: 'block', marginBottom: '4px' }}>
+                                                    {name} ({param.type || 'unknown'})
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    value={testParams[name] as string || ''}
+                                                    onChange={(e) => handleParamChange(name, e.target.value)}
+                                                    style={{ width: '100%', padding: '4px 8px' }}
+                                                />
+                                            </div>
+                                        ))}
+                                        <button 
+                                            onClick={handleTestTool}
+                                            disabled={isTesting}
+                                            style={{ marginTop: '10px' }}
+                                        >
+                                            {isTesting ? 'Running...' : 'Run'}
+                                        </button>
+
+                                        {testResults && (
+                                            <div style={{ marginTop: '20px', border: '1px solid #ccc', borderRadius: '4px', padding: '10px' }}>
+                                                <h3 style={{ margin: '0 0 10px 0' }}>Test Results:</h3>
+                                                <div style={{ marginBottom: '10px' }}>
+                                                    <strong>Elapsed Time:</strong> {testResults.elapsedTime}ms
+                                                </div>
+                                                <div style={{ marginBottom: '10px' }}>
+                                                    <strong>Arguments:</strong>
+                                                    <pre style={{ 
+                                                        margin: '5px 0 0 0',
+                                                        padding: '8px',
+                                                        backgroundColor: '#1e1e1e',
+                                                        color: '#fff',
+                                                        borderRadius: '4px',
+                                                        overflow: 'auto',
+                                                        fontFamily: 'monospace',
+                                                        whiteSpace: 'pre-wrap'
+                                                    }}>
+                                                        {JSON.stringify(testResults.args, null, 2)}
+                                                    </pre>
+                                                </div>
+                                                <div>
+                                                    <strong>Result:</strong>
+                                                    <pre style={{ 
+                                                        margin: '5px 0 0 0',
+                                                        padding: '8px',
+                                                        backgroundColor: '#1e1e1e',
+                                                        color: '#fff',
+                                                        borderRadius: '4px',
+                                                        overflow: 'auto',
+                                                        fontFamily: 'monospace',
+                                                        whiteSpace: 'pre-wrap'
+                                                    }}>
+                                                        {typeof testResults.result === 'string' ? testResults.result.replace(/\\n/g, '\n') : JSON.stringify(testResults.result, null, 2)}
+                                                    </pre>
+                                                </div>
+                                            </div>
+                                        )}
                                     </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                                </div>
+                            ) : (
+                                <div style={{ padding: '20px', color: '#666' }}>
+                                    Select a tool to view its details
+                                </div>
+                            )}
+                        </div>
+                    </>
                 ) : (
                     <div style={{ padding: '20px', color: '#666' }}>
                         Select a server to view or edit it, or click Add Server to create a new one.

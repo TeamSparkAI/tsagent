@@ -92,7 +92,6 @@ Can we have an LLM help us determine context scope for a chat message?
 
 Context of a chat message includes:
 - System prompt
-- User message
 - History (chat history, tool calls, tool results, etc, possibly summarized)
 - References (insights, facts, or other data provided by the user, or saved from chats)
   - @ref
@@ -100,6 +99,7 @@ Context of a chat message includes:
   - @rule
 - Tools (tools that apply to the chat message)
   - @toolset, @tool
+- User message
 
 ## Agents
 
@@ -162,18 +162,7 @@ Malicious MCP Servers or conversation content could potentially trick xxxxx into
 
 ## Context Management
 
-For each LLM, need to convert previous LllReply messages to native messages
-- Process each turn
-- If tool call, assistant role message for the call, user role message for the response?
-- Proper text formatting (to identify tool, args, result, etc)
-- Maybe a member function to convert a ToolCall to native messages (set, usually two)
-- Maybe another member function to convert an LlmReply to a set of native messages
-
-We should probably store references and rules with client ChatMessage
-
-As we accumulate ChatMessages into list, we should track, but not yet include, all included references and rules
-
-At the end, we will convert references and rules to "user" ChatMessage components to send into LLM state
+When a ChatMessage pulls in references or rules, should we track that in the message (in addition to adding them to the chat session, as we do now)?
 
 ## Keyword matching
 
