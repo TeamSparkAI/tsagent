@@ -585,7 +585,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                 <div style={{ marginTop: '20px', border: '1px solid #ccc', borderRadius: '4px', padding: '10px' }}>
                                                     <h3 style={{ margin: '0 0 10px 0' }}>Test Results:</h3>
                                                     <div style={{ marginBottom: '10px' }}>
-                                                        <strong>Elapsed Time:</strong> {testResults.elapsedTime}ms
+                                                        <strong>Elapsed Time:</strong> {testResults.elapsedTime.toFixed(3)}ms
                                                     </div>
                                                     <div style={{ marginBottom: '10px' }}>
                                                         <strong>Arguments:</strong>
@@ -642,7 +642,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                         onClick={async () => {
                                                             try {
                                                                 const result = await window.api.pingServer(selectedServer.name);
-                                                                alert(`Ping successful! Response time: ${result.elapsedTimeMs}ms`);
+                                                                alert(`Ping successful! Response time: ${result.elapsedTimeMs.toFixed(3)}ms`);
                                                             } catch (err) {
                                                                 alert('Ping failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
                                                             }
