@@ -31,4 +31,5 @@ export interface MCPClient {
   cleanup(): Promise<void>;
   getErrorLog(): string[];
   isConnected(): boolean;
+  ping(): Promise<{ elapsedTimeMs: number }>;
 }

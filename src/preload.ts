@@ -26,7 +26,8 @@ const api: API = {
   deleteServerConfig: (name: string) => ipcRenderer.invoke('deleteServerConfig', name),
   getReferences: () => ipcRenderer.invoke('get-references'),
   saveReference: (reference) => ipcRenderer.invoke('save-reference', reference),
-  deleteReference: (name: string) => ipcRenderer.invoke('delete-reference', name)
+  deleteReference: (name: string) => ipcRenderer.invoke('delete-reference', name),
+  pingServer: (name: string) => ipcRenderer.invoke('ping-server', name)
 };
 
 contextBridge.exposeInMainWorld('api', api);

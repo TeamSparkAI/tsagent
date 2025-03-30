@@ -32,4 +32,5 @@ export interface API {
   getReferences: () => Promise<Reference[]>;
   saveReference: (reference: Reference) => Promise<void>;
   deleteReference: (name: string) => Promise<void>;
+  pingServer: (name: string) => Promise<{ elapsedTimeMs: number }>;
 } 

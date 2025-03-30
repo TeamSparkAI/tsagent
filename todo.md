@@ -186,11 +186,6 @@ When a tool fires, it gets the list of references and rules that match the serve
 
 ## MCP / Tools Work
 
-Tool details in right pane
-Include STDERR from tool startup
-Ping functionality
-Connected?
-
 Add support for SSE server
 - Local weather server in /mcp-sse
   - uv run weather.py

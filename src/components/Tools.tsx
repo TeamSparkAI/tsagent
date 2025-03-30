@@ -11,6 +11,7 @@ interface ServerInfo {
     serverVersion: { name: string; version: string } | null;
     serverTools: any[];
     errorLog: string[];
+    isConnected: boolean;
 }
 
 interface ToolTestResult {
@@ -623,8 +624,34 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                 ) : (
                                     <div style={{ padding: '20px', paddingBottom: '40px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                            <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
+                                                <span style={{ 
+                                                    padding: '4px 8px', 
+                                                    backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
+                                                    color: 'white',
+                                                    borderRadius: '4px',
+                                                    fontSize: '14px'
+                                                }}>
+                                                    {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
+                                                </span>
+                                            </div>
                                             <div style={{ display: 'flex', gap: '8px' }}>
+                                                {serverInfo[selectedServer.name]?.isConnected && (
+                                                    <button 
+                                                        onClick={async () => {
+                                                            try {
+                                                                const result = await window.api.pingServer(selectedServer.name);
+                                                                alert(`Ping successful! Response time: ${result.elapsedTimeMs}ms`);
+                                                            } catch (err) {
+                                                                alert('Ping failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+                                                            }
+                                                        }}
+                                                        style={{ padding: '4px 8px' }}
+                                                    >
+                                                        Ping
+                                                    </button>
+                                                )}
                                                 <button 
                                                     onClick={() => handleEditServer(selectedServer)}
                                                     style={{ padding: '4px 8px' }}

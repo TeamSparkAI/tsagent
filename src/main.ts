@@ -280,7 +280,8 @@ async function startApp() {
             version: client.serverVersion.version
           } : null,
           serverTools: client.serverTools,
-          errorLog: client.getErrorLog()
+          errorLog: client.getErrorLog(),
+          isConnected: client.isConnected()
         };
       } catch (err) {
         log.error('Error getting MCP client:', err);
@@ -293,11 +294,11 @@ async function startApp() {
         log.info('Calling tool:', { serverName, toolName, args });
         const client = mcpClients.get(serverName);
         if (!client) {
-          throw new Error(`Client not found: ${serverName}`);
+          throw new Error(`No MCP client found for server ${serverName}`);
         }
         const tool = client.serverTools.find(t => t.name === toolName);
         if (!tool) {
-          throw new Error(`Tool not found: ${toolName}`);
+          throw new Error(`Tool ${toolName} not found in server ${serverName}`);
         }
         const result = await client.callTool(tool, args);
         log.info('Tool call completed:', result);
@@ -306,6 +307,14 @@ async function startApp() {
         log.error('Error calling tool:', err);
         throw err;
       }
+    });
+
+    ipcMain.handle('ping-server', async (_, serverName: string) => {
+      const client = mcpClients.get(serverName);
+      if (!client) {
+        throw new Error(`No MCP client found for server ${serverName}`);
+      }
+      return client.ping();
     });
 
     ipcMain.handle('get-system-prompt', async () => {

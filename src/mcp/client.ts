@@ -118,4 +118,13 @@ export class MCPClientImpl implements MCPClient {
         }
         await this.mcp.close();
     }
+
+    async ping(): Promise<{ elapsedTimeMs: number }> {
+        if (!this.connected) {
+            throw new Error('Not connected to MCP server');
+        }
+        const startTime = performance.now();
+        await this.mcp.ping();
+        return { elapsedTimeMs: performance.now() - startTime };
+    }
 }
