@@ -258,18 +258,24 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         }
     };
 
-    const handleParamChange = (name: string, value: string | boolean, isArray: boolean = false, index?: number) => {
+    const handleParamChange = (name: string, value: string | boolean | Record<string, unknown>, isArray: boolean = false, index?: number, fieldName?: string) => {
         setTestParams(prev => {
             if (isArray) {
-                const currentArray = Array.isArray(prev[name]) ? prev[name] as string[] : [];
+                const currentArray = Array.isArray(prev[name]) ? prev[name] as any[] : [];
                 if (index !== undefined) {
                     // Update existing array element
                     const newArray = [...currentArray];
-                    newArray[index] = value as string;
+                    if (fieldName) {
+                        // Update a field in an object array element
+                        newArray[index] = { ...newArray[index], [fieldName]: value };
+                    } else {
+                        // Update a primitive array element
+                        newArray[index] = value;
+                    }
                     return { ...prev, [name]: newArray };
                 } else {
                     // Add new array element
-                    return { ...prev, [name]: [...currentArray, value as string] };
+                    return { ...prev, [name]: [...currentArray, value] };
                 }
             } else {
                 // Handle non-array parameters
@@ -280,9 +286,85 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     const handleRemoveArrayElement = (name: string, index: number) => {
         setTestParams(prev => {
-            const currentArray = Array.isArray(prev[name]) ? prev[name] as string[] : [];
+            const currentArray = Array.isArray(prev[name]) ? prev[name] as any[] : [];
             return { ...prev, [name]: currentArray.filter((_, i) => i !== index) };
         });
+    };
+
+    const renderArrayInput = (name: string, param: any, value: any[] = []) => {
+        const itemSchema = param.items;
+        const isObjectArray = itemSchema.type === 'object';
+
+        return (
+            <div>
+                {value.map((item, index) => (
+                    <div key={index} style={{ marginBottom: '8px', padding: '8px', border: '1px solid #eee', borderRadius: '4px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontWeight: 'bold' }}>Item {index + 1}</span>
+                            <button 
+                                onClick={() => handleRemoveArrayElement(name, index)}
+                                style={{ padding: '2px 6px' }}
+                            >
+                                Remove
+                            </button>
+                        </div>
+                        {isObjectArray ? (
+                            <div style={{ display: 'grid', gap: '8px' }}>
+                                {Object.entries(itemSchema.properties).map(([fieldName, fieldSchema]: [string, any]) => (
+                                    <div key={fieldName}>
+                                        <label style={{ display: 'block', marginBottom: '4px' }}>
+                                            {fieldName} ({fieldSchema.type})
+                                        </label>
+                                        {fieldSchema.type === 'boolean' ? (
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    checked={item[fieldName] || false}
+                                                    onChange={(e) => handleParamChange(name, e.target.checked, true, index, fieldName)}
+                                                    style={{ margin: 0 }}
+                                                />
+                                                <span style={{ color: '#666' }}>{fieldSchema.description || 'Enable this option'}</span>
+                                            </div>
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={item[fieldName] || ''}
+                                                onChange={(e) => handleParamChange(name, e.target.value, true, index, fieldName)}
+                                                style={{ width: '100%', padding: '4px 8px' }}
+                                            />
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <input
+                                type="text"
+                                value={item}
+                                onChange={(e) => handleParamChange(name, e.target.value, true, index)}
+                                style={{ width: '100%', padding: '4px 8px' }}
+                            />
+                        )}
+                    </div>
+                ))}
+                <button 
+                    onClick={() => {
+                        if (isObjectArray) {
+                            // Create a new object with default values based on the schema
+                            const newItem = Object.entries(itemSchema.properties).reduce((acc, [fieldName, fieldSchema]: [string, any]) => {
+                                acc[fieldName] = fieldSchema.type === 'boolean' ? false : '';
+                                return acc;
+                            }, {} as Record<string, unknown>);
+                            handleParamChange(name, newItem, true);
+                        } else {
+                            handleParamChange(name, '', true);
+                        }
+                    }}
+                    style={{ marginTop: '4px' }}
+                >
+                    Add {isObjectArray ? 'Item' : 'Value'}
+                </button>
+            </div>
+        );
     };
 
     if (id !== activeTabId) return null;
@@ -463,30 +545,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                     {name} ({param.type || 'unknown'})
                                                 </label>
                                                 {param.type === 'array' ? (
-                                                    <div>
-                                                        {(testParams[name] as string[] || []).map((value, index) => (
-                                                            <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                                                <input
-                                                                    type="text"
-                                                                    value={value}
-                                                                    onChange={(e) => handleParamChange(name, e.target.value, true, index)}
-                                                                    style={{ flex: 1, padding: '4px 8px' }}
-                                                                />
-                                                                <button 
-                                                                    onClick={() => handleRemoveArrayElement(name, index)}
-                                                                    style={{ padding: '4px 8px' }}
-                                                                >
-                                                                    Remove
-                                                                </button>
-                                                            </div>
-                                                        ))}
-                                                        <button 
-                                                            onClick={() => handleParamChange(name, '', true)}
-                                                            style={{ marginTop: '4px' }}
-                                                        >
-                                                            Add Value
-                                                        </button>
-                                                    </div>
+                                                    renderArrayInput(name, param, testParams[name] as any[] || [])
                                                 ) : param.type === 'boolean' ? (
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <input
