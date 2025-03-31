@@ -94,11 +94,6 @@ export class GeminiLLM implements ILLM {
       const apiKey = this.appState.getConfigManager().getConfigValue('GEMINI_API_KEY');
       this.genAI = new GoogleGenerativeAI(apiKey);
       const modelOptions: ModelParams = { model: this.modelName };
-      const tools = this.appState.getMCPManager().getAllTools();
-      if (tools.length > 0) {
-        const modelTools = this.convertMCPToolsToGeminiTool(tools);
-        modelOptions.tools = [modelTools];
-      }
       this.model = this.genAI.getGenerativeModel(modelOptions);
       log.info('Gemini LLM initialized successfully');
     } catch (error) {
@@ -114,6 +109,13 @@ export class GeminiLLM implements ILLM {
       timestamp: Date.now(),
       turns: []
     }
+
+    var modelTools: GeminiTool | undefined = undefined;
+    const tools = this.appState.getMCPManager().getAllTools();
+    if (tools.length > 0) {
+      modelTools = this.convertMCPToolsToGeminiTool(tools);
+    }
+    this.model.tools = modelTools ? [modelTools] : [];
 
     try {
       // Note: Gemini valid roles: ["user", "model", "function", "system"]
