@@ -51,9 +51,11 @@ export class ReferencesManager extends EventEmitter {
 
     private sortReferences() {
         this.references.sort((a, b) => {
+            // First sort by priority (lower priority first)
             if (a.priorityLevel !== b.priorityLevel) {
                 return a.priorityLevel - b.priorityLevel;
             }
+            // Then sort by name
             return a.name.localeCompare(b.name);
         });
     }

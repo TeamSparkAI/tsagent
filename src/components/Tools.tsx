@@ -276,17 +276,18 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     }, [selectedServer, selectedTool]);
 
     const loadServers = async () => {
-        const serverConfigs = await window.api.getServerConfigs();
-        log.info('serverConfigs', serverConfigs);
-        setServers(serverConfigs);
-        
+        const loadedServers = await window.api.getServerConfigs();
+        // Sort servers by name
+        const sortedServers = loadedServers.sort((a, b) => a.name.localeCompare(b.name));
+        setServers(sortedServers);
+
         const infoMap: Record<string, ServerInfo> = {};
-        for (const config of serverConfigs) {
+        for (const config of sortedServers) {
             try {
                 const info = await window.api.getMCPClient(config.name) as ServerInfo;
                 infoMap[config.name] = info;
-            } catch (err) {
-                log.error(`Failed to connect to server ${config.name}:`, err);
+            } catch (error) {
+                log.error(`Error getting MCP client info for ${config.name}:`, error);
             }
         }
         setServerInfo(infoMap);

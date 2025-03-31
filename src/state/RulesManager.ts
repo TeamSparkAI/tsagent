@@ -45,6 +45,18 @@ export class RulesManager extends EventEmitter {
         log.error(`Error loading rule from ${file}:`, error);
       }
     }
+    this.sortRules();
+  }
+
+  private sortRules() {
+    this.rules.sort((a, b) => {
+      // First sort by priority (lower priority first)
+      if (a.priorityLevel !== b.priorityLevel) {
+        return a.priorityLevel - b.priorityLevel;
+      }
+      // Then sort by name
+      return a.name.localeCompare(b.name);
+    });
   }
 
   public getRules(): Rule[] {
