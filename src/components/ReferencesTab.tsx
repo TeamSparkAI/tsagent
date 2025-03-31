@@ -133,6 +133,14 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
 
     useEffect(() => {
         loadReferences();
+        // Add event listener for reference changes
+        window.api.onReferencesChanged(() => {
+            loadReferences();
+        });
+        // Cleanup event listener on unmount
+        return () => {
+            window.api.onReferencesChanged(() => {});
+        };
     }, []);
 
     const loadReferences = async () => {

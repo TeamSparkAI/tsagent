@@ -171,10 +171,6 @@ When a tool fires, it gets the list of references and rules that match the serve
 
 ## MCP / Tools Work
 
-Validate the reference and rules changes from internal tools show up in UX (skeptical this is working correctly)
-
-Add support for tool types (stdio, sse, internal) in UX
-
 Allow tool set to be enabled/disabled
 - Make sure LLMs gettings tools only get enabled tools
 
