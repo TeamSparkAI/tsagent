@@ -40,8 +40,6 @@ If we tied a chat window to a model, we could have a "settings" button that lets
 
 mcp client can specify cwd to stdio transport (workspace implications)
 
-parse command, if it's a URL, use SSE transport (or support special config - look at what mcp/Anthro does)
-
 To run MCP test app: npx @modelcontextprotocol/inspector
 
 Resources
@@ -49,18 +47,7 @@ Resource templates?
 Prompts?
 Tools
 
-Test tool - collect params, run, show output
-- Show tool name/description
-- For for params (incliding array params)
-- Test Tool button
-- Tool output shown below
-- Elapsed time
-
 "History" for each tool call that shows JSON request (tool name, params) and response
-
-When configuring a new tool (or when saving it?) - test connection to tool?  Test button option?  Ping?
-
-Need a way to collect server error stream and display (esp for new server / connection type errors)
 
 ## Misc UX
 
@@ -74,8 +61,6 @@ Allow user to @mention a tool, rule, or referencec to force include in the chat
 - @tool:[toolset,toolset.tool,tool] (not clear if selective tool inclusion is the right idea, maybe configurable - use all tools, determine tools, explicit tool use only?)
 
 Allow user to pick any chat element and store it as a reference
-
-Provide internal MCP tooling for LLM to CRUD references and rules
 
 Maybe as you type we add in scope that you can see (and you can remove if you don't want it)
 
@@ -186,22 +171,13 @@ When a tool fires, it gets the list of references and rules that match the serve
 
 ## MCP / Tools Work
 
-Add support for SSE server
+Validate the reference and rules changes from internal tools show up in UX (skeptical this is working correctly)
+
+Add support for tool types (stdio, sse, internal) in UX
+
+Allow tool set to be enabled/disabled
+- Make sure LLMs gettings tools only get enabled tools
+
+Test support for SSE server
 - Local weather server in /mcp-sse
   - uv run weather.py
-
-Add support for "local" transport
-- References
-  - List references (metadata)
-  - Get reference
-  - Add reference
-  - Update reference
-  - Delete reference
-- Rules
-  - Same as above
-
-Add support for "built-in" MCP clients (refs and rules)
-- Show in tools client
-- Allow to be enabled/disabled, but not deleted/edited
-
-Make sure LLMs gettings tools only get enabled tools
