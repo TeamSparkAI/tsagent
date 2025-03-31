@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Reference } from '../types/Reference';
 import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
@@ -239,7 +240,24 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                         borderRadius: '4px',
                         border: '1px solid #dee2e6'
                     }}>
-                        <ReactMarkdown>{reference.text}</ReactMarkdown>
+                        <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                p: ({node, ...props}) => <p style={{ 
+                                    margin: '0 0 1em 0',
+                                    whiteSpace: 'pre-line'
+                                }} {...props} />,
+                                pre: ({node, ...props}) => <pre style={{ 
+                                    whiteSpace: 'pre-wrap',
+                                    margin: '0 0 1em 0',
+                                    padding: '1em',
+                                    backgroundColor: '#f1f1f1',
+                                    borderRadius: '4px'
+                                }} {...props} />
+                            }}
+                        >
+                            {reference.text}
+                        </ReactMarkdown>
                     </div>
                 </div>
             </div>

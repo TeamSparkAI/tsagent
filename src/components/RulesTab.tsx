@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
+import remarkGfm from 'remark-gfm';
 
 interface EditRuleModalProps {
     rule?: Rule;
@@ -231,7 +232,24 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                         borderRadius: '4px',
                         border: '1px solid #dee2e6'
                     }}>
-                        <ReactMarkdown>{rule.text}</ReactMarkdown>
+                        <ReactMarkdown 
+                            remarkPlugins={[remarkGfm]}
+                            components={{
+                                p: ({node, ...props}) => <p style={{ 
+                                    margin: '0 0 1em 0',
+                                    whiteSpace: 'pre-line'
+                                }} {...props} />,
+                                pre: ({node, ...props}) => <pre style={{ 
+                                    whiteSpace: 'pre-wrap',
+                                    margin: '0 0 1em 0',
+                                    padding: '1em',
+                                    backgroundColor: '#f1f1f1',
+                                    borderRadius: '4px'
+                                }} {...props} />
+                            }}
+                        >
+                            {rule.text}
+                        </ReactMarkdown>
                     </div>
                 </div>
             </div>
