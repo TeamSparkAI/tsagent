@@ -3,12 +3,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import log from 'electron-log';
+import { EventEmitter } from 'events';
 
-export class ReferencesManager {
+export class ReferencesManager extends EventEmitter {
     private references: Reference[] = [];
     private referencesDir: string;
 
     constructor(configDir: string) {
+        super();
         this.referencesDir = path.join(configDir, 'refs');
         if (!fs.existsSync(this.referencesDir)) {
             fs.mkdirSync(this.referencesDir, { recursive: true });
@@ -75,6 +77,8 @@ export class ReferencesManager {
         fs.writeFileSync(filePath, content, 'utf-8');
         
         this.loadReferences();
+        this.sortReferences();
+        this.emit('referencesChanged');
     }
 
     public getReference(name: string) {
@@ -86,6 +90,7 @@ export class ReferencesManager {
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             this.loadReferences();
+            this.emit('referencesChanged');
         }
     }
 } 

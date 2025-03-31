@@ -28,7 +28,8 @@ const api: API = {
   saveReference: (reference) => ipcRenderer.invoke('save-reference', reference),
   deleteReference: (name: string) => ipcRenderer.invoke('delete-reference', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
-  onRulesChanged: (callback: () => void) => ipcRenderer.on('rules-changed', callback)
+  onRulesChanged: (callback: () => void) => ipcRenderer.on('rules-changed', callback),
+  onReferencesChanged: (callback: () => void) => ipcRenderer.on('references-changed', callback)
 };
 
 contextBridge.exposeInMainWorld('api', api);

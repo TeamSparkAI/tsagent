@@ -3,7 +3,8 @@ import { McpClientStdio, McpClientSse } from './client';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
-import { McpClientInternalRules } from './internal';
+import { McpClientInternalRules } from './InternalClientRules';
+import { McpClientInternalReferences } from './InternalClientReferences';
 import { AppState } from '../state/AppState';
 
 function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig {
@@ -50,6 +51,8 @@ export class MCPClientManager {
                     } else if (serverConfig.type === 'internal') {
                         if (serverConfig.name === 'rules') {
                             client = new McpClientInternalRules(this.appState.getRulesManager());
+                        } else if (serverConfig.name === 'references') {
+                            client = new McpClientInternalReferences(this.appState.getReferencesManager());
                         } else {
                             log.error('Unknown internal server name:', serverConfig.name, 'for server:', name);
                             continue;

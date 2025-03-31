@@ -34,4 +34,5 @@ export interface API {
   deleteReference: (name: string) => Promise<void>;
   pingServer: (name: string) => Promise<{ elapsedTimeMs: number }>;
   onRulesChanged: (callback: () => void) => void;
+  onReferencesChanged: (callback: () => void) => void;
 } 

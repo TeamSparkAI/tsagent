@@ -14,7 +14,8 @@ import { McpClient, McpConfig, McpConfigFileServerConfig } from './mcp/types';
 import { ConfigManager } from './state/ConfigManager';
 import { ChatSessionManager } from './state/ChatSessionManager';
 import { AppState } from './state/AppState';
-import { McpClientInternalRules } from './mcp/internal';
+import { McpClientInternalRules } from './mcp/InternalClientRules';
+import { McpClientInternalReferences } from './mcp/InternalClientReferences';
 
 // Configure electron-log
 let configManager: ConfigManager;
@@ -130,6 +131,13 @@ async function startApp() {
       rulesManager.on('rulesChanged', () => {
         if (mainWindow) {
           mainWindow.webContents.send('rules-changed');
+        }
+      });
+
+      // Set up event listener for references changes
+      referencesManager.on('referencesChanged', () => {
+        if (mainWindow) {
+          mainWindow.webContents.send('references-changed');
         }
       });
 
@@ -293,6 +301,8 @@ async function startApp() {
             case 'internal':
               if (serverConfig.name === 'rules') {
                 client = new McpClientInternalRules(rulesManager);
+              } else if (serverConfig.name === 'references') {
+                client = new McpClientInternalReferences(referencesManager);
               } else {
                 log.error('Unknown internal server name:', serverConfig.name, 'for server:', serverName);
                 throw new Error(`Unknown internal server name: ${serverConfig.name}`);
