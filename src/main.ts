@@ -67,19 +67,11 @@ async function initialize() {
   // Create AppState first
   const appState = new AppState(configManager, rulesManager, referencesManager, null as any);
 
-  // Create MCPClientManager with AppState and load clients immediately
-  mcpManager = new MCPClientManager(appState);
-  log.info("Loading MCP clients");
-  try {
-    const mcpServers = await configManager.getMcpConfig();
-    await mcpManager.loadClients(mcpServers);
-  } catch (err) {
-    log.error('Error loading MCP config:', err);
-    throw err; // Fail fast if we can't load MCP clients
-  }
+  // Initialize MCP client manager
+  const mcpClientManager = new MCPClientManager(appState, mcpClients);
 
-  // Update AppState with the loaded MCPClientManager
-  appState.setMCPManager(mcpManager);
+  // Set MCP client manager in AppState
+  appState.setMCPManager(mcpClientManager);
   
   // Initialize ChatSessionManager with AppState
   chatSessionManager = new ChatSessionManager(appState);
