@@ -1,24 +1,24 @@
-import { MCPClient, McpConfigFileServerConfig } from './types';
-import { MCPClientImpl } from './client';
-import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
+import { McpClient, McpConfigFileServerConfig } from './types';
+import { McpClientStdio  } from './client';
+import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
 
 export class MCPClientManager {
-    private clients = new Map<string, MCPClientImpl>();
+    private clients = new Map<string, McpClient>();
     private ready = false;
 
     async loadClients(config: Record<string, McpConfigFileServerConfig>) {
         log.info('MCPClientManager: Loading clients from config:', config);
         for (const [name, serverConfig] of Object.entries(config)) {
             log.info('MCPClientManager: Creating client for:', name);
-            const client = new MCPClientImpl();
+            const client = new McpClientStdio({
+                command: serverConfig.command,
+                args: serverConfig.args,
+                env: serverConfig.env
+            });
             try {
-                await client.connectToServer(
-                    serverConfig.command,
-                    serverConfig.args,
-                    serverConfig.env
-                );
+                await client.connect();
                 this.clients.set(name, client);
                 log.info('MCPClientManager: Successfully connected client:', name);
             } catch (error) {
@@ -88,7 +88,7 @@ export class MCPClientManager {
         return client.callTool(tool, args);
     }
 
-    getClient(name: string): MCPClient | undefined {
+    getClient(name: string): McpClient | undefined {
         if (!this.ready) {
             return undefined;
         }
@@ -97,7 +97,7 @@ export class MCPClientManager {
         return client;
     }
 
-    getAllClients(): MCPClient[] {
+    getAllClients(): McpClient[] {
         if (!this.ready) {
             return [];
         }

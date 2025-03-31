@@ -23,10 +23,11 @@ export interface ToolParameter {
   required?: boolean;
 }
 
-export interface MCPClient {
+export interface McpClient {
   serverVersion: { name: string; version: string } | null;
   serverTools: Tool[];
-  connectToServer(command: string, args: string[], env?: Record<string, string>): Promise<boolean>;
+  connect(): Promise<boolean>;
+  disconnect(): Promise<void>;
   callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime>;
   cleanup(): Promise<void>;
   getErrorLog(): string[];

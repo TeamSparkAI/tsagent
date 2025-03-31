@@ -1,11 +1,15 @@
-import { MCPClientImpl } from '../mcp/client';
-import path from 'path';
+import { McpClientStdio } from '../mcp/client';
+import { McpClient } from '../mcp/types';
 
 describe('MCP Client', () => {
-    let client: MCPClientImpl;
+    let client: McpClient;
 
     beforeEach(() => {
-        client = new MCPClientImpl();
+        client = new McpClientStdio({
+            command: 'python',
+            args: ['-m', 'mcp.server'],
+            env: {}
+        });
     });
 
     afterEach(async () => {

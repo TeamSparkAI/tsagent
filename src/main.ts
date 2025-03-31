@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import * as path from 'path';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
-import { MCPClientImpl } from './mcp/client';
+import { McpClientStdio } from './mcp/client';
 import { MCPClientManager } from './mcp/manager';
 import { RulesManager } from './state/RulesManager';
 import { ReferencesManager } from './state/ReferencesManager';
@@ -10,7 +10,7 @@ import log from 'electron-log';
 import 'dotenv/config';
 import * as fs from 'fs';
 import { setupCLI } from './cli';
-import { McpConfig } from './mcp/types';
+import { McpClient, McpConfig } from './mcp/types';
 import { ConfigManager } from './state/ConfigManager';
 import { ChatSessionManager } from './state/ChatSessionManager';
 import { AppState } from './state/AppState';
@@ -85,7 +85,7 @@ async function initialize() {
 }
 
 // Near the top with other state
-const mcpClients = new Map<string, MCPClientImpl>();
+const mcpClients = new Map<string, McpClient>();
 
 async function startApp() {
   if (process.argv.includes('--cli')) {
@@ -266,12 +266,12 @@ async function startApp() {
             throw new Error(`No configuration found for server: ${serverName}`);
           }
           
-          client = new MCPClientImpl();
-          await client.connectToServer(
-            serverConfig.command,
-            serverConfig.args,
-            serverConfig.env
-          );
+          client = new McpClientStdio({
+            command: serverConfig.command,
+            args: serverConfig.args,
+            env: serverConfig.env
+          });
+          await client.connect();
           mcpClients.set(serverName, client);
         }
         return {

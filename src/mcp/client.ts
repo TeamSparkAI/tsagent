@@ -1,18 +1,20 @@
-import { MCPClient } from './types';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio';
+import { McpClient } from './types';
+import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
+import { SSEClientTransport, SSEClientTransportOptions } from '@modelcontextprotocol/sdk/client/sse';
 import { Client } from '@modelcontextprotocol/sdk/client/index';
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
 
-export class MCPClientImpl implements MCPClient {
-    private mcp: Client;
-    private transport: StdioClientTransport | null = null;
-    private errorLog: string[] = [];
-    private readonly MAX_LOG_ENTRIES = 100;  // Keep last 100 error messages
+export abstract class McpClientBase {
+    protected mcp: Client;
+    protected transport: Transport | null = null;
+    protected errorLog: string[] = [];
+    protected readonly MAX_LOG_ENTRIES = 100;  // Keep last 100 error messages
     serverVersion: { name: string; version: string } | null = null;
     serverTools: Tool[] = [];
-    private connected: boolean = false;
+    protected connected: boolean = false;
 
     constructor() {
         this.mcp = new Client({
@@ -22,7 +24,9 @@ export class MCPClientImpl implements MCPClient {
         });
     }
 
-    private addErrorMessage(message: string) {
+    protected abstract createTransport(): Transport;
+
+    protected addErrorMessage(message: string) {
         if (message.trim()) {
             this.errorLog.push(message);
             // Keep only the most recent messages
@@ -32,12 +36,10 @@ export class MCPClientImpl implements MCPClient {
         }
     }
 
-    // Add getter for error log
     getErrorLog(): string[] {
         return [...this.errorLog];
     }
 
-    // Clear error log
     clearErrorLog(): void {
         this.errorLog = [];
     }
@@ -46,13 +48,8 @@ export class MCPClientImpl implements MCPClient {
         return this.connected;
     }
 
-    async connectToServer(command: string, args: string[], env?: Record<string, string>): Promise<boolean> {
-        this.transport = new StdioClientTransport({
-            command,
-            args,
-            env,
-            stderr: 'pipe'
-        });
+    async connect(): Promise<boolean> {
+        this.transport = this.createTransport();
 
         try {
             this.transport.onerror = (err: Error) => {
@@ -66,12 +63,14 @@ export class MCPClientImpl implements MCPClient {
             };
 
             const connectPromise = this.mcp.connect(this.transport);
-            if (this.transport?.stderr) {
-                this.transport.stderr.on('data', (data: Buffer) => {
-                    const message = data.toString().trim();
-                    log.error('Transport stderr: ' + message);
-                    this.addErrorMessage(message);
-                });
+            if (this.transport instanceof StdioClientTransport) {
+                if (this.transport.stderr) {
+                    this.transport.stderr.on('data', (data: Buffer) => {
+                        const message = data.toString().trim();
+                        log.error('Transport stderr: ' + message);
+                        this.addErrorMessage(message);
+                    });
+                }
             }
             await connectPromise;
 
@@ -90,7 +89,6 @@ export class MCPClientImpl implements MCPClient {
             log.error(`Error connecting to MCP server: ${message}`);
             this.addErrorMessage(`Error connecting to MCP server: ${message}`);
             this.connected = false;
-            //throw err;
         }
 
         return this.connected;
@@ -107,11 +105,11 @@ export class MCPClientImpl implements MCPClient {
         };
     }
 
-    public async disconnect() {
+    async disconnect(): Promise<void> {
         await this.cleanup();
     }
 
-    public async cleanup() {
+    async cleanup(): Promise<void> {
         if (this.transport) {
             await this.transport.close();
             this.transport = null;
@@ -126,5 +124,59 @@ export class MCPClientImpl implements MCPClient {
         const startTime = performance.now();
         await this.mcp.ping();
         return { elapsedTimeMs: performance.now() - startTime };
+    }
+}
+
+export class McpClientStdio extends McpClientBase implements McpClient {
+    private serverParams: StdioServerParameters;
+
+    constructor(serverParams: StdioServerParameters) {
+        super();
+        this.serverParams = serverParams;
+    }
+
+    protected createTransport(): Transport {
+        return new StdioClientTransport({
+            command: this.serverParams.command,
+            args: this.serverParams.args,
+            env: this.serverParams.env,
+            stderr: 'pipe'
+        });
+    }
+}
+
+// This was pieced together from: https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/client/sse.test.ts
+//
+// !!! Not tested yet
+//
+export class McpClientSse extends McpClientBase implements McpClient {
+    private url: URL;
+    private bearerToken: string | null = null;
+
+    constructor(url: URL, bearerToken: string | null) {
+        super();
+        this.url = url;
+        this.bearerToken = bearerToken;
+    }
+
+    protected createTransport(): Transport {
+        if (this.bearerToken) {
+            const authToken = `Bearer ${this.bearerToken}`;
+
+            // Create a fetch wrapper that adds auth header
+            const fetchWithAuth = (url: string | URL, init?: RequestInit) => {
+            const headers = new Headers(init?.headers);
+            headers.set("Authorization", authToken);
+            return fetch(url.toString(), { ...init, headers });
+            };
+
+            return new SSEClientTransport(this.url, {
+                eventSourceInit: {
+                    fetch: fetchWithAuth
+                }
+            });
+        }
+
+        return new SSEClientTransport(this.url);
     }
 }

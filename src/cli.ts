@@ -4,7 +4,7 @@ import { LLMType } from './llm/types';
 import { ConfigManager } from './state/ConfigManager';
 
 import log from 'electron-log';
-import { MCPClientImpl } from './mcp/client';
+import { McpClientStdio } from './mcp/client';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatMessage } from './types/ChatSession';
 
@@ -36,13 +36,13 @@ async function toolsCommand() {
       console.log(`Server: ${serverId}`);
       console.log('------------------------');
 
-      const client = new MCPClientImpl();
+      const client = new McpClientStdio({
+        command: serverConfig.command, 
+        args: serverConfig.args, 
+        env: serverConfig.env
+      });
       try {
-        await client.connectToServer(
-          serverConfig.command, 
-          serverConfig.args, 
-          serverConfig.env
-        );
+        await client.connect();
         
         // Tools are now available in client.serverTools
         if (client.serverTools.length === 0) {
