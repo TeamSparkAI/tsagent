@@ -28,17 +28,36 @@ interface EditServerModalProps {
 
 const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCancel }) => {
     const [name, setName] = useState(server?.name || '');
-    const [command, setCommand] = useState(server?.command || '');
-    const [args, setArgs] = useState<string[]>(server?.args || []);
-    const [env, setEnv] = useState<Record<string, string>>(server?.env || {});
+    const [serverType, setServerType] = useState<'stdio' | 'sse' | 'internal'>(server?.config.type || 'stdio');
+    const [command, setCommand] = useState(server?.config.type === 'stdio' ? server.config.command : '');
+    const [args, setArgs] = useState(server?.config.type === 'stdio' ? server.config.args.join(' ') : '');
+    const [env, setEnv] = useState(server?.config.type === 'stdio' ? JSON.stringify(server.config.env || {}) : '{}');
+    const [url, setUrl] = useState(server?.config.type === 'sse' ? server.config.url : '');
+    const [headers, setHeaders] = useState<Record<string, string>>(server?.config.type === 'sse' ? server.config.headers || {} : {});
+    const [internalTool, setInternalTool] = useState<'rules' | 'references'>(server?.config.type === 'internal' ? server.config.tool : 'rules');
 
     const handleSave = () => {
-        onSave({
+        const serverConfig: McpConfig = {
             name,
-            command,
-            args,
-            env
-        });
+            config: serverType === 'stdio' 
+                ? {
+                    type: 'stdio',
+                    command,
+                    args: args.split(' ').filter(Boolean),
+                    env: JSON.parse(env)
+                }
+                : serverType === 'sse'
+                ? {
+                    type: 'sse',
+                    url,
+                    headers
+                }
+                : {
+                    type: 'internal',
+                    tool: internalTool
+                }
+        };
+        onSave(serverConfig);
     };
 
     return (
@@ -60,72 +79,152 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     style={{ width: '100%', padding: '4px 8px' }}
                 />
 
-                <label style={{ fontWeight: 'bold' }}>Command:</label>
-                <input 
-                    type="text" 
-                    value={command}
-                    onChange={(e) => setCommand(e.target.value)}
-                    style={{ width: '100%', padding: '4px 8px' }}
-                />
-
-                <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Arguments:</label>
-                <div>
-                    {args.map((arg, index) => (
-                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                            <input
-                                type="text"
-                                value={arg}
-                                onChange={(e) => {
-                                    const newArgs = [...args];
-                                    newArgs[index] = e.target.value;
-                                    setArgs(newArgs);
-                                }}
-                                style={{ flex: 1, padding: '4px 8px' }}
-                            />
-                            <button onClick={() => setArgs(args.filter((_, i) => i !== index))}>
-                                Remove
-                            </button>
-                        </div>
-                    ))}
-                    <button onClick={() => setArgs([...args, ''])}>Add Argument</button>
+                <label style={{ fontWeight: 'bold' }}>Type:</label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                    <select 
+                        value={serverType}
+                        onChange={(e) => setServerType(e.target.value as 'stdio' | 'sse' | 'internal')}
+                        style={{ width: 'auto', padding: '4px 8px' }}
+                    >
+                        <option value="stdio">Stdio</option>
+                        <option value="sse">SSE</option>
+                        <option value="internal">Internal</option>
+                    </select>
                 </div>
 
-                <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Environment:</label>
-                <div>
-                    {Object.entries(env).map(([key, value], index) => (
-                        <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                            <input
-                                type="text"
-                                value={key}
-                                placeholder="Key"
-                                onChange={(e) => {
-                                    const newEnv = { ...env };
-                                    delete newEnv[key];
-                                    newEnv[e.target.value] = value;
-                                    setEnv(newEnv);
-                                }}
-                                style={{ width: '40%', padding: '4px 8px' }}
-                            />
-                            <input
-                                type="text"
-                                value={value}
-                                placeholder="Value"
-                                onChange={(e) => {
-                                    setEnv({ ...env, [key]: e.target.value });
-                                }}
-                                style={{ flex: 1, padding: '4px 8px' }}
-                            />
-                            <button onClick={() => {
-                                const newEnv = { ...env };
-                                delete newEnv[key];
-                                setEnv(newEnv);
-                            }}>
-                                Remove
-                            </button>
+                {serverType === 'stdio' && (
+                    <>
+                        <label style={{ fontWeight: 'bold' }}>Command:</label>
+                        <input 
+                            type="text" 
+                            value={command}
+                            onChange={(e) => setCommand(e.target.value)}
+                            style={{ width: '100%', padding: '4px 8px' }}
+                        />
+
+                        <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Arguments:</label>
+                        <div>
+                            {args.split(' ').filter(Boolean).map((arg, index) => (
+                                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                    <input
+                                        type="text"
+                                        value={arg}
+                                        onChange={(e) => {
+                                            const newArgs = args.split(' ').filter(Boolean);
+                                            newArgs[index] = e.target.value;
+                                            setArgs(newArgs.join(' '));
+                                        }}
+                                        style={{ flex: 1, padding: '4px 8px' }}
+                                    />
+                                    <button onClick={() => setArgs(args.split(' ').filter(Boolean).filter((_, i) => i !== index).join(' '))}>
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                            <button onClick={() => setArgs(args.split(' ').filter(Boolean).join(' '))}>Add Argument</button>
                         </div>
-                    ))}
-                    <button onClick={() => setEnv({ ...env, '': '' })}>Add Environment Variable</button>
-                </div>
+
+                        <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Environment:</label>
+                        <div>
+                            {Object.entries(JSON.parse(env)).map(([key, value], index) => (
+                                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                    <input
+                                        type="text"
+                                        value={key}
+                                        placeholder="Key"
+                                        onChange={(e) => {
+                                            const newEnv = { ...JSON.parse(env) };
+                                            delete newEnv[key];
+                                            newEnv[e.target.value] = value;
+                                            setEnv(JSON.stringify(newEnv));
+                                        }}
+                                        style={{ width: '40%', padding: '4px 8px' }}
+                                    />
+                                    <input
+                                        type="text"
+                                        value={value as string}
+                                        placeholder="Value"
+                                        onChange={(e) => {
+                                            setEnv(JSON.stringify({ ...JSON.parse(env), [key]: e.target.value }));
+                                        }}
+                                        style={{ flex: 1, padding: '4px 8px' }}
+                                    />
+                                    <button onClick={() => {
+                                        const newEnv = { ...JSON.parse(env) };
+                                        delete newEnv[key];
+                                        setEnv(JSON.stringify(newEnv));
+                                    }}>
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                            <button onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
+                        </div>
+                    </>
+                )}
+
+                {serverType === 'sse' && (
+                    <>
+                        <label style={{ fontWeight: 'bold' }}>URL:</label>
+                        <input 
+                            type="text" 
+                            value={url}
+                            onChange={(e) => setUrl(e.target.value)}
+                            style={{ width: '100%', padding: '4px 8px' }}
+                        />
+
+                        <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Headers:</label>
+                        <div>
+                            {Object.entries(headers).map(([key, value], index) => (
+                                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                    <input
+                                        type="text"
+                                        value={key}
+                                        placeholder="Key"
+                                        onChange={(e) => {
+                                            const newHeaders = { ...headers };
+                                            delete newHeaders[key];
+                                            newHeaders[e.target.value] = value;
+                                            setHeaders(newHeaders);
+                                        }}
+                                        style={{ width: '40%', padding: '4px 8px' }}
+                                    />
+                                    <input
+                                        type="text"
+                                        value={value}
+                                        placeholder="Value"
+                                        onChange={(e) => {
+                                            setHeaders({ ...headers, [key]: e.target.value });
+                                        }}
+                                        style={{ flex: 1, padding: '4px 8px' }}
+                                    />
+                                    <button onClick={() => {
+                                        const newHeaders = { ...headers };
+                                        delete newHeaders[key];
+                                        setHeaders(newHeaders);
+                                    }}>
+                                        Remove
+                                    </button>
+                                </div>
+                            ))}
+                            <button onClick={() => setHeaders({ ...headers, '': '' })}>Add Header</button>
+                        </div>
+                    </>
+                )}
+
+                {serverType === 'internal' && (
+                    <>
+                        <label style={{ fontWeight: 'bold' }}>Tool:</label>
+                        <select 
+                            value={internalTool}
+                            onChange={(e) => setInternalTool(e.target.value as 'rules' | 'references')}
+                            style={{ width: 'auto', padding: '4px 8px' }}
+                        >
+                            <option value="rules">Rules</option>
+                            <option value="references">References</option>
+                        </select>
+                    </>
+                )}
             </div>
 
             <div style={{ 
@@ -225,14 +324,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     const handleSaveServer = async (server: McpConfig) => {
         try {
-            const serverConfig: McpConfigFileServerConfig & { name: string } = {
-                name: server.name,
-                type: 'stdio',
-                command: server.command,
-                args: server.args,
-                env: server.env
-            };
-            await window.api.saveServerConfig(serverConfig);
+            await window.api.saveServerConfig(server);
             setShowEditModal(false);
             await loadServers();
             setSelectedServer(server);
@@ -466,6 +558,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                             }}
                         >
                             <span>{server.name}</span>
+                            <span style={{ color: '#666', fontSize: '0.9em' }}>({server.config.type})</span>
                         </div>
                     ))}
                 </div>
@@ -696,7 +789,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                 fontFamily: 'monospace',
                                                 whiteSpace: 'pre-wrap'
                                             }}>
-                                                {JSON.stringify(selectedServer, null, 2)}
+                                                {JSON.stringify(selectedServer.config, null, 2)}
                                             </pre>
                                         </div>
                                         {serverInfo[selectedServer.name]?.errorLog && serverInfo[selectedServer.name].errorLog.length > 0 && (

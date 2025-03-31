@@ -49,13 +49,13 @@ export class MCPClientManager {
                     } else if (serverConfig.type === 'sse') {
                         client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
                     } else if (serverConfig.type === 'internal') {
-                        if (serverConfig.name === 'rules') {
+                        if (serverConfig.tool === 'rules') {
                             client = new McpClientInternalRules(this.appState.getRulesManager());
-                        } else if (serverConfig.name === 'references') {
+                        } else if (serverConfig.tool === 'references') {
                             client = new McpClientInternalReferences(this.appState.getReferencesManager());
                         } else {
-                            log.error('Unknown internal server name:', serverConfig.name, 'for server:', name);
-                            continue;
+                            log.error('Unknown internal server tool:', serverConfig.tool, 'for server:', name);
+                            throw new Error(`Unknown internal server tool: ${serverConfig.tool}`);
                         }
                     } else {
                         log.error('Unknown server type:', serverConfig.type, 'for server:', name);

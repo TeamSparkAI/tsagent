@@ -6,21 +6,19 @@ export interface CallToolResultWithElapsedTime extends CallToolResult {
 
 export interface McpConfig {
   name: string;
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
+  config: McpConfigFileServerConfig;
 }
 
 export type McpConfigFileServerConfig = 
   | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string> }
   | { type: 'sse'; url: string; headers?: Record<string, string> }
-  | { type: 'internal'; name: string };
+  | { type: 'internal'; tool: 'rules' | 'references' };
 
 // Helper function to determine server type from config
 export function determineServerType(config: Omit<McpConfigFileServerConfig, 'type'>): McpConfigFileServerConfig['type'] {
   if ('command' in config) return 'stdio';
   if ('url' in config) return 'sse';
-  if ('name' in config) return 'internal';
+  if ('tool' in config) return 'internal';
   throw new Error('Invalid server configuration');
 }
 

@@ -268,7 +268,10 @@ async function startApp() {
         const mcpServers = await configManager.getMcpConfig();
         return Object.entries(mcpServers).map(([name, serverConfig]) => ({
           name,
-          ...serverConfig
+          config: {
+            ...serverConfig,
+            type: serverConfig.type || 'stdio'  // Default to stdio if type is not present
+          }
         }));
       } catch (err) {
         log.error('Error getting server configs:', err);
@@ -299,13 +302,13 @@ async function startApp() {
               client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
               break;
             case 'internal':
-              if (serverConfig.name === 'rules') {
+              if (serverConfig.tool === 'rules') {
                 client = new McpClientInternalRules(rulesManager);
-              } else if (serverConfig.name === 'references') {
+              } else if (serverConfig.tool === 'references') {
                 client = new McpClientInternalReferences(referencesManager);
               } else {
-                log.error('Unknown internal server name:', serverConfig.name, 'for server:', serverName);
-                throw new Error(`Unknown internal server name: ${serverConfig.name}`);
+                log.error('Unknown internal server tool:', serverConfig.tool, 'for server:', serverName);
+                throw new Error(`Unknown internal server tool: ${serverConfig.tool}`);
               }
               break;
           }

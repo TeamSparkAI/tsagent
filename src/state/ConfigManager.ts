@@ -134,19 +134,36 @@ export class ConfigManager {
     }
   }
 
+  async getMcpConfigWithNames(): Promise<Record<string, McpConfig>> {
+    try {
+      const servers = await this.getMcpConfig();
+      
+      // Convert to new McpConfig structure
+      const newServers: Record<string, McpConfig> = {};
+      for (const [name, serverConfig] of Object.entries(servers)) {
+        newServers[name] = {
+          name,
+          config: serverConfig
+        };
+      }
+      
+      return newServers;
+    } catch (err) {
+      log.error('Error loading MCP config:', err);
+      return {};
+    }
+  }
+
   async saveMcpConfig(server: McpConfig): Promise<void> {
     try {
+      if (!fs.existsSync(this.mcpConfigPath)) {
+        await fs.promises.writeFile(this.mcpConfigPath, JSON.stringify({ mcpServers: {} }, null, 2));
+      }
+
       const configData = await fs.promises.readFile(this.mcpConfigPath, 'utf8');
       const config = JSON.parse(configData);
       
-      const serverConfig: McpConfigFileServerConfig = {
-        type: 'stdio',
-        command: server.command,
-        args: server.args,
-        env: server.env
-      };
-      
-      config.mcpServers[server.name] = serverConfig;
+      config.mcpServers[server.name] = server.config;
       await fs.promises.writeFile(this.mcpConfigPath, JSON.stringify(config, null, 2));
     } catch (err) {
       log.error('Error saving MCP config:', err);

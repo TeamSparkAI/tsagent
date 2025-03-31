@@ -27,7 +27,7 @@ export interface API {
   getRules: () => Promise<Rule[]>;
   saveRule: (rule: Rule) => Promise<void>;
   deleteRule: (name: string) => Promise<void>;
-  saveServerConfig: (server: McpConfigFileServerConfig & { name: string }) => Promise<void>;
+  saveServerConfig: (server: McpConfig) => Promise<void>;
   deleteServerConfig: (name: string) => Promise<void>;
   getReferences: () => Promise<Reference[]>;
   saveReference: (reference: Reference) => Promise<void>;
