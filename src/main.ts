@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
 import * as path from 'path';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
-import { McpClientStdio } from './mcp/client';
+import { McpClientStdio, McpClientSse } from './mcp/client';
 import { MCPClientManager } from './mcp/manager';
 import { RulesManager } from './state/RulesManager';
 import { ReferencesManager } from './state/ReferencesManager';
@@ -10,10 +10,11 @@ import log from 'electron-log';
 import 'dotenv/config';
 import * as fs from 'fs';
 import { setupCLI } from './cli';
-import { McpClient, McpConfig } from './mcp/types';
+import { McpClient, McpConfig, McpConfigFileServerConfig } from './mcp/types';
 import { ConfigManager } from './state/ConfigManager';
 import { ChatSessionManager } from './state/ChatSessionManager';
 import { AppState } from './state/AppState';
+import { McpClientInternalRules } from './mcp/internal';
 
 // Configure electron-log
 let configManager: ConfigManager;
@@ -59,12 +60,25 @@ async function initialize() {
 
   // Initialize managers
   log.info('Initializing managers with config directory:', CONFIG_DIR);
-  mcpManager = new MCPClientManager();
   rulesManager = new RulesManager(CONFIG_DIR);
   referencesManager = new ReferencesManager(CONFIG_DIR);
 
-  // Create AppState
-  const appState = new AppState(configManager, rulesManager, referencesManager, mcpManager);
+  // Create AppState first
+  const appState = new AppState(configManager, rulesManager, referencesManager, null as any);
+
+  // Create MCPClientManager with AppState and load clients immediately
+  mcpManager = new MCPClientManager(appState);
+  log.info("Loading MCP clients");
+  try {
+    const mcpServers = await configManager.getMcpConfig();
+    await mcpManager.loadClients(mcpServers);
+  } catch (err) {
+    log.error('Error loading MCP config:', err);
+    throw err; // Fail fast if we can't load MCP clients
+  }
+
+  // Update AppState with the loaded MCPClientManager
+  appState.setMCPManager(mcpManager);
   
   // Initialize ChatSessionManager with AppState
   chatSessionManager = new ChatSessionManager(appState);
@@ -72,14 +86,6 @@ async function initialize() {
   // Initialize the LLM Factory with AppState
   log.info('Initializing LLMFactory with AppState');
   LLMFactory.initialize(appState);
-
-  log.info("Loaded MCP clients");
-  try {
-    const mcpServers = await configManager.getMcpConfig();
-    await mcpManager.loadClients(mcpServers);
-  } catch (err) {
-    log.error('Error loading MCP config:', err);
-  }
 
   log.info('Initialization complete');
 }
@@ -117,6 +123,13 @@ async function startApp() {
           spellcheck: true,
           defaultEncoding: 'UTF-8',
           preload: path.join(__dirname, 'preload.js')
+        }
+      });
+
+      // Set up event listener for rules changes
+      rulesManager.on('rulesChanged', () => {
+        if (mainWindow) {
+          mainWindow.webContents.send('rules-changed');
         }
       });
 
@@ -266,11 +279,27 @@ async function startApp() {
             throw new Error(`No configuration found for server: ${serverName}`);
           }
           
-          client = new McpClientStdio({
-            command: serverConfig.command,
-            args: serverConfig.args,
-            env: serverConfig.env
-          });
+          switch (serverConfig.type) {
+            case 'stdio':
+              client = new McpClientStdio({
+                command: serverConfig.command,
+                args: serverConfig.args,
+                env: serverConfig.env
+              });
+              break;
+            case 'sse':
+              client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
+              break;
+            case 'internal':
+              if (serverConfig.name === 'rules') {
+                client = new McpClientInternalRules(rulesManager);
+              } else {
+                log.error('Unknown internal server name:', serverConfig.name, 'for server:', serverName);
+                throw new Error(`Unknown internal server name: ${serverConfig.name}`);
+              }
+              break;
+          }
+          
           await client.connect();
           mcpClients.set(serverName, client);
         }

@@ -133,6 +133,14 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
 
     useEffect(() => {
         loadRules();
+        // Add event listener for rule changes
+        window.api.onRulesChanged(() => {
+            loadRules();
+        });
+        // Cleanup event listener on unmount
+        return () => {
+            window.api.onRulesChanged(() => {});
+        };
     }, []);
 
     const loadRules = async () => {

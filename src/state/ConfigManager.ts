@@ -1,7 +1,7 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import log from 'electron-log';
-import { McpConfig, McpConfigFileServerConfig } from '../mcp/types';
+import { McpConfig, McpConfigFileServerConfig, determineServerType } from '../mcp/types';
 
 export class ConfigManager {
   private static instance: ConfigManager | null = null;
@@ -118,7 +118,16 @@ export class ConfigManager {
 
       const configData = await fs.promises.readFile(this.mcpConfigPath, 'utf8');
       const config = JSON.parse(configData);
-      return config.mcpServers;
+      const servers = config.mcpServers as Record<string, any>;
+      
+      // Add type field if missing
+      for (const [name, serverConfig] of Object.entries(servers)) {
+        if (!serverConfig.type) {
+          serverConfig.type = determineServerType(serverConfig);
+        }
+      }
+      
+      return servers;
     } catch (err) {
       log.error('Error loading MCP config:', err);
       return {};
@@ -130,17 +139,12 @@ export class ConfigManager {
       const configData = await fs.promises.readFile(this.mcpConfigPath, 'utf8');
       const config = JSON.parse(configData);
       
-      const serverConfig: any = {
-        command: server.command
+      const serverConfig: McpConfigFileServerConfig = {
+        type: 'stdio',
+        command: server.command,
+        args: server.args,
+        env: server.env
       };
-      
-      if (server.args?.length > 0) {
-        serverConfig.args = server.args;
-      }
-      
-      if (server.env && Object.keys(server.env).length > 0) {
-        serverConfig.env = server.env;
-      }
       
       config.mcpServers[server.name] = serverConfig;
       await fs.promises.writeFile(this.mcpConfigPath, JSON.stringify(config, null, 2));

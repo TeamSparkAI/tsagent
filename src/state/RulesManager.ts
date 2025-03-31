@@ -3,12 +3,14 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import log from 'electron-log';
 import { Rule } from '../types/Rule';
+import { EventEmitter } from 'events';
 
-export class RulesManager {
+export class RulesManager extends EventEmitter {
   private rules: Rule[] = [];
   private rulesDir: string;
 
   constructor(configDir: string) {
+    super();
     this.rulesDir = path.join(configDir, 'rules');
     if (!fs.existsSync(this.rulesDir)) {
       fs.mkdirSync(this.rulesDir, { recursive: true });
@@ -64,6 +66,7 @@ export class RulesManager {
     fs.writeFileSync(filePath, content, 'utf-8');
     
     this.loadRules();
+    this.emit('rulesChanged');
   }
 
   public getRule(name: string) {
@@ -75,6 +78,7 @@ export class RulesManager {
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
       this.loadRules();
+      this.emit('rulesChanged');
     }
   }
 } 

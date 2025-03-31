@@ -1,36 +1,91 @@
 import { McpClient, McpConfigFileServerConfig } from './types';
-import { McpClientStdio  } from './client';
+import { McpClientStdio, McpClientSse } from './client';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
+import { McpClientInternalRules } from './internal';
+import { AppState } from '../state/AppState';
+
+function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig {
+    return obj && typeof obj === 'object' && 'type' in obj;
+}
 
 export class MCPClientManager {
     private clients = new Map<string, McpClient>();
     private ready = false;
+    private appState: AppState;
+    private loadPromise: Promise<void> | null = null;
 
-    async loadClients(config: Record<string, McpConfigFileServerConfig>) {
-        log.info('MCPClientManager: Loading clients from config:', config);
-        for (const [name, serverConfig] of Object.entries(config)) {
-            log.info('MCPClientManager: Creating client for:', name);
-            const client = new McpClientStdio({
-                command: serverConfig.command,
-                args: serverConfig.args,
-                env: serverConfig.env
-            });
-            try {
-                await client.connect();
-                this.clients.set(name, client);
-                log.info('MCPClientManager: Successfully connected client:', name);
-            } catch (error) {
-                log.error('MCPClientManager: Failed to connect client:', name, error);
-            }
+    constructor(appState: AppState) {
+        this.appState = appState;
+    }
+
+    async loadClients(config: Record<string, any>) {
+        // If we're already loading, wait for that to complete
+        if (this.loadPromise) {
+            return this.loadPromise;
         }
-        this.ready = true;
-        log.info('MCPClientManager: Loaded clients:', Array.from(this.clients.keys()));
+
+        // Create a new load promise
+        this.loadPromise = (async () => {
+            log.info('MCPClientManager: Loading clients from config:', config);
+            for (const [name, serverConfig] of Object.entries(config)) {
+                log.info('MCPClientManager: Creating client for:', name);
+                let client: McpClient;
+
+                try {
+                    if (!isMcpConfigFileServerConfig(serverConfig)) {
+                        log.error('Invalid server config:', name);
+                        continue;
+                    }
+
+                    if (serverConfig.type === 'stdio') {
+                        client = new McpClientStdio({
+                            command: serverConfig.command,
+                            args: serverConfig.args,
+                            env: serverConfig.env
+                        });
+                    } else if (serverConfig.type === 'sse') {
+                        client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
+                    } else if (serverConfig.type === 'internal') {
+                        if (serverConfig.name === 'rules') {
+                            client = new McpClientInternalRules(this.appState.getRulesManager());
+                        } else {
+                            log.error('Unknown internal server name:', serverConfig.name, 'for server:', name);
+                            continue;
+                        }
+                    } else {
+                        log.error('Unknown server type:', serverConfig.type, 'for server:', name);
+                        continue;
+                    }
+
+                    await client.connect();
+                    this.clients.set(name, client);
+                    log.info('MCPClientManager: Successfully connected client:', name);
+                } catch (error) {
+                    log.error('MCPClientManager: Failed to connect client:', name, error);
+                }
+            }
+            this.ready = true;
+            log.info('MCPClientManager: Loaded clients:', Array.from(this.clients.keys()));
+        })();
+
+        return this.loadPromise;
     }
 
     isReady(): boolean {
         return this.ready;
+    }
+
+    async waitForReady(): Promise<void> {
+        if (this.ready) {
+            return;
+        }
+        if (this.loadPromise) {
+            await this.loadPromise;
+        } else {
+            throw new Error('MCPClientManager not initialized');
+        }
     }
 
     getAllTools(): Tool[] {

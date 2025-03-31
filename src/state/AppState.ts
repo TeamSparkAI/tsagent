@@ -38,4 +38,9 @@ export class AppState {
   getMCPManager(): MCPClientManager {
     return this.mcpManager;
   }
+
+  setMCPManager(mcpManager: MCPClientManager): void {
+    this.mcpManager = mcpManager;
+    log.info('MCPManager updated in AppState');
+  }
 } 

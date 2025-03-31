@@ -2,9 +2,9 @@ import readline from 'readline';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
 import { ConfigManager } from './state/ConfigManager';
-
+import { McpClient, McpConfigFileServerConfig } from './mcp/types';
+import { McpClientStdio, McpClientSse } from './mcp/client';
 import log from 'electron-log';
-import { McpClientStdio } from './mcp/client';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatMessage } from './types/ChatSession';
 
@@ -24,6 +24,9 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'openai': 'OpenAI'
 };
 
+const configManager = ConfigManager.getInstance(false);
+const mcpClients = new Map<string, McpClient>();
+
 async function toolsCommand() {
   try {
     const configManager = ConfigManager.getInstance(false);
@@ -36,11 +39,20 @@ async function toolsCommand() {
       console.log(`Server: ${serverId}`);
       console.log('------------------------');
 
-      const client = new McpClientStdio({
-        command: serverConfig.command, 
-        args: serverConfig.args, 
-        env: serverConfig.env
-      });
+      let client: McpClient;
+      if (serverConfig.type === 'stdio') {
+        client = new McpClientStdio({
+          command: serverConfig.command,
+          args: serverConfig.args,
+          env: serverConfig.env
+        });
+      } else if (serverConfig.type === 'sse') {
+        client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
+      } else {
+        console.log('Unsupported server type:', serverConfig.type);
+        continue;
+      }
+
       try {
         await client.connect();
         
@@ -60,8 +72,37 @@ async function toolsCommand() {
       console.log('\n');
     }
   } catch (error) {
-    log.error('Failed to read MCP configuration:', error);
-    process.exit(1);
+    log.error('Error in tools command:', error);
+  }
+}
+
+async function connectToServer(serverName: string) {
+  try {
+    const mcpServers = await configManager.getMcpConfig();
+    const serverConfig = mcpServers[serverName];
+    if (!serverConfig) {
+      log.error(`No configuration found for server: ${serverName}`);
+      return;
+    }
+
+    let client: McpClient;
+    if (serverConfig.type === 'stdio') {
+      client = new McpClientStdio({
+        command: serverConfig.command,
+        args: serverConfig.args,
+        env: serverConfig.env
+      });
+    } else if (serverConfig.type === 'sse') {
+      client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
+    } else {
+      throw new Error(`Unsupported server type: ${serverConfig.type}`);
+    }
+
+    await client.connect();
+    mcpClients.set(serverName, client);
+    log.info(`Connected to server: ${serverName}`);
+  } catch (err) {
+    log.error(`Error connecting to server ${serverName}:`, err);
   }
 }
 

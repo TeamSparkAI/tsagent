@@ -11,10 +11,17 @@ export interface McpConfig {
   env?: Record<string, string>;
 }
 
-export interface McpConfigFileServerConfig {
-  command: string;
-  args: string[];
-  env?: Record<string, string>;
+export type McpConfigFileServerConfig = 
+  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string> }
+  | { type: 'sse'; url: string; headers?: Record<string, string> }
+  | { type: 'internal'; name: string };
+
+// Helper function to determine server type from config
+export function determineServerType(config: Omit<McpConfigFileServerConfig, 'type'>): McpConfigFileServerConfig['type'] {
+  if ('command' in config) return 'stdio';
+  if ('url' in config) return 'sse';
+  if ('name' in config) return 'internal';
+  throw new Error('Invalid server configuration');
 }
 
 export interface ToolParameter {

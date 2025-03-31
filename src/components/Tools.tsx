@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { McpConfig } from '../mcp/types';
+import { McpConfig, McpConfigFileServerConfig } from '../mcp/types';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
@@ -224,11 +224,22 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     };
 
     const handleSaveServer = async (server: McpConfig) => {
-        await window.api.saveServerConfig(server);
-        setShowEditModal(false);
-        await loadServers();
-        setSelectedServer(server);
-        await loadServerInfo(server.name);
+        try {
+            const serverConfig: McpConfigFileServerConfig & { name: string } = {
+                name: server.name,
+                type: 'stdio',
+                command: server.command,
+                args: server.args,
+                env: server.env
+            };
+            await window.api.saveServerConfig(serverConfig);
+            setShowEditModal(false);
+            await loadServers();
+            setSelectedServer(server);
+            await loadServerInfo(server.name);
+        } catch (error) {
+            log.error('Error saving server:', error);
+        }
     };
 
     const handleDeleteServer = async (server: McpConfig) => {

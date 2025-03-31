@@ -2,8 +2,10 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import { Rule } from "../types/Rule";
 import { CallToolResultWithElapsedTime, McpClient } from "./types";
 import log from 'electron-log';
+import { RulesManager } from '../state/RulesManager';
 
-export class ToolProviderForRules implements McpClient {
+export class McpClientInternalRules implements McpClient {
+    private rulesManager: RulesManager;
     serverVersion: { name: string; version: string } | null =  { name: "Rules", version: "1.0.0" };
     serverTools: Tool[] = [
         {
@@ -105,6 +107,10 @@ export class ToolProviderForRules implements McpClient {
         }
     ];
 
+    constructor(rulesManager: RulesManager) {
+        this.rulesManager = rulesManager;
+    }
+
     async connect(): Promise<boolean> {
         return true;
     }
@@ -134,7 +140,7 @@ export class ToolProviderForRules implements McpClient {
                     if (!args?.name || !args?.description || !args?.priorityLevel || !args?.enabled || !args?.text) {
                         throw new Error("Missing required fields for createRule");
                     }
-                    await window.api.saveRule({
+                    this.rulesManager.saveRule({
                         name: args.name as string,
                         description: args.description as string,
                         priorityLevel: args.priorityLevel as number,
@@ -150,9 +156,8 @@ export class ToolProviderForRules implements McpClient {
                     if (!args?.name) {
                         throw new Error("Missing name for getRule");
                     }
-                    const rule = await window.api.getRules().then(rules => 
-                        rules.find(r => r.name === args.name)
-                    );
+                    const rules = this.rulesManager.getRules();
+                    const rule = rules.find((r: Rule) => r.name === args.name);
                     if (!rule) {
                         throw new Error(`Rule "${args.name}" not found`);
                     }
@@ -165,9 +170,8 @@ export class ToolProviderForRules implements McpClient {
                     if (!args?.name) {
                         throw new Error("Missing name for updateRule");
                     }
-                    const existingRule = await window.api.getRules().then(rules => 
-                        rules.find(r => r.name === args.name)
-                    );
+                    const existingRules = await this.rulesManager.getRules();
+                    const existingRule = existingRules.find((r: Rule) => r.name === args.name);
                     if (!existingRule) {
                         throw new Error(`Rule "${args.name}" not found`);
                     }
@@ -178,7 +182,7 @@ export class ToolProviderForRules implements McpClient {
                         enabled: args.enabled !== undefined ? args.enabled as boolean : existingRule.enabled,
                         text: args.text ? args.text as string : existingRule.text
                     };
-                    await window.api.saveRule(updatedRule);
+                    this.rulesManager.saveRule(updatedRule);
                     return {
                         content: [{ type: "text", text: `Rule "${args.name}" updated successfully` }],
                         elapsedTimeMs: performance.now() - startTime
@@ -188,16 +192,16 @@ export class ToolProviderForRules implements McpClient {
                     if (!args?.name) {
                         throw new Error("Missing name for deleteRule");
                     }
-                    await window.api.deleteRule(args.name as string);
+                    this.rulesManager.deleteRule(args.name as string);
                     return {
                         content: [{ type: "text", text: `Rule "${args.name}" deleted successfully` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
 
                 case "listRules":
-                    const rules = await window.api.getRules();
+                    const allRules = this.rulesManager.getRules();
                     return {
-                        content: [{ type: "text", text: JSON.stringify(rules, null, 2) }],
+                        content: [{ type: "text", text: JSON.stringify(allRules, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
 

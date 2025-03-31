@@ -127,6 +127,19 @@ export abstract class McpClientBase {
     }
 }
 
+// mcpConfig looks like this:
+//
+// mcpServers: {
+//   "Your MCP server name": {
+//     "type": "stdio",
+//     "command": "uv run server.ts",
+//     "args": ["--port", "8080"],
+//     "env": {
+//       "NODE_ENV": "development"
+//     }
+//   }
+// }
+//
 export class McpClientStdio extends McpClientBase implements McpClient {
     private serverParams: StdioServerParameters;
 
@@ -147,32 +160,44 @@ export class McpClientStdio extends McpClientBase implements McpClient {
 
 // This was pieced together from: https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/client/sse.test.ts
 //
-// !!! Not tested yet
+// !!! Not tested yet - should be able to pass Authorization header in headers
+//
+// mcpConfig looks like this:
+//
+// mcpServers: {
+//   "Your MCP server name": {
+//     "type": "sse",
+//     "url": "http://localhost:8080",
+//     "headers": {
+//         "Authorization": "Bearer <your-api-key>"
+//     }
+//   }
+// }
 //
 export class McpClientSse extends McpClientBase implements McpClient {
     private url: URL;
-    private bearerToken: string | null = null;
+    private headers: Record<string, string> = {};
 
-    constructor(url: URL, bearerToken: string | null) {
+    constructor(url: URL, headers?: Record<string, string>) {
         super();
         this.url = url;
-        this.bearerToken = bearerToken;
+        this.headers = headers || {};
     }
 
     protected createTransport(): Transport {
-        if (this.bearerToken) {
-            const authToken = `Bearer ${this.bearerToken}`;
-
-            // Create a fetch wrapper that adds auth header
-            const fetchWithAuth = (url: string | URL, init?: RequestInit) => {
-            const headers = new Headers(init?.headers);
-            headers.set("Authorization", authToken);
-            return fetch(url.toString(), { ...init, headers });
+        if (Object.keys(this.headers).length > 0) {
+            // Create a fetch wrapper that adds headers
+            const fetchWithHeaders = (url: string | URL, init?: RequestInit) => {
+                const headers = new Headers(init?.headers);
+                Object.entries(this.headers).forEach(([key, value]) => {
+                    headers.set(key, value);
+                });
+                return fetch(url.toString(), { ...init, headers });
             };
 
             return new SSEClientTransport(this.url, {
                 eventSourceInit: {
-                    fetch: fetchWithAuth
+                    fetch: fetchWithHeaders
                 }
             });
         }
