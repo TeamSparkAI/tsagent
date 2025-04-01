@@ -1,7 +1,7 @@
 import { LLMType } from '../llm/types';
 import { ILLM } from '../llm/types';
 import { AppState } from '../state/AppState';
-import { LlmReply } from './LlmReply';
+import { ModelReply } from './ModelReply';
 
 // These represent the Electron-side chat history (requests and responses)
 export type ChatMessage = {
@@ -9,7 +9,7 @@ export type ChatMessage = {
   content: string;
 } | {
   role: 'assistant';
-  llmReply: LlmReply;
+  modelReply: ModelReply;
 };
 
 export interface ChatSession {

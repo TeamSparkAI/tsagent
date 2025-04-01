@@ -1,8 +1,8 @@
-import { LlmReply } from './LlmReply';
+import { ModelReply } from './ModelReply';
 
 // This is the "Renderer" chat message
 export interface RendererChatMessage {
   type: 'user' | 'ai' | 'system' | 'error';
   content: string;
-  llmReply?: LlmReply;
+  modelReply?: ModelReply;
 }

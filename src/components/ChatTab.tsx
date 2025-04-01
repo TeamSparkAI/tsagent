@@ -5,12 +5,12 @@ import { LLMType } from '../llm/types';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { LlmReply } from '../types/LlmReply';
+import { ModelReply } from '../types/ModelReply';
 import log from 'electron-log';
 
 // Add ChatState interface back
 interface ChatState {
-  messages: (RendererChatMessage & { llmReply?: LlmReply })[];
+  messages: (RendererChatMessage & { modelReply?: ModelReply })[];
   selectedModel: LLMType;
 }
 
@@ -53,7 +53,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           messages: state.messages.map(msg => ({
             type: msg.role === 'assistant' ? 'ai' : msg.role,
             content: msg.role === 'assistant' ? '' : msg.content,
-            llmReply: msg.role === 'assistant' ? msg.llmReply : undefined
+            modelReply: msg.role === 'assistant' ? msg.modelReply : undefined
           }))
         }));
         setIsInitialized(true);
@@ -235,7 +235,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         onContextMenu={handleContextMenu}
         onScroll={handleScroll}
       >
-        {chatState.messages.map((msg: RendererChatMessage & { llmReply?: LlmReply }, msgIdx: number) => (
+        {chatState.messages.map((msg: RendererChatMessage & { modelReply?: ModelReply }, msgIdx: number) => (
           <div 
             key={msgIdx} 
             className={`message ${msg.type}`}
@@ -244,9 +244,9 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               <strong>{msg.type.toUpperCase()}:</strong>{' '}
               {msg.type === 'ai' ? (
                 <>
-                  {msg.llmReply && (
+                  {msg.modelReply && (
                     <div className="llm-reply-turns">
-                      {msg.llmReply.turns.map((turn, turnIdx) => (
+                      {msg.modelReply.turns.map((turn, turnIdx) => (
                         <div key={turnIdx} className="turn">
                           {turn.message && (
                             <div className="turn-message">

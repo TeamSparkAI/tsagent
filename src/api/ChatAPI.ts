@@ -1,13 +1,13 @@
 import { LLMType } from '../llm/types';
 import { RendererChatMessage } from '../types/ChatMessage';
 import { ChatMessage } from '../types/ChatSession';
-import { LlmReply } from '../types/LlmReply';
+import { ModelReply } from '../types/ModelReply';
 import log from 'electron-log';
 
 export class ChatAPI {
   private tabId: string;
   private currentModel: LLMType;
-  private messages: (RendererChatMessage & { llmReply?: LlmReply })[] = [];
+  private messages: (RendererChatMessage & { modelReply?: ModelReply })[] = [];
 
   constructor(tabId: string) {
     this.tabId = tabId;
@@ -22,11 +22,11 @@ export class ChatAPI {
     this.messages = state.messages.map(this.convertMessageToChatMessage);
   }
 
-  private convertMessageToChatMessage(message: ChatMessage): RendererChatMessage & { llmReply?: LlmReply } {
+  private convertMessageToChatMessage(message: ChatMessage): RendererChatMessage & { modelReply?: ModelReply } {
     return {
       type: message.role === 'assistant' ? 'ai' : message.role,
       content: message.role === 'assistant' ? '' : message.content,
-      llmReply: message.role === 'assistant' ? message.llmReply : undefined
+      modelReply: message.role === 'assistant' ? message.modelReply : undefined
     };
   }
 
@@ -38,7 +38,7 @@ export class ChatAPI {
       // Return the last turn's message if available
       const lastAssistantMessage = result.updates[1];
       if (lastAssistantMessage.role === 'assistant') {
-        const lastTurn = lastAssistantMessage.llmReply.turns[lastAssistantMessage.llmReply.turns.length - 1];
+        const lastTurn = lastAssistantMessage.modelReply.turns[lastAssistantMessage.modelReply.turns.length - 1];
         return lastTurn.message ?? '';
       }
       return '';

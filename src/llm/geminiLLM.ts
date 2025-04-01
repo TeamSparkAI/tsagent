@@ -4,7 +4,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
 import { AppState } from '../state/AppState';
-import { LlmReply, Turn } from '../types/LlmReply';
+import { ModelReply, Turn } from '../types/ModelReply';
 
 export class GeminiLLM implements ILLM {
   private readonly appState: AppState;
@@ -102,8 +102,8 @@ export class GeminiLLM implements ILLM {
     }
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
-    const llmReply: LlmReply = {
+  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+    const modelReply: ModelReply = {
       inputTokens: 0,
       outputTokens: 0,
       timestamp: Date.now(),
@@ -146,9 +146,9 @@ export class GeminiLLM implements ILLM {
       // Turn our ChatMessage[] into a VertexAI Content[]
       const history: Content[] = [];
       for (const message of messages) {
-        if ('llmReply' in message) {
+        if ('modelReply' in message) {
           // Process each turn in the LLM reply
-          for (const turn of message.llmReply.turns) {
+          for (const turn of message.modelReply.turns) {
             // Add the assistant's message (including any tool calls)
             const replyContent: Content = {
               role: 'model',
@@ -269,25 +269,25 @@ export class GeminiLLM implements ILLM {
             }
           }
         }
-        llmReply.turns.push(turn);
+        modelReply.turns.push(turn);
           
         // Break if no tool uses in this turn
         if (!hasToolUse) break;
       }
 
       if (turnCount >= this.MAX_TURNS) {
-        llmReply.turns.push({
+        modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });
       }
 
-      return llmReply;
+      return modelReply;
     } catch (error: any) {
       log.error('Gemini API error:', error);
-      llmReply.turns.push({
+      modelReply.turns.push({
         error: `Error: Failed to generate response from Gemini- ${error.message}`
       });
-      return llmReply;
+      return modelReply;
     }
   }
 } 

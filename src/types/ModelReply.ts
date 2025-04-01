@@ -1,6 +1,6 @@
 import { ChatMessage } from './ChatSession';
 
-export interface LlmReply {
+export interface ModelReply {
   inputTokens: number;
   outputTokens: number;
   timestamp: number;

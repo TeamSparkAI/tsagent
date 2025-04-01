@@ -1,5 +1,5 @@
 import { ChatMessage } from '../types/ChatSession';
-import { LlmReply } from '../types/LlmReply';
+import { ModelReply } from '../types/ModelReply';
 
 export enum LLMType {
   Test = 'test',
@@ -9,5 +9,5 @@ export enum LLMType {
 }
 
 export interface ILLM {
-  generateResponse(messages: ChatMessage[]): Promise<LlmReply>;
+  generateResponse(messages: ChatMessage[]): Promise<ModelReply>;
 } 

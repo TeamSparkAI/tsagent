@@ -92,7 +92,7 @@ export class ChatSessionManager {
   // but if we do include them (esp rules), it might be a lot of rules that the LLM has to sort out (and prioritize).  We should make sure
   // to include the priority of both either way.
   //
-  // LlmReply type gives us metadata and turn results - inclding message, tool calls (possibly multiple), and an error if applicable
+  // ModelReply type gives us metadata and turn results - inclding message, tool calls (possibly multiple), and an error if applicable
   // - Sometimes we get multiple tool calls in one turn
   // - Sometimes we get explanatory text with a tool call (or multiple tool calls)
   //
@@ -193,7 +193,7 @@ export class ChatSessionManager {
         },
         { 
           role: 'assistant' as const, 
-          llmReply: response
+          modelReply: response
         }
       ];
       

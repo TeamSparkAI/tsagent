@@ -177,3 +177,7 @@ Allow tool set to be enabled/disabled
 Test support for SSE server
 - Local weather server in /mcp-sse
   - uv run weather.py
+
+## UX
+
+Save ref/rule/server with different name creates new instance, leaves old one

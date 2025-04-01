@@ -4,7 +4,7 @@ import { AppState } from '../state/AppState';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
-import { LlmReply, Turn } from '../types/LlmReply';
+import { ModelReply, Turn } from '../types/ModelReply';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
 export class OpenAILLM implements ILLM {
@@ -43,8 +43,8 @@ export class OpenAILLM implements ILLM {
     }
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<LlmReply> {
-    const llmReply: LlmReply = {
+  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+    const modelReply: ModelReply = {
       inputTokens: 0,
       outputTokens: 0,
       timestamp: Date.now(),
@@ -57,9 +57,9 @@ export class OpenAILLM implements ILLM {
       // Turn our ChatMessage[] into a OpenAPI API ChatCompletionMessageParam[]
       let currentMessages: OpenAI.ChatCompletionMessageParam[] = [];
       for (const message of messages) {
-        if ('llmReply' in message) {
+        if ('modelReply' in message) {
           // Process each turn in the LLM reply
-          for (const turn of message.llmReply.turns) {
+          for (const turn of message.modelReply.turns) {
             // Add the assistant's message (including any tool calls)
             const reply: ChatCompletionMessageParam = {
               role: "assistant" as const,
@@ -179,26 +179,26 @@ export class OpenAILLM implements ILLM {
             }
           }
         }
-        llmReply.turns.push(turn);
+        modelReply.turns.push(turn);
           
         // Break if no tool uses in this turn
         if (!hasToolUse) break;
       }
 
       if (turnCount >= this.MAX_TURNS) {
-        llmReply.turns.push({
+        modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });
       }
 
       log.info('OpenAI response generated successfully');
-      return llmReply;
+      return modelReply;
     } catch (error: any) {
       log.error('OpenAI API error:', error);
-      llmReply.turns.push({
+      modelReply.turns.push({
         error: `Error: Failed to generate response from OpenAI - ${error.message}`
       });
-      return llmReply;            
+      return modelReply;            
     }
   }
 } 
