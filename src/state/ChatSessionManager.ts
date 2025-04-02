@@ -108,8 +108,8 @@ export class ChatSessionManager {
 
     // Search user message for each instance of @ref:[referenceName] and @rule:[ruleName] and inject found references and rules into messages array
     //
-    const referenceRegex = /@ref:(\w+)/g;
-    const ruleRegex = /@rule:(\w+)/g;
+    const referenceRegex = /@ref:([\w-]+)/g;
+    const ruleRegex = /@rule:([\w-]+)/g;
     const referenceMatches = message.match(referenceRegex);
     const ruleMatches = message.match(ruleRegex);
 
