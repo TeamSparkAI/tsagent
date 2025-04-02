@@ -74,7 +74,7 @@ export class OpenAILLM implements ILLM {
                   type: 'function',
                   id: toolCall.toolCallId!,
                   function: {
-                    name: toolCall.toolName,
+                    name: toolCall.serverName + '_' + toolCall.toolName,
                     arguments: JSON.stringify(toolCall.args ?? {}),
                   },
                 });

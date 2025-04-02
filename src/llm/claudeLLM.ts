@@ -84,7 +84,7 @@ export class ClaudeLLM implements ILLM {
                     {
                       type: 'tool_use',
                       id: toolCall.toolCallId!,
-                      name: toolCall.toolName,
+                      name: toolCall.serverName + '_' + toolCall.toolName,
                       input: toolCall.args,
                     }
                   ]

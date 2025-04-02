@@ -164,7 +164,7 @@ export class GeminiLLM implements ILLM {
                 // Push the tool call
                 replyContent.parts.push({
                   functionCall: {
-                    name: toolCall.toolName,
+                    name: toolCall.serverName + '_' + toolCall.toolName,
                     args: toolCall.args ?? {}
                   }
                 });
@@ -182,7 +182,7 @@ export class GeminiLLM implements ILLM {
               for (const toolCall of turn.toolCalls) {
                 toolResultsContent.parts.push({
                   functionResponse: {
-                    name: toolCall.toolName,
+                    name: toolCall.serverName + '_' + toolCall.toolName,
                     response: {
                       text: toolCall.output
                     }

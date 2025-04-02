@@ -181,3 +181,28 @@ Test support for SSE server
 ## UX
 
 Save ref/rule/server with different name creates new instance, leaves old one
+
+## Bugs
+
+When building tool call history, need to make sure tool names are prefixed
+
+When LLM returns error, need to set parts, currently (this is the error above, can't find function without prefix):
+
+  {
+    "role": "model",
+    "parts": []
+  },
+
+## Demo
+
+Select Gemini
+
+can you put the information about the files in test_files (including file name, size, and date) into a new database table
+
+show me what tables I have
+
+show me the contents of file_info
+
+Can you show me that as a table
+
+can you make a new rule so that you will use markdown lists when returning lists of items, and you will use tables when returning multiple items with attributes
