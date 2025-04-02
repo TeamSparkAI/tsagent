@@ -22,6 +22,10 @@ We probably want to have a list of providers (basically representing an API/SDK)
     - GPT-4o
     - GPT-4o (latest)
 
+Priority would be:
+- Amazon Bedrock
+- Ollama (local Lllama, DeepSeek, etc)
+
 This is a decent design/start, but isn't complete or up-to-date: https://github.com/fkesheh/any-llm
 
 Need configuration specs for models (what values they take, the type and range, description, etc)
@@ -49,27 +53,41 @@ Tools
 
 "History" for each tool call that shows JSON request (tool name, params) and response
 
-## Misc UX
+## Chat UX
 
-Need way to control chat session context (message history, both sides, including tool calls and results)
+Show references and rules included in chat context
+- Show in list
+- Allow removal
 
-Show tools/rules/contexts included in chat somehow?
-
-Allow user to @mention a tool, rule, or referencec to force include in the chat
+Allow user to @mention a rule or referencec to add them to the chat context (interactively, as you type, maybe with lookup/matching)
 - @ref:[referenceName]
 - @rule:[ruleName]
-- @tool:[toolset,toolset.tool,tool] (not clear if selective tool inclusion is the right idea, maybe configurable - use all tools, determine tools, explicit tool use only?)
+
+When a ChatMessage pulls in references or rules, should we track that in the message (in addition to adding them to the chat session)
+- If we removed such a message from the chat, would we expect the ref/rule to be removed?
+
+Allow user to @mention a toolset/tool to apply to the message
+- @tool:[toolset,toolset.tool,tool] 
+- Not clear if selective tool inclusion is the right idea, maybe configurable - use all tools, determine tools, explicit tool use only?)
 
 Allow user to pick any chat element and store it as a reference
 
-Maybe as you type we add in scope that you can see (and you can remove if you don't want it)
+Duplicate chat
 
-Debug logic
+Chat import/export
+- JSON file of messages/replies/references/rules
+
+Edit chat
+- Truncate makes sense
+- Arbitrary message/reply removal?
+
+Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
+- Maybe this is better as a specific log category/file
 
 ## Logic
 
-Can we have an LLM help us determine context scope for a chat message? 
+Can we have an LLM help us determine refs/rules to add based on message (or other context)? 
 - This could be the LLM we're using
 - Or maybe we could run a local LLM that just specialized in this
 
@@ -97,13 +115,12 @@ We create a chat which is associated with an agent
 
 LLM model chosen and model config applies at least to chat level?
 
+Maybe global tools list is very large, agent/workspace is a curated subset (pulled from main list)
+
 ## Misc
 
-Export/import agent/chat (bag of files?)
-
 Track token usage for chat session
-
-Save chat session?
+- This is model-specific, which is a little odd (track model for metrics?)
 
 Would a hosted version of this be useful?
 - Refs and rules would work fine
@@ -145,10 +162,6 @@ Malicious MCP Servers or conversation content could potentially trick xxxxx into
 
 [Allow for this chat] [Allow once] [Deny]
 
-## Context Management
-
-When a ChatMessage pulls in references or rules, should we track that in the message (in addition to adding them to the chat session, as we do now)?
-
 ## Keyword matching
 
 We have references and rules with keywords (comma separated, quoted strings?, wildcards?)
@@ -178,13 +191,9 @@ Test support for SSE server
 - Local weather server in /mcp-sse
   - uv run weather.py
 
-## UX
-
-Save ref/rule/server with different name creates new instance, leaves old one
-
 ## Bugs
 
-When building tool call history, need to make sure tool names are prefixed
+When building tool call history, need to make sure tool names are prefixed [fixed]
 
 When LLM returns error, need to set parts, currently (this is the error above, can't find function without prefix):
 
@@ -197,6 +206,12 @@ When LLM returns error, need to set parts, currently (this is the error above, c
 
 Select Gemini
 
+what's my name?
+
+@ref:about-me what's my name?
+
+what else do you know about me?
+
 can you put the information about the files in test_files (including file name, size, and date) into a new database table
 
 show me what tables I have
@@ -206,3 +221,7 @@ show me the contents of file_info
 Can you show me that as a table
 
 can you make a new rule so that you will use markdown lists when returning lists of items, and you will use tables when returning multiple items with attributes
+
+@rules:new-rule
+
+what files are in in test_files

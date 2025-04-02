@@ -63,7 +63,30 @@ export class RulesManager extends EventEmitter {
     return [...this.rules];
   }
 
+  private validateRuleName(name: string): boolean {
+    // Only allow alphanumeric chars, underscores, and dashes
+    return /^[a-zA-Z0-9_-]+$/.test(name);
+  }
+
+  private hasRuleWithName(name: string, excludeName?: string): boolean {
+    return this.rules.some(r => r.name === name && (!excludeName || r.name !== excludeName));
+  }
+
   public saveRule(rule: Rule) {
+    if (!this.validateRuleName(rule.name)) {
+      throw new Error('Rule name can only contain letters, numbers, underscores, and dashes');
+    }
+
+    if (this.hasRuleWithName(rule.name, rule.name)) {
+      throw new Error('A rule with this name already exists');
+    }
+
+    // If this is an update to an existing rule, delete the old file first
+    const existingRule = this.getRule(rule.name);
+    if (existingRule && existingRule.name !== rule.name) {
+      this.deleteRule(existingRule.name);
+    }
+
     const fileName = `${rule.name}.mdw`;
     const filePath = path.join(this.rulesDir, fileName);
     

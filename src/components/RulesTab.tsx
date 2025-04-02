@@ -18,20 +18,55 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
     const [priorityLevel, setPriorityLevel] = useState(rule?.priorityLevel || 500);
     const [enabled, setEnabled] = useState(rule?.enabled ?? true);
     const [text, setText] = useState(rule?.text || '');
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSave = () => {
-        onSave({
-            name,
-            description,
-            priorityLevel,
-            enabled,
-            text
-        });
+    const handleSave = async () => {
+        setError(null);
+        try {
+            if (!name.trim()) {
+                setError('Name is required');
+                return;
+            }
+            
+            // Validate name format (letters, numbers, underscores, and dashes only)
+            if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+                setError('Rule name can only contain letters, numbers, underscores, and dashes');
+                return;
+            }
+
+            await onSave({
+                name,
+                description,
+                priorityLevel,
+                enabled,
+                text
+            });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save rule');
+            // Keep the modal open when there's an error
+            return;
+        }
     };
 
     return (
         <div style={{ padding: '20px' }}>
             <h2 style={{ marginTop: 0 }}>{rule ? 'Edit Rule' : 'New Rule'}</h2>
+            
+            {error && (
+                <div style={{ 
+                    color: '#dc3545',
+                    backgroundColor: '#f8d7da',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <span style={{ fontSize: '1.2em' }}>⚠️</span>
+                    <span>{error}</span>
+                </div>
+            )}
             
             <div style={{ 
                 display: 'grid', 
@@ -41,12 +76,21 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                 marginBottom: '20px'
             }}>
                 <label style={{ fontWeight: 'bold' }}>Name:</label>
-                <input 
-                    type="text" 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    style={{ width: '100%', padding: '4px 8px' }}
-                />
+                <div>
+                    <input 
+                        type="text" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        style={{ width: '100%', padding: '4px 8px' }}
+                    />
+                    <div style={{ 
+                        fontSize: '0.8em', 
+                        color: '#666', 
+                        marginTop: '4px' 
+                    }}>
+                        Only letters, numbers, underscores, and dashes allowed
+                    </div>
+                </div>
 
                 <label style={{ fontWeight: 'bold' }}>Description:</label>
                 <input 
@@ -161,10 +205,30 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
     };
 
     const handleSaveRule = async (rule: Rule) => {
-        await window.api.saveRule(rule);
-        setIsEditing(false);
-        await loadRules();
-        setSelectedRule(rule);
+        try {
+            // Check if there's already a rule with this name (excluding the current one being edited)
+            const existingRule = rules.find(r => 
+                r.name === rule.name && 
+                (!editingRule || r.name !== editingRule.name)
+            );
+            
+            if (existingRule) {
+                throw new Error(`A rule with the name "${rule.name}" already exists`);
+            }
+
+            // If we're editing an existing rule and the name has changed
+            if (editingRule && editingRule.name !== rule.name) {
+                // Delete the old rule first
+                await window.api.deleteRule(editingRule.name);
+            }
+            await window.api.saveRule(rule);
+            setIsEditing(false);
+            await loadRules();
+            setSelectedRule(rule);
+        } catch (error) {
+            // Re-throw the error to be handled by the EditRuleModal
+            throw error;
+        }
     };
 
     const handleDeleteRule = async (rule: Rule) => {

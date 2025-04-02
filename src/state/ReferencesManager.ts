@@ -64,7 +64,30 @@ export class ReferencesManager extends EventEmitter {
         return [...this.references];
     }
 
+    private validateReferenceName(name: string): boolean {
+        // Only allow alphanumeric chars, underscores, and dashes
+        return /^[a-zA-Z0-9_-]+$/.test(name);
+    }
+
+    private hasReferenceWithName(name: string, excludeName?: string): boolean {
+        return this.references.some(r => r.name === name && (!excludeName || r.name !== excludeName));
+    }
+
     public saveReference(reference: Reference) {
+        if (!this.validateReferenceName(reference.name)) {
+            throw new Error('Reference name can only contain letters, numbers, underscores, and dashes');
+        }
+
+        if (this.hasReferenceWithName(reference.name, reference.name)) {
+            throw new Error('A reference with this name already exists');
+        }
+
+        // If this is an update to an existing reference, delete the old file first
+        const existingReference = this.getReference(reference.name);
+        if (existingReference && existingReference.name !== reference.name) {
+            this.deleteReference(existingReference.name);
+        }
+
         const fileName = `${reference.name}.mdw`;
         const filePath = path.join(this.referencesDir, fileName);
         

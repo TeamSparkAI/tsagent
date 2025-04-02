@@ -18,20 +18,55 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
     const [priorityLevel, setPriorityLevel] = useState(reference?.priorityLevel || 500);
     const [enabled, setEnabled] = useState(reference?.enabled ?? true);
     const [text, setText] = useState(reference?.text || '');
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSave = () => {
-        onSave({
-            name,
-            description,
-            priorityLevel,
-            enabled,
-            text
-        });
+    const handleSave = async () => {
+        setError(null);
+        try {
+            if (!name.trim()) {
+                setError('Name is required');
+                return;
+            }
+            
+            // Validate name format (letters, numbers, underscores, and dashes only)
+            if (!/^[a-zA-Z0-9_-]+$/.test(name)) {
+                setError('Reference name can only contain letters, numbers, underscores, and dashes');
+                return;
+            }
+
+            await onSave({
+                name,
+                description,
+                priorityLevel,
+                enabled,
+                text
+            });
+        } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to save reference');
+            // Keep the modal open when there's an error
+            return;
+        }
     };
 
     return (
         <div style={{ padding: '20px' }}>
             <h2 style={{ marginTop: 0 }}>{reference ? 'Edit Reference' : 'New Reference'}</h2>
+            
+            {error && (
+                <div style={{ 
+                    color: '#dc3545',
+                    backgroundColor: '#f8d7da',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <span style={{ fontSize: '1.2em' }}>⚠️</span>
+                    <span>{error}</span>
+                </div>
+            )}
             
             <div style={{ 
                 display: 'grid', 
@@ -41,12 +76,21 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
                 marginBottom: '20px'
             }}>
                 <label style={{ fontWeight: 'bold' }}>Name:</label>
-                <input 
-                    type="text" 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    style={{ width: '100%', padding: '4px 8px' }}
-                />
+                <div>
+                    <input 
+                        type="text" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        style={{ width: '100%', padding: '4px 8px' }}
+                    />
+                    <div style={{ 
+                        fontSize: '0.8em', 
+                        color: '#666', 
+                        marginTop: '4px' 
+                    }}>
+                        Only letters, numbers, underscores, and dashes allowed
+                    </div>
+                </div>
 
                 <label style={{ fontWeight: 'bold' }}>Description:</label>
                 <input 
@@ -161,10 +205,30 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
     };
 
     const handleSaveReference = async (reference: Reference) => {
-        await window.api.saveReference(reference);
-        setIsEditing(false);
-        await loadReferences();
-        setSelectedReference(reference);
+        try {
+            // Check if there's already a reference with this name (excluding the current one being edited)
+            const existingReference = references.find(r => 
+                r.name === reference.name && 
+                (!editingReference || r.name !== editingReference.name)
+            );
+            
+            if (existingReference) {
+                throw new Error(`A reference with the name "${reference.name}" already exists`);
+            }
+
+            // If we're editing an existing reference and the name has changed
+            if (editingReference && editingReference.name !== reference.name) {
+                // Delete the old reference first
+                await window.api.deleteReference(editingReference.name);
+            }
+            await window.api.saveReference(reference);
+            setIsEditing(false);
+            await loadReferences();
+            setSelectedReference(reference);
+        } catch (error) {
+            // Re-throw the error to be handled by the EditReferenceModal
+            throw error;
+        }
     };
 
     const handleDeleteReference = async (reference: Reference) => {
