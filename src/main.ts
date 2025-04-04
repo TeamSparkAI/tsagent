@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron';
 import * as path from 'path';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
@@ -102,11 +102,11 @@ async function startApp() {
 
     intializeLogging(true);
 
-    let mainWindow: (InstanceType<typeof BrowserWindow>) | null = null;
+    let mainWindow: BrowserWindow | null = null;
     const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
     const llmTypes = new Map<string, LLMType>();
 
-    function createWindow(workspacePath?: string) {
+    function createWindow(workspacePath?: string): BrowserWindow {
       mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -145,6 +145,41 @@ async function startApp() {
       // If a workspace path was provided, register it with the window
       if (workspacePath && mainWindow) {
         WorkspaceManager.getInstance().registerWindow(mainWindow.id.toString(), workspacePath);
+        
+        // Track window state changes
+        mainWindow.on('minimize', () => {
+          if (mainWindow) {
+            WorkspaceManager.getInstance().updateWindowState(
+              mainWindow.id.toString(),
+              true,
+              false
+            );
+          }
+        });
+        
+        mainWindow.on('restore', () => {
+          if (mainWindow) {
+            WorkspaceManager.getInstance().updateWindowState(
+              mainWindow.id.toString(),
+              false,
+              false
+            );
+          }
+        });
+        
+        mainWindow.on('focus', () => {
+          // Update all windows to set this one as active
+          if (mainWindow) {
+            BrowserWindow.getAllWindows().forEach(window => {
+              const isActive = window.id === mainWindow!.id;
+              WorkspaceManager.getInstance().updateWindowState(
+                window.id.toString(),
+                window.isMinimized(),
+                isActive
+              );
+            });
+          }
+        });
       }
 
       // Enable native text editing context menu
@@ -188,6 +223,8 @@ async function startApp() {
           menu.popup({ window: mainWindow });
         }
       });
+
+      return mainWindow;
     }
   
     // Handle IPC messages
@@ -440,37 +477,118 @@ async function startApp() {
       return referencesManager.deleteReference(name);
     });
 
-    // Add workspace IPC handlers
-    ipcMain.handle('workspace:getActiveWindows', () => {
+    // Workspace IPC handlers
+    ipcMain.handle('workspace:getActiveWindows', async () => {
+      // Ensure data is loaded before returning
+      await WorkspaceManager.getInstance().ensureInitialized();
       return WorkspaceManager.getInstance().getActiveWindows();
     });
 
-    ipcMain.handle('workspace:getRecentWorkspaces', () => {
+    ipcMain.handle('workspace:getRecentWorkspaces', async () => {
+      // Ensure data is loaded before returning
+      await WorkspaceManager.getInstance().ensureInitialized();
       return WorkspaceManager.getInstance().getRecentWorkspaces();
     });
 
-    ipcMain.handle('workspace:open', async (_, workspacePath: string) => {
-      const workspaceManager = WorkspaceManager.getInstance();
-      if (await workspaceManager.validateWorkspace(workspacePath)) {
-        // Create a new window for this workspace
-        createWindow(workspacePath);
-      } else {
-        throw new Error('Invalid workspace');
+    ipcMain.handle('workspace:getCurrentWindowId', () => {
+      const currentWindow = BrowserWindow.getFocusedWindow();
+      return currentWindow ? currentWindow.id.toString() : null;
+    });
+
+    ipcMain.handle('workspace:open', async (_, filePath: string) => {
+      // Check if the path is a file or directory
+      let workspacePath: string;
+      
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.isFile()) {
+          // If it's a file, extract the directory path
+          workspacePath = path.dirname(filePath);
+        } else {
+          // If it's already a directory, use it directly
+          workspacePath = filePath;
+        }
+      } catch (error) {
+        log.error(`Error checking path ${filePath}:`, error);
+        // Default to treating it as a directory
+        workspacePath = filePath;
       }
+      
+      // Get the current window
+      const currentWindow = BrowserWindow.getFocusedWindow();
+      if (currentWindow) {
+        // Unregister the window from its current workspace
+        WorkspaceManager.getInstance().unregisterWindow(currentWindow.id.toString());
+        
+        // Register the window with the new workspace
+        WorkspaceManager.getInstance().registerWindow(currentWindow.id.toString(), workspacePath);
+        
+        // Return the current window's ID
+        return currentWindow.id;
+      }
+      
+      // If no current window exists, create a new one
+      const window = createWindow(workspacePath);
+      return window.id;
+    });
+
+    ipcMain.handle('workspace:openInNewWindow', async (_, filePath: string) => {
+      // Check if the path is a file or directory
+      let workspacePath: string;
+      
+      try {
+        const stats = fs.statSync(filePath);
+        if (stats.isFile()) {
+          // If it's a file, extract the directory path
+          workspacePath = path.dirname(filePath);
+        } else {
+          // If it's already a directory, use it directly
+          workspacePath = filePath;
+        }
+      } catch (error) {
+        log.error(`Error checking path ${filePath}:`, error);
+        // Default to treating it as a directory
+        workspacePath = filePath;
+      }
+      
+      // Always create a new window
+      const window = createWindow(workspacePath);
+      return window.id;
     });
 
     ipcMain.handle('workspace:create', async (_, workspacePath: string) => {
-      const workspaceManager = WorkspaceManager.getInstance();
-      await workspaceManager.createWorkspace(workspacePath);
-      // Create a new window for this workspace
-      createWindow(workspacePath);
+      // Create workspace directory and initialize workspace.json
+      if (!fs.existsSync(workspacePath)) {
+        fs.mkdirSync(workspacePath, { recursive: true });
+      }
+      
+      const workspaceJsonPath = path.join(workspacePath, 'workspace.json');
+      if (!fs.existsSync(workspaceJsonPath)) {
+        const defaultConfig = {
+          name: path.basename(workspacePath),
+          created: new Date().toISOString(),
+          version: '1.0.0'
+        };
+        fs.writeFileSync(workspaceJsonPath, JSON.stringify(defaultConfig, null, 2));
+      }
+      
+      const window = createWindow(workspacePath);
+      return window.id;
     });
 
-    ipcMain.handle('workspace:switch', (_, windowId: string) => {
-      const window = BrowserWindow.getAllWindows().find(w => w.id.toString() === windowId);
-      if (window) {
-        window.focus();
+    ipcMain.handle('workspace:switch', async (_, windowId: string) => {
+      // Find the window to switch to
+      const targetWindow = BrowserWindow.getAllWindows().find(window => window.id.toString() === windowId);
+      if (targetWindow) {
+        // Focus the window
+        targetWindow.focus();
+        return true;
       }
+      return false;
+    });
+
+    ipcMain.handle('dialog:showOpenDialog', (_, options) => {
+      return dialog.showOpenDialog(options);
     });
 
     // Move initialization into the ready event

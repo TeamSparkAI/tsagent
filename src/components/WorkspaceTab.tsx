@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TabProps } from '../types/TabProps';
 import type { WorkspaceWindow } from '../types/workspace';
+import log from 'electron-log';
 
 interface WorkspaceTabProps extends TabProps {
   id: string;
@@ -11,25 +12,59 @@ interface WorkspaceTabProps extends TabProps {
 export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabId }) => {
   const [activeWindows, setActiveWindows] = useState<WorkspaceWindow[]>([]);
   const [recentWorkspaces, setRecentWorkspaces] = useState<string[]>([]);
+  const [currentWindowId, setCurrentWindowId] = useState<string | null>(null);
 
   useEffect(() => {
     // Load initial data
-    window.api.getActiveWindows().then(setActiveWindows);
-    window.api.getRecentWorkspaces().then(setRecentWorkspaces);
+    const loadData = async () => {
+      try {
+        // Load all data in parallel
+        const [windows, currentId, recent] = await Promise.all([
+          window.api.getActiveWindows(),
+          window.api.getCurrentWindowId(),
+          window.api.getRecentWorkspaces()
+        ]);
+        
+        // Update state with all data at once
+        setActiveWindows(windows);
+        setCurrentWindowId(currentId);
+        setRecentWorkspaces(recent);
+        
+        log.info('Workspace data loaded successfully:', {
+          windows: windows.length,
+          currentId,
+          recent: recent.length
+        });
+      } catch (error) {
+        log.error('Error loading workspace data:', error);
+        // Set empty states on error
+        setActiveWindows([]);
+        setCurrentWindowId(null);
+        setRecentWorkspaces([]);
+      }
+    };
+    
+    loadData();
   }, []);
 
   const handleOpenWorkspace = async () => {
     const result = await window.api.showOpenDialog({
-      properties: ['openDirectory'],
-      filters: [{ name: 'Workspaces', extensions: ['json'] }]
+      properties: ['openFile'],
+      filters: [{ name: 'Workspace Files', extensions: ['json'] }],
+      title: 'Select Workspace File'
     });
 
     if (!result.canceled && result.filePaths.length > 0) {
-      const workspacePath = result.filePaths[0];
-      await window.api.openWorkspace(workspacePath);
+      const workspaceFilePath = result.filePaths[0];
+      // The API will handle extracting the directory path
+      await window.api.openWorkspace(workspaceFilePath);
       // Refresh data
       const windows = await window.api.getActiveWindows();
       setActiveWindows(windows);
+      
+      // Update current window
+      const currentId = await window.api.getCurrentWindowId();
+      setCurrentWindowId(currentId);
     }
   };
 
@@ -45,72 +80,238 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
       // Refresh data
       const windows = await window.api.getActiveWindows();
       setActiveWindows(windows);
+      
+      // Update current window
+      const currentId = await window.api.getCurrentWindowId();
+      setCurrentWindowId(currentId);
     }
   };
 
   const handleSwitchWorkspace = async (windowId: string) => {
     await window.api.switchWorkspace(windowId);
+    // Refresh data
+    const windows = await window.api.getActiveWindows();
+    setActiveWindows(windows);
+    
+    // Update current window
+    const currentId = await window.api.getCurrentWindowId();
+    setCurrentWindowId(currentId);
   };
 
   const handleOpenRecent = async (workspacePath: string) => {
+    // Pass the full path to openWorkspace
     await window.api.openWorkspace(workspacePath);
     // Refresh data
     const windows = await window.api.getActiveWindows();
     setActiveWindows(windows);
+    
+    // Update current window
+    const currentId = await window.api.getCurrentWindowId();
+    setCurrentWindowId(currentId);
   };
 
+  const handleSwitchToRecent = async (workspacePath: string) => {
+    // Check if the current window has a workspace
+    if (currentWorkspace) {
+      // If it has a workspace, unregister it first
+      await window.api.openWorkspace(workspacePath);
+    } else {
+      // If it doesn't have a workspace, we need to create a new window
+      // This is a temporary workaround until the main process is updated
+      await window.api.openWorkspace(workspacePath);
+    }
+    
+    // Refresh data
+    const windows = await window.api.getActiveWindows();
+    setActiveWindows(windows);
+    
+    // Update current window
+    const currentId = await window.api.getCurrentWindowId();
+    setCurrentWindowId(currentId);
+  };
+
+  const handleOpenRecentInNewWindow = async (workspacePath: string) => {
+    // Use the new API to open in a new window
+    await window.api.openInNewWindow(workspacePath);
+    
+    // Refresh data
+    const windows = await window.api.getActiveWindows();
+    setActiveWindows(windows);
+    
+    // Update current window
+    const currentId = await window.api.getCurrentWindowId();
+    setCurrentWindowId(currentId);
+  };
+
+  // Get current window's workspace
+  const currentWorkspace = activeWindows.find(window => window.windowId === currentWindowId);
+  
+  // Get other active workspaces (excluding current)
+  // Only include workspaces from other windows, not the current window
+  const otherActiveWorkspaces = activeWindows.filter(window => 
+    window.windowId !== currentWindowId && 
+    window.workspacePath !== currentWorkspace?.workspacePath
+  );
+  
+  // Get recent workspaces (excluding active ones)
+  const activePaths = activeWindows.map(window => window.workspacePath);
+  const filteredRecentWorkspaces = recentWorkspaces.filter(path => !activePaths.includes(path));
+  
+  log.debug('Workspace state:', {
+    activePaths,
+    recentWorkspaces,
+    filteredRecentWorkspaces
+  });
+  
   return (
-    <div className="p-4 space-y-4">
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Open Workspace</h2>
-        <button
-          onClick={handleOpenWorkspace}
-          className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
-        >
-          Open Workspace
-        </button>
+    <div style={{ padding: '24px' }}>
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>Workspace Management</h1>
       </div>
-
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Create Workspace</h2>
-        <button
-          onClick={handleCreateWorkspace}
-          className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600"
-        >
-          Create Workspace
-        </button>
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Switch to Workspace</h2>
-        <div className="space-y-2">
-          {activeWindows.map(window => (
-            <div
-              key={window.windowId}
-              className="p-2 border rounded hover:bg-gray-100 cursor-pointer"
-              onClick={() => handleSwitchWorkspace(window.windowId)}
-            >
-              <div className="font-medium">{window.workspacePath}</div>
-              <div className="text-sm text-gray-500">
-                {window.isMinimized ? 'Minimized' : ''} {window.isActive ? 'Active' : ''}
+      
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+        <div style={{ display: 'flex', gap: '24px', justifyContent: 'flex-start' }}>
+          <button
+            onClick={handleOpenWorkspace}
+            style={{ 
+              width: '200px', 
+              padding: '12px 24px', 
+              backgroundColor: '#2563eb', 
+              color: 'white', 
+              fontWeight: '500', 
+              borderRadius: '6px', 
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Open Workspace
+          </button>
+          <button
+            onClick={handleCreateWorkspace}
+            style={{ 
+              width: '200px', 
+              padding: '12px 24px', 
+              backgroundColor: '#059669', 
+              color: 'white', 
+              fontWeight: '500', 
+              borderRadius: '6px', 
+              border: 'none',
+              cursor: 'pointer'
+            }}
+          >
+            Create Workspace
+          </button>
+        </div>
+        
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
+          {/* Current Workspace */}
+          {currentWorkspace && (
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px', backgroundColor: '#eff6ff' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#333', marginBottom: '12px' }}>Current Workspace</h2>
+              <div style={{ padding: '12px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
+                <div style={{ fontWeight: '500', color: '#111' }}>{currentWorkspace.workspacePath}</div>
+                <div style={{ fontSize: '14px', color: '#666' }}>
+                  {currentWorkspace.isMinimized ? 'Minimized' : ''} {currentWorkspace.isActive ? 'Active' : ''}
+                </div>
               </div>
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h2 className="text-lg font-semibold">Open Recent</h2>
-        <div className="space-y-2">
-          {recentWorkspaces.map(path => (
-            <div
-              key={path}
-              className="p-2 border rounded hover:bg-gray-100 cursor-pointer"
-              onClick={() => handleOpenRecent(path)}
-            >
-              <div className="font-medium">{path}</div>
+          )}
+          
+          {/* Other Active Workspaces */}
+          {otherActiveWorkspaces.length > 0 && (
+            <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
+              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#333', marginBottom: '12px' }}>Other Active Workspaces</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {otherActiveWorkspaces.map(window => (
+                  <div
+                    key={window.windowId}
+                    style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      justifyContent: 'space-between', 
+                      padding: '12px', 
+                      backgroundColor: '#f9fafb', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '6px', 
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleSwitchWorkspace(window.windowId)}
+                  >
+                    <div>
+                      <div style={{ fontWeight: '500', color: '#111' }}>{window.workspacePath}</div>
+                      <div style={{ fontSize: '14px', color: '#666' }}>
+                        {window.isMinimized ? 'Minimized' : ''} {window.isActive ? 'Active' : ''}
+                      </div>
+                    </div>
+                    <div style={{ color: '#9ca3af' }}>→</div>
+                  </div>
+                ))}
+              </div>
             </div>
-          ))}
+          )}
+          
+          {/* Recent Workspaces */}
+          <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#333', marginBottom: '12px' }}>Recent Workspaces</h2>
+            
+            {filteredRecentWorkspaces.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '16px 0', color: '#666' }}>
+                <p>No recent workspaces</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {filteredRecentWorkspaces.map(path => (
+                  <div
+                    key={path}
+                    style={{ 
+                      display: 'flex', 
+                      flexDirection: 'column',
+                      padding: '12px', 
+                      backgroundColor: '#f9fafb', 
+                      border: '1px solid #e5e7eb', 
+                      borderRadius: '6px'
+                    }}
+                  >
+                    <div style={{ fontWeight: '500', color: '#111', marginBottom: '8px' }}>{path}</div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button
+                        onClick={() => handleSwitchToRecent(path)}
+                        style={{ 
+                          flex: 1,
+                          padding: '8px 12px', 
+                          backgroundColor: '#3b82f6', 
+                          color: 'white', 
+                          fontWeight: '500', 
+                          borderRadius: '4px', 
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        Switch To This Workspace
+                      </button>
+                      <button
+                        onClick={() => handleOpenRecentInNewWindow(path)}
+                        style={{ 
+                          flex: 1,
+                          padding: '8px 12px', 
+                          backgroundColor: '#10b981', 
+                          color: 'white', 
+                          fontWeight: '500', 
+                          borderRadius: '4px', 
+                          border: 'none',
+                          cursor: 'pointer',
+                          fontSize: '14px'
+                        }}
+                      >
+                        Open in New Window
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

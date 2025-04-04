@@ -12,6 +12,7 @@ export class ConfigManager {
   private readonly DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
   private readonly isPackaged: boolean;
   private configLoaded = false;
+  private lastDataDirectory: string | null = null;
 
   private constructor(isPackaged: boolean) {
     this.isPackaged = isPackaged;
@@ -37,9 +38,19 @@ export class ConfigManager {
     if (this.isPackaged) {
       // In packaged mode, use the user data directory
       const { app } = require('electron');
-      return app.getPath('userData');
+      const userDataPath = app.getPath('userData');
+      if (userDataPath !== this.lastDataDirectory) {
+        log.info(`User data directory: ${userDataPath}`);
+        this.lastDataDirectory = userDataPath;
+      }
+      return userDataPath;
     } else {
-      return process.cwd();
+      const cwd = process.cwd();
+      if (cwd !== this.lastDataDirectory) {
+        log.info(`Using current working directory: ${cwd}`);
+        this.lastDataDirectory = cwd;
+      }
+      return cwd;
     }
   }
 

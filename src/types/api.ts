@@ -41,7 +41,9 @@ export interface API {
   getActiveWindows: () => Promise<WorkspaceWindow[]>;
   getRecentWorkspaces: () => Promise<string[]>;
   openWorkspace: (path: string) => Promise<void>;
+  openInNewWindow: (path: string) => Promise<void>;
   createWorkspace: (path: string) => Promise<void>;
   switchWorkspace: (windowId: string) => Promise<void>;
   showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
+  getCurrentWindowId: () => Promise<string>;
 } 

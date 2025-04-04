@@ -35,7 +35,13 @@ export class WorkspaceManager {
         this.recentWorkspaces = [];
         this.lastActiveWorkspace = null;
         this.recentWorkspacesPath = path.join(app.getPath('userData'), 'workspaces.json');
-        this.loadRecentWorkspaces();
+        log.info(`Workspaces file path: ${this.recentWorkspacesPath}`);
+        // Initialize but don't await here
+        this.initialize();
+    }
+
+    private async initialize(): Promise<void> {
+        await this.loadRecentWorkspaces();
     }
 
     public static getInstance(): WorkspaceManager {
@@ -47,11 +53,16 @@ export class WorkspaceManager {
 
     private async loadRecentWorkspaces(): Promise<void> {
         try {
+            log.info(`Checking if workspaces file exists at: ${this.recentWorkspacesPath}`);
             if (fs.existsSync(this.recentWorkspacesPath)) {
+                log.info(`Loading workspaces from: ${this.recentWorkspacesPath}`);
                 const data = await fs.promises.readFile(this.recentWorkspacesPath, 'utf-8');
                 const { recentWorkspaces, lastActiveWorkspace } = JSON.parse(data);
                 this.recentWorkspaces = recentWorkspaces;
                 this.lastActiveWorkspace = lastActiveWorkspace;
+                log.info(`Loaded ${recentWorkspaces.length} recent workspaces`);
+            } else {
+                log.info(`Workspaces file does not exist at: ${this.recentWorkspacesPath}`);
             }
         } catch (error) {
             log.error('Failed to load recent workspaces:', error);
@@ -60,11 +71,13 @@ export class WorkspaceManager {
 
     private async saveRecentWorkspaces(): Promise<void> {
         try {
+            log.info(`Saving workspaces to: ${this.recentWorkspacesPath}`);
             const data = JSON.stringify({
                 recentWorkspaces: this.recentWorkspaces,
                 lastActiveWorkspace: this.lastActiveWorkspace
             }, null, 2);
             await fs.promises.writeFile(this.recentWorkspacesPath, data);
+            log.info(`Saved ${this.recentWorkspaces.length} recent workspaces`);
         } catch (error) {
             log.error('Failed to save recent workspaces:', error);
         }
@@ -247,5 +260,10 @@ export class WorkspaceManager {
         }
 
         return true;
+    }
+
+    public async ensureInitialized(): Promise<void> {
+        // This method can be called to ensure data is loaded
+        await this.initialize();
     }
 } 

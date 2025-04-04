@@ -35,9 +35,11 @@ const api: API = {
   getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecentWorkspaces'),
   openWorkspace: (path: string) => ipcRenderer.invoke('workspace:open', path),
+  openInNewWindow: (path: string) => ipcRenderer.invoke('workspace:openInNewWindow', path),
   createWorkspace: (path: string) => ipcRenderer.invoke('workspace:create', path),
   switchWorkspace: (windowId: string) => ipcRenderer.invoke('workspace:switch', windowId),
-  showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options)
+  showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId')
 };
 
 contextBridge.exposeInMainWorld('api', api);

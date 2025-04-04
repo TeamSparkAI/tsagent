@@ -5,6 +5,7 @@ import { Tools } from './Tools';
 import { PromptTab } from './PromptTab';
 import { RulesTab } from './RulesTab';
 import { ReferencesTab } from './ReferencesTab';
+import { WorkspaceTab } from './WorkspaceTab';
 import { v4 as uuidv4 } from 'uuid';
 import { TabProps } from '../types/TabProps';
 
@@ -21,6 +22,11 @@ export const App: React.FC = () => {
   // Create initial tabs
   useEffect(() => {
     const initialTabs = [
+      {
+        id: uuidv4(),
+        type: 'workspace',
+        title: 'Workspace'
+      },
       {
         id: uuidv4(),
         type: 'prompt',
@@ -48,7 +54,7 @@ export const App: React.FC = () => {
       }
     ];
     setTabs(initialTabs);
-    setActiveTabId(initialTabs[4].id);  // Update index to keep Chat as default
+    setActiveTabId(initialTabs[0].id);  // Set workspace as default tab
   }, []);
 
   const handleAddTab = (type: string) => {
@@ -75,6 +81,8 @@ export const App: React.FC = () => {
 
   const renderTabContent = (tab: TabInstance) => {
     switch (tab.type) {
+      case 'workspace':
+        return <WorkspaceTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'chat':
         return <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'prompt':
