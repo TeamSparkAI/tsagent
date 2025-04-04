@@ -16,6 +16,7 @@ import { ChatSessionManager } from './state/ChatSessionManager';
 import { AppState } from './state/AppState';
 import { McpClientInternalRules } from './mcp/InternalClientRules';
 import { McpClientInternalReferences } from './mcp/InternalClientReferences';
+import { WorkspaceManager } from './main/workspaceManager';
 
 // Configure electron-log
 let configManager: ConfigManager;
@@ -105,7 +106,7 @@ async function startApp() {
     const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
     const llmTypes = new Map<string, LLMType>();
 
-    function createWindow() {
+    function createWindow(workspacePath?: string) {
       mainWindow = new BrowserWindow({
         width: 1200,
         height: 800,
@@ -140,6 +141,11 @@ async function startApp() {
       log.info('Loading index.html from:', indexPath);
       log.info('File exists:', fs.existsSync(indexPath));
       mainWindow.loadFile(indexPath);
+
+      // If a workspace path was provided, register it with the window
+      if (workspacePath && mainWindow) {
+        WorkspaceManager.getInstance().registerWindow(mainWindow.id.toString(), workspacePath);
+      }
 
       // Enable native text editing context menu
       mainWindow.webContents.on('context-menu', (_, props) => {
@@ -432,6 +438,39 @@ async function startApp() {
 
     ipcMain.handle('delete-reference', (_, name) => {
       return referencesManager.deleteReference(name);
+    });
+
+    // Add workspace IPC handlers
+    ipcMain.handle('workspace:getActiveWindows', () => {
+      return WorkspaceManager.getInstance().getActiveWindows();
+    });
+
+    ipcMain.handle('workspace:getRecentWorkspaces', () => {
+      return WorkspaceManager.getInstance().getRecentWorkspaces();
+    });
+
+    ipcMain.handle('workspace:open', async (_, workspacePath: string) => {
+      const workspaceManager = WorkspaceManager.getInstance();
+      if (await workspaceManager.validateWorkspace(workspacePath)) {
+        // Create a new window for this workspace
+        createWindow(workspacePath);
+      } else {
+        throw new Error('Invalid workspace');
+      }
+    });
+
+    ipcMain.handle('workspace:create', async (_, workspacePath: string) => {
+      const workspaceManager = WorkspaceManager.getInstance();
+      await workspaceManager.createWorkspace(workspacePath);
+      // Create a new window for this workspace
+      createWindow(workspacePath);
+    });
+
+    ipcMain.handle('workspace:switch', (_, windowId: string) => {
+      const window = BrowserWindow.getAllWindows().find(w => w.id.toString() === windowId);
+      if (window) {
+        window.focus();
+      }
     });
 
     // Move initialization into the ready event

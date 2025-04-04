@@ -29,7 +29,15 @@ const api: API = {
   deleteReference: (name: string) => ipcRenderer.invoke('delete-reference', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
   onRulesChanged: (callback: () => void) => ipcRenderer.on('rules-changed', callback),
-  onReferencesChanged: (callback: () => void) => ipcRenderer.on('references-changed', callback)
+  onReferencesChanged: (callback: () => void) => ipcRenderer.on('references-changed', callback),
+
+  // Workspace handlers
+  getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
+  getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecentWorkspaces'),
+  openWorkspace: (path: string) => ipcRenderer.invoke('workspace:open', path),
+  createWorkspace: (path: string) => ipcRenderer.invoke('workspace:create', path),
+  switchWorkspace: (windowId: string) => ipcRenderer.invoke('workspace:switch', windowId),
+  showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options)
 };
 
 contextBridge.exposeInMainWorld('api', api);

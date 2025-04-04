@@ -2,30 +2,7 @@ import { app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as log from 'electron-log';
-
-interface WorkspaceMetadata {
-    name: string;
-    created: string;
-    lastAccessed: string;
-    version: string;
-}
-
-interface WorkspaceConfig {
-    metadata: WorkspaceMetadata;
-    references: {
-        directory: string;
-    };
-    rules: {
-        directory: string;
-    };
-}
-
-interface WorkspaceWindow {
-    windowId: string;
-    workspacePath: string;
-    isMinimized: boolean;
-    isActive: boolean;
-}
+import { WorkspaceWindow, WorkspaceMetadata, WorkspaceConfig } from '../types/workspace';
 
 export class WorkspaceManager {
     private static instance: WorkspaceManager;

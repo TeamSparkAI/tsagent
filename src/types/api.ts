@@ -2,6 +2,7 @@ import { Rule } from './Rule';
 import { Reference } from './Reference';
 import { McpConfig, McpConfigFileServerConfig, CallToolResultWithElapsedTime } from '../mcp/types';
 import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
+import { WorkspaceWindow } from './workspace';
 
 export interface API {
   // Chat session management
@@ -35,4 +36,12 @@ export interface API {
   pingServer: (name: string) => Promise<{ elapsedTimeMs: number }>;
   onRulesChanged: (callback: () => void) => void;
   onReferencesChanged: (callback: () => void) => void;
+
+  // Workspace methods
+  getActiveWindows: () => Promise<WorkspaceWindow[]>;
+  getRecentWorkspaces: () => Promise<string[]>;
+  openWorkspace: (path: string) => Promise<void>;
+  createWorkspace: (path: string) => Promise<void>;
+  switchWorkspace: (windowId: string) => Promise<void>;
+  showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
 } 
