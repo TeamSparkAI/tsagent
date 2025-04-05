@@ -7,6 +7,7 @@ import { McpClientStdio, McpClientSse } from './mcp/client';
 import log from 'electron-log';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatMessage } from './types/ChatSession';
+import path from 'path';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -24,12 +25,12 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'openai': 'OpenAI'
 };
 
-const configManager = ConfigManager.getInstance(false);
+const workspacePath = path.join(process.cwd(), 'config');
+const configManager = ConfigManager.getInstance(false, workspacePath);
 const mcpClients = new Map<string, McpClient>();
 
 async function toolsCommand() {
   try {
-    const configManager = ConfigManager.getInstance(false);
     const mcpServers = await configManager.getMcpConfig();
 
     console.log('Checking available tools on MCP servers...\n');
@@ -107,7 +108,6 @@ async function connectToServer(serverName: string) {
 }
 
 export function setupCLI() {
-  const configManager = ConfigManager.getInstance(false);
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout

@@ -17,6 +17,7 @@ import { AppState } from './state/AppState';
 import { McpClientInternalRules } from './mcp/InternalClientRules';
 import { McpClientInternalReferences } from './mcp/InternalClientReferences';
 import { WorkspaceManager } from './main/workspaceManager';
+import { EventEmitter } from 'events';
 
 // Configure electron-log
 let configManager: ConfigManager;
@@ -27,6 +28,7 @@ let mcpManager: MCPClientManager;
 let rulesManager: RulesManager;
 let referencesManager: ReferencesManager;
 let chatSessionManager: ChatSessionManager;
+let appState: AppState;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
 function intializeLogging(isElectron: boolean) {
@@ -66,7 +68,7 @@ async function initialize() {
   referencesManager = new ReferencesManager(CONFIG_DIR);
 
   // Create AppState first
-  const appState = new AppState(configManager, rulesManager, referencesManager, null as any);
+  appState = new AppState(configManager, rulesManager, referencesManager, null as any);
 
   // Initialize MCP client manager
   const mcpClientManager = new MCPClientManager(appState, mcpClients);
@@ -89,12 +91,18 @@ const mcpClients = new Map<string, McpClient>();
 
 async function startApp() {
   if (process.argv.includes('--cli')) {
-    configManager = ConfigManager.getInstance(false);
+    // For CLI mode, use the config directory within the current directory
+    const workspacePath = path.join(process.cwd(), 'config');
+    log.info(`CLI mode: Using config directory: ${workspacePath}`);
+    configManager = ConfigManager.getInstance(false, workspacePath);
     intializeLogging(false);
     await initialize();
     setupCLI();
   } else {
-    configManager = ConfigManager.getInstance(app.isPackaged);
+    // For GUI mode, use the config directory within the user data directory
+    const userDataPath = path.join(app.getPath('userData'), 'config');
+    log.info(`GUI mode: Using config directory: ${userDataPath}`);
+    configManager = ConfigManager.getInstance(app.isPackaged, userDataPath);
     
     // Set app name before anything else
     process.env.ELECTRON_APP_NAME = 'TeamSpark Workbench';
@@ -119,6 +127,8 @@ async function startApp() {
           preload: path.join(__dirname, 'preload.js')
         }
       });
+      
+      mainWindow.webContents.openDevTools();
 
       // Set up event listener for rules changes
       rulesManager.on('rulesChanged', () => {
@@ -134,17 +144,26 @@ async function startApp() {
         }
       });
 
-      // Handle both development and production paths
-      log.info('__dirname:', __dirname);
+      // Set up event listener for workspace changes
+      const workspaceManager = WorkspaceManager.getInstance();
+      workspaceManager.on('workspace:switched', () => {
+        if (mainWindow) {
+          mainWindow.webContents.send('workspace:switched');
+        }
+      });
+
+      // Load the index.html file
       const indexPath = path.join(__dirname, 'index.html');
-      
       log.info('Loading index.html from:', indexPath);
       log.info('File exists:', fs.existsSync(indexPath));
       mainWindow.loadFile(indexPath);
 
-      // If a workspace path was provided, register it with the window
-      if (workspacePath && mainWindow) {
-        WorkspaceManager.getInstance().registerWindow(mainWindow.id.toString(), workspacePath);
+      // Always register the window with the WorkspaceManager
+      if (mainWindow) {
+        // If no workspace path is provided, use the current working directory
+        const defaultWorkspacePath = workspacePath || process.cwd();
+        log.info(`Registering window ${mainWindow.id} with workspace ${defaultWorkspacePath}`);
+        WorkspaceManager.getInstance().registerWindow(mainWindow.id.toString(), defaultWorkspacePath);
         
         // Track window state changes
         mainWindow.on('minimize', () => {
@@ -396,10 +415,13 @@ async function startApp() {
 
     ipcMain.handle('get-system-prompt', async () => {
       try {
+        log.info('[MAIN PROCESS] getSystemPrompt called');
         const prompt = await configManager.getSystemPrompt();
+        log.info(`[MAIN PROCESS] System prompt retrieved: ${prompt.substring(0, 50)}...`);
+        log.info(`[MAIN PROCESS] Prompt file path: ${configManager.getPromptFile()}`);
         return prompt;
       } catch (err) {
-        log.error('Error reading system prompt, using default:', err);
+        log.error('[MAIN PROCESS] Error reading system prompt, using default:', err);
         throw err;
       }
     });
@@ -492,7 +514,33 @@ async function startApp() {
 
     ipcMain.handle('workspace:getCurrentWindowId', () => {
       const currentWindow = BrowserWindow.getFocusedWindow();
-      return currentWindow ? currentWindow.id.toString() : null;
+      if (!currentWindow) {
+        log.warn('No focused window found when getting current window ID');
+        return null;
+      }
+      
+      const windowId = currentWindow.id.toString();
+      log.info(`[WINDOW ID] Current window ID: ${windowId}`);
+      
+      // Log all windows
+      const allWindows = BrowserWindow.getAllWindows();
+      log.info(`[WINDOW ID] All windows: ${allWindows.map(w => w.id.toString()).join(', ')}`);
+      
+      // Log active windows in WorkspaceManager
+      const workspaceManager = WorkspaceManager.getInstance();
+      const activeWindows = workspaceManager.getActiveWindows();
+      log.info(`[WINDOW ID] Active windows in WorkspaceManager: ${activeWindows.map(w => w.windowId).join(', ')}`);
+      
+      // Check if the window is registered with the WorkspaceManager
+      const isRegistered = activeWindows.some(window => window.windowId === windowId);
+      if (!isRegistered) {
+        log.warn(`[WINDOW ID] Window ${windowId} is not registered with WorkspaceManager, registering now`);
+        // Register the window with a default workspace path
+        const defaultWorkspacePath = path.join(app.getPath('userData'), 'default-workspace');
+        workspaceManager.registerWindow(windowId, defaultWorkspacePath);
+      }
+      
+      return windowId;
     });
 
     ipcMain.handle('workspace:open', async (_, filePath: string) => {
@@ -557,20 +605,8 @@ async function startApp() {
     });
 
     ipcMain.handle('workspace:create', async (_, workspacePath: string) => {
-      // Create workspace directory and initialize workspace.json
-      if (!fs.existsSync(workspacePath)) {
-        fs.mkdirSync(workspacePath, { recursive: true });
-      }
-      
-      const workspaceJsonPath = path.join(workspacePath, 'workspace.json');
-      if (!fs.existsSync(workspaceJsonPath)) {
-        const defaultConfig = {
-          name: path.basename(workspacePath),
-          created: new Date().toISOString(),
-          version: '1.0.0'
-        };
-        fs.writeFileSync(workspaceJsonPath, JSON.stringify(defaultConfig, null, 2));
-      }
+      // Create workspace using WorkspaceManager
+      await WorkspaceManager.getInstance().createWorkspace(workspacePath);
       
       const window = createWindow(workspacePath);
       return window.id;
@@ -591,6 +627,101 @@ async function startApp() {
       return dialog.showOpenDialog(options);
     });
 
+    // Add this with the other workspace handlers
+    ipcMain.handle('workspace:switchWorkspace', async (_, windowId: string, workspacePath: string) => {
+      try {
+        log.info(`[WORKSPACE SWITCH] IPC handler called for window ${windowId} to workspace ${workspacePath}`);
+        // Convert windowId to string to ensure consistent handling
+        const windowIdStr = windowId.toString();
+        await WorkspaceManager.getInstance().switchWorkspace(windowIdStr, workspacePath);
+        log.info(`[WORKSPACE SWITCH] Successfully switched workspace in IPC handler`);
+        return true;
+      } catch (error) {
+        log.error(`[WORKSPACE SWITCH] Error in IPC handler switching window ${windowId} to workspace ${workspacePath}:`, error);
+        return false;
+      }
+    });
+
+    // Set up event listener for workspace switched event on the WorkspaceManager instance
+    const workspaceManager = WorkspaceManager.getInstance();
+    workspaceManager.on('workspace:switched', async (event: { windowId: string, workspacePath: string }) => {
+      try {
+        const { windowId, workspacePath } = event;
+        log.info(`[WORKSPACE RELOAD] Starting reload for window ${windowId} with workspace ${workspacePath}`);
+        
+        // Get the ConfigManager for this workspace
+        log.info(`[WORKSPACE RELOAD] Getting ConfigManager for workspace`);
+        const configManager = WorkspaceManager.getInstance().getConfigManager(workspacePath);
+        
+        // Reload configuration
+        log.info(`[WORKSPACE RELOAD] Loading configuration`);
+        await configManager.loadConfig();
+        
+        // Get the config directory for this workspace
+        const configDir = configManager.getConfigDir();
+        log.info(`[WORKSPACE RELOAD] Using config directory for reload: ${configDir}`);
+        
+        // Reinitialize RulesManager with the new config directory
+        log.info(`[WORKSPACE RELOAD] Reinitializing RulesManager`);
+        rulesManager = new RulesManager(configDir);
+        
+        // Reinitialize ReferencesManager with the new config directory
+        log.info(`[WORKSPACE RELOAD] Reinitializing ReferencesManager`);
+        referencesManager = new ReferencesManager(configDir);
+        
+        // Create a new AppState with the updated managers
+        log.info(`[WORKSPACE RELOAD] Creating new AppState`);
+        const newAppState = new AppState(configManager, rulesManager, referencesManager, null as any);
+        
+        // Reinitialize MCPClientManager
+        log.info(`[WORKSPACE RELOAD] Reinitializing MCPClientManager`);
+        const mcpClientManager = new MCPClientManager(newAppState, mcpClients);
+        newAppState.setMCPManager(mcpClientManager);
+        mcpManager = mcpClientManager;
+        
+        // Reinitialize ChatSessionManager with the new AppState
+        log.info(`[WORKSPACE RELOAD] Reinitializing ChatSessionManager`);
+        chatSessionManager = new ChatSessionManager(newAppState);
+        
+        // Reinitialize the LLM Factory with the new AppState
+        log.info(`[WORKSPACE RELOAD] Reinitializing LLMFactory`);
+        LLMFactory.initialize(newAppState);
+        
+        // Update the global appState variable
+        log.info(`[WORKSPACE RELOAD] Updating global appState`);
+        appState = newAppState;
+        
+        // Get the window
+        log.info(`[WORKSPACE RELOAD] Getting window ${windowId}`);
+        // Convert windowId to number for BrowserWindow.fromId
+        const window = BrowserWindow.fromId(parseInt(windowId, 10));
+        if (window) {
+          log.info(`[WORKSPACE RELOAD] Sending reload notifications to renderer`);
+          // Notify the renderer process that configuration has changed
+          window.webContents.send('configuration:changed');
+          
+          // Notify the renderer process that rules have changed
+          window.webContents.send('rules-changed');
+          
+          // Notify the renderer process that references have changed
+          window.webContents.send('references-changed');
+          
+          // Send the workspace:switched event to all windows
+          BrowserWindow.getAllWindows().forEach(win => {
+            win.webContents.send('workspace:switched');
+          });
+          
+          log.info(`[WORKSPACE RELOAD] All notifications sent to renderer`);
+        } else {
+          log.error(`[WORKSPACE RELOAD] Could not find window with ID ${windowId}`);
+        }
+        
+        log.info(`[WORKSPACE RELOAD] All components reloaded for window ${windowId}`);
+      } catch (error) {
+        log.error(`[WORKSPACE RELOAD] Error reloading components:`, error);
+      }
+    });
+    
     // Move initialization into the ready event
     app.whenReady().then(async () => {
       log.info('App ready, starting initialization');

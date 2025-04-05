@@ -36,6 +36,7 @@ export interface API {
   pingServer: (name: string) => Promise<{ elapsedTimeMs: number }>;
   onRulesChanged: (callback: () => void) => void;
   onReferencesChanged: (callback: () => void) => void;
+  onConfigurationChanged: (callback: () => void) => void;
 
   // Workspace methods
   getActiveWindows: () => Promise<WorkspaceWindow[]>;
@@ -43,7 +44,8 @@ export interface API {
   openWorkspace: (path: string) => Promise<void>;
   openInNewWindow: (path: string) => Promise<void>;
   createWorkspace: (path: string) => Promise<void>;
-  switchWorkspace: (windowId: string) => Promise<void>;
+  switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
   showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
   getCurrentWindowId: () => Promise<string>;
+  onWorkspaceSwitched: (callback: () => void) => void;
 } 

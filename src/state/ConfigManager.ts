@@ -14,10 +14,20 @@ export class ConfigManager {
   private configLoaded = false;
   private lastDataDirectory: string | null = null;
 
-  private constructor(isPackaged: boolean) {
+  private constructor(isPackaged: boolean, configPath?: string) {
     this.isPackaged = isPackaged;
-    const dataDir = this.getDataDirectory();
-    this.configDir = path.join(dataDir, 'config');
+    
+    if (configPath) {
+      // If a specific config path is provided, use it
+      this.configDir = configPath;
+      log.info(`Using provided config directory: ${this.configDir}`);
+    } else {
+      // Otherwise use the default data directory
+      const dataDir = this.getDataDirectory();
+      this.configDir = path.join(dataDir, 'config');
+      log.info(`Using default config directory: ${this.configDir}`);
+    }
+    
     this.mcpConfigPath = path.join(this.configDir, 'mcp_config.json');
     this.promptFile = path.join(this.configDir, 'prompt.md');
     
@@ -27,31 +37,44 @@ export class ConfigManager {
     }
   }
 
-  static getInstance(isPackaged: boolean): ConfigManager {
+  static getInstance(isPackaged: boolean, configPath?: string): ConfigManager {
     if (!ConfigManager.instance) {
-      ConfigManager.instance = new ConfigManager(isPackaged);
+      ConfigManager.instance = new ConfigManager(isPackaged, configPath);
+    } else if (configPath) {
+      // Update the config directory if a new path is provided
+      ConfigManager.instance.updateConfigPath(configPath);
     }
     return ConfigManager.instance;
   }
 
-  getDataDirectory(): string {
-    if (this.isPackaged) {
-      // In packaged mode, use the user data directory
-      const { app } = require('electron');
-      const userDataPath = app.getPath('userData');
-      if (userDataPath !== this.lastDataDirectory) {
-        log.info(`User data directory: ${userDataPath}`);
-        this.lastDataDirectory = userDataPath;
-      }
-      return userDataPath;
-    } else {
-      const cwd = process.cwd();
-      if (cwd !== this.lastDataDirectory) {
-        log.info(`Using current working directory: ${cwd}`);
-        this.lastDataDirectory = cwd;
-      }
-      return cwd;
+  // New method to update the config path
+  public updateConfigPath(configPath: string): void {
+    log.info(`[CONFIG MANAGER] Updating config path to: ${configPath}`);
+    this.configDir = configPath;
+    this.mcpConfigPath = path.join(this.configDir, 'mcp_config.json');
+    this.promptFile = path.join(this.configDir, 'prompt.md');
+    
+    // Create config directory if it doesn't exist
+    if (!fs.existsSync(this.configDir)) {
+      fs.mkdirSync(this.configDir, { recursive: true });
     }
+    
+    // Reset config loaded flag to force reload
+    this.configLoaded = false;
+  }
+
+  getDataDirectory(): string {
+    // Always use the user data directory for the default workspace
+    const { app } = require('electron');
+    const userDataPath = app.getPath('userData');
+    if (userDataPath !== this.lastDataDirectory) {
+      // Only log if we're not in the process of setting up logging
+      if (!log.transports.file.resolvePathFn) {
+        log.info(`User data directory: ${userDataPath}`);
+      }
+      this.lastDataDirectory = userDataPath;
+    }
+    return userDataPath;
   }
 
   getConfigDir(): string {
@@ -102,11 +125,26 @@ export class ConfigManager {
 
   async getSystemPrompt(): Promise<string> {
     try {
+      // Check if the prompt file exists
+      if (!fs.existsSync(this.promptFile)) {
+        log.info(`[CONFIG MANAGER] Prompt file not found at ${this.promptFile}, creating with default value`);
+        
+        // Ensure the directory exists
+        const promptDir = path.dirname(this.promptFile);
+        if (!fs.existsSync(promptDir)) {
+          fs.mkdirSync(promptDir, { recursive: true });
+        }
+        
+        // Create the prompt file with default value
+        await fs.promises.writeFile(this.promptFile, this.DEFAULT_PROMPT, 'utf8');
+        return this.DEFAULT_PROMPT;
+      }
+      
+      // Read the prompt file
       const prompt = await fs.promises.readFile(this.promptFile, 'utf8');
       return prompt;
     } catch (err) {
-      log.error('Error reading system prompt, using default:', err);
-      await fs.promises.writeFile(this.promptFile, this.DEFAULT_PROMPT, 'utf8');
+      log.error('[CONFIG MANAGER] Error reading system prompt, using default:', err);
       return this.DEFAULT_PROMPT;
     }
   }

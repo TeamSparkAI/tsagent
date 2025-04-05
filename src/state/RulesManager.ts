@@ -12,18 +12,23 @@ export class RulesManager extends EventEmitter {
   constructor(configDir: string) {
     super();
     this.rulesDir = path.join(configDir, 'rules');
+    log.info(`[RULES MANAGER] Initializing with rules directory: ${this.rulesDir}`);
     if (!fs.existsSync(this.rulesDir)) {
+      log.info(`[RULES MANAGER] Rules directory does not exist, creating it: ${this.rulesDir}`);
       fs.mkdirSync(this.rulesDir, { recursive: true });
     }
     this.loadRules();
   }
 
   private loadRules() {
+    log.info(`[RULES MANAGER] Loading rules from directory: ${this.rulesDir}`);
     this.rules = [];
     const files = fs.readdirSync(this.rulesDir).filter(file => file.endsWith('.mdw'));
+    log.info(`[RULES MANAGER] Found ${files.length} rule files`);
     
     for (const file of files) {
       const filePath = path.join(this.rulesDir, file);
+      log.info(`[RULES MANAGER] Loading rule from file: ${filePath}`);
       const content = fs.readFileSync(filePath, 'utf-8');
       
       try {
@@ -40,12 +45,16 @@ export class RulesManager extends EventEmitter {
             text: text
           };
           this.rules.push(rule);
+          log.info(`[RULES MANAGER] Successfully loaded rule: ${rule.name}`);
+        } else {
+          log.warn(`[RULES MANAGER] Invalid rule file format in ${file}: missing metadata or content`);
         }
       } catch (error) {
-        log.error(`Error loading rule from ${file}:`, error);
+        log.error(`[RULES MANAGER] Error loading rule from ${file}:`, error);
       }
     }
     this.sortRules();
+    log.info(`[RULES MANAGER] Finished loading rules. Total rules: ${this.rules.length}`);
   }
 
   private sortRules() {

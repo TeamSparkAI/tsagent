@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { TabProps } from '../types/TabProps';
+import log from 'electron-log';
 
 export const PromptTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {
   const [prompt, setPrompt] = useState('');
@@ -27,13 +28,41 @@ export const PromptTab: React.FC<TabProps> = ({ id, activeTabId, name, type, sty
   useEffect(() => {
     // Load initial prompt
     window.api.getSystemPrompt().then((loadedPrompt: string) => {
+      log.info(`[PROMPT TAB] Initial prompt loaded: ${loadedPrompt.substring(0, 50)}...`);
       setPrompt(loadedPrompt);
       setOriginalPrompt(loadedPrompt);
       // Adjust initial height after content is loaded
       if (textareaRef.current) {
         adjustTextareaHeight(textareaRef.current);
       }
+    }).catch(error => {
+      log.error(`[PROMPT TAB] Error loading initial prompt:`, error);
     });
+
+    // Listen for workspace changes
+    const handleWorkspaceSwitched = () => {
+      log.info('[PROMPT TAB] Received workspace:switched event, refreshing prompt');
+      window.api.getSystemPrompt().then((loadedPrompt: string) => {
+        log.info(`[PROMPT TAB] Loaded new system prompt after workspace switch: ${loadedPrompt.substring(0, 50)}...`);
+        setPrompt(loadedPrompt);
+        setOriginalPrompt(loadedPrompt);
+        if (textareaRef.current) {
+          adjustTextareaHeight(textareaRef.current);
+        }
+      }).catch(error => {
+        log.error(`[PROMPT TAB] Error loading prompt after workspace switch:`, error);
+      });
+    };
+
+    // Use the API method instead of DOM event listener
+    log.info('[PROMPT TAB] Setting up workspace:switched event listener');
+    window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    log.info('[PROMPT TAB] Workspace:switched event listener set up');
+
+    // No need to clean up the API event listener as it's handled by the API
+    return () => {
+      log.info('[PROMPT TAB] Component unmounting, no cleanup needed for API event listener');
+    };
   }, []);
 
   if (id !== activeTabId) return null;

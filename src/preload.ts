@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { API } from './types/api';
+import log from 'electron-log';
 
 const api: API = {
   // Chat session management
@@ -30,6 +31,7 @@ const api: API = {
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
   onRulesChanged: (callback: () => void) => ipcRenderer.on('rules-changed', callback),
   onReferencesChanged: (callback: () => void) => ipcRenderer.on('references-changed', callback),
+  onConfigurationChanged: (callback: () => void) => ipcRenderer.on('configuration:changed', callback),
 
   // Workspace handlers
   getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
@@ -37,16 +39,30 @@ const api: API = {
   openWorkspace: (path: string) => ipcRenderer.invoke('workspace:open', path),
   openInNewWindow: (path: string) => ipcRenderer.invoke('workspace:openInNewWindow', path),
   createWorkspace: (path: string) => ipcRenderer.invoke('workspace:create', path),
-  switchWorkspace: (windowId: string) => ipcRenderer.invoke('workspace:switch', windowId),
+  switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
   showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
-  getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId')
+  getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
+  onWorkspaceSwitched: (callback: () => void) => ipcRenderer.on('workspace:switched', callback)
 };
 
-contextBridge.exposeInMainWorld('api', api);
+// Log the API object to verify it's defined
+log.info('[PRELOAD] API object defined:', Object.keys(api));
 
-// Ensure TypeScript recognizes the window.api type
-declare global {
-  interface Window {
-    api: API;
+// Check if each method is a function
+for (const key of Object.keys(api)) {
+  const method = api[key as keyof API];
+  log.info(`[PRELOAD] Method ${key} is a function:`, typeof method === 'function');
+  if (typeof method === 'function') {
+    log.info(`[PRELOAD] Method ${key} toString:`, method.toString().substring(0, 100) + '...');
+  }
+}
+
+// Expose the API to the renderer process
+try {
+  contextBridge.exposeInMainWorld('api', api);
+} catch (error) {
+  // Log more details about the error
+  if (error instanceof Error) {
+    log.error('[PRELOAD] Error:', error);
   }
 }

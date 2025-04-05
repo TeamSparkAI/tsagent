@@ -267,6 +267,19 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     useEffect(() => {
         loadServers();
+        // Add event listener for workspace changes
+        const handleWorkspaceSwitched = () => {
+            log.info('[TOOLS TAB] Received workspace:switched event');
+            loadServers();
+        };
+
+        // Use the API method instead of DOM event listener
+        window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+
+        // No need to clean up the API event listener as it's handled by the API
+        return () => {
+            // No cleanup needed for API event listener
+        };
     }, []);
 
     // Clear test results when server or tool selection changes

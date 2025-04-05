@@ -66,4 +66,17 @@ const rendererConfig = {
   }
 };
 
-module.exports = [mainConfig, rendererConfig]; 
+const preloadConfig = {
+  ...commonConfig,
+  target: 'electron-preload',
+  entry: './src/preload.ts',
+  output: {
+    path: path.resolve(__dirname, 'dist'),
+    filename: 'preload.js'
+  },
+  externals: {
+    electron: 'commonjs electron'
+  }
+};
+
+module.exports = [mainConfig, rendererConfig, preloadConfig]; 

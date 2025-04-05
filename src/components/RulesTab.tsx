@@ -5,6 +5,7 @@ import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
 import remarkGfm from 'remark-gfm';
+import log from 'electron-log';
 
 interface EditRuleModalProps {
     rule?: Rule;
@@ -177,20 +178,32 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
     const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
 
     useEffect(() => {
+        log.info('[RULES TAB] Component mounted, loading initial rules');
         loadRules();
+        
         // Add event listener for rule changes
+        log.info('[RULES TAB] Setting up rules-changed event listener');
         window.api.onRulesChanged(() => {
+            log.info('[RULES TAB] Rules changed event received, reloading rules');
             loadRules();
         });
+        
         // Cleanup event listener on unmount
         return () => {
+            log.info('[RULES TAB] Component unmounting, cleaning up event listener');
             window.api.onRulesChanged(() => {});
         };
     }, []);
 
     const loadRules = async () => {
-        const loadedRules = await window.api.getRules();
-        setRules(loadedRules);
+        log.info('[RULES TAB] loadRules called');
+        try {
+            const loadedRules = await window.api.getRules();
+            log.info(`[RULES TAB] Rules loaded successfully: ${loadedRules.length} rules found`);
+            setRules(loadedRules);
+        } catch (error) {
+            log.error('[RULES TAB] Error loading rules:', error);
+        }
     };
 
     const handleAddRule = () => {
@@ -396,4 +409,4 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
             )}
         </div>
     );
-}; 
+}
