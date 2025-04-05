@@ -8,6 +8,7 @@ import { ReferencesTab } from './ReferencesTab';
 import { WorkspaceTab } from './WorkspaceTab';
 import { v4 as uuidv4 } from 'uuid';
 import { TabProps } from '../types/TabProps';
+import log from 'electron-log';
 
 interface TabInstance {
   id: string;
@@ -18,44 +19,105 @@ interface TabInstance {
 export const App: React.FC = () => {
   const [tabs, setTabs] = useState<TabInstance[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
+  const [hasWorkspace, setHasWorkspace] = useState<boolean>(false);
 
-  // Create initial tabs
-  useEffect(() => {
-    const initialTabs = [
-      {
-        id: uuidv4(),
-        type: 'workspace',
-        title: 'Workspace'
-      },
-      {
-        id: uuidv4(),
-        type: 'prompt',
-        title: 'Prompt'
-      },
-      {
-        id: uuidv4(),
-        type: 'references',
-        title: 'References'
-      },
-      {
-        id: uuidv4(),
-        type: 'rules',
-        title: 'Rules'
-      },
-      {
-        id: uuidv4(),
-        type: 'tools',
-        title: 'Tools'
-      },
-      {
-        id: uuidv4(),
-        type: 'chat',
-        title: 'Chat'
+  // Define checkWorkspace function outside useEffect so it can be called directly
+  const checkWorkspace = async () => {
+    try {
+      log.info('[APP] checkWorkspace called');
+      const currentWindowId = await window.api.getCurrentWindowId();
+      log.info(`[APP] Current window ID: ${currentWindowId}`);
+      
+      const activeWindows = await window.api.getActiveWindows();
+      log.info(`[APP] Active windows: ${JSON.stringify(activeWindows)}`);
+      
+      // Check if the current window is registered with a workspace
+      const isRegistered = activeWindows.some(window => window.windowId === currentWindowId);
+      log.info(`[APP] Window ${currentWindowId} is ${isRegistered ? 'registered' : 'not registered'} with a workspace`);
+      
+      setHasWorkspace(isRegistered);
+      
+      log.info(`[APP] Workspace status: ${isRegistered ? 'Selected' : 'Not selected'}`);
+      
+      // If a workspace is selected, replace all tabs
+      if (isRegistered) {
+        log.info('[APP] Creating all tabs for workspace');
+        const allTabs = [
+          {
+            id: uuidv4(),
+            type: 'workspace',
+            title: 'Workspace'
+          },
+          {
+            id: uuidv4(),
+            type: 'prompt',
+            title: 'Prompt'
+          },
+          {
+            id: uuidv4(),
+            type: 'references',
+            title: 'References'
+          },
+          {
+            id: uuidv4(),
+            type: 'rules',
+            title: 'Rules'
+          },
+          {
+            id: uuidv4(),
+            type: 'tools',
+            title: 'Tools'
+          },
+          {
+            id: uuidv4(),
+            type: 'chat',
+            title: 'Chat'
+          }
+        ];
+        log.info(`[APP] Setting ${allTabs.length} tabs`);
+        setTabs(allTabs);
+        // Set the first tab (workspace) as active
+        log.info(`[APP] Setting active tab to ${allTabs[0].id}`);
+        setActiveTabId(allTabs[0].id);
+      } else {
+        // If no workspace is selected, only show the workspace tab
+        log.info('[APP] No workspace selected, only showing workspace tab');
+        const workspaceTab = {
+          id: uuidv4(),
+          type: 'workspace',
+          title: 'Workspace'
+        };
+        log.info(`[APP] Setting single tab: ${workspaceTab.id}`);
+        setTabs([workspaceTab]);
+        log.info(`[APP] Setting active tab to ${workspaceTab.id}`);
+        setActiveTabId(workspaceTab.id);
       }
-    ];
-    setTabs(initialTabs);
-    setActiveTabId(initialTabs[0].id);  // Set workspace as default tab
-  }, []);
+    } catch (error) {
+      log.error('[APP] Error checking workspace status:', error);
+      setHasWorkspace(false);
+    }
+  };
+
+  // Check if a workspace is selected
+  useEffect(() => {
+    log.info('[APP] Initial checkWorkspace call');
+    checkWorkspace();
+    
+    // Listen for workspace switched event from the API
+    const handleWorkspaceSwitched = () => {
+      log.info('[APP] Workspace switched event received from API, updating tabs');
+      checkWorkspace();
+    };
+    
+    log.info('[APP] Setting up workspace:switched event listener');
+    window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    log.info('[APP] Workspace:switched event listener set up');
+    
+    return () => {
+      log.info('[APP] Cleaning up workspace:switched event listener');
+      // Clean up API event listener
+    };
+  }, []); // Empty dependency array to avoid circular dependency
 
   const handleAddTab = (type: string) => {
     if (type !== 'chat') return; // Only allow creating new chat tabs
@@ -104,6 +166,7 @@ export const App: React.FC = () => {
       activeTabId={activeTabId} 
       onTabChange={setActiveTabId}
       onCloseTab={handleCloseTab}
+      hasWorkspace={hasWorkspace}
     >
       {tabs.map(renderTabContent)}
     </TabManager>

@@ -1,55 +1,33 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import log from 'electron-log';
-import { McpConfig, McpConfigFileServerConfig, determineServerType } from '../mcp/types';
+import { McpConfig, McpConfigFile, McpConfigFileServerConfig, determineServerType } from '../mcp/types';
 
 export class ConfigManager {
   private static instance: ConfigManager | null = null;
-  private configDir: string;
+  private configDir: string | null = null;
   private configFile: Record<string, any> | null = null;
-  private mcpConfigPath: string;
-  private promptFile: string;
+  private mcpConfigPath: string | null = null;
+  private promptFile: string | null = null;
   private readonly DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
   private readonly isPackaged: boolean;
   private configLoaded = false;
-  private lastDataDirectory: string | null = null;
 
-  private constructor(isPackaged: boolean, configPath?: string) {
+  private constructor(isPackaged: boolean) {
     this.isPackaged = isPackaged;
-    
-    if (configPath) {
-      // If a specific config path is provided, use it
-      this.configDir = configPath;
-      log.info(`Using provided config directory: ${this.configDir}`);
-    } else {
-      // Otherwise use the default data directory
-      const dataDir = this.getDataDirectory();
-      this.configDir = path.join(dataDir, 'config');
-      log.info(`Using default config directory: ${this.configDir}`);
-    }
-    
-    this.mcpConfigPath = path.join(this.configDir, 'mcp_config.json');
-    this.promptFile = path.join(this.configDir, 'prompt.md');
-    
-    // Create config directory if it doesn't exist
-    if (!fs.existsSync(this.configDir)) {
-      fs.mkdirSync(this.configDir, { recursive: true });
-    }
+    log.info(`[CONFIG MANAGER] Initialized with isPackaged=${isPackaged}`);
   }
 
-  static getInstance(isPackaged: boolean, configPath?: string): ConfigManager {
+  static getInstance(isPackaged: boolean): ConfigManager {
     if (!ConfigManager.instance) {
-      ConfigManager.instance = new ConfigManager(isPackaged, configPath);
-    } else if (configPath) {
-      // Update the config directory if a new path is provided
-      ConfigManager.instance.updateConfigPath(configPath);
+      ConfigManager.instance = new ConfigManager(isPackaged);
     }
     return ConfigManager.instance;
   }
 
-  // New method to update the config path
-  public updateConfigPath(configPath: string): void {
-    log.info(`[CONFIG MANAGER] Updating config path to: ${configPath}`);
+  // Method to set the config path
+  public async setConfigPath(configPath: string): Promise<void> {
+    log.info(`[CONFIG MANAGER] Setting config path to: ${configPath}`);
     this.configDir = configPath;
     this.mcpConfigPath = path.join(this.configDir, 'mcp_config.json');
     this.promptFile = path.join(this.configDir, 'prompt.md');
@@ -61,38 +39,45 @@ export class ConfigManager {
     
     // Reset config loaded flag to force reload
     this.configLoaded = false;
+    
+    // Load the configuration immediately
+    await this.loadConfig();
   }
 
-  getDataDirectory(): string {
-    // Always use the user data directory for the default workspace
-    const { app } = require('electron');
-    const userDataPath = app.getPath('userData');
-    if (userDataPath !== this.lastDataDirectory) {
-      // Only log if we're not in the process of setting up logging
-      if (!log.transports.file.resolvePathFn) {
-        log.info(`User data directory: ${userDataPath}`);
-      }
-      this.lastDataDirectory = userDataPath;
-    }
-    return userDataPath;
+  // Check if a config path is set
+  public hasConfigPath(): boolean {
+    return this.configDir !== null;
   }
 
   getConfigDir(): string {
-    return this.configDir;
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
+    }
+    return this.configDir!;
   }
 
   getMcpConfigPath(): string {
-    return this.mcpConfigPath;
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
+    }
+    return this.mcpConfigPath!;
   }
 
   getPromptFile(): string {
-    return this.promptFile;
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
+    }
+    return this.promptFile!;
   }
 
   async loadConfig(): Promise<void> {
     if (this.configLoaded) return;
+    
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
+    }
 
-    const configPath = path.join(this.configDir, 'config.json');
+    const configPath = path.join(this.configDir!, 'config.json');
     
     // Create default config if it doesn't exist
     if (!fs.existsSync(configPath)) {
@@ -116,119 +101,142 @@ export class ConfigManager {
     if (!this.configLoaded) {
       throw new Error('Config not loaded. Call loadConfig() first.');
     }
-    const value = this.configFile?.config[key];
-    if (!value) {
-      throw new Error(`${key} not set in config.json`);
+    
+    if (!this.configFile || !this.configFile.config) {
+      throw new Error('Config file is invalid or empty.');
     }
-    return value;
+    
+    return this.configFile.config[key] || '';
   }
 
-  async getSystemPrompt(): Promise<string> {
-    try {
-      // Check if the prompt file exists
-      if (!fs.existsSync(this.promptFile)) {
-        log.info(`[CONFIG MANAGER] Prompt file not found at ${this.promptFile}, creating with default value`);
-        
-        // Ensure the directory exists
-        const promptDir = path.dirname(this.promptFile);
-        if (!fs.existsSync(promptDir)) {
-          fs.mkdirSync(promptDir, { recursive: true });
-        }
-        
-        // Create the prompt file with default value
-        await fs.promises.writeFile(this.promptFile, this.DEFAULT_PROMPT, 'utf8');
-        return this.DEFAULT_PROMPT;
-      }
-      
-      // Read the prompt file
-      const prompt = await fs.promises.readFile(this.promptFile, 'utf8');
-      return prompt;
-    } catch (err) {
-      log.error('[CONFIG MANAGER] Error reading system prompt, using default:', err);
-      return this.DEFAULT_PROMPT;
+  async setConfigValue(key: string, value: string): Promise<void> {
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
     }
+    
+    if (!this.configLoaded) {
+      await this.loadConfig();
+    }
+    
+    if (!this.configFile) {
+      this.configFile = { config: {} };
+    }
+    
+    if (!this.configFile.config) {
+      this.configFile.config = {};
+    }
+    
+    this.configFile.config[key] = value;
+    
+    const configPath = path.join(this.configDir!, 'config.json');
+    await fs.promises.writeFile(configPath, JSON.stringify(this.configFile, null, 2));
   }
 
-  async saveSystemPrompt(prompt: string): Promise<void> {
-    try {
-      await fs.promises.writeFile(this.promptFile, prompt, 'utf8');
-      log.info('System prompt saved successfully');
-    } catch (err) {
-      log.error('Error saving system prompt:', err);
-      throw err;
+  async getMcpConfig(): Promise<Record<string, McpConfig>> {
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
     }
-  }
-
-  async getMcpConfig(): Promise<Record<string, McpConfigFileServerConfig>> {
-    try {
-      if (!fs.existsSync(this.mcpConfigPath)) {
-        await fs.promises.writeFile(this.mcpConfigPath, JSON.stringify({ mcpServers: {} }, null, 2));
-      }
-
-      const configData = await fs.promises.readFile(this.mcpConfigPath, 'utf8');
-      const config = JSON.parse(configData);
-      const servers = config.mcpServers as Record<string, any>;
-      
-      // Add type field if missing
-      for (const [name, serverConfig] of Object.entries(servers)) {
-        if (!serverConfig.type) {
-          serverConfig.type = determineServerType(serverConfig);
-        }
-      }
-      
-      return servers;
-    } catch (err) {
-      log.error('Error loading MCP config:', err);
+    
+    if (!fs.existsSync(this.mcpConfigPath!)) {
       return {};
     }
-  }
-
-  async getMcpConfigWithNames(): Promise<Record<string, McpConfig>> {
+    
     try {
-      const servers = await this.getMcpConfig();
+      const data = await fs.promises.readFile(this.mcpConfigPath!, 'utf8');
+      const config = JSON.parse(data) as McpConfigFile;
+      const mcpServers = config.mcpServers || {};
       
-      // Convert to new McpConfig structure
-      const newServers: Record<string, McpConfig> = {};
-      for (const [name, serverConfig] of Object.entries(servers)) {
-        newServers[name] = {
+      // Transform the configuration into the expected format
+      const result: Record<string, McpConfig> = {};
+      for (const [name, serverConfig] of Object.entries(mcpServers)) {
+        result[name] = {
           name,
           config: serverConfig
         };
       }
       
-      return newServers;
-    } catch (err) {
-      log.error('Error loading MCP config:', err);
+      return result;
+    } catch (error) {
+      log.error('Error loading MCP config:', error);
       return {};
     }
   }
 
   async saveMcpConfig(server: McpConfig): Promise<void> {
-    try {
-      if (!fs.existsSync(this.mcpConfigPath)) {
-        await fs.promises.writeFile(this.mcpConfigPath, JSON.stringify({ mcpServers: {} }, null, 2));
-      }
-
-      const configData = await fs.promises.readFile(this.mcpConfigPath, 'utf8');
-      const config = JSON.parse(configData);
-      
-      config.mcpServers[server.name] = server.config;
-      await fs.promises.writeFile(this.mcpConfigPath, JSON.stringify(config, null, 2));
-    } catch (err) {
-      log.error('Error saving MCP config:', err);
-      throw err;
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
     }
+    
+    // Read the existing config file to preserve other properties
+    let fullConfig: McpConfigFile = { mcpServers: {} };
+    if (fs.existsSync(this.mcpConfigPath!)) {
+      try {
+        const data = await fs.promises.readFile(this.mcpConfigPath!, 'utf8');
+        fullConfig = JSON.parse(data) as McpConfigFile;
+        if (!fullConfig.mcpServers) {
+          fullConfig.mcpServers = {};
+        }
+      } catch (error) {
+        log.error('Error reading MCP config:', error);
+      }
+    }
+    
+    // Add or update the server in the mcpServers object
+    // Extract just the config part without the name
+    fullConfig.mcpServers[server.name] = server.config;
+    
+    // Write the updated config back to the file
+    await fs.promises.writeFile(this.mcpConfigPath!, JSON.stringify(fullConfig, null, 2));
   }
 
   async deleteMcpConfig(serverName: string): Promise<void> {
-    try {
-      const configData = await fs.promises.readFile(this.mcpConfigPath, 'utf8');
-      const config = JSON.parse(configData);
-      delete config.mcpServers[serverName];
-      await fs.promises.writeFile(this.mcpConfigPath, JSON.stringify(config, null, 2));
-    } catch (err) {
-      log.error('Error deleting MCP config:', err);
-      throw err;
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
     }
+    
+    // Read the existing config file to preserve other properties
+    let fullConfig: McpConfigFile = { mcpServers: {} };
+    if (fs.existsSync(this.mcpConfigPath!)) {
+      try {
+        const data = await fs.promises.readFile(this.mcpConfigPath!, 'utf8');
+        fullConfig = JSON.parse(data) as McpConfigFile;
+        if (!fullConfig.mcpServers) {
+          fullConfig.mcpServers = {};
+        }
+      } catch (error) {
+        log.error('Error reading MCP config:', error);
+      }
+    }
+    
+    // Delete the server from the mcpServers object
+    delete fullConfig.mcpServers[serverName];
+    
+    // Write the updated config back to the file
+    await fs.promises.writeFile(this.mcpConfigPath!, JSON.stringify(fullConfig, null, 2));
+  }
+
+  async getSystemPrompt(): Promise<string> {
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
+    }
+    
+    if (!fs.existsSync(this.promptFile!)) {
+      return this.DEFAULT_PROMPT;
+    }
+    
+    try {
+      return await fs.promises.readFile(this.promptFile!, 'utf8');
+    } catch (error) {
+      log.error('Error reading system prompt:', error);
+      return this.DEFAULT_PROMPT;
+    }
+  }
+
+  async saveSystemPrompt(prompt: string): Promise<void> {
+    if (!this.hasConfigPath()) {
+      throw new Error('No config directory set. Call setConfigPath() first.');
+    }
+    
+    await fs.promises.writeFile(this.promptFile!, prompt);
   }
 } 

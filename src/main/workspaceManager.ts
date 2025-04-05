@@ -6,6 +6,20 @@ import { WorkspaceWindow, WorkspaceMetadata, WorkspaceConfig } from '../types/wo
 import { ConfigManager } from '../state/ConfigManager';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
+import { RulesManager } from '../state/RulesManager';
+import { ReferencesManager } from '../state/ReferencesManager';
+import { AppState } from '../state/AppState';
+import { MCPClientManager } from '../mcp/manager';
+import { ChatSessionManager } from '../state/ChatSessionManager';
+import { LLMFactory } from '../llm/llmFactory';
+import { McpClient, McpConfig, McpConfigFileServerConfig } from '../mcp/types';
+import { McpClientStdio, McpClientSse } from '../mcp/client';
+import { McpClientInternalRules } from '../mcp/InternalClientRules';
+import { McpClientInternalReferences } from '../mcp/InternalClientReferences';
+
+// Near the top with other state
+const mcpClients = new Map<string, McpClient>();
+let appState: AppState;
 
 export class WorkspaceManager extends EventEmitter {
     private static instance: WorkspaceManager;
@@ -92,17 +106,31 @@ export class WorkspaceManager extends EventEmitter {
      */
     public async registerWindow(windowId: string, workspacePath: string): Promise<void> {
         try {
-            log.info(`Registering window ${windowId} with workspace ${workspacePath}`);
+            log.info(`[WORKSPACE REGISTER] Registering window ${windowId} with workspace ${workspacePath}`);
+            
+            // Check if the window is already registered with a workspace
+            const existingWindow = this.activeWindows.get(windowId);
+            if (existingWindow) {
+                log.info(`[WORKSPACE REGISTER] Window ${windowId} is already registered with workspace ${existingWindow.workspacePath}`);
+                
+                // If the window is already registered with this workspace, do nothing
+                if (existingWindow.workspacePath === workspacePath) {
+                    log.info(`[WORKSPACE REGISTER] Window ${windowId} is already registered with workspace ${workspacePath}, no action needed`);
+                    return;
+                }
+                
+                // If the window is registered with a different workspace, unregister it first
+                log.info(`[WORKSPACE REGISTER] Window ${windowId} is registered with a different workspace, unregistering first`);
+                await this.unregisterWindow(windowId);
+            }
             
             // Validate the workspace
             await this.validateWorkspace(workspacePath);
             
-            // Add to active windows
+            // Add the window to the active windows map with only essential properties
             this.activeWindows.set(windowId, {
                 windowId,
-                workspacePath,
-                isMinimized: false,
-                isActive: true
+                workspacePath
             });
             
             // Update last active workspace
@@ -115,21 +143,34 @@ export class WorkspaceManager extends EventEmitter {
             await this.saveState();
             
             // Get the ConfigManager for this workspace
-            const configManager = this.getConfigManager(workspacePath);
+            const configManager = await this.getConfigManager(workspacePath);
             
-            // Reload configuration
+            // Load configuration
+            log.info(`[WORKSPACE REGISTER] Loading configuration for workspace ${workspacePath}`);
             await configManager.loadConfig();
+            log.info(`[WORKSPACE REGISTER] Configuration loaded for workspace ${workspacePath}`);
             
             // Get the window
             const window = BrowserWindow.fromId(parseInt(windowId));
             if (window) {
                 // Notify the renderer process that configuration has changed
                 window.webContents.send('configuration:changed');
+                
+                // Emit the workspace:switched event with the workspace path
+                log.info(`[WORKSPACE REGISTER] Emitting workspace:switched event for window ${windowId} with workspace ${workspacePath}`);
+                this.emit('workspace:switched', { windowId, workspacePath });
+                
+                // Send the event to all windows
+                log.info(`[WORKSPACE REGISTER] Sending workspace:switched event to all windows`);
+                BrowserWindow.getAllWindows().forEach(win => {
+                    log.info(`[WORKSPACE REGISTER] Sending workspace:switched event to window ${win.id}`);
+                    win.webContents.send('workspace:switched');
+                });
             }
             
-            log.info(`Window ${windowId} registered with workspace ${workspacePath}`);
+            log.info(`[WORKSPACE REGISTER] Window ${windowId} registered with workspace ${workspacePath}`);
         } catch (error) {
-            log.error(`Error registering window ${windowId} with workspace ${workspacePath}:`, error);
+            log.error(`[WORKSPACE REGISTER] Error registering window ${windowId} with workspace ${workspacePath}:`, error);
             throw error;
         }
     }
@@ -139,12 +180,11 @@ export class WorkspaceManager extends EventEmitter {
         log.info(`Unregistered window ${windowId}`);
     }
 
-    public updateWindowState(windowId: string, isMinimized: boolean, isActive: boolean): void {
+    public updateWindowState(windowId: string): void {
         const window = this.activeWindows.get(windowId);
         if (window) {
-            window.isMinimized = isMinimized;
-            window.isActive = isActive;
-            if (isActive) {
+            const browserWindow = BrowserWindow.fromId(parseInt(windowId));
+            if (browserWindow && browserWindow.isFocused()) {
                 this.lastActiveWorkspace = window.workspacePath;
                 this.saveRecentWorkspaces();
             }
@@ -354,7 +394,7 @@ export class WorkspaceManager extends EventEmitter {
                 fs.mkdirSync(configDir, { recursive: true });
                 log.info(`Created config directory at ${configDir}`);
             }
-            
+
             // Create prompt.md file if it doesn't exist
             const promptFile = path.join(configDir, 'prompt.md');
             if (!fs.existsSync(promptFile)) {
@@ -516,16 +556,20 @@ export class WorkspaceManager extends EventEmitter {
      * @param workspacePath The path to the workspace
      * @returns A ConfigManager instance for the workspace
      */
-    public getConfigManager(workspacePath: string): ConfigManager {
+    public async getConfigManager(workspacePath: string): Promise<ConfigManager> {
         log.info(`[WORKSPACE MANAGER] Getting ConfigManager for workspace: ${workspacePath}`);
         
         // Create a config path for this workspace
         const configPath = path.join(workspacePath, 'config');
         log.info(`[WORKSPACE MANAGER] Using config directory: ${configPath}`);
         
-        // Get the ConfigManager instance with the workspace-specific config path
-        // The singleton will now update its paths if a new config path is provided
-        return ConfigManager.getInstance(app.isPackaged, configPath);
+        // Get the ConfigManager instance
+        const configManager = ConfigManager.getInstance(app.isPackaged);
+        
+        // Set the config path for this workspace
+        await configManager.setConfigPath(configPath);
+        
+        return configManager;
     }
 
     /**
@@ -544,7 +588,7 @@ export class WorkspaceManager extends EventEmitter {
             }
             
             // Get the ConfigManager for this workspace
-            const configManager = this.getConfigManager(window.workspacePath);
+            const configManager = await this.getConfigManager(window.workspacePath);
             
             // Instead of using ipcMain.emit, we'll use a different approach
             // The main process will call this method directly when needed
@@ -584,11 +628,8 @@ export class WorkspaceManager extends EventEmitter {
             // Update the window's workspace
             const window = this.activeWindows.get(windowId);
             if (!window) {
-                log.error(`[WORKSPACE SWITCH] No window found with ID: ${windowId} in activeWindows map`);
-                log.error(`[WORKSPACE SWITCH] Available window IDs: ${Array.from(this.activeWindows.keys()).join(', ')}`);
-                const error = new Error(`No window found with ID: ${windowId}`);
-                log.error(`[WORKSPACE SWITCH] ${error.message}`);
-                throw error;
+                log.error(`[WORKSPACE SWITCH] No window found with ID: ${windowId}`);
+                throw new Error(`No window found with ID: ${windowId}`);
             }
             
             // Update the workspace path
@@ -604,23 +645,92 @@ export class WorkspaceManager extends EventEmitter {
             await this.saveState();
             
             // Get the ConfigManager for this workspace
-            const configManager = this.getConfigManager(workspacePath);
+            const configManager = await ConfigManager.getInstance(app.isPackaged);
             
-            // Reload configuration
-            await configManager.loadConfig();
+            // Get the config directory for this workspace
+            const configDir = configManager.getConfigDir();
+            log.info(`[WORKSPACE SWITCH] Using config directory: ${configDir}`);
+
+            // Initialize RulesManager and ReferencesManager with the config directory
+            const rulesManager = new RulesManager(configDir);
+            const referencesManager = new ReferencesManager(configDir);
+
+            // Create a temporary MCPClientManager
+            const tempMcpManager = new MCPClientManager(null as any, new Map());
+
+            // Create AppState with temporary MCPClientManager
+            log.info(`[WORKSPACE MANAGER] Creating new AppState with ConfigManager for path: ${configDir}`);
+            appState = new AppState(configManager, rulesManager, referencesManager, tempMcpManager);
             
+            // Initialize MCP clients
+            const mcpServers: Record<string, McpConfig> = await configManager.getMcpConfig();
+            if (mcpServers && Object.keys(mcpServers).length > 0) {
+                for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+                    try {
+                        if (!serverConfig || !serverConfig.config) {
+                            log.error(`Invalid server configuration for ${serverName}: missing config property`);
+                            continue;
+                        }
+                        
+                        const config = serverConfig.config;
+                        let client: McpClient;
+                        
+                        if (!config.type || config.type === 'stdio') {
+                            client = new McpClientStdio({
+                                command: config.command,
+                                args: config.args || [],
+                                env: config.env
+                            });
+                        } else if (config.type === 'sse') {
+                            client = new McpClientSse(new URL(config.url), config.headers);
+                        } else if (config.type === 'internal') {
+                            if (config.tool === 'rules') {
+                                client = new McpClientInternalRules(rulesManager);
+                            } else if (config.tool === 'references') {
+                                client = new McpClientInternalReferences(referencesManager);
+                            } else {
+                                log.error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
+                                continue;
+                            }
+                        } else {
+                            //log.error(`Unsupported server type: ${config.type} for server: ${serverName}`);
+                            continue;
+                        }
+
+                        if (client) {
+                            await client.connect();
+                            mcpClients.set(serverName, client);
+                            log.info(`Reconnected MCP client: ${serverName}`);
+                        }
+                    } catch (error) {
+                        log.error(`Failed to reconnect MCP client ${serverName}:`, error);
+                    }
+                }
+            }
+
+            // Initialize ChatSessionManager with the new AppState
+            const chatSessionManager = new ChatSessionManager(appState);
+
+            // Initialize MCP client manager with the connected clients
+            const mcpClientManager = new MCPClientManager(appState, mcpClients);
+            
+            // Set MCP client manager in AppState
+            appState.setMCPManager(mcpClientManager);
+
             // Get the window
             const browserWindow = BrowserWindow.fromId(parseInt(windowId));
             if (browserWindow) {
                 // Notify the renderer process that configuration has changed
                 browserWindow.webContents.send('configuration:changed');
                 
-                // Emit the event through the EventEmitter for main process listeners
-                this.emit('workspace:switched', { windowId, workspacePath });
-                
                 // Send the event to all windows
+                log.info(`[WORKSPACE SWITCH] Sending workspace:switched event to all windows`);
                 BrowserWindow.getAllWindows().forEach(window => {
-                    window.webContents.send('workspace:switched');
+                    log.info(`[WORKSPACE SWITCH] Sending workspace:switched event to window ${window.id}`);
+                    window.webContents.send('workspace:switched', {
+                        windowId,
+                        workspacePath
+                    });
                 });
             } else {
                 log.warn(`[WORKSPACE SWITCH] Could not find browser window with ID ${windowId}`);

@@ -11,7 +11,7 @@ export class LLMFactory {
 
   static initialize(appState: AppState) {
     this.appState = appState;
-    log.info('LLMFactory initialized with AppState');
+    log.info('LLMFactory initialization complete');
   }
 
   static create(modelType: LLMType): ILLM {
@@ -19,14 +19,20 @@ export class LLMFactory {
       throw new Error('LLMFactory not initialized with AppState');
     }
 
+    log.info('LLMFactory creating model:', modelType);
+
     switch (modelType) {
       case LLMType.Gemini:
+        log.info('Creating Gemini LLM instance');
         return new GeminiLLM('gemini-2.0-flash', this.appState);
       case LLMType.Claude:
+        log.info('Creating Claude LLM instance');
         return new ClaudeLLM('claude-3-7-sonnet-20250219', this.appState);
       case LLMType.OpenAI:
+        log.info('Creating OpenAI LLM instance');
         return new OpenAILLM('gpt-3.5-turbo', this.appState);
       case LLMType.Test:
+        log.info('Creating Test LLM instance');
         return new TestLLM(this.appState);
       default:
         throw new Error(`Unsupported model type: ${modelType}`);

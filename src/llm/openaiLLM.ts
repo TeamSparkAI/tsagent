@@ -35,6 +35,9 @@ export class OpenAILLM implements ILLM {
     
     try {
       const apiKey = this.appState.getConfigManager().getConfigValue('OPENAI_API_KEY');
+      if (!apiKey) {
+        throw new Error('OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.');
+      }
       this.client = new OpenAI({ apiKey });
       log.info('OpenAI LLM initialized successfully');
     } catch (error) {

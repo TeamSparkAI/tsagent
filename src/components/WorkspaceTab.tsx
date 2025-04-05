@@ -17,6 +17,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
   // Function to load workspace data
   const loadData = async () => {
     try {
+      log.info('[WORKSPACE TAB] Loading workspace data');
       // Load all data in parallel
       const [windows, currentId, recent] = await Promise.all([
         window.api.getActiveWindows(),
@@ -29,13 +30,13 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
       setCurrentWindowId(currentId);
       setRecentWorkspaces(recent);
       
-      log.info('Workspace data loaded successfully:', {
+      log.info('[WORKSPACE TAB] Workspace data loaded successfully:', {
         windows: windows.length,
         currentId,
         recent: recent.length
       });
     } catch (error) {
-      log.error('Error loading workspace data:', error);
+      log.error('[WORKSPACE TAB] Error loading workspace data:', error);
       // Set empty states on error
       setActiveWindows([]);
       setCurrentWindowId(null);
@@ -51,7 +52,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
   useEffect(() => {
     // Listen for configuration changes
     const handleConfigurationChanged = () => {
-      log.info('Configuration changed, refreshing workspace data');
+      log.info('[WORKSPACE TAB] Configuration changed, refreshing workspace data');
       loadData();
     };
     
@@ -67,54 +68,98 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
     };
     
     // Set up event listeners
+    log.info('[WORKSPACE TAB] Setting up event listeners');
     window.api.onConfigurationChanged(handleConfigurationChanged);
-    
     window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    log.info('[WORKSPACE TAB] Event listeners set up');
     
     // Clean up the event listeners when the component unmounts
     return () => {
-      log.info('Cleaning up event listeners in WorkspaceTab');
+      log.info('[WORKSPACE TAB] Cleaning up event listeners');
       // Note: We don't need to remove the API event listeners as they are handled by the API
     };
   }, []);
 
   const handleOpenWorkspace = async () => {
-    const result = await window.api.showOpenDialog({
-      properties: ['openFile'],
-      filters: [{ name: 'Workspace Files', extensions: ['json'] }],
-      title: 'Select Workspace File'
-    });
-
-    if (!result.canceled && result.filePaths.length > 0) {
-      const workspaceFilePath = result.filePaths[0];
-      // The API will handle extracting the directory path
-      await window.api.openWorkspace(workspaceFilePath);
-      // Refresh data
-      const windows = await window.api.getActiveWindows();
-      setActiveWindows(windows);
+    try {
+      log.info(`[WORKSPACE OPEN] handleOpenWorkspace called`);
       
-      // Update current window
+      // Show the open dialog
+      const result = await window.api.showOpenDialog({
+        properties: ['openFile'],
+        filters: [{ name: 'Workspace Files', extensions: ['json'] }],
+        title: 'Select Workspace File'
+      });
+      
+      if (result.canceled || result.filePaths.length === 0) {
+        log.info(`[WORKSPACE OPEN] Dialog canceled or no file selected`);
+        return;
+      }
+      
+      const workspacePath = result.filePaths[0];
+      log.info(`[WORKSPACE OPEN] Selected workspace path: ${workspacePath}`);
+      
+      // Get the current window ID
       const currentId = await window.api.getCurrentWindowId();
-      setCurrentWindowId(currentId);
+      log.info(`[WORKSPACE OPEN] Current window ID: ${currentId}`);
+      
+      if (!currentId) {
+        log.error(`[WORKSPACE OPEN] No current window ID found`);
+        return;
+      }
+      
+      // Open the workspace
+      log.info(`[WORKSPACE OPEN] Calling openWorkspace with path: ${workspacePath}`);
+      await window.api.openWorkspace(workspacePath);
+      log.info(`[WORKSPACE OPEN] openWorkspace completed`);
+      
+      // Force a refresh of the data
+      log.info(`[WORKSPACE OPEN] Calling loadData to refresh workspace data`);
+      await loadData();
+      log.info(`[WORKSPACE OPEN] loadData completed`);
+    } catch (error) {
+      log.error(`[WORKSPACE OPEN] Error in handleOpenWorkspace:`, error);
     }
   };
 
   const handleCreateWorkspace = async () => {
-    const result = await window.api.showOpenDialog({
-      properties: ['openDirectory', 'createDirectory'],
-      title: 'Select Directory for New Workspace'
-    });
-
-    if (!result.canceled && result.filePaths.length > 0) {
-      const workspacePath = result.filePaths[0];
-      await window.api.createWorkspace(workspacePath);
-      // Refresh data
-      const windows = await window.api.getActiveWindows();
-      setActiveWindows(windows);
+    try {
+      log.info(`[WORKSPACE CREATE] handleCreateWorkspace called`);
       
-      // Update current window
+      // Show the open dialog
+      const result = await window.api.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Select Directory for New Workspace'
+      });
+      
+      if (result.canceled || result.filePaths.length === 0) {
+        log.info(`[WORKSPACE CREATE] Dialog canceled or no directory selected`);
+        return;
+      }
+      
+      const workspacePath = result.filePaths[0];
+      log.info(`[WORKSPACE CREATE] Selected workspace path: ${workspacePath}`);
+      
+      // Create the workspace
+      log.info(`[WORKSPACE CREATE] Calling createWorkspace with path: ${workspacePath}`);
+      await window.api.createWorkspace(workspacePath);
+      log.info(`[WORKSPACE CREATE] createWorkspace completed`);
+      
+      // Get the current window ID
       const currentId = await window.api.getCurrentWindowId();
-      setCurrentWindowId(currentId);
+      log.info(`[WORKSPACE CREATE] Current window ID: ${currentId}`);
+      
+      if (!currentId) {
+        log.error(`[WORKSPACE CREATE] No current window ID found`);
+        return;
+      }
+      
+      // Force a refresh of the data
+      log.info(`[WORKSPACE CREATE] Calling loadData to refresh workspace data`);
+      await loadData();
+      log.info(`[WORKSPACE CREATE] loadData completed`);
+    } catch (error) {
+      log.error(`[WORKSPACE CREATE] Error in handleCreateWorkspace:`, error);
     }
   };
 
@@ -136,15 +181,30 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
   };
 
   const handleOpenRecent = async (workspacePath: string) => {
-    // Pass the full path to openWorkspace
-    await window.api.openWorkspace(workspacePath);
-    // Refresh data
-    const windows = await window.api.getActiveWindows();
-    setActiveWindows(windows);
-    
-    // Update current window
-    const currentId = await window.api.getCurrentWindowId();
-    setCurrentWindowId(currentId);
+    try {
+      log.info(`[WORKSPACE OPEN RECENT] handleOpenRecent called with workspacePath ${workspacePath}`);
+      
+      // Get the current window ID
+      const currentId = await window.api.getCurrentWindowId();
+      log.info(`[WORKSPACE OPEN RECENT] Current window ID: ${currentId}`);
+      
+      if (!currentId) {
+        log.error(`[WORKSPACE OPEN RECENT] No current window ID found`);
+        return;
+      }
+      
+      // Open the workspace
+      log.info(`[WORKSPACE OPEN RECENT] Calling openWorkspace with path: ${workspacePath}`);
+      await window.api.openWorkspace(workspacePath);
+      log.info(`[WORKSPACE OPEN RECENT] openWorkspace completed`);
+      
+      // Force a refresh of the data
+      log.info(`[WORKSPACE OPEN RECENT] Calling loadData to refresh workspace data`);
+      await loadData();
+      log.info(`[WORKSPACE OPEN RECENT] loadData completed`);
+    } catch (error) {
+      log.error(`[WORKSPACE OPEN RECENT] Error in handleOpenRecent:`, error);
+    }
   };
 
   const handleSwitchToRecent = async (workspacePath: string) => {
@@ -153,17 +213,38 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
       
       // Get the current window ID
       const currentId = await window.api.getCurrentWindowId();
+      log.info(`[WORKSPACE SWITCH] Current window ID: ${currentId}`);
+      
       if (!currentId) {
         log.error(`[WORKSPACE SWITCH] No current window ID found`);
         return;
       }
       
-      // Switch to the workspace
+      // First, check if the window is registered with a workspace
+      const windows = await window.api.getActiveWindows();
+      log.info(`[WORKSPACE SWITCH] Active windows: ${JSON.stringify(windows)}`);
+      
+      const isRegistered = windows.some(window => window.windowId === currentId);
+      log.info(`[WORKSPACE SWITCH] Window ${currentId} is ${isRegistered ? 'registered' : 'not registered'} with a workspace`);
+      
+      if (!isRegistered) {
+        log.info(`[WORKSPACE SWITCH] Window ${currentId} is not registered with a workspace, registering first`);
+        // Register the window with the workspace
+        log.info(`[WORKSPACE SWITCH] Calling openWorkspace with path: ${workspacePath}`);
+        await window.api.openWorkspace(workspacePath);
+        log.info(`[WORKSPACE SWITCH] openWorkspace completed`);
+      }
+      
+      // Always use switchWorkspace to ensure the workspace:switched event is triggered
+      log.info(`[WORKSPACE SWITCH] Calling switchWorkspace with windowId: ${currentId} and path: ${workspacePath}`);
       const success = await window.api.switchWorkspace(currentId.toString(), workspacePath);
+      log.info(`[WORKSPACE SWITCH] switchWorkspace result: ${success}`);
       
       if (success) {
         // Force a refresh of the data
+        log.info(`[WORKSPACE SWITCH] Calling loadData to refresh workspace data`);
         await loadData();
+        log.info(`[WORKSPACE SWITCH] loadData completed`);
       } else {
         log.error(`[WORKSPACE SWITCH] Failed to switch to workspace ${workspacePath}`);
       }
@@ -173,16 +254,21 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
   };
 
   const handleOpenRecentInNewWindow = async (workspacePath: string) => {
-    // Use the new API to open in a new window
-    await window.api.openInNewWindow(workspacePath);
-    
-    // Refresh data
-    const windows = await window.api.getActiveWindows();
-    setActiveWindows(windows);
-    
-    // Update current window
-    const currentId = await window.api.getCurrentWindowId();
-    setCurrentWindowId(currentId);
+    try {
+      log.info(`[WORKSPACE OPEN NEW WINDOW] handleOpenRecentInNewWindow called with workspacePath ${workspacePath}`);
+      
+      // Open the workspace in a new window
+      log.info(`[WORKSPACE OPEN NEW WINDOW] Calling openInNewWindow with path: ${workspacePath}`);
+      await window.api.openInNewWindow(workspacePath);
+      log.info(`[WORKSPACE OPEN NEW WINDOW] openInNewWindow completed`);
+      
+      // Force a refresh of the data
+      log.info(`[WORKSPACE OPEN NEW WINDOW] Calling loadData to refresh workspace data`);
+      await loadData();
+      log.info(`[WORKSPACE OPEN NEW WINDOW] loadData completed`);
+    } catch (error) {
+      log.error(`[WORKSPACE OPEN NEW WINDOW] Error in handleOpenRecentInNewWindow:`, error);
+    }
   };
 
   // Get current window's workspace
@@ -247,15 +333,15 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
         
         <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
           {/* Current Workspace */}
-          {currentWorkspace && (
-            <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px', backgroundColor: '#eff6ff' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: '600', color: '#333', marginBottom: '12px' }}>Current Workspace</h2>
-              <div style={{ padding: '12px', backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '6px' }}>
-                <div style={{ fontWeight: '500', color: '#111' }}>{currentWorkspace.workspacePath}</div>
-                <div style={{ fontSize: '14px', color: '#666' }}>
-                  {currentWorkspace.isMinimized ? 'Minimized' : ''} {currentWorkspace.isActive ? 'Active' : ''}
-                </div>
-              </div>
+          {currentWorkspace ? (
+            <div className="workspace-info">
+              <h3>Current Workspace</h3>
+              <p>Path: {currentWorkspace.workspacePath}</p>
+              <p>Window ID: {currentWorkspace.windowId}</p>
+            </div>
+          ) : (
+            <div className="no-workspace">
+              <p>No workspace selected</p>
             </div>
           )}
           
@@ -280,10 +366,17 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
                     onClick={() => handleSwitchWorkspace(window.windowId, window.workspacePath)}
                   >
                     <div>
-                      <div style={{ fontWeight: '500', color: '#111' }}>{window.workspacePath}</div>
-                      <div style={{ fontSize: '14px', color: '#666' }}>
-                        {window.isMinimized ? 'Minimized' : ''} {window.isActive ? 'Active' : ''}
-                      </div>
+                      {window.windowId === currentWindowId ? (
+                        <div className="window-item active">
+                          <span className="window-id">Window {window.windowId}</span>
+                          <span className="workspace-path">{window.workspacePath}</span>
+                        </div>
+                      ) : (
+                        <div className="window-item">
+                          <span className="window-id">Window {window.windowId}</span>
+                          <span className="workspace-path">{window.workspacePath}</span>
+                        </div>
+                      )}
                     </div>
                     <div style={{ color: '#9ca3af' }}>→</div>
                   </div>

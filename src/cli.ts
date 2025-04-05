@@ -26,7 +26,8 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
 };
 
 const workspacePath = path.join(process.cwd(), 'config');
-const configManager = ConfigManager.getInstance(false, workspacePath);
+const configManager = ConfigManager.getInstance(false);
+configManager.setConfigPath(workspacePath);
 const mcpClients = new Map<string, McpClient>();
 
 async function toolsCommand() {
@@ -41,16 +42,16 @@ async function toolsCommand() {
       console.log('------------------------');
 
       let client: McpClient;
-      if (serverConfig.type === 'stdio') {
+      if (serverConfig.config.type === 'stdio') {
         client = new McpClientStdio({
-          command: serverConfig.command,
-          args: serverConfig.args,
-          env: serverConfig.env
+          command: serverConfig.config.command,
+          args: serverConfig.config.args,
+          env: serverConfig.config.env
         });
-      } else if (serverConfig.type === 'sse') {
-        client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
+      } else if (serverConfig.config.type === 'sse') {
+        client = new McpClientSse(new URL(serverConfig.config.url), serverConfig.config.headers);
       } else {
-        console.log('Unsupported server type:', serverConfig.type);
+        console.log('Unsupported server type:', serverConfig.config.type);
         continue;
       }
 
@@ -87,16 +88,16 @@ async function connectToServer(serverName: string) {
     }
 
     let client: McpClient;
-    if (serverConfig.type === 'stdio') {
+    if (serverConfig.config.type === 'stdio') {
       client = new McpClientStdio({
-        command: serverConfig.command,
-        args: serverConfig.args,
-        env: serverConfig.env
+        command: serverConfig.config.command,
+        args: serverConfig.config.args,
+        env: serverConfig.config.env
       });
-    } else if (serverConfig.type === 'sse') {
-      client = new McpClientSse(new URL(serverConfig.url), serverConfig.headers);
+    } else if (serverConfig.config.type === 'sse') {
+      client = new McpClientSse(new URL(serverConfig.config.url), serverConfig.config.headers);
     } else {
-      throw new Error(`Unsupported server type: ${serverConfig.type}`);
+      throw new Error(`Unsupported server type: ${serverConfig.config.type}`);
     }
 
     await client.connect();

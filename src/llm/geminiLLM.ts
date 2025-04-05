@@ -92,6 +92,9 @@ export class GeminiLLM implements ILLM {
     
     try {
       const apiKey = this.appState.getConfigManager().getConfigValue('GEMINI_API_KEY');
+      if (!apiKey) {
+        throw new Error('GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.');
+      }
       this.genAI = new GoogleGenerativeAI(apiKey);
       const modelOptions: ModelParams = { model: this.modelName };
       this.model = this.genAI.getGenerativeModel(modelOptions);
@@ -112,6 +115,7 @@ export class GeminiLLM implements ILLM {
 
     var modelTools: GeminiTool | undefined = undefined;
     const tools = this.appState.getMCPManager().getAllTools();
+    log.info('tools', JSON.stringify(tools, null, 2));
     if (tools.length > 0) {
       modelTools = this.convertMCPToolsToGeminiTool(tools);
     }

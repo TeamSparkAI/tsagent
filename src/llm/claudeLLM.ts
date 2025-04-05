@@ -19,6 +19,9 @@ export class ClaudeLLM implements ILLM {
     
     try {
       const apiKey = this.appState.getConfigManager().getConfigValue('ANTHROPIC_API_KEY');
+      if (!apiKey) {
+        throw new Error('ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.');
+      }
       this.client = new Anthropic({ apiKey });
       log.info('Claude LLM initialized successfully');
     } catch (error) {

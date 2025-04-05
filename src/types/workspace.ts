@@ -1,8 +1,9 @@
+import { BrowserWindow } from 'electron';
+
 export interface WorkspaceWindow {
     windowId: string;
     workspacePath: string;
-    isMinimized: boolean;
-    isActive: boolean;
+    browserWindow?: BrowserWindow;
 }
 
 export interface WorkspaceMetadata {

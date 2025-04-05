@@ -239,7 +239,15 @@ export class ChatSessionManager {
       };
     } catch (error) {
       log.error(`Error switching model for tab ${tabId}:`, error);
-      throw error;
+      const systemMessage: ChatMessage = {
+        role: 'system',
+        content: `Failed to create LLM instance for model ${modelType}, error: ${error}`
+      };
+      session.lastSyncId++;
+      return {
+        updates: [systemMessage],
+        lastSyncId: session.lastSyncId
+      };
     }
   }
 

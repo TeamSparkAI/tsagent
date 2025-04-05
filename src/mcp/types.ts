@@ -14,6 +14,11 @@ export type McpConfigFileServerConfig =
   | { type: 'sse'; url: string; headers?: Record<string, string> }
   | { type: 'internal'; tool: 'rules' | 'references' };
 
+// Type for the MCP configuration file structure
+export interface McpConfigFile {
+  mcpServers: Record<string, McpConfigFileServerConfig>;
+}
+
 // Helper function to determine server type from config
 export function determineServerType(config: Omit<McpConfigFileServerConfig, 'type'>): McpConfigFileServerConfig['type'] {
   if ('command' in config) return 'stdio';

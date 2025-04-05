@@ -25,6 +25,7 @@ interface TabManagerProps {
   activeTabId: string | null;
   onTabChange: (id: string | null) => void;
   onCloseTab: (id: string) => void;
+  hasWorkspace: boolean;
 }
 
 export const TabManager: React.FC<TabManagerProps> = ({ 
@@ -32,7 +33,8 @@ export const TabManager: React.FC<TabManagerProps> = ({
   onAddTab,
   activeTabId,
   onTabChange,
-  onCloseTab
+  onCloseTab,
+  hasWorkspace
 }) => {
   return (
     <div className="tab-container">
@@ -49,7 +51,9 @@ export const TabManager: React.FC<TabManagerProps> = ({
             }
           </button>
         ))}
-        <button className="new-tab-button" onClick={() => onAddTab('chat')}>+ New Chat</button>
+        {hasWorkspace && (
+          <button className="new-tab-button" onClick={() => onAddTab('chat')}>+ New Chat</button>
+        )}
       </div>
       {React.Children.map(children, child => {
         if (React.isValidElement<TabChildProps>(child)) {

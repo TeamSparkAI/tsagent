@@ -42,7 +42,14 @@ const api: API = {
   switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
   showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
-  onWorkspaceSwitched: (callback: () => void) => ipcRenderer.on('workspace:switched', callback)
+  onWorkspaceSwitched: (callback: () => void) => {
+    log.info('[PRELOAD] Setting up workspace:switched event listener');
+    ipcRenderer.on('workspace:switched', () => {
+      log.info('[PRELOAD] Received workspace:switched event, calling callback');
+      callback();
+    });
+    log.info('[PRELOAD] workspace:switched event listener set up');
+  }
 };
 
 // Log the API object to verify it's defined
