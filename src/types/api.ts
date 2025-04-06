@@ -47,5 +47,5 @@ export interface API {
   switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
   showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
   getCurrentWindowId: () => Promise<string>;
-  onWorkspaceSwitched: (callback: () => void) => void;
+  onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => void;
 } 

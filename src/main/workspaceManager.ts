@@ -157,11 +157,15 @@ export class WorkspaceManager extends EventEmitter {
                 log.info(`[WORKSPACE REGISTER] Emitting workspace:switched event for window ${windowId} with workspace ${workspacePath}`);
                 this.emit('workspace:switched', { windowId, workspacePath });
                 
-                // Send the event to all windows
-                log.info(`[WORKSPACE REGISTER] Sending workspace:switched event to all windows`);
+                // Send the event to all windows, but include targetWindowId to indicate which window should update its content
+                log.info(`[WORKSPACE REGISTER] Sending workspace:switched event to all windows with targetWindowId ${windowId}`);
                 BrowserWindow.getAllWindows().forEach(win => {
                     log.info(`[WORKSPACE REGISTER] Sending workspace:switched event to window ${win.id}`);
-                    win.webContents.send('workspace:switched');
+                    win.webContents.send('workspace:switched', { 
+                        windowId, 
+                        workspacePath,
+                        targetWindowId: windowId // This indicates which window should update its content
+                    });
                 });
             }
             
@@ -696,13 +700,14 @@ export class WorkspaceManager extends EventEmitter {
                 // Notify the renderer process that configuration has changed
                 browserWindow.webContents.send('configuration:changed');
                 
-                // Send the event to all windows
-                log.info(`[WORKSPACE SWITCH] Sending workspace:switched event to all windows`);
-                BrowserWindow.getAllWindows().forEach(window => {
-                    log.info(`[WORKSPACE SWITCH] Sending workspace:switched event to window ${window.id}`);
-                    window.webContents.send('workspace:switched', {
+                // Send the event to all windows, but include targetWindowId to indicate which window should update its content
+                log.info(`[WORKSPACE SWITCH] Sending workspace:switched event to all windows with targetWindowId ${windowId}`);
+                BrowserWindow.getAllWindows().forEach(win => {
+                    log.info(`[WORKSPACE SWITCH] Sending workspace:switched event to window ${win.id}`);
+                    win.webContents.send('workspace:switched', {
                         windowId,
-                        workspacePath
+                        workspacePath,
+                        targetWindowId: windowId // This indicates which window should update its content
                     });
                 });
             } else {

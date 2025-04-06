@@ -57,13 +57,35 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
     };
     
     // Listen for workspace switched event using the API method
-    const handleWorkspaceSwitched = () => {
-      log.info('[WORKSPACE TAB] Received workspace:switched event, refreshing data');
-      // Force a refresh of the data
-      loadData().then(() => {
-        log.info('[WORKSPACE TAB] Data refreshed after workspace switch');
+    const handleWorkspaceSwitched = (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {
+      log.info('[WORKSPACE TAB] Received workspace:switched event with data:', data);
+      
+      // Get the current window ID
+      window.api.getCurrentWindowId().then(id => {
+        log.info(`[WORKSPACE TAB] Current window ID: ${id}, target window ID: ${data.targetWindowId}`);
+        
+        // Only update the UI if this event is targeted at the current window
+        if (id === data.targetWindowId) {
+          log.info(`[WORKSPACE TAB] Event is targeted at this window, refreshing data`);
+          // Force a refresh of the data
+          loadData().then(() => {
+            log.info('[WORKSPACE TAB] Data refreshed after workspace switch');
+          }).catch(error => {
+            log.error('[WORKSPACE TAB] Error refreshing data after workspace switch:', error);
+          });
+        } else {
+          log.info(`[WORKSPACE TAB] Event is not targeted at this window, ignoring`);
+          // Even if not targeted, we should still update the activeWindows list
+          // but we'll do it without refreshing the entire UI
+          window.api.getActiveWindows().then(windows => {
+            log.info(`[WORKSPACE TAB] Updating activeWindows list without refreshing UI`);
+            setActiveWindows(windows);
+          }).catch(error => {
+            log.error(`[WORKSPACE TAB] Error updating activeWindows list:`, error);
+          });
+        }
       }).catch(error => {
-        log.error('[WORKSPACE TAB] Error refreshing data after workspace switch:', error);
+        log.error(`[WORKSPACE TAB] Error getting current window ID:`, error);
       });
     };
     
@@ -286,6 +308,8 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
   const filteredRecentWorkspaces = recentWorkspaces.filter(path => !activePaths.includes(path));
   
   log.debug('Workspace state:', {
+    currentWindowId,
+    currentWorkspace,
     activePaths,
     recentWorkspaces,
     filteredRecentWorkspaces
@@ -337,7 +361,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
             <div className="workspace-info">
               <h3>Current Workspace</h3>
               <p>Path: {currentWorkspace.workspacePath}</p>
-              <p>Window ID: {currentWorkspace.windowId}</p>
+              <p>Window ID: {currentWindowId}</p>
             </div>
           ) : (
             <div className="no-workspace">

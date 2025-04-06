@@ -104,9 +104,24 @@ export const App: React.FC = () => {
     checkWorkspace();
     
     // Listen for workspace switched event from the API
-    const handleWorkspaceSwitched = () => {
-      log.info('[APP] Workspace switched event received from API, updating tabs');
-      checkWorkspace();
+    const handleWorkspaceSwitched = (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {
+      log.info('[APP] Workspace switched event received from API with data:', data);
+      
+      // Get the current window ID
+      window.api.getCurrentWindowId().then(id => {
+        log.info(`[APP] Current window ID: ${id}, target window ID: ${data.targetWindowId}`);
+        
+        // Only update the UI if this event is targeted at the current window
+        if (id === data.targetWindowId) {
+          log.info(`[APP] Event is targeted at this window, updating tabs`);
+          checkWorkspace();
+        } else {
+          log.info(`[APP] Event is not targeted at this window, ignoring`);
+          // We don't need to do anything for non-targeted windows
+        }
+      }).catch(error => {
+        log.error(`[APP] Error getting current window ID:`, error);
+      });
     };
     
     log.info('[APP] Setting up workspace:switched event listener');

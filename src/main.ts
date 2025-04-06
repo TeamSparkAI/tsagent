@@ -47,6 +47,7 @@ function createWindow(workspacePath?: string): BrowserWindow {
   window.webContents.openDevTools();
 
   // Set up event listener for rules changes
+  // Use global rulesManager if available
   if (rulesManager) {
     rulesManager.on('rulesChanged', () => {
       if (window) {
@@ -56,6 +57,7 @@ function createWindow(workspacePath?: string): BrowserWindow {
   }
 
   // Set up event listener for references changes
+  // Use global referencesManager if available
   if (referencesManager) {
     referencesManager.on('referencesChanged', () => {
       if (window) {
@@ -70,7 +72,11 @@ function createWindow(workspacePath?: string): BrowserWindow {
     log.info(`[MAIN] Received workspace:switched event from WorkspaceManager:`, event);
     if (window) {
       log.info(`[MAIN] Sending workspace:switched event to main window ${window.id}`);
-      window.webContents.send('workspace:switched');
+      window.webContents.send('workspace:switched', {
+        windowId: event.windowId,
+        workspacePath: event.workspacePath,
+        targetWindowId: event.windowId
+      });
     } else {
       log.warn(`[MAIN] Cannot send workspace:switched event - mainWindow is null`);
     }
@@ -188,6 +194,26 @@ async function startApp() {
     app.setName('TeamSpark Workbench');
 
     intializeLogging(true);
+
+    // Implement single instance lock
+    const gotTheLock = app.requestSingleInstanceLock();
+    if (!gotTheLock) {
+      log.info('Another instance is already running, quitting this instance');
+      app.quit();
+      return;
+    } else {
+      // We're the first instance, set up the second-instance handler
+      app.on('second-instance', (event, commandLine, workingDirectory) => {
+        log.info('Second instance launched, focusing existing window');
+        // Someone tried to run a second instance, we should focus our window.
+        if (mainWindow) {
+          if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+          }
+          mainWindow.focus();
+        }
+      });
+    }
 
     let mainWindow: BrowserWindow | null = null;
     const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
@@ -624,10 +650,11 @@ function setupIpcHandlers() {
     return WorkspaceManager.getInstance().getRecentWorkspaces();
   });
 
-  ipcMain.handle('workspace:getCurrentWindowId', () => {
-    const currentWindow = BrowserWindow.getFocusedWindow();
+  ipcMain.handle('workspace:getCurrentWindowId', (event) => {
+    // Get the window that sent the request
+    const currentWindow = BrowserWindow.fromWebContents(event.sender);
     if (!currentWindow) {
-      log.warn('No focused window found when getting current window ID');
+      log.warn('No window found for the renderer process');
       return null;
     }
     
@@ -770,70 +797,38 @@ function setupIpcHandlers() {
   });
 
   // Handle workspace switching
-  ipcMain.on('workspace:switched', async (_, { windowId, workspacePath }) => {
+  ipcMain.on('workspace:switched', async (event, { windowId, workspacePath }) => {
     try {
-        log.info(`[WORKSPACE MANAGER] Reloading workspace for window ${windowId} at ${workspacePath}`);
-        
-        // Get the ConfigManager for the new workspace
-        const configManager = await WorkspaceManager.getInstance().getConfigManager(workspacePath);
-        
-        // Get the config directory for this workspace
-        const configDir = configManager.getConfigDir();
-        log.info(`[WORKSPACE MANAGER] Using config directory: ${configDir}`);
-        
-        // Initialize RulesManager and ReferencesManager with the config directory
-        rulesManager = new RulesManager(configDir);
-        referencesManager = new ReferencesManager(configDir);
-        
-        // Create AppState
-        log.info(`[WORKSPACE MANAGER] Creating new AppState with ConfigManager for path: ${configDir}`);
-        appState = new AppState(configManager, rulesManager, referencesManager, null as any);
-        
-        // Initialize MCP clients
-        const mcpServers = await configManager.getMcpConfig();
-        for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-          try {
-            const client = createMcpClientFromConfig(appState, serverConfig);                  
-            await client.connect();
-            mcpClients.set(serverName, client);
-          } catch (error) {
-            log.error(`Error initializing MCP client for ${serverName}:`, error);
-          }
-        }
-        
-        // Initialize MCP client manager with the connected clients
-        const mcpClientManager = new MCPClientManager(appState, mcpClients);
-        
-        // Set MCP client manager in AppState
-        appState.setMCPManager(mcpClientManager);
-        
-        // Initialize ChatSessionManager with AppState
-        chatSessionManager = new ChatSessionManager(appState);
-        
-        // Initialize the LLM Factory with AppState
-        log.info('[WORKSPACE MANAGER] Initializing LLMFactory with new AppState');
-        LLMFactory.initialize(appState);
-        log.info('[WORKSPACE MANAGER] LLMFactory initialization complete');
-        
-        // Notify the renderer process about the configuration change
-        BrowserWindow.getAllWindows().forEach(window => {
-            window.webContents.send('config:changed', {
-                configPath: configDir,
-                promptPath: path.join(configDir, 'prompt.md')
-            });
+      log.info(`[WORKSPACE MANAGER] Reloading workspace for window ${windowId} at ${workspacePath}`);
+      
+      // Get the window that sent the request
+      const currentWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!currentWindow) {
+        log.warn('No window found for the renderer process');
+        return;
+      }
+      
+      // Verify that the window ID matches the window that sent the request
+      if (currentWindow.id.toString() !== windowId) {
+        log.warn(`[WORKSPACE MANAGER] Window ID mismatch: expected ${windowId}, got ${currentWindow.id}`);
+        return;
+      }
+      
+      // Re-initialize global managers and state based on the new workspace path
+      await initializeWorkspace(workspacePath);
+      
+      // Notify the renderer process about the workspace switch
+      BrowserWindow.getAllWindows().forEach(window => {
+        window.webContents.send('workspace:switched', {
+          windowId,
+          workspacePath,
+          targetWindowId: windowId // Add targetWindowId to indicate which window should update its content
         });
-        
-        // Notify the renderer process about the workspace switch
-        BrowserWindow.getAllWindows().forEach(window => {
-            window.webContents.send('workspace:switched', {
-                windowId,
-                workspacePath
-            });
-        });
-        
-        log.info(`[WORKSPACE MANAGER] Workspace initialization completed for ${workspacePath}`);
+      });
+      
+      log.info(`[WORKSPACE MANAGER] Workspace initialization completed for ${workspacePath}`);
     } catch (error) {
-        log.error('[WORKSPACE MANAGER] Error during workspace initialization:', error);
+      log.error('[WORKSPACE MANAGER] Error during workspace initialization:', error);
     }
   });
 }
