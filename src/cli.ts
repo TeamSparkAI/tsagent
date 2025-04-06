@@ -36,10 +36,7 @@ const mcpClients = new Map<string, McpClient>();
 async function toolsCommand() {
   try {
     const configDir = configManager.getConfigDir();
-    const rulesManager = new RulesManager(configDir);
-    const referencesManager = new ReferencesManager(configDir);
-  
-    const appState = new AppState(configManager, rulesManager, referencesManager, null as any);
+    const appState = new AppState(configManager, null as any);
 
     const mcpServers = await configManager.getMcpConfig();
 

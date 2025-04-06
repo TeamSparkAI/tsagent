@@ -228,9 +228,9 @@ export function createMcpClientFromConfig(appState: AppState, clientConfig: McpC
         );
     } else if (serverType === 'internal') {
         if (config.tool === 'rules') {
-            client = new McpClientInternalRules(appState.getRulesManager());
+            client = new McpClientInternalRules(appState.rulesManager);
         } else if (config.tool === 'references') {
-            client = new McpClientInternalReferences(appState.getReferencesManager());
+            client = new McpClientInternalReferences(appState.referencesManager);
         } else {
             throw new Error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
         }

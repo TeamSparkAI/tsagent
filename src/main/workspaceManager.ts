@@ -652,16 +652,12 @@ export class WorkspaceManager extends EventEmitter {
             const configDir = configManager.getConfigDir();
             log.info(`[WORKSPACE SWITCH] Using config directory: ${configDir}`);
 
-            // Initialize RulesManager and ReferencesManager with the config directory
-            const rulesManager = new RulesManager(configDir);
-            const referencesManager = new ReferencesManager(configDir);
-
             // Create a temporary MCPClientManager
             const tempMcpManager = new MCPClientManager(null as any, new Map());
 
             // Create AppState with temporary MCPClientManager
             log.info(`[WORKSPACE MANAGER] Creating new AppState with ConfigManager for path: ${configDir}`);
-            appState = new AppState(configManager, rulesManager, referencesManager, tempMcpManager);
+            appState = new AppState(configManager, tempMcpManager);
             
             // Initialize MCP clients
             const mcpServers: Record<string, McpConfig> = await configManager.getMcpConfig();

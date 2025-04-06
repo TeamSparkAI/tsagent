@@ -153,7 +153,7 @@ export class ChatSessionManager {
     // Add the references and rules to the messages array (both new and existing)
     //
     for (const referenceName of session.references) {
-      const reference = this.appState.getReferencesManager().getReference(referenceName);
+      const reference = this.appState.referencesManager.getReference(referenceName);
       if (reference) {
         messages.push({
           role: 'user',
@@ -162,7 +162,7 @@ export class ChatSessionManager {
       }
     }
     for (const ruleName of session.rules) {
-      const rule = this.appState.getRulesManager().getRule(ruleName);
+      const rule = this.appState.rulesManager.getRule(ruleName);
       if (rule) {
         messages.push({
           role: 'user',

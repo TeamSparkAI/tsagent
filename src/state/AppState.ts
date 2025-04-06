@@ -6,19 +6,17 @@ import log from 'electron-log';
 
 export class AppState {
   private configManager: ConfigManager;
-  private rulesManager: RulesManager;
-  private referencesManager: ReferencesManager;
+  private _rulesManager: RulesManager;
+  private _referencesManager: ReferencesManager;
   private mcpManager: MCPClientManager;
 
   constructor(
     configManager: ConfigManager,
-    rulesManager: RulesManager,
-    referencesManager: ReferencesManager,
     mcpManager: MCPClientManager
   ) {
     this.configManager = configManager;
-    this.rulesManager = rulesManager;
-    this.referencesManager = referencesManager;
+    this._rulesManager = new RulesManager(configManager.getConfigDir());
+    this._referencesManager = new ReferencesManager(configManager.getConfigDir());
     this.mcpManager = mcpManager;
     log.info('AppState initialized');
   }
@@ -27,12 +25,12 @@ export class AppState {
     return this.configManager;
   }
 
-  getRulesManager(): RulesManager {
-    return this.rulesManager;
+  get rulesManager(): RulesManager {
+    return this._rulesManager;
   }
 
-  getReferencesManager(): ReferencesManager {
-    return this.referencesManager;
+  get referencesManager(): ReferencesManager {
+    return this._referencesManager;
   }
 
   getMCPManager(): MCPClientManager {

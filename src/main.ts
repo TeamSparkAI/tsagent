@@ -22,8 +22,6 @@ const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
 let mcpManager: MCPClientManager;
-let rulesManager: RulesManager;
-let referencesManager: ReferencesManager;
 let chatSessionManager: ChatSessionManager;
 let appState: AppState;
 let mainWindow: BrowserWindow | null = null;
@@ -46,10 +44,11 @@ function createWindow(workspacePath?: string): BrowserWindow {
   
   window.webContents.openDevTools();
 
+  /* !!! This used to rely on app-global rules and references managers, but now we rely on the workspace-specific ones
   // Set up event listener for rules changes
   // Use global rulesManager if available
-  if (rulesManager) {
-    rulesManager.on('rulesChanged', () => {
+  if (appState.rulesManager) {
+    appState.rulesManager.on('rulesChanged', () => {
       if (window) {
         window.webContents.send('rules-changed');
       }
@@ -58,13 +57,14 @@ function createWindow(workspacePath?: string): BrowserWindow {
 
   // Set up event listener for references changes
   // Use global referencesManager if available
-  if (referencesManager) {
-    referencesManager.on('referencesChanged', () => {
+  if (appState.referencesManager) {
+    appState.referencesManager.on('referencesChanged', () => {
       if (window) {
         window.webContents.send('references-changed');
       }
     });
   }
+  */
 
   // Set up event listener for workspace changes
   const workspaceManager = WorkspaceManager.getInstance();
@@ -125,13 +125,8 @@ export async function initializeWorkspace(workspacePath: string) {
   const configDir = configManager.getConfigDir();
   log.info(`Using config directory: ${configDir}`);
   
-  // Initialize managers
-  log.info('Initializing managers with config directory:', configDir);
-  rulesManager = new RulesManager(configDir);
-  referencesManager = new ReferencesManager(configDir);
-
   // Create AppState
-  appState = new AppState(configManager, rulesManager, referencesManager, null as any);
+  appState = new AppState(configManager, null as any);
 
   // Initialize MCP clients
   const mcpServers = await configManager.getMcpConfig();
@@ -253,52 +248,52 @@ async function startApp() {
 function setupIpcHandlers() {
   // Rules IPC handlers
   ipcMain.handle('get-rules', () => {
-    if (!rulesManager) {
+    if (!appState.rulesManager) {
       log.warn('RulesManager not initialized');
       return [];
     }
-    return rulesManager.getRules();
+    return appState.rulesManager.getRules();
   });
 
   ipcMain.handle('save-rule', (_, rule) => {
-    if (!rulesManager) {
+    if (!appState.rulesManager) {
       log.warn('RulesManager not initialized');
       throw new Error('RulesManager not initialized');
     }
-    return rulesManager.saveRule(rule);
+    return appState.rulesManager.saveRule(rule);
   });
 
   ipcMain.handle('delete-rule', (_, name) => {
-    if (!rulesManager) {
+    if (!appState.rulesManager) {
       log.warn('RulesManager not initialized');
       throw new Error('RulesManager not initialized');
     }
-    return rulesManager.deleteRule(name);
+    return appState.rulesManager.deleteRule(name);
   });
 
   // References IPC handlers
   ipcMain.handle('get-references', () => {
-    if (!referencesManager) {
+    if (!appState.referencesManager) {
       log.warn('ReferencesManager not initialized');
       return [];
     }
-    return referencesManager.getReferences();
+    return appState.referencesManager.getReferences();
   });
 
   ipcMain.handle('save-reference', (_, reference) => {
-    if (!referencesManager) {
+    if (!appState.referencesManager) {
       log.warn('ReferencesManager not initialized');
       throw new Error('ReferencesManager not initialized');
     }
-    return referencesManager.saveReference(reference);
+    return appState.referencesManager.saveReference(reference);
   });
 
   ipcMain.handle('delete-reference', (_, name) => {
-    if (!referencesManager) {
+    if (!appState.referencesManager) {
       log.warn('ReferencesManager not initialized');
       throw new Error('ReferencesManager not initialized');
     }
-    return referencesManager.deleteReference(name);
+    return appState.referencesManager.deleteReference(name);
   });
 
   // Chat session IPC handlers
