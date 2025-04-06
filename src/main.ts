@@ -2,7 +2,7 @@ import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron';
 import * as path from 'path';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
-import { McpClientStdio, McpClientSse } from './mcp/client';
+import { createMcpClientFromConfig } from './mcp/client';
 import { MCPClientManager } from './mcp/manager';
 import { RulesManager } from './state/RulesManager';
 import { ReferencesManager } from './state/ReferencesManager';
@@ -14,10 +14,7 @@ import { McpClient, McpConfig, McpConfigFileServerConfig, determineServerType } 
 import { ConfigManager } from './state/ConfigManager';
 import { ChatSessionManager } from './state/ChatSessionManager';
 import { AppState } from './state/AppState';
-import { McpClientInternalRules } from './mcp/InternalClientRules';
-import { McpClientInternalReferences } from './mcp/InternalClientReferences';
 import { WorkspaceManager } from './main/workspaceManager';
-import { EventEmitter } from 'events';
 
 // Configure electron-log
 // Remove the global ConfigManager instance
@@ -134,40 +131,12 @@ export async function initializeWorkspace(workspacePath: string) {
   const mcpServers = await configManager.getMcpConfig();
   for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
     try {
-      let client: McpClient;
-      
       if (!serverConfig || !serverConfig.config) {
         log.error(`Invalid server configuration for ${serverName}: missing config property`);
         continue;
       }
 
-      const config = serverConfig.config;
-
-      log.info(`Server config: ${JSON.stringify(config)}`);
-      
-      // Simple type check without assertions
-      if (config.type === 'stdio' || !config.type) {
-        client = new McpClientStdio({
-          command: config.command,
-          args: config.args,
-          env: config.env
-        });
-      } else if (config.type === 'sse') {
-        client = new McpClientSse(new URL(config.url), config.headers);
-      } else if (config.type === 'internal') {
-        if (config.tool === 'rules') {
-          client = new McpClientInternalRules(rulesManager);
-        } else if (config.tool === 'references') {
-          client = new McpClientInternalReferences(referencesManager);
-        } else {
-          log.error('Unknown internal server tool:', config.tool, 'for server:', serverName);
-          continue;
-        }
-      } else {
-        log.error(`Unsupported server type for server: ${serverName}`);
-        continue;
-      }
-      
+      const client = createMcpClientFromConfig(appState, serverConfig);      
       if (client) {
         await client.connect();
         mcpClients.set(serverName, client);
@@ -486,29 +455,7 @@ function setupIpcHandlers() {
         
         const config = serverConfig.config;
         
-        // Simple type check without assertions
-        if (config.type === 'stdio' || !config.type) {
-          client = new McpClientStdio({
-            command: config.command,
-            args: config.args,
-            env: config.env
-          });
-        } else if (config.type === 'sse') {
-          client = new McpClientSse(new URL(config.url), config.headers);
-        } else if (config.type === 'internal') {
-          if (config.tool === 'rules') {
-            client = new McpClientInternalRules(rulesManager);
-          } else if (config.tool === 'references') {
-            client = new McpClientInternalReferences(referencesManager);
-          } else {
-            log.error('Unknown internal server tool:', config.tool, 'for server:', serverName);
-            throw new Error(`Unknown internal server tool: ${config.tool}`);
-          }
-        } else {
-          log.error(`Unsupported server type for server: ${serverName}`);
-          throw new Error(`Unsupported server type`);
-        }
-        
+        client = createMcpClientFromConfig(appState, serverConfig);      
         if (client) {
           await client.connect();
           mcpClients.set(serverName, client);
@@ -846,32 +793,7 @@ function setupIpcHandlers() {
         const mcpServers = await configManager.getMcpConfig();
         for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
           try {
-            let client: McpClient;
-            const config = serverConfig.config;
-            
-            // Simple type check without assertions
-            if (config.type === 'stdio') {
-              client = new McpClientStdio({
-                command: config.command,
-                args: config.args,
-                env: config.env
-              });
-            } else if (config.type === 'sse') {
-              client = new McpClientSse(new URL(config.url), config.headers);
-            } else if (config.type === 'internal') {
-              if (config.tool === 'rules') {
-                client = new McpClientInternalRules(rulesManager);
-              } else if (config.tool === 'references') {
-                client = new McpClientInternalReferences(referencesManager);
-              } else {
-                log.error('Unknown internal server tool:', config.tool, 'for server:', serverName);
-                continue;
-              }
-            } else {
-              log.error('Unsupported server type for server:', serverName);
-              continue;
-            }
-            
+            const client = createMcpClientFromConfig(appState, serverConfig);                  
             await client.connect();
             mcpClients.set(serverName, client);
           } catch (error) {

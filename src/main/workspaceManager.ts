@@ -2,7 +2,7 @@ import { app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as log from 'electron-log';
-import { WorkspaceWindow, WorkspaceMetadata, WorkspaceConfig } from '../types/workspace';
+import { WorkspaceWindow, WorkspaceConfig } from '../types/workspace';
 import { ConfigManager } from '../state/ConfigManager';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
@@ -11,11 +11,8 @@ import { ReferencesManager } from '../state/ReferencesManager';
 import { AppState } from '../state/AppState';
 import { MCPClientManager } from '../mcp/manager';
 import { ChatSessionManager } from '../state/ChatSessionManager';
-import { LLMFactory } from '../llm/llmFactory';
 import { McpClient, McpConfig, McpConfigFileServerConfig } from '../mcp/types';
-import { McpClientStdio, McpClientSse } from '../mcp/client';
-import { McpClientInternalRules } from '../mcp/InternalClientRules';
-import { McpClientInternalReferences } from '../mcp/InternalClientReferences';
+import { createMcpClientFromConfig } from '../mcp/client';
 
 // Near the top with other state
 const mcpClients = new Map<string, McpClient>();
@@ -672,31 +669,7 @@ export class WorkspaceManager extends EventEmitter {
                             continue;
                         }
                         
-                        const config = serverConfig.config;
-                        let client: McpClient;
-                        
-                        if (!config.type || config.type === 'stdio') {
-                            client = new McpClientStdio({
-                                command: config.command,
-                                args: config.args || [],
-                                env: config.env
-                            });
-                        } else if (config.type === 'sse') {
-                            client = new McpClientSse(new URL(config.url), config.headers);
-                        } else if (config.type === 'internal') {
-                            if (config.tool === 'rules') {
-                                client = new McpClientInternalRules(rulesManager);
-                            } else if (config.tool === 'references') {
-                                client = new McpClientInternalReferences(referencesManager);
-                            } else {
-                                log.error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
-                                continue;
-                            }
-                        } else {
-                            //log.error(`Unsupported server type: ${config.type} for server: ${serverName}`);
-                            continue;
-                        }
-
+                        const client = createMcpClientFromConfig(appState, serverConfig);      
                         if (client) {
                             await client.connect();
                             mcpClients.set(serverName, client);

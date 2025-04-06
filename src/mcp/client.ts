@@ -1,11 +1,14 @@
-import { McpClient } from './types';
+import { McpClient, McpConfig } from './types';
 import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
-import { SSEClientTransport, SSEClientTransportOptions } from '@modelcontextprotocol/sdk/client/sse';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
 import { Client } from '@modelcontextprotocol/sdk/client/index';
-import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
+import { CallToolResult, ClientResultSchema, Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
+import { McpClientInternalRules } from './InternalClientRules';
+import { McpClientInternalReferences } from './InternalClientReferences';
+import { AppState } from '../state/AppState';
 
 export abstract class McpClientBase {
     protected mcp: Client;
@@ -204,4 +207,36 @@ export class McpClientSse extends McpClientBase implements McpClient {
 
         return new SSEClientTransport(this.url);
     }
+}
+
+export function createMcpClientFromConfig(appState: AppState, clientConfig: McpConfig) : McpClient {
+    let client: McpClient;
+    const serverName = clientConfig.name;
+    const config = clientConfig.config;
+    const serverType = config.type;
+    
+    if (!serverType || serverType === 'stdio') {
+        client = new McpClientStdio({
+            command: config.command,
+            args: config.args || [],
+            env: config.env
+        });
+    } else if (serverType === 'sse') {
+        client = new McpClientSse(
+            new URL(config.url), 
+            config.headers
+        );
+    } else if (serverType === 'internal') {
+        if (config.tool === 'rules') {
+            client = new McpClientInternalRules(appState.getRulesManager());
+        } else if (config.tool === 'references') {
+            client = new McpClientInternalReferences(appState.getReferencesManager());
+        } else {
+            throw new Error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
+        }
+    } else {
+        throw new Error(`Unknown server type: ${serverType} for server: ${serverName}`);
+    }
+
+    return client;
 }

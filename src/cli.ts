@@ -3,11 +3,14 @@ import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
 import { ConfigManager } from './state/ConfigManager';
 import { McpClient, McpConfigFileServerConfig } from './mcp/types';
-import { McpClientStdio, McpClientSse } from './mcp/client';
+import { McpClientStdio, McpClientSse, createMcpClientFromConfig } from './mcp/client';
 import log from 'electron-log';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatMessage } from './types/ChatSession';
 import path from 'path';
+import { AppState } from './state/AppState';
+import { RulesManager } from './state/RulesManager';
+import { ReferencesManager } from './state/ReferencesManager';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -32,6 +35,12 @@ const mcpClients = new Map<string, McpClient>();
 
 async function toolsCommand() {
   try {
+    const configDir = configManager.getConfigDir();
+    const rulesManager = new RulesManager(configDir);
+    const referencesManager = new ReferencesManager(configDir);
+  
+    const appState = new AppState(configManager, rulesManager, referencesManager, null as any);
+
     const mcpServers = await configManager.getMcpConfig();
 
     console.log('Checking available tools on MCP servers...\n');
@@ -41,20 +50,7 @@ async function toolsCommand() {
       console.log(`Server: ${serverId}`);
       console.log('------------------------');
 
-      let client: McpClient;
-      if (serverConfig.config.type === 'stdio') {
-        client = new McpClientStdio({
-          command: serverConfig.config.command,
-          args: serverConfig.config.args,
-          env: serverConfig.config.env
-        });
-      } else if (serverConfig.config.type === 'sse') {
-        client = new McpClientSse(new URL(serverConfig.config.url), serverConfig.config.headers);
-      } else {
-        console.log('Unsupported server type:', serverConfig.config.type);
-        continue;
-      }
-
+      const client = createMcpClientFromConfig(appState, serverConfig);
       try {
         await client.connect();
         

@@ -39,7 +39,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     const handleSave = () => {
         const serverConfig: McpConfig = {
             name,
-            config: serverType === 'stdio' 
+            config: serverType === 'stdio'
                 ? {
                     type: 'stdio',
                     command,
@@ -572,7 +572,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                             }}
                         >
                             <span>{server.name}</span>
-                            <span style={{ color: '#666', fontSize: '0.9em' }}>({server.config.type})</span>
+                            <span style={{ color: '#666', fontSize: '0.9em' }}>({server.config.type ?? "stdio"})</span>
                         </div>
                     ))}
                 </div>
