@@ -3,14 +3,12 @@ import * as path from 'path';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
 import { createMcpClientFromConfig } from './mcp/client';
-import { MCPClientManager } from './mcp/manager';
 import log from 'electron-log';
 import 'dotenv/config';
 import * as fs from 'fs';
 import { setupCLI } from './cli';
-import { McpClient, McpConfig, McpConfigFileServerConfig, determineServerType } from './mcp/types';
+import { McpClient, McpConfig } from './mcp/types';
 import { ConfigManager } from './state/ConfigManager';
-import { ChatSessionManager } from './state/ChatSessionManager';
 import { AppState } from './state/AppState';
 import { WorkspaceManager } from './main/workspaceManager';
 
@@ -19,9 +17,7 @@ import { WorkspaceManager } from './main/workspaceManager';
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
-let chatSessionManager: ChatSessionManager;
 let appState: AppState;
-let mainWindow: BrowserWindow | null = null;
 let workspaceManager: WorkspaceManager;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 const llmTypes = new Map<string, LLMType>();
@@ -130,9 +126,6 @@ export async function initializeWorkspace(workspacePath: string) {
   appState = new AppState(configManager);
   await appState.initialize();
   
-  // Initialize ChatSessionManager with AppState
-  chatSessionManager = new ChatSessionManager(appState);
-
   // Initialize the LLM Factory with AppState
   log.info('Initializing LLMFactory with AppState');
   LLMFactory.initialize(appState);
@@ -293,12 +286,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   // Chat session IPC handlers
   ipcMain.handle('create-chat-tab', (_, tabId: string) => {
-    if (!chatSessionManager) {
+    if (!appState.chatSessionManager) {
       log.warn('ChatSessionManager not initialized');
       throw new Error('ChatSessionManager not initialized');
     }
     try {
-      chatSessionManager.createSession(tabId);
+      appState.chatSessionManager.createSession(tabId);
       return { success: true };
     } catch (error) {
       log.error('Error creating chat tab:', error);
@@ -310,12 +303,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   ipcMain.handle('close-chat-tab', (_, tabId: string) => {
-    if (!chatSessionManager) {
+    if (!appState.chatSessionManager) {
       log.warn('ChatSessionManager not initialized');
       throw new Error('ChatSessionManager not initialized');
     }
     try {
-      chatSessionManager.deleteSession(tabId);
+      appState.chatSessionManager.deleteSession(tabId);
       return { success: true };
     } catch (error) {
       log.error('Error closing chat tab:', error);
@@ -327,12 +320,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   ipcMain.handle('get-chat-state', (_, tabId: string) => {
-    if (!chatSessionManager) {
+    if (!appState.chatSessionManager) {
       log.warn('ChatSessionManager not initialized');
       throw new Error('ChatSessionManager not initialized');
     }
     try {
-      return chatSessionManager.getSessionState(tabId);
+      return appState.chatSessionManager.getSessionState(tabId);
     } catch (error) {
       log.error('Error getting chat state:', error);
       throw error;
@@ -341,7 +334,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('send-message', async (_, tabId: string, message: string) => {
     try {
-      return await chatSessionManager.handleMessage(tabId, message);
+      return await appState.chatSessionManager.handleMessage(tabId, message);
     } catch (error) {
       log.error('Error sending message:', error);
       throw error;
@@ -350,7 +343,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('switch-model', (_, tabId: string, modelType: LLMType) => {
     try {
-      const result = chatSessionManager.switchModel(tabId, modelType);
+      const result = appState.chatSessionManager.switchModel(tabId, modelType);
       return { 
         success: true,
         updates: result.updates,
