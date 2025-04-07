@@ -18,7 +18,7 @@ export class ChatSessionManager {
     }
 
     const modelType = options.modelType || LLMType.Test;
-    const llm = LLMFactory.create(modelType);
+    const llm = this.appState.llmFactory.create(modelType);
     if (!llm) {
       throw new Error(`Failed to create LLM instance for model ${modelType}`);
     }
@@ -215,7 +215,7 @@ export class ChatSessionManager {
     
     try {
       // Create new LLM instance
-      const llm = LLMFactory.create(modelType);
+      const llm = this.appState.llmFactory.create(modelType);
       if (!llm) {
         throw new Error(`Failed to create LLM instance for model ${modelType}`);
       }

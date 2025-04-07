@@ -7,14 +7,13 @@ import { AppState } from '../state/AppState';
 import log from 'electron-log';
 
 export class LLMFactory {
-  private static appState: AppState;
+  private appState: AppState;
 
-  static initialize(appState: AppState) {
+  constructor(appState: AppState) {
     this.appState = appState;
-    log.info('LLMFactory initialization complete');
   }
 
-  static create(modelType: LLMType): ILLM {
+  create(modelType: LLMType): ILLM {
     if (!this.appState) {
       throw new Error('LLMFactory not initialized with AppState');
     }

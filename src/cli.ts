@@ -2,15 +2,13 @@ import readline from 'readline';
 import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
 import { ConfigManager } from './state/ConfigManager';
-import { McpClient, McpConfigFileServerConfig } from './mcp/types';
-import { McpClientStdio, McpClientSse, createMcpClientFromConfig } from './mcp/client';
+import { McpClient } from './mcp/types';
+import { McpClientStdio, McpClientSse } from './mcp/client';
 import log from 'electron-log';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatMessage } from './types/ChatSession';
 import path from 'path';
 import { AppState } from './state/AppState';
-import { RulesManager } from './state/RulesManager';
-import { ReferencesManager } from './state/ReferencesManager';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -89,7 +87,7 @@ async function connectToServer(serverName: string) {
   }
 }
 
-export function setupCLI() {
+export function setupCLI(appState: AppState) {
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -103,7 +101,7 @@ export function setupCLI() {
   console.log('  /tools - List available tools from all configured MCP servers');
   console.log('\n');  
   
-  let currentLLM = LLMFactory.create(LLMType.Test);
+  let currentLLM = appState.llmFactory.create(LLMType.Test);
   let currentModel = 'test';
 
   const findModelName = (input: string): string | undefined => {
@@ -141,7 +139,7 @@ export function setupCLI() {
         
         if (modelName) {
           try {
-            currentLLM = LLMFactory.create(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
+            currentLLM = appState.llmFactory.create(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
             currentModel = modelName;
             const displayName = MODEL_DISPLAY_NAMES[modelName] || modelName;
             console.log(`Switched to ${displayName} model`);

@@ -127,13 +127,6 @@ export async function initializeWorkspace(workspacePath: string) {
   appState = new AppState(configManager);
   await appState.initialize();
   
-  // Initialize the LLM Factory with AppState
-  //
-  // !!! This feels like to needs to not be a singleton, and also part of AppState
-  //
-  log.info('Initializing LLMFactory with AppState');
-  LLMFactory.initialize(appState);
-
   log.info('Workspace initialization complete');
 }
 
@@ -151,7 +144,12 @@ async function startApp() {
     configManager.setConfigPath(workspacePath);
     intializeLogging(false);
     await initialize();
-    setupCLI();
+
+    const appState = new AppState(configManager);
+    await appState.initialize();
+
+    // Initialize the LLM Factory with AppState
+    setupCLI(appState);
   } else {
     // For GUI mode, we don't create a ConfigManager at all on startup
     log.info(`GUI mode: No workspace selected on startup`);
