@@ -59,13 +59,13 @@ const api: API = {
   },
 
   // Workspace handlers
+  showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecentWorkspaces'),
-  openWorkspace: (path: string) => ipcRenderer.invoke('workspace:open', path),
+  openWorkspace: (path: string) => ipcRenderer.invoke('workspace:openWorkspace', path),
   openInNewWindow: (path: string) => ipcRenderer.invoke('workspace:openInNewWindow', path),
-  createWorkspace: (path: string) => ipcRenderer.invoke('workspace:create', path),
+  createWorkspace: (path: string) => ipcRenderer.invoke('workspace:createWorkspace', path),
   switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
-  showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => {
     const wrappedCallback = (_: any, data: any) => callback(data);

@@ -44,13 +44,13 @@ export interface API {
   offConfigurationChanged: (listener: () => void) => void;
 
   // Workspace methods
+  showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
   getActiveWindows: () => Promise<WorkspaceWindow[]>;
   getRecentWorkspaces: () => Promise<string[]>;
   openWorkspace: (path: string) => Promise<void>;
   openInNewWindow: (path: string) => Promise<void>;
   createWorkspace: (path: string) => Promise<void>;
   switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
-  showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
   getCurrentWindowId: () => Promise<string>;
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
   offWorkspaceSwitched: (listener: (event: any, data: any) => void) => void;

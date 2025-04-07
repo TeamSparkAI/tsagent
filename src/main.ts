@@ -17,10 +17,11 @@ import { WorkspaceManager } from './main/workspaceManager';
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
-let appState: AppState;
 let workspaceManager: WorkspaceManager;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
-const llmTypes = new Map<string, LLMType>();
+
+// Add Map to store AppState instances per window
+const appStateMap = new Map<string, AppState>();
 
 async function createWindow(workspacePath?: string): Promise<BrowserWindow> {
   const window = new BrowserWindow({
@@ -39,30 +40,13 @@ async function createWindow(workspacePath?: string): Promise<BrowserWindow> {
   // This can be useful for debuggging frontend events that may be emitted before logging is initialized
   // window.webContents.openDevTools();
 
-  /* !!! This used to rely on app-global rules and references managers, but now we rely on the workspace-specific ones
-  // Set up event listener for rules changes
-  // Use global rulesManager if available
-  if (appState.rulesManager) {
-    appState.rulesManager.on('rulesChanged', () => {
-      if (window) {
-        window.webContents.send('rules-changed');
-      }
-    });
-  }
-
-  // Set up event listener for references changes
-  // Use global referencesManager if available
-  if (appState.referencesManager) {
-    appState.referencesManager.on('referencesChanged', () => {
-      if (window) {
-        window.webContents.send('references-changed');
-      }
-    });
-  }
-  */
+  // Replace with:
+  // This code is now handled per-workspace, so we'll update it to use the workspace-specific 
+  // AppState once initializeWorkspace is called. Setting up listeners will happen there.
+  // This comment can be removed when the refactor is complete.
 
   if (workspacePath) {
-    await initializeWorkspace(workspacePath);
+    await initializeWorkspace(workspacePath, window.id.toString());
   }
 
   // Set up event listener for workspace changes
@@ -90,8 +74,18 @@ async function createWindow(workspacePath?: string): Promise<BrowserWindow> {
 }
 
 // Initialize a workspace when one is selected
-export async function initializeWorkspace(workspacePath: string) {
-  log.info(`Initializing workspace: ${workspacePath}`);
+export async function initializeWorkspace(workspacePath: string, windowId?: string) {
+  log.info(`Initializing workspace: ${workspacePath} for window: ${windowId}`);
+  
+  if (!windowId) {
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    if (!focusedWindow) {
+      log.error('No window ID provided and no focused window found');
+      throw new Error('No window ID provided and no focused window found');
+    }
+    windowId = focusedWindow.id.toString();
+    log.info(`No window ID provided, using focused window: ${windowId}`);
+  }
   
   // Get the ConfigManager for this workspace
   const configManager = await workspaceManager.configManager(workspacePath);
@@ -100,11 +94,53 @@ export async function initializeWorkspace(workspacePath: string) {
   const configDir = configManager.getConfigDir();
   log.info(`Using config directory: ${configDir}`);
   
-  // Create AppState - !!! This is global currently, needs to be per-workspace (window)
-  appState = new AppState(configManager);
-  await appState.initialize();
+  // Create AppState for this window and store it in the map
+  const windowAppState = new AppState(configManager);
+  await windowAppState.initialize();
+  appStateMap.set(windowId, windowAppState);
   
-  log.info('Workspace initialization complete');
+  // Set up event listeners for this window's AppState
+  if (windowAppState.rulesManager) {
+    windowAppState.rulesManager.on('rulesChanged', () => {
+      // Find the BrowserWindow for this windowId
+      const window = BrowserWindow.getAllWindows().find(w => w.id.toString() === windowId);
+      if (window) {
+        window.webContents.send('rules-changed');
+      }
+    });
+  }
+
+  if (windowAppState.referencesManager) {
+    windowAppState.referencesManager.on('referencesChanged', () => {
+      // Find the BrowserWindow for this windowId
+      const window = BrowserWindow.getAllWindows().find(w => w.id.toString() === windowId);
+      if (window) {
+        window.webContents.send('references-changed');
+      }
+    });
+  }
+
+  log.info(`Workspace initialization complete for window: ${windowId}`);
+}
+
+// Helper function to get the AppState for a window
+function getAppStateForWindow(windowId?: string): AppState | null {
+  if (!windowId) {
+    const focusedWindow = BrowserWindow.getFocusedWindow();
+    if (!focusedWindow) {
+      log.warn('No window ID provided and no focused window found');
+      return null;
+    }
+    windowId = focusedWindow.id.toString();
+  }
+  
+  const appState = appStateMap.get(windowId);
+  if (!appState) {
+    log.warn(`No AppState found for window: ${windowId}`);
+    return null;
+  }
+  
+  return appState;
 }
 
 function intializeLogging(isElectron: boolean) {
@@ -149,11 +185,12 @@ async function startApp() {
     intializeLogging(false);
     await initialize();
 
-    const appState = new AppState(configManager);
-    await appState.initialize();
+    // Use CLI-specific AppState directly
+    const cliAppState = new AppState(configManager);
+    await cliAppState.initialize();
 
     // Initialize the LLM Factory with AppState
-    setupCLI(appState);
+    setupCLI(cliAppState);
   } else {
     // For GUI mode, we don't create a ConfigManager at all on startup
     log.info(`GUI mode: No workspace selected on startup`);
@@ -241,59 +278,80 @@ async function startApp() {
 
 function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   // Rules IPC handlers
-  ipcMain.handle('get-rules', () => {
-    if (!appState.rulesManager) {
-      log.warn('RulesManager not initialized');
+  ipcMain.handle('get-rules', (event) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.rulesManager) {
+      log.warn(`RulesManager not initialized for window: ${windowId}`);
       return [];
     }
     return appState.rulesManager.getRules();
   });
 
-  ipcMain.handle('save-rule', (_, rule) => {
-    if (!appState.rulesManager) {
-      log.warn('RulesManager not initialized');
+  ipcMain.handle('save-rule', (event, rule) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.rulesManager) {
+      log.warn(`RulesManager not initialized for window: ${windowId}`);
       throw new Error('RulesManager not initialized');
     }
     return appState.rulesManager.saveRule(rule);
   });
 
-  ipcMain.handle('delete-rule', (_, name) => {
-    if (!appState.rulesManager) {
-      log.warn('RulesManager not initialized');
+  ipcMain.handle('delete-rule', (event, name) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.rulesManager) {
+      log.warn(`RulesManager not initialized for window: ${windowId}`);
       throw new Error('RulesManager not initialized');
     }
     return appState.rulesManager.deleteRule(name);
   });
 
   // References IPC handlers
-  ipcMain.handle('get-references', () => {
-    if (!appState.referencesManager) {
-      log.warn('ReferencesManager not initialized');
+  ipcMain.handle('get-references', (event) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.referencesManager) {
+      log.warn(`ReferencesManager not initialized for window: ${windowId}`);
       return [];
     }
     return appState.referencesManager.getReferences();
   });
 
-  ipcMain.handle('save-reference', (_, reference) => {
-    if (!appState.referencesManager) {
-      log.warn('ReferencesManager not initialized');
+  ipcMain.handle('save-reference', (event, reference) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.referencesManager) {
+      log.warn(`ReferencesManager not initialized for window: ${windowId}`);
       throw new Error('ReferencesManager not initialized');
     }
     return appState.referencesManager.saveReference(reference);
   });
 
-  ipcMain.handle('delete-reference', (_, name) => {
-    if (!appState.referencesManager) {
-      log.warn('ReferencesManager not initialized');
+  ipcMain.handle('delete-reference', (event, name) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.referencesManager) {
+      log.warn(`ReferencesManager not initialized for window: ${windowId}`);
       throw new Error('ReferencesManager not initialized');
     }
     return appState.referencesManager.deleteReference(name);
   });
 
   // Chat session IPC handlers
-  ipcMain.handle('create-chat-tab', (_, tabId: string) => {
-    if (!appState.chatSessionManager) {
-      log.warn('ChatSessionManager not initialized');
+  ipcMain.handle('create-chat-tab', (event, tabId: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
       throw new Error('ChatSessionManager not initialized');
     }
     try {
@@ -308,9 +366,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('close-chat-tab', (_, tabId: string) => {
-    if (!appState.chatSessionManager) {
-      log.warn('ChatSessionManager not initialized');
+  ipcMain.handle('close-chat-tab', (event, tabId: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
       throw new Error('ChatSessionManager not initialized');
     }
     try {
@@ -325,9 +386,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('get-chat-state', (_, tabId: string) => {
-    if (!appState.chatSessionManager) {
-      log.warn('ChatSessionManager not initialized');
+  ipcMain.handle('get-chat-state', (event, tabId: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
       throw new Error('ChatSessionManager not initialized');
     }
     try {
@@ -338,7 +402,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('send-message', async (_, tabId: string, message: string) => {
+  ipcMain.handle('send-message', async (event, tabId: string, message: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
     try {
       return await appState.chatSessionManager.handleMessage(tabId, message);
     } catch (error) {
@@ -347,7 +418,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('switch-model', (_, tabId: string, modelType: LLMType) => {
+  ipcMain.handle('switch-model', (event, tabId: string, modelType: LLMType) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
     try {
       const result = appState.chatSessionManager.switchModel(tabId, modelType);
       return { 
@@ -381,8 +459,27 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return true;
   });
 
-  ipcMain.handle('get-current-model', (_, tabId: string) => {
-    return llmTypes.get(tabId) || LLMType.Test;
+  ipcMain.handle('get-current-model', (event, tabId: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      return LLMType.Test;
+    }
+    
+    try {
+      // Try to get the current model from the session
+      if (appState.chatSessionManager.hasSession(tabId)) {
+        const session = appState.chatSessionManager.getSession(tabId);
+        return session.currentModel;
+      }
+    } catch (error) {
+      log.warn(`Error getting model for tab ${tabId}:`, error);
+    }
+    
+    // Fall back to default
+    return LLMType.Test;
   });
 
   ipcMain.handle('get-server-configs', async () => {
@@ -480,7 +577,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         
         const config = serverConfig.config;
         
-        client = createMcpClientFromConfig(appState, serverConfig);      
+        // Get the current window's AppState
+        const windowAppState = getAppStateForWindow(currentWindowId);
+        if (!windowAppState) {
+          throw new Error(`No AppState found for window: ${currentWindowId}`);
+        }
+        client = createMcpClientFromConfig(windowAppState, serverConfig);
         if (client) {
           await client.connect();
           mcpClients.set(serverName, client);
@@ -635,6 +737,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // Workspace IPC handlers
+  ipcMain.handle('dialog:showOpenDialog', (_, options) => {
+    return dialog.showOpenDialog(options);
+  });
+
   ipcMain.handle('workspace:getActiveWindows', () => {
     return workspaceManager.getActiveWindows();
   });
@@ -672,7 +778,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return windowId;
   });
 
-  ipcMain.handle('workspace:open', async (_, filePath: string) => {
+  ipcMain.handle('workspace:openWorkspace', async (_, filePath: string) => {
     // Check if the path is a file or directory
     let workspacePath: string;
     
@@ -702,7 +808,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Register the window with the new workspace
       await workspaceManager.registerWindow(currentWindow.id.toString(), workspacePath);
       
-      await initializeWorkspace(workspacePath); // !!! ???
+      await initializeWorkspace(workspacePath, currentWindow.id.toString()); // !!! ???
 
       // Return the current window's ID
       return currentWindow.id;
@@ -738,27 +844,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return window.id;
   });
 
-  ipcMain.handle('workspace:create', async (_, workspacePath: string) => {
+  ipcMain.handle('workspace:createWorkspace', async (_, workspacePath: string) => {
     // Create workspace using WorkspaceManager
     await workspaceManager.createWorkspace(workspacePath);
     
     const window = await createWindow(workspacePath);
     return window.id;
-  });
-
-  ipcMain.handle('workspace:switch', async (_, windowId: string) => {
-    // Find the window to switch to
-    const targetWindow = BrowserWindow.getAllWindows().find(window => window.id.toString() === windowId);
-    if (targetWindow) {
-      // Focus the window
-      targetWindow.focus();
-      return true;
-    }
-    return false;
-  });
-
-  ipcMain.handle('dialog:showOpenDialog', (_, options) => {
-    return dialog.showOpenDialog(options);
   });
 
   // Add this with the other workspace handlers
@@ -781,7 +872,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         await workspaceManager.switchWorkspace(windowIdStr, workspacePath);
       }
 
-      await initializeWorkspace(workspacePath); // !!! ???
+      await initializeWorkspace(workspacePath, windowIdStr); // !!! ???
       
       log.info(`[WORKSPACE SWITCH] Successfully switched workspace in IPC handler`);
       return true;
@@ -814,7 +905,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       await workspaceManager.registerWindow(windowId, workspacePath);
       
       // Re-initialize global managers and state based on the new workspace path
-      await initializeWorkspace(workspacePath);
+      await initializeWorkspace(workspacePath, windowId);
       
       log.info(`[WORKSPACE MANAGER] Workspace initialization completed for ${workspacePath}`);
     } catch (error) {

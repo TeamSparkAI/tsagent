@@ -64,6 +64,34 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     initModel();
   }, [id]);
 
+  // Reset on workspace change
+  useEffect(() => {
+    log.info('[CHAT TAB] Setting up workspace:switched event listener');
+    
+    const handleWorkspaceSwitched = () => {
+      log.info(`[CHAT TAB] Workspace switched, resetting tab ${id}`);
+      // Reset state
+      setIsInitialized(false);
+      setChatState({
+        selectedModel: LLMType.Test,
+        messages: []
+      });
+      chatApiRef.current = null;
+      isFirstRenderRef.current = true;
+      lastMessageCountRef.current = 0;
+      setScrollPosition(0);
+    };
+    
+    const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    
+    return () => {
+      if (listener) {
+        window.api.offWorkspaceSwitched(listener);
+        log.info('[CHAT TAB] Removed workspace:switched listener');
+      }
+    };
+  }, [id]);
+
   // Add cleanup when component unmounts
   useEffect(() => {
     return () => {
