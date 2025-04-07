@@ -41,6 +41,7 @@ async function createWindow(workspacePath?: string): Promise<BrowserWindow> {
 
   if (workspacePath) {
     await initializeWorkspace(workspacePath, window.id.toString());
+    workspaceManager.registerWindow(window.id.toString(), workspacePath);
   }
 
   // Set up event listener for workspace changes
@@ -881,6 +882,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   // Open the workspace at filePath in a new window
   //
   ipcMain.handle('workspace:openInNewWindow', async (_, filePath: string) => {
+    log.info(`[WORKSPACE OPEN] Opening workspace ${filePath} in a new window`);
     // Check if the path is a file or directory
     let workspacePath: string;
     
@@ -971,6 +973,29 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.info(`[WORKSPACE MANAGER] Workspace initialization completed for ${workspacePath}`);
     } catch (error) {
       log.error('[WORKSPACE MANAGER] Error during workspace initialization:', error);
+    }
+  });
+
+  // After the other workspace IPC handlers
+  ipcMain.handle('workspace:focusWindow', (_, windowId: string) => {
+    try {
+      log.info(`[WINDOW FOCUS] Focusing window: ${windowId}`);
+      const allWindows = BrowserWindow.getAllWindows();
+      const window = allWindows.find(w => w.id.toString() === windowId);
+      
+      if (!window) {
+        log.warn(`[WINDOW FOCUS] Window with ID ${windowId} not found`);
+        return false;
+      }
+      
+      if (window.isMinimized()) {
+        window.restore();
+      }
+      window.focus();
+      return true;
+    } catch (error) {
+      log.error(`[WINDOW FOCUS] Error focusing window ${windowId}:`, error);
+      return false;
     }
   });
 }

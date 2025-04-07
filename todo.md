@@ -225,3 +225,7 @@ can you make a new rule so that you will use markdown lists when returning lists
 @rules:new-rule
 
 what files are in in test_files
+
+## Workspaces bugs
+
+It's not clear that the workspace change notification is ever received (or if it's needed, or what will happen if it gets called)

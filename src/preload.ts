@@ -70,6 +70,7 @@ const api: API = {
   openInNewWindow: (path: string) => ipcRenderer.invoke('workspace:openInNewWindow', path),
   createWorkspace: (path: string) => ipcRenderer.invoke('workspace:createWorkspace', path),
   switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
+  focusWindow: (windowId: string) => ipcRenderer.invoke('workspace:focusWindow', windowId),
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => {
     const wrappedCallback = (_: any, data: any) => callback(data);
     ipcRenderer.on('workspace:switched', wrappedCallback);

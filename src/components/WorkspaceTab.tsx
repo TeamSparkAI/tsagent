@@ -300,6 +300,23 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
     }
   };
 
+  const handleFocusWindow = async (windowId: string) => {
+    try {
+      log.info(`[WINDOW FOCUS] handleFocusWindow called with windowId ${windowId}`);
+      
+      // Focus the window
+      const result = await window.api.focusWindow(windowId);
+      
+      if (result) {
+        log.info(`[WINDOW FOCUS] Successfully focused window ${windowId}`);
+      } else {
+        log.error(`[WINDOW FOCUS] Failed to focus window ${windowId}`);
+      }
+    } catch (error) {
+      log.error(`[WINDOW FOCUS] Error in handleFocusWindow:`, error);
+    }
+  };
+
   // Get current window's workspace
   const currentWorkspace = activeWindows.find(window => window.windowId === currentWindowId);
   
@@ -394,7 +411,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
                       borderRadius: '6px', 
                       cursor: 'pointer'
                     }}
-                    onClick={() => handleSwitchWorkspace(window.windowId, window.workspacePath)}
+                    onClick={() => handleFocusWindow(window.windowId)}
                   >
                     <div>
                       {window.windowId === currentWindowId ? (

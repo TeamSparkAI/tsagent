@@ -51,6 +51,7 @@ export interface API {
   openInNewWindow: (path: string) => Promise<void>;
   createWorkspace: (path: string) => Promise<void>;
   switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
+  focusWindow: (windowId: string) => Promise<boolean>;
   getCurrentWindowId: () => Promise<string>;
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
   offWorkspaceSwitched: (listener: (event: any, data: any) => void) => void;
