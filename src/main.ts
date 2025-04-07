@@ -22,7 +22,7 @@ let workspaceManager: WorkspaceManager;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 const llmTypes = new Map<string, LLMType>();
 
-function createWindow(workspacePath?: string): BrowserWindow {
+async function createWindow(workspacePath?: string): Promise<BrowserWindow> {
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
@@ -61,6 +61,10 @@ function createWindow(workspacePath?: string): BrowserWindow {
   }
   */
 
+  if (workspacePath) {
+    await initializeWorkspace(workspacePath);
+  }
+
   // Set up event listener for workspace changes
   workspaceManager.on('workspace:switched', (event) => {
     log.info(`[MAIN] Received workspace:switched event from WorkspaceManager:`, event);
@@ -83,6 +87,24 @@ function createWindow(workspacePath?: string): BrowserWindow {
   window.loadFile(indexPath);
 
   return window;
+}
+
+// Initialize a workspace when one is selected
+export async function initializeWorkspace(workspacePath: string) {
+  log.info(`Initializing workspace: ${workspacePath}`);
+  
+  // Get the ConfigManager for this workspace
+  const configManager = await workspaceManager.configManager(workspacePath);
+  
+  // Get the config directory for this workspace
+  const configDir = configManager.getConfigDir();
+  log.info(`Using config directory: ${configDir}`);
+  
+  // Create AppState - !!! This is global currently, needs to be per-workspace (window)
+  appState = new AppState(configManager);
+  await appState.initialize();
+  
+  log.info('Workspace initialization complete');
 }
 
 function intializeLogging(isElectron: boolean) {
@@ -110,24 +132,6 @@ async function initialize() {
   // Create and initialize WorkspaceManager
   workspaceManager = new WorkspaceManager();
   await workspaceManager.initialize();
-}
-
-// Initialize a workspace when one is selected
-export async function initializeWorkspace(workspacePath: string) {
-  log.info(`Initializing workspace: ${workspacePath}`);
-  
-  // Get the ConfigManager for this workspace
-  const configManager = await workspaceManager.configManager(workspacePath);
-  
-  // Get the config directory for this workspace
-  const configDir = configManager.getConfigDir();
-  log.info(`Using config directory: ${configDir}`);
-  
-  // Create AppState
-  appState = new AppState(configManager);
-  await appState.initialize();
-  
-  log.info('Workspace initialization complete');
 }
 
 // Near the top with other state
@@ -187,7 +191,7 @@ async function startApp() {
       log.info('App ready, starting initialization');
       await initialize();
       log.info('Initialization complete, creating window');
-      mainWindow = createWindow();
+      mainWindow = await createWindow();
 
       /* !!!
       // Initialize workspace if provided via command line
@@ -227,9 +231,9 @@ async function startApp() {
       }, 100);
     });
 
-    app.on('activate', () => {
+    app.on('activate', async () => {
       if (mainWindow === null) {
-        mainWindow = createWindow();
+        mainWindow = await createWindow();
       }
     });
   }
@@ -698,13 +702,15 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Register the window with the new workspace
       await workspaceManager.registerWindow(currentWindow.id.toString(), workspacePath);
       
+      await initializeWorkspace(workspacePath); // !!! ???
+
       // Return the current window's ID
       return currentWindow.id;
     }
     
     // If no current window exists, create a new one
     log.info(`[WORKSPACE OPEN] No current window, creating new window for workspace ${workspacePath}`);
-    const window = createWindow(workspacePath);
+    const window = await createWindow(workspacePath);
     return window.id;
   });
 
@@ -728,7 +734,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
     
     // Always create a new window
-    const window = createWindow(workspacePath);
+    const window = await createWindow(workspacePath);
     return window.id;
   });
 
@@ -736,7 +742,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     // Create workspace using WorkspaceManager
     await workspaceManager.createWorkspace(workspacePath);
     
-    const window = createWindow(workspacePath);
+    const window = await createWindow(workspacePath);
     return window.id;
   });
 
@@ -775,7 +781,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         await workspaceManager.switchWorkspace(windowIdStr, workspacePath);
       }
 
-      initializeWorkspace(workspacePath); // !!! ???
+      await initializeWorkspace(workspacePath); // !!! ???
       
       log.info(`[WORKSPACE SWITCH] Successfully switched workspace in IPC handler`);
       return true;
