@@ -146,9 +146,11 @@ function getAppStateForWindow(windowId?: string): AppState | null {
 function intializeLogging(isElectron: boolean) {
   if (isElectron) {
     log.initialize({ preload: true }); // Required to wire up the renderer (will crash the CLI)
-    // Use a temporary log file in the user data directory instead of config directory
+    
+    // Use timestamp in filename to create a new log file each time the app starts
     const userDataPath = app.getPath('userData');
-    log.transports.file.resolvePathFn = () => path.join(userDataPath, 'app.log');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    log.transports.file.resolvePathFn = () => path.join(userDataPath, `app-${timestamp}.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
   } else {
     // In CLI mode, only show error and above to the console, no file logging
@@ -160,10 +162,6 @@ function intializeLogging(isElectron: boolean) {
 // Initialize paths and managers
 async function initialize() {
   log.info('Starting initialization process');
-  
-  // We no longer initialize any configuration, app state, or workspace on startup
-  // These will be initialized only when a workspace is selected
-  log.info('No workspace selected, skipping initialization of configuration and app state');
 
   // Create and initialize WorkspaceManager
   workspaceManager = new WorkspaceManager();
@@ -758,15 +756,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
     
     const windowId = currentWindow.id.toString();
-    log.info(`[WINDOW ID] Current window ID: ${windowId}`);
-    
-    // Log all windows
-    const allWindows = BrowserWindow.getAllWindows();
-    log.info(`[WINDOW ID] All windows: ${allWindows.map((w: BrowserWindow) => w.id.toString()).join(', ')}`);
-    
     // Log active windows in WorkspaceManager
     const activeWindows = workspaceManager.getActiveWindows();
-    log.info(`[WINDOW ID] Active windows in WorkspaceManager: ${activeWindows.map((w: any) => w.windowId).join(', ')}`);
+    log.info(`[WINDOW ID] Current window ID: ${windowId}, Active windows in WorkspaceManager: ${activeWindows.map((w: any) => w.windowId).join(', ')}`);
     
     // Check if the window is registered with the WorkspaceManager
     const isRegistered = activeWindows.some(window => window.windowId === windowId);
