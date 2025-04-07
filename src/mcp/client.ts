@@ -152,10 +152,22 @@ export class McpClientStdio extends McpClientBase implements McpClient {
     }
 
     protected createTransport(): Transport {
+        // Only modify environment if it's explicitly provided but missing PATH
+        let env = this.serverParams.env;
+        
+        // If you specify an env, it will be the ENTIRE environment, so you need PATH in order to find you command
+        // https://github.com/modelcontextprotocol/typescript-sdk/issues/196
+        //
+        // Only add PATH if env is provided (not undefined/null) AND has at least one key AND doesn't have PATH already
+        if (env && Object.keys(env).length > 0 && !env.PATH && process.env.PATH) {
+            // Make a copy before modifying
+            env = { ...env, PATH: process.env.PATH };
+        }
+        
         return new StdioClientTransport({
             command: this.serverParams.command,
             args: this.serverParams.args,
-            env: this.serverParams.env,
+            env: env,
             stderr: 'pipe'
         });
     }

@@ -27,25 +27,89 @@ interface EditServerModalProps {
 }
 
 const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCancel }) => {
+    // Add debugging logs
+    console.log("EditServerModal received server:", server);
+    
     const [name, setName] = useState(server?.name || '');
-    const [serverType, setServerType] = useState<'stdio' | 'sse' | 'internal'>(server?.config.type || 'stdio');
-    const [command, setCommand] = useState(server?.config.type === 'stdio' ? server.config.command : '');
-    const [args, setArgs] = useState(server?.config.type === 'stdio' ? server.config.args.join(' ') : '');
-    const [env, setEnv] = useState(server?.config.type === 'stdio' ? JSON.stringify(server.config.env || {}) : '{}');
-    const [url, setUrl] = useState(server?.config.type === 'sse' ? server.config.url : '');
-    const [headers, setHeaders] = useState<Record<string, string>>(server?.config.type === 'sse' ? server.config.headers || {} : {});
-    const [internalTool, setInternalTool] = useState<'rules' | 'references'>(server?.config.type === 'internal' ? server.config.tool : 'rules');
+    
+    // Check if the server type is specified, default to 'stdio' if not
+    const effectiveType = server?.config?.type || 'stdio';
+    const [serverType, setServerType] = useState<'stdio' | 'sse' | 'internal'>(effectiveType);
+    
+    // For stdio settings, only initialize them if effectiveType is 'stdio'
+    const [command, setCommand] = useState<string>(() => {
+        if (effectiveType === 'stdio' && server?.config) {
+            return (server.config as any).command || '';
+        }
+        return '';
+    });
+    
+    // Use an array to store arguments instead of a space-separated string
+    const [argsArray, setArgsArray] = useState<string[]>(() => {
+        if (effectiveType === 'stdio' && server?.config) {
+            const argsArray = (server.config as any).args;
+            return Array.isArray(argsArray) ? [...argsArray] : [];
+        }
+        return [];
+    });
+    
+    const [env, setEnv] = useState<string>(() => {
+        if (effectiveType === 'stdio' && server?.config) {
+            return JSON.stringify((server.config as any).env || {});
+        }
+        return '{}';
+    });
+    
+    // For SSE settings, only initialize them if effectiveType is 'sse'
+    const [url, setUrl] = useState<string>(() => {
+        if (effectiveType === 'sse' && server?.config) {
+            return (server.config as any).url || '';
+        }
+        return '';
+    });
+    
+    const [headers, setHeaders] = useState<Record<string, string>>(() => {
+        if (effectiveType === 'sse' && server?.config) {
+            return (server.config as any).headers || {};
+        }
+        return {};
+    });
+    
+    // For internal tool settings, only initialize them if effectiveType is 'internal'
+    const [internalTool, setInternalTool] = useState<'rules' | 'references'>(() => {
+        if (effectiveType === 'internal' && server?.config) {
+            return (server.config as any).tool || 'rules';
+        }
+        return 'rules';
+    });
+
+    // Log initial state values
+    useEffect(() => {
+        console.log("EditServerModal initial state:", {
+            name, serverType, effectiveType, command, argsArray, env, url, headers, internalTool
+        });
+    }, []);
 
     const handleSave = () => {
+        // Parse the environment JSON
+        let envObject = JSON.parse(env);
+        
+        // Create the base server config object
+        let stdioConfig: any = {
+            type: 'stdio',
+            command,
+            args: argsArray.filter(arg => arg.trim() !== ''), // Only filter out empty args when saving
+        };
+        
+        // Only include the env property if there are environment variables
+        if (Object.keys(envObject).length > 0) {
+            stdioConfig.env = envObject;
+        }
+        
         const serverConfig: McpConfig = {
             name,
             config: serverType === 'stdio'
-                ? {
-                    type: 'stdio',
-                    command,
-                    args: args.split(' ').filter(Boolean),
-                    env: JSON.parse(env)
-                }
+                ? stdioConfig
                 : serverType === 'sse'
                 ? {
                     type: 'sse',
@@ -104,24 +168,30 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
 
                         <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Arguments:</label>
                         <div>
-                            {args.split(' ').filter(Boolean).map((arg, index) => (
+                            {argsArray.map((arg, index) => (
                                 <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
                                     <input
                                         type="text"
                                         value={arg}
                                         onChange={(e) => {
-                                            const newArgs = args.split(' ').filter(Boolean);
+                                            const newArgs = [...argsArray];
                                             newArgs[index] = e.target.value;
-                                            setArgs(newArgs.join(' '));
+                                            setArgsArray(newArgs);
                                         }}
                                         style={{ flex: 1, padding: '4px 8px' }}
                                     />
-                                    <button onClick={() => setArgs(args.split(' ').filter(Boolean).filter((_, i) => i !== index).join(' '))}>
+                                    <button onClick={() => {
+                                        const newArgs = [...argsArray];
+                                        newArgs.splice(index, 1);
+                                        setArgsArray(newArgs);
+                                    }}>
                                         Remove
                                     </button>
                                 </div>
                             ))}
-                            <button onClick={() => setArgs(args.split(' ').filter(Boolean).join(' '))}>Add Argument</button>
+                            <button onClick={() => {
+                                setArgsArray([...argsArray, '']); // Add an empty string arg
+                            }}>Add Argument</button>
                         </div>
 
                         <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Environment:</label>
@@ -294,6 +364,8 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     const loadServers = async () => {
         const loadedServers = await window.api.getServerConfigs();
+        console.log("Loaded server configs:", loadedServers);
+        
         // Sort servers by name
         const sortedServers = loadedServers.sort((a, b) => a.name.localeCompare(b.name));
         setServers(sortedServers);
@@ -336,6 +408,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     };
 
     const handleEditServer = (server: McpConfig) => {
+        console.log("Editing server:", server);
         setEditingServer(server);
         setShowEditModal(true);
     };
