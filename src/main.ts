@@ -222,7 +222,7 @@ async function startApp() {
       */
 
       // Set up IPC handlers after potential workspace initialization
-      setupIpcHandlers();
+      setupIpcHandlers(mainWindow);
     });
 
     // Add a small delay before quitting to ensure cleanup
@@ -240,7 +240,7 @@ async function startApp() {
   }
 }
 
-function setupIpcHandlers() {
+function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   // Rules IPC handlers
   ipcMain.handle('get-rules', () => {
     if (!appState.rulesManager) {
@@ -366,7 +366,19 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('toggle-dev-tools', () => {
-    mainWindow?.webContents.toggleDevTools();
+    if (mainWindow) {
+      log.info('Toggling DevTools');
+      mainWindow.webContents.toggleDevTools();
+    } else {
+      // If mainWindow is null, try to use the focused window
+      const focusedWindow = BrowserWindow.getFocusedWindow();
+      if (focusedWindow) {
+        log.info('Toggling DevTools on focused window');
+        focusedWindow.webContents.toggleDevTools();
+      } else {
+        log.warn('No window available to toggle DevTools');
+      }
+    }
     return true;
   });
 
@@ -767,6 +779,8 @@ function setupIpcHandlers() {
         // Switch to the workspace
         await workspaceManager.switchWorkspace(windowIdStr, workspacePath);
       }
+
+      initializeWorkspace(workspacePath); // !!! ???
       
       log.info(`[WORKSPACE SWITCH] Successfully switched workspace in IPC handler`);
       return true;

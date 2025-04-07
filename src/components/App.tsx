@@ -7,7 +7,6 @@ import { RulesTab } from './RulesTab';
 import { ReferencesTab } from './ReferencesTab';
 import { WorkspaceTab } from './WorkspaceTab';
 import { v4 as uuidv4 } from 'uuid';
-import { TabProps } from '../types/TabProps';
 import log from 'electron-log';
 
 interface TabInstance {

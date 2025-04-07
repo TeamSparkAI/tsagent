@@ -659,6 +659,10 @@ export class WorkspaceManager extends EventEmitter {
                         targetWindowId: windowId // This indicates which window should update its content
                     });
                 });
+                
+                // Also emit the event for main process listeners
+                log.info(`[WORKSPACE SWITCH] Emitting workspace:switched event for main process listeners`);
+                this.emit('workspace:switched', { windowId, workspacePath });
             } else {
                 log.warn(`[WORKSPACE SWITCH] Could not find browser window with ID ${windowId}`);
             }
