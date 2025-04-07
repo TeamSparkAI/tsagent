@@ -104,7 +104,7 @@ export class WorkspaceManager extends EventEmitter {
                 
                 // If the window is registered with a different workspace, unregister it first
                 log.info(`[WORKSPACE REGISTER] Window ${windowId} is registered with a different workspace, unregistering first`);
-                await this.unregisterWindow(windowId);
+                this.unregisterWindow(windowId);
             }
             
             // Validate the workspace
@@ -560,33 +560,6 @@ export class WorkspaceManager extends EventEmitter {
     }
 
     /**
-     * Reloads configuration for a specific window when its workspace is activated
-     * @param windowId The ID of the window to reload configuration for
-     */
-    public async reloadConfigurationForWindow(windowId: string): Promise<void> {
-        try {
-            log.info(`Reloading configuration for window ${windowId}`);
-            
-            // Get the workspace path for this window
-            const window = Array.from(this.activeWindows.values()).find(w => w.windowId === windowId);
-            if (!window) {
-                log.error(`No window found with ID: ${windowId}`);
-                return;
-            }
-            
-            // Get the ConfigManager for this workspace
-            const configManager = await this.configManager(window.workspacePath);
-            
-            // Instead of using ipcMain.emit, we'll use a different approach
-            // The main process will call this method directly when needed
-            
-            log.info(`Configuration reloaded for window ${windowId} with workspace ${window.workspacePath}`);
-        } catch (error) {
-            log.error(`Error reloading configuration for window ${windowId}:`, error);
-        }
-    }
-
-    /**
      * Saves the current state of the WorkspaceManager
      */
     private async saveState(): Promise<void> {
@@ -632,7 +605,7 @@ export class WorkspaceManager extends EventEmitter {
             await this.saveState();
             
             // Get the ConfigManager for this workspace
-            const configManager = await ConfigManager.getInstance(app.isPackaged);
+            const configManager = ConfigManager.getInstance(app.isPackaged);
             
             // Get the config directory for this workspace
             const configDir = configManager.getConfigDir();

@@ -3,13 +3,41 @@ import { API } from './types/api';
 import log from 'electron-log';
 
 const api: API = {
-  // Chat session management
-  createChatTab: (tabId: string) => ipcRenderer.invoke('create-chat-tab', tabId),
-  closeChatTab: (tabId: string) => ipcRenderer.invoke('close-chat-tab', tabId),
-  getChatState: (tabId: string) => ipcRenderer.invoke('get-chat-state', tabId),
-  sendMessage: (tabId: string, message: string) => ipcRenderer.invoke('send-message', tabId, message),
-  switchModel: (tabId: string, model: string) => ipcRenderer.invoke('switch-model', tabId, model),
+  // Rules management
+  getRules: () => ipcRenderer.invoke('rules:get-rules'),
+  saveRule: (rule) => ipcRenderer.invoke('rules:save-rule', rule),
+  deleteRule: (name: string) => ipcRenderer.invoke('rules:delete-rule', name),
+  // Event listeners - return wrapped callbacks for proper cleanup
+  onRulesChanged: (callback: () => void) => {
+    const wrappedCallback = () => callback();
+    ipcRenderer.on('rules-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offRulesChanged: (listener: () => void) => {
+    ipcRenderer.removeListener('rules-changed', listener);
+  },
 
+  // References management
+  getReferences: () => ipcRenderer.invoke('references:get-references'),
+  saveReference: (reference) => ipcRenderer.invoke('references:save-reference', reference),
+  deleteReference: (name: string) => ipcRenderer.invoke('references:delete-reference', name),
+  // Event listeners - return wrapped callbacks for proper cleanup
+  onReferencesChanged: (callback: () => void) => {
+    const wrappedCallback = () => callback();
+    ipcRenderer.on('references-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offReferencesChanged: (listener: () => void) => {
+    ipcRenderer.removeListener('references-changed', listener);
+  },
+
+  // Chat session management
+  createChatTab: (tabId: string) => ipcRenderer.invoke('chat:create-tab', tabId),
+  closeChatTab: (tabId: string) => ipcRenderer.invoke('chat:close-tab', tabId),
+  getChatState: (tabId: string) => ipcRenderer.invoke('chat:get-state', tabId),
+  sendMessage: (tabId: string, message: string) => ipcRenderer.invoke('chat:send-message', tabId, message),
+  switchModel: (tabId: string, model: string) => ipcRenderer.invoke('chat:switch-model', tabId, model),
+  
   // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
   getMCPClient: (serverName: string) => ipcRenderer.invoke('get-mcp-client', serverName),
@@ -20,35 +48,10 @@ const api: API = {
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
   showChatMenu: (hasSelection: boolean, x: number, y: number) => ipcRenderer.invoke('show-chat-menu', hasSelection, x, y),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
-  getRules: () => ipcRenderer.invoke('get-rules'),
-  saveRule: (rule) => ipcRenderer.invoke('save-rule', rule),
-  deleteRule: (name: string) => ipcRenderer.invoke('delete-rule', name),
   saveServerConfig: (server) => ipcRenderer.invoke('saveServerConfig', server),
   deleteServerConfig: (name: string) => ipcRenderer.invoke('deleteServerConfig', name),
-  getReferences: () => ipcRenderer.invoke('get-references'),
-  saveReference: (reference) => ipcRenderer.invoke('save-reference', reference),
-  deleteReference: (name: string) => ipcRenderer.invoke('delete-reference', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
-  
-  // Event listeners - return wrapped callbacks for proper cleanup
-  onRulesChanged: (callback: () => void) => {
-    const wrappedCallback = () => callback();
-    ipcRenderer.on('rules-changed', wrappedCallback);
-    return wrappedCallback;
-  },
-  offRulesChanged: (listener: () => void) => {
-    ipcRenderer.removeListener('rules-changed', listener);
-  },
-  
-  onReferencesChanged: (callback: () => void) => {
-    const wrappedCallback = () => callback();
-    ipcRenderer.on('references-changed', wrappedCallback);
-    return wrappedCallback;
-  },
-  offReferencesChanged: (listener: () => void) => {
-    ipcRenderer.removeListener('references-changed', listener);
-  },
-  
+    
   onConfigurationChanged: (callback: () => void) => {
     const wrappedCallback = () => callback();
     ipcRenderer.on('configuration:changed', wrappedCallback);
@@ -62,11 +65,11 @@ const api: API = {
   showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecentWorkspaces'),
+  getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
   openWorkspace: (path: string) => ipcRenderer.invoke('workspace:openWorkspace', path),
   openInNewWindow: (path: string) => ipcRenderer.invoke('workspace:openInNewWindow', path),
   createWorkspace: (path: string) => ipcRenderer.invoke('workspace:createWorkspace', path),
   switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
-  getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => {
     const wrappedCallback = (_: any, data: any) => callback(data);
     ipcRenderer.on('workspace:switched', wrappedCallback);

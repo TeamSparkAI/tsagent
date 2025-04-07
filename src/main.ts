@@ -267,7 +267,7 @@ async function startApp() {
 
 function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   // Rules IPC handlers
-  ipcMain.handle('get-rules', (event) => {
+  ipcMain.handle('rules:get-rules', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -278,7 +278,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return appState.rulesManager.getRules();
   });
 
-  ipcMain.handle('save-rule', (event, rule) => {
+  ipcMain.handle('rules:save-rule', (event, rule) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -289,7 +289,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return appState.rulesManager.saveRule(rule);
   });
 
-  ipcMain.handle('delete-rule', (event, name) => {
+  ipcMain.handle('rules:delete-rule', (event, name) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -301,7 +301,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // References IPC handlers
-  ipcMain.handle('get-references', (event) => {
+  ipcMain.handle('references:get-references', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -312,7 +312,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return appState.referencesManager.getReferences();
   });
 
-  ipcMain.handle('save-reference', (event, reference) => {
+  ipcMain.handle('references:save-reference', (event, reference) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -323,7 +323,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return appState.referencesManager.saveReference(reference);
   });
 
-  ipcMain.handle('delete-reference', (event, name) => {
+  ipcMain.handle('references:delete-reference', (event, name) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -335,7 +335,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // Chat session IPC handlers
-  ipcMain.handle('create-chat-tab', (event, tabId: string) => {
+  ipcMain.handle('chat:create-tab', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -355,7 +355,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('close-chat-tab', (event, tabId: string) => {
+  ipcMain.handle('chat:close-tab', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -375,7 +375,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('get-chat-state', (event, tabId: string) => {
+  ipcMain.handle('chat:get-state', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -391,7 +391,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('send-message', async (event, tabId: string, message: string) => {
+  ipcMain.handle('chat:send-message', async (event, tabId: string, message: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -407,7 +407,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('switch-model', (event, tabId: string, modelType: LLMType) => {
+  ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -446,29 +446,6 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       }
     }
     return true;
-  });
-
-  ipcMain.handle('get-current-model', (event, tabId: string) => {
-    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const appState = getAppStateForWindow(windowId);
-    
-    if (!appState?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      return LLMType.Test;
-    }
-    
-    try {
-      // Try to get the current model from the session
-      if (appState.chatSessionManager.hasSession(tabId)) {
-        const session = appState.chatSessionManager.getSession(tabId);
-        return session.currentModel;
-      }
-    } catch (error) {
-      log.warn(`Error getting model for tab ${tabId}:`, error);
-    }
-    
-    // Fall back to default
-    return LLMType.Test;
   });
 
   ipcMain.handle('get-server-configs', async () => {
@@ -857,6 +834,8 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return windowId;
   });
 
+  // Open the workspace at filePath in the current window, or if no current window, create a new one
+  //
   ipcMain.handle('workspace:openWorkspace', async (_, filePath: string) => {
     // Check if the path is a file or directory
     let workspacePath: string;
@@ -881,14 +860,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     if (currentWindow) {
       log.info(`[WORKSPACE OPEN] Opening workspace ${workspacePath} in current window ${currentWindow.id}`);
       
+      await initializeWorkspace(workspacePath, currentWindow.id.toString());
+
       // Unregister the window from its current workspace
       workspaceManager.unregisterWindow(currentWindow.id.toString());
       
       // Register the window with the new workspace
       await workspaceManager.registerWindow(currentWindow.id.toString(), workspacePath);
-      
-      await initializeWorkspace(workspacePath, currentWindow.id.toString()); // !!! ???
-
+            
       // Return the current window's ID
       return currentWindow.id;
     }
@@ -899,6 +878,8 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return window.id;
   });
 
+  // Open the workspace at filePath in a new window
+  //
   ipcMain.handle('workspace:openInNewWindow', async (_, filePath: string) => {
     // Check if the path is a file or directory
     let workspacePath: string;
@@ -931,7 +912,8 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return window.id;
   });
 
-  // Add this with the other workspace handlers
+  // Switch to the workspace at workspacePath in the window with id windowId (typically the current window)
+  //
   ipcMain.handle('workspace:switchWorkspace', async (_, windowId: string, workspacePath: string) => {
     try {
       log.info(`[WORKSPACE SWITCH] IPC handler called for window ${windowId} to workspace ${workspacePath}`);
@@ -941,17 +923,17 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Check if the window is registered with the WorkspaceManager
       const activeWindows = workspaceManager.getActiveWindows();
       const isRegistered = activeWindows.some(window => window.windowId === windowIdStr);
-      
+
+      await initializeWorkspace(workspacePath, windowIdStr);
+
       if (!isRegistered) {
         log.info(`[WORKSPACE SWITCH] Window ${windowIdStr} is not registered with WorkspaceManager, registering first`);
         // Register the window with the workspace
-        workspaceManager.registerWindow(windowIdStr, workspacePath);
+        await workspaceManager.registerWindow(windowIdStr, workspacePath);
       } else {
         // Switch to the workspace
         await workspaceManager.switchWorkspace(windowIdStr, workspacePath);
       }
-
-      await initializeWorkspace(workspacePath, windowIdStr); // !!! ???
       
       log.info(`[WORKSPACE SWITCH] Successfully switched workspace in IPC handler`);
       return true;
