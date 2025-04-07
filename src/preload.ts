@@ -29,9 +29,34 @@ const api: API = {
   saveReference: (reference) => ipcRenderer.invoke('save-reference', reference),
   deleteReference: (name: string) => ipcRenderer.invoke('delete-reference', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
-  onRulesChanged: (callback: () => void) => ipcRenderer.on('rules-changed', callback),
-  onReferencesChanged: (callback: () => void) => ipcRenderer.on('references-changed', callback),
-  onConfigurationChanged: (callback: () => void) => ipcRenderer.on('configuration:changed', callback),
+  
+  // Event listeners - return wrapped callbacks for proper cleanup
+  onRulesChanged: (callback: () => void) => {
+    const wrappedCallback = () => callback();
+    ipcRenderer.on('rules-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offRulesChanged: (listener: () => void) => {
+    ipcRenderer.removeListener('rules-changed', listener);
+  },
+  
+  onReferencesChanged: (callback: () => void) => {
+    const wrappedCallback = () => callback();
+    ipcRenderer.on('references-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offReferencesChanged: (listener: () => void) => {
+    ipcRenderer.removeListener('references-changed', listener);
+  },
+  
+  onConfigurationChanged: (callback: () => void) => {
+    const wrappedCallback = () => callback();
+    ipcRenderer.on('configuration:changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offConfigurationChanged: (listener: () => void) => {
+    ipcRenderer.removeListener('configuration:changed', listener);
+  },
 
   // Workspace handlers
   getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
@@ -43,9 +68,12 @@ const api: API = {
   showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => {
-    ipcRenderer.on('workspace:switched', (_, data) => {
-      callback(data);
-    });
+    const wrappedCallback = (_: any, data: any) => callback(data);
+    ipcRenderer.on('workspace:switched', wrappedCallback);
+    return wrappedCallback; // Return the wrapped function for later removal
+  },
+  offWorkspaceSwitched: (listener: (event: any, data: any) => void) => {
+    ipcRenderer.removeListener('workspace:switched', listener);
   }
 };
 

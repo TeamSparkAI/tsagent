@@ -183,7 +183,7 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
         
         // Add event listener for rule changes
         log.info('[RULES TAB] Setting up rules-changed event listener');
-        window.api.onRulesChanged(() => {
+        const listener = window.api.onRulesChanged(() => {
             log.info('[RULES TAB] Rules changed event received, reloading rules');
             loadRules();
         });
@@ -191,7 +191,10 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
         // Cleanup event listener on unmount
         return () => {
             log.info('[RULES TAB] Component unmounting, cleaning up event listener');
-            window.api.onRulesChanged(() => {});
+            if (listener) {
+                window.api.offRulesChanged(listener);
+                log.info('[RULES TAB] Successfully removed rules-changed listener');
+            }
         };
     }, []);
 

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Reference } from '../types/Reference';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import { Reference } from '../types/Reference';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
+import log from 'electron-log';
 
 interface EditReferenceModalProps {
     reference?: Reference;
@@ -177,14 +178,22 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
     const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
 
     useEffect(() => {
+        log.info('[REFERENCES TAB] Component mounted, loading initial references');
         loadReferences();
-        // Add event listener for reference changes
-        window.api.onReferencesChanged(() => {
+        
+        // Add event listener for references changes
+        log.info('[REFERENCES TAB] Setting up references-changed event listener');
+        const listener = window.api.onReferencesChanged(() => {
+            log.info('[REFERENCES TAB] References changed event received, reloading references');
             loadReferences();
         });
-        // Cleanup event listener on unmount
+        
         return () => {
-            window.api.onReferencesChanged(() => {});
+            log.info('[REFERENCES TAB] Component unmounting, cleaning up event listener');
+            if (listener) {
+                window.api.offReferencesChanged(listener);
+                log.info('[REFERENCES TAB] Successfully removed references-changed listener');
+            }
         };
     }, []);
 

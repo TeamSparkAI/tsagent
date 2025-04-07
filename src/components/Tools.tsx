@@ -274,11 +274,15 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         };
 
         // Use the API method instead of DOM event listener
-        window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+        const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
 
-        // No need to clean up the API event listener as it's handled by the API
+        // Clean up the API event listener
         return () => {
-            // No cleanup needed for API event listener
+            log.info('[TOOLS TAB] Cleaning up workspace:switched event listener');
+            if (listener) {
+                window.api.offWorkspaceSwitched(listener);
+                log.info('[TOOLS TAB] Successfully removed workspace:switched listener');
+            }
         };
     }, []);
 

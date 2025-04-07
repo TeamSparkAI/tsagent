@@ -56,12 +56,16 @@ export const PromptTab: React.FC<TabProps> = ({ id, activeTabId, name, type, sty
 
     // Use the API method instead of DOM event listener
     log.info('[PROMPT TAB] Setting up workspace:switched event listener');
-    window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
     log.info('[PROMPT TAB] Workspace:switched event listener set up');
 
-    // No need to clean up the API event listener as it's handled by the API
+    // Clean up the API event listener
     return () => {
-      log.info('[PROMPT TAB] Component unmounting, no cleanup needed for API event listener');
+      log.info('[PROMPT TAB] Cleaning up workspace:switched event listener');
+      if (listener) {
+        window.api.offWorkspaceSwitched(listener);
+        log.info('[PROMPT TAB] Successfully removed workspace:switched listener');
+      }
     };
   }, []);
 

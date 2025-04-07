@@ -32,11 +32,16 @@ export interface API {
   deleteServerConfig: (name: string) => Promise<void>;
   getReferences: () => Promise<Reference[]>;
   saveReference: (reference: Reference) => Promise<void>;
-  deleteReference: (name: string) => Promise<void>;
+  deleteReference: (name: string) => Promise<boolean>;
   pingServer: (name: string) => Promise<{ elapsedTimeMs: number }>;
-  onRulesChanged: (callback: () => void) => void;
-  onReferencesChanged: (callback: () => void) => void;
-  onConfigurationChanged: (callback: () => void) => void;
+  
+  // Event listeners
+  onRulesChanged: (callback: () => void) => () => void;
+  offRulesChanged: (listener: () => void) => void;
+  onReferencesChanged: (callback: () => void) => () => void;
+  offReferencesChanged: (listener: () => void) => void;
+  onConfigurationChanged: (callback: () => void) => () => void;
+  offConfigurationChanged: (listener: () => void) => void;
 
   // Workspace methods
   getActiveWindows: () => Promise<WorkspaceWindow[]>;
@@ -47,5 +52,6 @@ export interface API {
   switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
   showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
   getCurrentWindowId: () => Promise<string>;
-  onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => void;
-} 
+  onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
+  offWorkspaceSwitched: (listener: (event: any, data: any) => void) => void;
+}

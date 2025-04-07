@@ -91,14 +91,21 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
     
     // Set up event listeners
     log.info('[WORKSPACE TAB] Setting up event listeners');
-    window.api.onConfigurationChanged(handleConfigurationChanged);
-    window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    const configListener = window.api.onConfigurationChanged(handleConfigurationChanged);
+    const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
     log.info('[WORKSPACE TAB] Event listeners set up');
     
     // Clean up the event listeners when the component unmounts
     return () => {
       log.info('[WORKSPACE TAB] Cleaning up event listeners');
-      // Note: We don't need to remove the API event listeners as they are handled by the API
+      if (listener) {
+        window.api.offWorkspaceSwitched(listener);
+        log.info('[WORKSPACE TAB] Successfully removed workspace:switched listener');
+      }
+      if (configListener) {
+        window.api.offConfigurationChanged(configListener);
+        log.info('[WORKSPACE TAB] Successfully removed configuration:changed listener');
+      }
     };
   }, []);
 

@@ -124,12 +124,15 @@ export const App: React.FC = () => {
     };
     
     log.info('[APP] Setting up workspace:switched event listener');
-    window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
     log.info('[APP] Workspace:switched event listener set up');
     
     return () => {
       log.info('[APP] Cleaning up workspace:switched event listener');
-      // Clean up API event listener
+      if (listener) {
+        window.api.offWorkspaceSwitched(listener);
+        log.info('[APP] Successfully removed workspace:switched listener');
+      }
     };
   }, []); // Empty dependency array to avoid circular dependency
 
