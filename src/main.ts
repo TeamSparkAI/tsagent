@@ -1,13 +1,12 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron';
 import * as path from 'path';
-import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
 import { createMcpClientFromConfig } from './mcp/client';
 import log from 'electron-log';
 import 'dotenv/config';
 import * as fs from 'fs';
 import { setupCLI } from './cli';
-import { McpClient, McpConfig } from './mcp/types';
+import { McpConfig } from './mcp/types';
 import { ConfigManager } from './state/ConfigManager';
 import { AppState } from './state/AppState';
 import { WorkspaceManager } from './main/workspaceManager';
@@ -39,11 +38,6 @@ async function createWindow(workspacePath?: string): Promise<BrowserWindow> {
   
   // This can be useful for debuggging frontend events that may be emitted before logging is initialized
   // window.webContents.openDevTools();
-
-  // Replace with:
-  // This code is now handled per-workspace, so we'll update it to use the workspace-specific 
-  // AppState once initializeWorkspace is called. Setting up listeners will happen there.
-  // This comment can be removed when the refactor is complete.
 
   if (workspacePath) {
     await initializeWorkspace(workspacePath, window.id.toString());
@@ -167,9 +161,6 @@ async function initialize() {
   workspaceManager = new WorkspaceManager();
   await workspaceManager.initialize();
 }
-
-// Near the top with other state
-const mcpClients = new Map<string, McpClient>();
 
 async function startApp() {
   if (process.argv.includes('--cli')) {
@@ -529,7 +520,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('get-mcp-client', async (_, serverName: string) => {
+  ipcMain.handle('get-mcp-client', async (event, serverName: string) => {
     try {
       // Check if a workspace is selected
       const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
@@ -546,10 +537,13 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         throw new Error('No workspace selected');
       }
       
+      const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+      const appState = getAppStateForWindow(windowId);
+
       // Get the ConfigManager for the current workspace
       const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
       
-      let client = mcpClients.get(serverName);
+      let client = appState?.mcpManager.getClient(serverName);
       let serverType = 'stdio';
       
       if (!client) {
@@ -573,8 +567,6 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
           throw new Error(`Invalid server configuration for ${serverName}: missing config property`);
         }
         
-        const config = serverConfig.config;
-        
         // Get the current window's AppState
         const windowAppState = getAppStateForWindow(currentWindowId);
         if (!windowAppState) {
@@ -583,7 +575,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         client = createMcpClientFromConfig(windowAppState, serverConfig);
         if (client) {
           await client.connect();
-          mcpClients.set(serverName, client);
+          // !!! mcpClients.set(serverName, client);
         } else {
           throw new Error(`Failed to create client for server: ${serverName}`);
         }
@@ -609,10 +601,13 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('call-tool', async (_, serverName: string, toolName: string, args: Record<string, unknown>) => {
+  ipcMain.handle('call-tool', async (event, serverName: string, toolName: string, args: Record<string, unknown>) => {
     try {
       log.info('Calling tool:', { serverName, toolName, args });
-      const client = mcpClients.get(serverName);
+      const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+      const appState = getAppStateForWindow(windowId);
+
+      const client = appState?.mcpManager.getClient(serverName);
       if (!client) {
         throw new Error(`No MCP client found for server ${serverName}`);
       }
@@ -629,8 +624,11 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('ping-server', async (_, serverName: string) => {
-    const client = mcpClients.get(serverName);
+  ipcMain.handle('ping-server', async (event, serverName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+
+    const client = appState?.mcpManager.getClient(serverName);
     if (!client) {
       throw new Error(`No MCP client found for server ${serverName}`);
     }
@@ -726,12 +724,101 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('saveServerConfig', async (_, server: McpConfig) => {
-    await saveServerConfig(server);
+  ipcMain.handle('saveServerConfig', async (event, server: McpConfig) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    if (!appState) {
+      log.warn('[MAIN] saveServerConfig: No app state found for window');
+      return;
+    }
+
+    try {
+      // Check if a workspace is selected
+      const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
+      if (!currentWindowId) {
+        log.warn('No focused window found when saving server config');
+        throw new Error('No focused window found');
+      }
+      
+      const activeWindows = workspaceManager.getActiveWindows();
+      const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
+      
+      if (!currentWindow) {
+        log.warn('No workspace selected, cannot save server config');
+        throw new Error('No workspace selected');
+      }
+      
+      // Validate server configuration
+      if (!server || !server.name) {
+        log.error('Invalid server configuration: missing name');
+        throw new Error('Invalid server configuration: missing name');
+      }
+      
+      if (!server.config) {
+        log.error('Invalid server configuration: missing config property');
+        throw new Error('Invalid server configuration: missing config property');
+      }
+      
+      // Ensure config has a type
+      if (!server.config.type) {
+        log.warn(`Server configuration for ${server.name} missing type, defaulting to stdio`);
+        server.config = { type: 'stdio', command: '', args: [] };
+      }
+      
+      // Get the ConfigManager for the current workspace
+      const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
+      await configManager.saveMcpConfig(server);
+      
+      // Reconnect the client with new config
+      const client = appState?.mcpManager.getClient(server.name);
+      if (client) {
+        client.disconnect();
+        // appState?.mcpManager.deleteClient(server.name);
+      }
+    } catch (err) {
+      log.error('Error saving server config:', err);
+      throw err;
+    }
   });
 
-  ipcMain.handle('deleteServerConfig', async (_, serverName: string) => {
-    await deleteServerConfig(serverName);
+  ipcMain.handle('deleteServerConfig', async (event, serverName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    if (!appState) {
+      log.warn('[MAIN] deleteServerConfig: No app state found for window');
+      return;
+    }
+
+    try {
+      // Check if a workspace is selected
+      const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
+      if (!currentWindowId) {
+        log.warn('No focused window found when deleting server config');
+        throw new Error('No focused window found');
+      }
+      
+      const activeWindows = workspaceManager.getActiveWindows();
+      const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
+      
+      if (!currentWindow) {
+        log.warn('No workspace selected, cannot delete server config');
+        throw new Error('No workspace selected');
+      }
+      
+      // Get the ConfigManager for the current workspace
+      const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
+      await configManager.deleteMcpConfig(serverName);
+      
+      // Disconnect and remove the client
+      const client = appState?.mcpManager.getClient(serverName);
+      if (client) {
+        client.disconnect();
+        // appState?.mcpManager.deleteClient(serverName);
+      }
+    } catch (err) {
+      log.error('Error deleting server config:', err);
+      throw err;
+    }  
   });
 
   // Workspace IPC handlers
@@ -904,90 +991,6 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.error('[WORKSPACE MANAGER] Error during workspace initialization:', error);
     }
   });
-}
-
-// Add these functions near the top with other config handling
-async function saveServerConfig(server: McpConfig) {
-  try {
-    // Check if a workspace is selected
-    const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
-    if (!currentWindowId) {
-      log.warn('No focused window found when saving server config');
-      throw new Error('No focused window found');
-    }
-    
-    const activeWindows = workspaceManager.getActiveWindows();
-    const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
-    
-    if (!currentWindow) {
-      log.warn('No workspace selected, cannot save server config');
-      throw new Error('No workspace selected');
-    }
-    
-    // Validate server configuration
-    if (!server || !server.name) {
-      log.error('Invalid server configuration: missing name');
-      throw new Error('Invalid server configuration: missing name');
-    }
-    
-    if (!server.config) {
-      log.error('Invalid server configuration: missing config property');
-      throw new Error('Invalid server configuration: missing config property');
-    }
-    
-    // Ensure config has a type
-    if (!server.config.type) {
-      log.warn(`Server configuration for ${server.name} missing type, defaulting to stdio`);
-      server.config = { type: 'stdio', command: '', args: [] };
-    }
-    
-    // Get the ConfigManager for the current workspace
-    const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
-    await configManager.saveMcpConfig(server);
-    
-    // Reconnect the client with new config
-    const client = mcpClients.get(server.name);
-    if (client) {
-      client.disconnect();
-      mcpClients.delete(server.name);
-    }
-  } catch (err) {
-    log.error('Error saving server config:', err);
-    throw err;
-  }
-}
-
-async function deleteServerConfig(serverName: string) {
-  try {
-    // Check if a workspace is selected
-    const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
-    if (!currentWindowId) {
-      log.warn('No focused window found when deleting server config');
-      throw new Error('No focused window found');
-    }
-    
-    const activeWindows = workspaceManager.getActiveWindows();
-    const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
-    
-    if (!currentWindow) {
-      log.warn('No workspace selected, cannot delete server config');
-      throw new Error('No workspace selected');
-    }
-    
-    // Get the ConfigManager for the current workspace
-    const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
-    await configManager.deleteMcpConfig(serverName);
-    
-    // Disconnect and remove the client
-    const client = mcpClients.get(serverName);
-    if (client) {
-      client.disconnect();
-      mcpClients.delete(serverName);
-    }
-  } catch (err) {
-    log.error('Error deleting server config:', err);
-    throw err;
-  }
 }
 
 startApp(); 
