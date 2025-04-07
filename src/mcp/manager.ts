@@ -1,10 +1,8 @@
 import { McpClient, McpConfigFileServerConfig } from './types';
-import { McpClientStdio, McpClientSse } from './client';
+import { createMcpClientFromConfig } from './client';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
-import { McpClientInternalRules } from './InternalClientRules';
-import { McpClientInternalReferences } from './InternalClientReferences';
 import { AppState } from '../state/AppState';
 
 function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig {
@@ -13,11 +11,31 @@ function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig
 
 export class MCPClientManager {
     private clients: Map<string, McpClient>;
-    private appState: AppState;
 
-    constructor(appState: AppState, mcpClients: Map<string, McpClient>) {
-        this.appState = appState;
-        this.clients = mcpClients;
+    constructor() {
+        this.clients = new Map<string, McpClient>();
+    }
+
+    async loadClients(appState: AppState) {
+        const mcpServers = await appState.configManager.getMcpConfig();
+        for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+            try {
+                if (!serverConfig || !serverConfig.config) {
+                    log.error(`Invalid server configuration for ${serverName}: missing config property`);
+                    continue;
+                }
+        
+                const client = createMcpClientFromConfig(appState, serverConfig);      
+                if (client) {
+                    await client.connect();
+                    this.clients.set(serverName, client);
+                } else {
+                    throw new Error(`Failed to create client for server: ${serverName}`);
+                }
+            } catch (error) {
+                log.error(`Error initializing MCP client for ${serverName}:`, error);
+            }
+        }
     }
 
     getAllTools(): Tool[] {

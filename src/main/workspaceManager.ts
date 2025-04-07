@@ -6,13 +6,8 @@ import { WorkspaceWindow, WorkspaceConfig } from '../types/workspace';
 import { ConfigManager } from '../state/ConfigManager';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
-import { RulesManager } from '../state/RulesManager';
-import { ReferencesManager } from '../state/ReferencesManager';
 import { AppState } from '../state/AppState';
-import { MCPClientManager } from '../mcp/manager';
-import { ChatSessionManager } from '../state/ChatSessionManager';
-import { McpClient, McpConfig, McpConfigFileServerConfig } from '../mcp/types';
-import { createMcpClientFromConfig } from '../mcp/client';
+import { McpClient } from '../mcp/types';
 
 // Near the top with other state
 const mcpClients = new Map<string, McpClient>();
@@ -140,7 +135,7 @@ export class WorkspaceManager extends EventEmitter {
             await this.saveState();
             
             // Get the ConfigManager for this workspace
-            const configManager = await this.getConfigManager(workspacePath);
+            const configManager = await this.configManager(workspacePath);
             
             // Load configuration
             log.info(`[WORKSPACE REGISTER] Loading configuration for workspace ${workspacePath}`);
@@ -557,7 +552,7 @@ export class WorkspaceManager extends EventEmitter {
      * @param workspacePath The path to the workspace
      * @returns A ConfigManager instance for the workspace
      */
-    public async getConfigManager(workspacePath: string): Promise<ConfigManager> {
+    public async configManager(workspacePath: string): Promise<ConfigManager> {
         log.info(`[WORKSPACE MANAGER] Getting ConfigManager for workspace: ${workspacePath}`);
         
         // Create a config path for this workspace
@@ -589,7 +584,7 @@ export class WorkspaceManager extends EventEmitter {
             }
             
             // Get the ConfigManager for this workspace
-            const configManager = await this.getConfigManager(window.workspacePath);
+            const configManager = await this.configManager(window.workspacePath);
             
             // Instead of using ipcMain.emit, we'll use a different approach
             // The main process will call this method directly when needed
@@ -652,43 +647,10 @@ export class WorkspaceManager extends EventEmitter {
             const configDir = configManager.getConfigDir();
             log.info(`[WORKSPACE SWITCH] Using config directory: ${configDir}`);
 
-            // Create a temporary MCPClientManager
-            const tempMcpManager = new MCPClientManager(null as any, new Map());
-
             // Create AppState with temporary MCPClientManager
             log.info(`[WORKSPACE MANAGER] Creating new AppState with ConfigManager for path: ${configDir}`);
-            appState = new AppState(configManager, tempMcpManager);
-            
-            // Initialize MCP clients
-            const mcpServers: Record<string, McpConfig> = await configManager.getMcpConfig();
-            if (mcpServers && Object.keys(mcpServers).length > 0) {
-                for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-                    try {
-                        if (!serverConfig || !serverConfig.config) {
-                            log.error(`Invalid server configuration for ${serverName}: missing config property`);
-                            continue;
-                        }
-                        
-                        const client = createMcpClientFromConfig(appState, serverConfig);      
-                        if (client) {
-                            await client.connect();
-                            mcpClients.set(serverName, client);
-                            log.info(`Reconnected MCP client: ${serverName}`);
-                        }
-                    } catch (error) {
-                        log.error(`Failed to reconnect MCP client ${serverName}:`, error);
-                    }
-                }
-            }
-
-            // Initialize ChatSessionManager with the new AppState
-            const chatSessionManager = new ChatSessionManager(appState);
-
-            // Initialize MCP client manager with the connected clients
-            const mcpClientManager = new MCPClientManager(appState, mcpClients);
-            
-            // Set MCP client manager in AppState
-            appState.setMCPManager(mcpClientManager);
+            appState = new AppState(configManager);
+            await appState.initialize();
 
             // Get the window
             const browserWindow = BrowserWindow.fromId(parseInt(windowId));

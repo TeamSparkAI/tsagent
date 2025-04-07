@@ -4,8 +4,6 @@ import { LLMFactory } from './llm/llmFactory';
 import { LLMType } from './llm/types';
 import { createMcpClientFromConfig } from './mcp/client';
 import { MCPClientManager } from './mcp/manager';
-import { RulesManager } from './state/RulesManager';
-import { ReferencesManager } from './state/ReferencesManager';
 import log from 'electron-log';
 import 'dotenv/config';
 import * as fs from 'fs';
@@ -119,41 +117,15 @@ export async function initializeWorkspace(workspacePath: string) {
   log.info(`Initializing workspace: ${workspacePath}`);
   
   // Get the ConfigManager for this workspace
-  const configManager = await WorkspaceManager.getInstance().getConfigManager(workspacePath);
+  const configManager = await WorkspaceManager.getInstance().configManager(workspacePath);
   
   // Get the config directory for this workspace
   const configDir = configManager.getConfigDir();
   log.info(`Using config directory: ${configDir}`);
   
   // Create AppState
-  appState = new AppState(configManager, null as any);
-
-  // Initialize MCP clients
-  const mcpServers = await configManager.getMcpConfig();
-  for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-    try {
-      if (!serverConfig || !serverConfig.config) {
-        log.error(`Invalid server configuration for ${serverName}: missing config property`);
-        continue;
-      }
-
-      const client = createMcpClientFromConfig(appState, serverConfig);      
-      if (client) {
-        await client.connect();
-        mcpClients.set(serverName, client);
-      } else {
-        throw new Error(`Failed to create client for server: ${serverName}`);
-      }
-    } catch (error) {
-      log.error(`Error initializing MCP client for ${serverName}:`, error);
-    }
-  }
-
-  // Initialize MCP client manager with the connected clients
-  const mcpClientManager = new MCPClientManager(appState, mcpClients);
-
-  // Set MCP client manager in AppState
-  appState.setMCPManager(mcpClientManager);
+  appState = new AppState(configManager);
+  await appState.initialize();
   
   // Initialize ChatSessionManager with AppState
   chatSessionManager = new ChatSessionManager(appState);
@@ -211,7 +183,6 @@ async function startApp() {
     }
 
     let mainWindow: BrowserWindow | null = null;
-    const llmInstances = new Map<string, ReturnType<typeof LLMFactory.create>>();
 
     // Move initialization into the ready event
     app.whenReady().then(async () => {
@@ -219,14 +190,35 @@ async function startApp() {
       await initialize();
       log.info('Initialization complete, creating window');
       mainWindow = createWindow();
-      
-      // Initialize workspace if provided
-      if (process.argv.length > 2) {
-        const workspacePath = process.argv[2];
-        await initializeWorkspace(workspacePath);
+
+      /* !!!
+      // Initialize workspace if provided via command line
+      let workspacePathArg: string | null = null;
+      for (let i = 2; i < process.argv.length; i++) {
+        const arg = process.argv[i];
+        // Ignore flags (arguments starting with - or --)
+        if (!arg.startsWith('-')) {
+          workspacePathArg = arg;
+          break; // Found the first non-flag argument, assume it's the workspace path
+        }
       }
 
-      // Set up IPC handlers after workspace initialization
+      if (workspacePathArg) {
+        log.info(`Found potential workspace path argument: ${workspacePathArg}`);
+        try {
+          // Optional: Add validation here to check if it's a valid path/directory
+          // For now, we'll assume it's correct if provided
+          await initializeWorkspace(workspacePathArg);
+        } catch (error) {
+          log.error(`Error initializing workspace from command line argument '${workspacePathArg}':`, error);
+          // Handle error appropriately, maybe show a dialog to the user
+        }
+      } else {
+        log.info('No workspace path provided via command line arguments.');
+      }
+      */
+
+      // Set up IPC handlers after potential workspace initialization
       setupIpcHandlers();
     });
 
@@ -397,7 +389,7 @@ function setupIpcHandlers() {
     }
 
     try {
-      const configManager = await workspaceManager.getConfigManager(currentWindow.workspacePath);
+      const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
       const mcpServers = await configManager.getMcpConfig();
       
       // If mcpServers is empty or undefined, return an empty array
@@ -448,7 +440,7 @@ function setupIpcHandlers() {
       }
       
       // Get the ConfigManager for the current workspace
-      const configManager = await workspaceManager.getConfigManager(currentWindow.workspacePath);
+      const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
       
       let client = mcpClients.get(serverName);
       let serverType = 'stdio';
@@ -554,7 +546,7 @@ function setupIpcHandlers() {
       }
       
       // Get the ConfigManager for the current workspace
-      const configManager = await workspaceManager.getConfigManager(currentWindow.workspacePath);
+      const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
       const prompt = await configManager.getSystemPrompt();
       log.info(`[MAIN PROCESS] System prompt retrieved: ${prompt.substring(0, 50)}...`);
       log.info(`[MAIN PROCESS] Prompt file path: ${configManager.getPromptFile()}`);
@@ -584,7 +576,7 @@ function setupIpcHandlers() {
       }
       
       // Get the ConfigManager for the current workspace
-      const configManager = await workspaceManager.getConfigManager(currentWindow.workspacePath);
+      const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
       await configManager.saveSystemPrompt(prompt);
       log.info('System prompt saved successfully');
       return { success: true };
@@ -865,7 +857,7 @@ async function saveServerConfig(server: McpConfig) {
     }
     
     // Get the ConfigManager for the current workspace
-    const configManager = await workspaceManager.getConfigManager(currentWindow.workspacePath);
+    const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
     await configManager.saveMcpConfig(server);
     
     // Reconnect the client with new config
@@ -899,7 +891,7 @@ async function deleteServerConfig(serverName: string) {
     }
     
     // Get the ConfigManager for the current workspace
-    const configManager = await workspaceManager.getConfigManager(currentWindow.workspacePath);
+    const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
     await configManager.deleteMcpConfig(serverName);
     
     // Disconnect and remove the client

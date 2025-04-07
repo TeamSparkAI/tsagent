@@ -100,7 +100,7 @@ export class ChatSessionManager {
     const session = this.getSession(tabId);
 
     // Get system prompt from config
-    const systemPrompt = await session.appState.getConfigManager().getSystemPrompt();
+    const systemPrompt = await session.appState.configManager.getSystemPrompt();
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       ...session.messages.filter(m => m.role !== 'system')

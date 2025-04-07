@@ -21,4 +21,4 @@ export interface WorkspaceConfig {
     rules: {
         directory: string;
     };
-} 
+}

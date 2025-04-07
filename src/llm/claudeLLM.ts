@@ -18,7 +18,7 @@ export class ClaudeLLM implements ILLM {
     this.appState = appState;
     
     try {
-      const apiKey = this.appState.getConfigManager().getConfigValue('ANTHROPIC_API_KEY');
+      const apiKey = this.appState.configManager.getConfigValue('ANTHROPIC_API_KEY');
       if (!apiKey) {
         throw new Error('ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
@@ -45,7 +45,7 @@ export class ClaudeLLM implements ILLM {
     try {
       log.info('Generating response with Claude');
 
-      const tools = this.appState.getMCPManager().getAllTools().map((tool: Tool) => {
+      const tools = this.appState.mcpManager.getAllTools().map((tool: Tool) => {
         return {
           name: tool.name,
           description: tool.description,
@@ -157,7 +157,7 @@ export class ClaudeLLM implements ILLM {
               ]
             });
 
-            const result = await this.appState.getMCPManager().callTool(toolName, toolArgs);
+            const result = await this.appState.mcpManager.callTool(toolName, toolArgs);
             log.info('Tool result:', result);
 
             const toolResultContent = result.content[0];
@@ -178,8 +178,8 @@ export class ClaudeLLM implements ILLM {
               }
 
               turn.toolCalls.push({
-                serverName: this.appState.getMCPManager().getToolServerName(toolName),
-                toolName: this.appState.getMCPManager().getToolName(toolName),
+                serverName: this.appState.mcpManager.getToolServerName(toolName),
+                toolName: this.appState.mcpManager.getToolName(toolName),
                 args: toolArgs ?? {},
                 toolCallId: toolUseId,
                 output: toolResultContent?.text ?? '',

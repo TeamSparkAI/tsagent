@@ -91,7 +91,7 @@ export class GeminiLLM implements ILLM {
     this.appState = appState;
     
     try {
-      const apiKey = this.appState.getConfigManager().getConfigValue('GEMINI_API_KEY');
+      const apiKey = this.appState.configManager.getConfigValue('GEMINI_API_KEY');
       if (!apiKey) {
         throw new Error('GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
@@ -114,7 +114,7 @@ export class GeminiLLM implements ILLM {
     }
 
     var modelTools: GeminiTool | undefined = undefined;
-    const tools = this.appState.getMCPManager().getAllTools();
+    const tools = this.appState.mcpManager.getAllTools();
     log.info('tools', JSON.stringify(tools, null, 2));
     if (tools.length > 0) {
       modelTools = this.convertMCPToolsToGeminiTool(tools);
@@ -249,7 +249,7 @@ export class GeminiLLM implements ILLM {
               log.info('Function call detected:', part.functionCall);
 
               // Call the tool
-              const toolResult = await this.appState.getMCPManager().callTool(toolName, toolArgs);
+              const toolResult = await this.appState.mcpManager.callTool(toolName, toolArgs);
               log.info('Tool result:', toolResult);
 
               // Record the function call and result
@@ -260,8 +260,8 @@ export class GeminiLLM implements ILLM {
                   turn.toolCalls = [];
                 }
                 turn.toolCalls.push({
-                  serverName: this.appState.getMCPManager().getToolServerName(toolName),
-                  toolName: this.appState.getMCPManager().getToolName(toolName),
+                  serverName: this.appState.mcpManager.getToolServerName(toolName),
+                  toolName: this.appState.mcpManager.getToolName(toolName),
                   args: toolArgs,
                   toolCallId: Math.random().toString(16).slice(2, 10), // Random ID, since VertexAI doesn't provide one
                   output: resultText,

@@ -36,33 +36,21 @@ const mcpClients = new Map<string, McpClient>();
 async function toolsCommand() {
   try {
     const configDir = configManager.getConfigDir();
-    const appState = new AppState(configManager, null as any);
-
-    const mcpServers = await configManager.getMcpConfig();
+    const appState = new AppState(configManager);
+    await appState.initialize();
 
     console.log('Checking available tools on MCP servers...\n');
 
-    // Connect to each server and list tools
-    for (const [serverId, serverConfig] of Object.entries(mcpServers)) {
-      console.log(`Server: ${serverId}`);
-      console.log('------------------------');
-
-      const client = createMcpClientFromConfig(appState, serverConfig);
-      try {
-        await client.connect();
-        
-        // Tools are now available in client.serverTools
-        if (client.serverTools.length === 0) {
-          console.log('No tools available');
-        } else {
-          client.serverTools.forEach((tool: Tool) => {
-            console.log(`- ${tool.name}: ${tool.description || 'No description'}`);
-          });
-        }
-      } catch (error) {
-        log.error(`Error connecting to ${serverId}:`, error);
-      } finally {
-        await client.cleanup();
+    const mcpClients = appState.mcpManager.getAllClients()
+    for (const mcpClient of mcpClients) {
+      console.log(`Server: ${mcpClient.serverVersion?.name}`);
+      console.log('------------------------');        
+      if (mcpClient.serverTools.length === 0) {
+        console.log('No tools available');
+      } else {
+        mcpClient.serverTools.forEach((tool: Tool) => {
+          console.log(`- ${tool.name}: ${tool.description || 'No description'}`);
+        });
       }
       console.log('\n');
     }

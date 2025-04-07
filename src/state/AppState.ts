@@ -5,24 +5,21 @@ import { MCPClientManager } from '../mcp/manager';
 import log from 'electron-log';
 
 export class AppState {
-  private configManager: ConfigManager;
+  private _configManager: ConfigManager;
   private _rulesManager: RulesManager;
   private _referencesManager: ReferencesManager;
-  private mcpManager: MCPClientManager;
+  private _mcpManager: MCPClientManager;
 
-  constructor(
-    configManager: ConfigManager,
-    mcpManager: MCPClientManager
-  ) {
-    this.configManager = configManager;
+  constructor(configManager: ConfigManager) {
+    this._configManager = configManager;
     this._rulesManager = new RulesManager(configManager.getConfigDir());
     this._referencesManager = new ReferencesManager(configManager.getConfigDir());
-    this.mcpManager = mcpManager;
+    this._mcpManager = new MCPClientManager();
     log.info('AppState initialized');
   }
 
-  getConfigManager(): ConfigManager {
-    return this.configManager;
+  get configManager(): ConfigManager {
+    return this._configManager;
   }
 
   get rulesManager(): RulesManager {
@@ -33,12 +30,11 @@ export class AppState {
     return this._referencesManager;
   }
 
-  getMCPManager(): MCPClientManager {
-    return this.mcpManager;
+  get mcpManager(): MCPClientManager {
+    return this._mcpManager;
   }
 
-  setMCPManager(mcpManager: MCPClientManager): void {
-    this.mcpManager = mcpManager;
-    log.info('MCPManager updated in AppState');
+  async initialize() {
+    await this.mcpManager.loadClients(this);
   }
 } 
