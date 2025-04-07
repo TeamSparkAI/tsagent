@@ -14,7 +14,6 @@ const mcpClients = new Map<string, McpClient>();
 let appState: AppState;
 
 export class WorkspaceManager extends EventEmitter {
-    private static instance: WorkspaceManager;
     private readonly workspaceSchema = {
         required: ['metadata', 'references', 'rules'],
         properties: {
@@ -39,26 +38,18 @@ export class WorkspaceManager extends EventEmitter {
     private readonly maxRecentWorkspaces = 10;
     private readonly recentWorkspacesPath: string;
 
-    private constructor() {
+    constructor() {
         super();
         this.activeWindows = new Map();
         this.recentWorkspaces = [];
         this.lastActiveWorkspace = null;
         this.recentWorkspacesPath = path.join(app.getPath('userData'), 'workspaces.json');
         log.info(`Workspaces file path: ${this.recentWorkspacesPath}`);
-        // Initialize but don't await here
-        this.initialize();
     }
 
-    private async initialize(): Promise<void> {
+    public async initialize(): Promise<void> {
         await this.loadRecentWorkspaces();
-    }
-
-    public static getInstance(): WorkspaceManager {
-        if (!WorkspaceManager.instance) {
-            WorkspaceManager.instance = new WorkspaceManager();
-        }
-        return WorkspaceManager.instance;
+        log.info('WorkspaceManager initialized');
     }
 
     private async loadRecentWorkspaces(): Promise<void> {

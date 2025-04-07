@@ -19,10 +19,10 @@ import { WorkspaceManager } from './main/workspaceManager';
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
-let mcpManager: MCPClientManager;
 let chatSessionManager: ChatSessionManager;
 let appState: AppState;
 let mainWindow: BrowserWindow | null = null;
+let workspaceManager: WorkspaceManager;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 const llmTypes = new Map<string, LLMType>();
 
@@ -65,7 +65,6 @@ function createWindow(workspacePath?: string): BrowserWindow {
   */
 
   // Set up event listener for workspace changes
-  const workspaceManager = WorkspaceManager.getInstance();
   workspaceManager.on('workspace:switched', (event) => {
     log.info(`[MAIN] Received workspace:switched event from WorkspaceManager:`, event);
     if (window) {
@@ -110,6 +109,10 @@ async function initialize() {
   // We no longer initialize any configuration, app state, or workspace on startup
   // These will be initialized only when a workspace is selected
   log.info('No workspace selected, skipping initialization of configuration and app state');
+
+  // Create and initialize WorkspaceManager
+  workspaceManager = new WorkspaceManager();
+  await workspaceManager.initialize();
 }
 
 // Initialize a workspace when one is selected
@@ -117,7 +120,7 @@ export async function initializeWorkspace(workspacePath: string) {
   log.info(`Initializing workspace: ${workspacePath}`);
   
   // Get the ConfigManager for this workspace
-  const configManager = await WorkspaceManager.getInstance().configManager(workspacePath);
+  const configManager = await workspaceManager.configManager(workspacePath);
   
   // Get the config directory for this workspace
   const configDir = configManager.getConfigDir();
@@ -379,7 +382,6 @@ function setupIpcHandlers() {
     }
 
     const windowId = focusedWindow.id;
-    const workspaceManager = WorkspaceManager.getInstance();
     const activeWindows = workspaceManager.getActiveWindows();
     const currentWindow = activeWindows.find(w => w.windowId === windowId.toString());
     
@@ -430,7 +432,6 @@ function setupIpcHandlers() {
         throw new Error('No focused window found');
       }
       
-      const workspaceManager = WorkspaceManager.getInstance();
       const activeWindows = workspaceManager.getActiveWindows();
       const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
       
@@ -536,7 +537,6 @@ function setupIpcHandlers() {
         return DEFAULT_PROMPT;
       }
       
-      const workspaceManager = WorkspaceManager.getInstance();
       const activeWindows = workspaceManager.getActiveWindows();
       const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
       
@@ -566,7 +566,6 @@ function setupIpcHandlers() {
         throw new Error('No focused window found');
       }
       
-      const workspaceManager = WorkspaceManager.getInstance();
       const activeWindows = workspaceManager.getActiveWindows();
       const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
       
@@ -625,16 +624,12 @@ function setupIpcHandlers() {
   });
 
   // Workspace IPC handlers
-  ipcMain.handle('workspace:getActiveWindows', async () => {
-    // Ensure data is loaded before returning
-    await WorkspaceManager.getInstance().ensureInitialized();
-    return WorkspaceManager.getInstance().getActiveWindows();
+  ipcMain.handle('workspace:getActiveWindows', () => {
+    return workspaceManager.getActiveWindows();
   });
 
-  ipcMain.handle('workspace:getRecentWorkspaces', async () => {
-    // Ensure data is loaded before returning
-    await WorkspaceManager.getInstance().ensureInitialized();
-    return WorkspaceManager.getInstance().getRecentWorkspaces();
+  ipcMain.handle('workspace:getRecentWorkspaces', () => {
+    return workspaceManager.getRecentWorkspaces();
   });
 
   ipcMain.handle('workspace:getCurrentWindowId', (event) => {
@@ -650,12 +645,11 @@ function setupIpcHandlers() {
     
     // Log all windows
     const allWindows = BrowserWindow.getAllWindows();
-    log.info(`[WINDOW ID] All windows: ${allWindows.map(w => w.id.toString()).join(', ')}`);
+    log.info(`[WINDOW ID] All windows: ${allWindows.map((w: BrowserWindow) => w.id.toString()).join(', ')}`);
     
     // Log active windows in WorkspaceManager
-    const workspaceManager = WorkspaceManager.getInstance();
     const activeWindows = workspaceManager.getActiveWindows();
-    log.info(`[WINDOW ID] Active windows in WorkspaceManager: ${activeWindows.map(w => w.windowId).join(', ')}`);
+    log.info(`[WINDOW ID] Active windows in WorkspaceManager: ${activeWindows.map((w: any) => w.windowId).join(', ')}`);
     
     // Check if the window is registered with the WorkspaceManager
     const isRegistered = activeWindows.some(window => window.windowId === windowId);
@@ -692,10 +686,10 @@ function setupIpcHandlers() {
       log.info(`[WORKSPACE OPEN] Opening workspace ${workspacePath} in current window ${currentWindow.id}`);
       
       // Unregister the window from its current workspace
-      WorkspaceManager.getInstance().unregisterWindow(currentWindow.id.toString());
+      workspaceManager.unregisterWindow(currentWindow.id.toString());
       
       // Register the window with the new workspace
-      await WorkspaceManager.getInstance().registerWindow(currentWindow.id.toString(), workspacePath);
+      await workspaceManager.registerWindow(currentWindow.id.toString(), workspacePath);
       
       // Return the current window's ID
       return currentWindow.id;
@@ -733,7 +727,7 @@ function setupIpcHandlers() {
 
   ipcMain.handle('workspace:create', async (_, workspacePath: string) => {
     // Create workspace using WorkspaceManager
-    await WorkspaceManager.getInstance().createWorkspace(workspacePath);
+    await workspaceManager.createWorkspace(workspacePath);
     
     const window = createWindow(workspacePath);
     return window.id;
@@ -762,7 +756,6 @@ function setupIpcHandlers() {
       const windowIdStr = windowId.toString();
       
       // Check if the window is registered with the WorkspaceManager
-      const workspaceManager = WorkspaceManager.getInstance();
       const activeWindows = workspaceManager.getActiveWindows();
       const isRegistered = activeWindows.some(window => window.windowId === windowIdStr);
       
@@ -801,17 +794,12 @@ function setupIpcHandlers() {
         return;
       }
       
+      // Unregister and register the window to update the workspace
+      workspaceManager.unregisterWindow(windowId);
+      await workspaceManager.registerWindow(windowId, workspacePath);
+      
       // Re-initialize global managers and state based on the new workspace path
       await initializeWorkspace(workspacePath);
-      
-      // Notify the renderer process about the workspace switch
-      BrowserWindow.getAllWindows().forEach(window => {
-        window.webContents.send('workspace:switched', {
-          windowId,
-          workspacePath,
-          targetWindowId: windowId // Add targetWindowId to indicate which window should update its content
-        });
-      });
       
       log.info(`[WORKSPACE MANAGER] Workspace initialization completed for ${workspacePath}`);
     } catch (error) {
@@ -830,7 +818,6 @@ async function saveServerConfig(server: McpConfig) {
       throw new Error('No focused window found');
     }
     
-    const workspaceManager = WorkspaceManager.getInstance();
     const activeWindows = workspaceManager.getActiveWindows();
     const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
     
@@ -881,7 +868,6 @@ async function deleteServerConfig(serverName: string) {
       throw new Error('No focused window found');
     }
     
-    const workspaceManager = WorkspaceManager.getInstance();
     const activeWindows = workspaceManager.getActiveWindows();
     const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
     
