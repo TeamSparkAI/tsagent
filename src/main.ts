@@ -36,7 +36,8 @@ function createWindow(workspacePath?: string): BrowserWindow {
     }
   });
   
-  window.webContents.openDevTools();
+  // This can be useful for debuggging frontend events that may be emitted before logging is initialized
+  // window.webContents.openDevTools();
 
   /* !!! This used to rely on app-global rules and references managers, but now we rely on the workspace-specific ones
   // Set up event listener for rules changes
@@ -127,6 +128,9 @@ export async function initializeWorkspace(workspacePath: string) {
   await appState.initialize();
   
   // Initialize the LLM Factory with AppState
+  //
+  // !!! This feels like to needs to not be a singleton, and also part of AppState
+  //
   log.info('Initializing LLMFactory with AppState');
   LLMFactory.initialize(appState);
 
