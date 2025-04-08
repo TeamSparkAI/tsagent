@@ -15,10 +15,4 @@ export interface WorkspaceMetadata {
 
 export interface WorkspaceConfig {
     metadata: WorkspaceMetadata;
-    references: {
-        directory: string;
-    };
-    rules: {
-        directory: string;
-    };
 }

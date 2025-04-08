@@ -218,20 +218,23 @@ export class WorkspaceManager extends EventEmitter {
                 log.info(`Created workspace directory at ${workspacePath}`);
             }
 
+            const configManager = await this.configManager(workspacePath);
+            const configDir =configManager.getConfigDir();
+
+            // Create config directory (not needed if same as workspace path?)
+            if (!fs.existsSync(configDir)) {
+                fs.mkdirSync(configDir, { recursive: true });
+                log.info(`Created config directory at ${configDir}`);
+            }
+            
             // Create workspace.json with default configuration
-            const workspaceJsonPath = path.join(workspacePath, 'workspace.json');
+            const workspaceJsonPath = path.join(configDir, 'workspace.json');
             const defaultConfig: WorkspaceConfig = {
                 metadata: {
                     name: path.basename(workspacePath),
                     created: new Date().toISOString(),
                     lastAccessed: new Date().toISOString(),
                     version: '1.0.0'
-                },
-                references: {
-                    directory: 'references'
-                },
-                rules: {
-                    directory: 'rules'
                 }
             };
 
@@ -243,24 +246,17 @@ export class WorkspaceManager extends EventEmitter {
             log.info(`Created workspace.json at ${workspaceJsonPath}`);
 
             // Create references directory
-            const referencesDir = path.join(workspacePath, defaultConfig.references.directory);
+            const referencesDir = path.join(configDir, 'refs');
             if (!fs.existsSync(referencesDir)) {
                 fs.mkdirSync(referencesDir, { recursive: true });
                 log.info(`Created references directory at ${referencesDir}`);
             }
 
             // Create rules directory
-            const rulesDir = path.join(workspacePath, defaultConfig.rules.directory);
+            const rulesDir = path.join(configDir, 'rules');
             if (!fs.existsSync(rulesDir)) {
                 fs.mkdirSync(rulesDir, { recursive: true });
                 log.info(`Created rules directory at ${rulesDir}`);
-            }
-
-            // Create config directory
-            const configDir = path.join(workspacePath, 'config');
-            if (!fs.existsSync(configDir)) {
-                fs.mkdirSync(configDir, { recursive: true });
-                log.info(`Created config directory at ${configDir}`);
             }
 
             // Validate the workspace to ensure everything is set up correctly
@@ -276,7 +272,16 @@ export class WorkspaceManager extends EventEmitter {
     public async validateWorkspace(workspacePath: string): Promise<void> {
         try {
             // Check if workspace.json exists
-            const configPath = path.join(workspacePath, 'workspace.json');
+            const configManager = await this.configManager(workspacePath);
+            const configDir =configManager.getConfigDir();
+
+            // Create config directory if it doesn't exist (not needed if same as workspace path?)
+            if (!fs.existsSync(configDir)) {
+                fs.mkdirSync(configDir, { recursive: true });
+                log.info(`Created config directory at ${configDir}`);
+            }
+            
+            const configPath = path.join(configDir, 'workspace.json');
             if (!fs.existsSync(configPath)) {
                 log.warn(`No workspace.json found at ${workspacePath}, creating default configuration`);
                 
@@ -287,12 +292,6 @@ export class WorkspaceManager extends EventEmitter {
                         created: new Date().toISOString(),
                         lastAccessed: new Date().toISOString(),
                         version: '1.0.0'
-                    },
-                    references: {
-                        directory: path.join(workspacePath, 'references')
-                    },
-                    rules: {
-                        directory: path.join(workspacePath, 'rules')
                     }
                 };
                 
@@ -324,31 +323,9 @@ export class WorkspaceManager extends EventEmitter {
                 await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
             }
             
-            // Ensure references directory exists
-            if (!config.references || !config.references.directory) {
-                log.warn(`Missing references section in workspace configuration at ${workspacePath}, adding default references`);
-                config.references = {
-                    directory: path.join(workspacePath, 'references')
-                };
-                
-                // Write the updated configuration
-                await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-            }
-            
-            // Ensure rules directory exists
-            if (!config.rules || !config.rules.directory) {
-                log.warn(`Missing rules section in workspace configuration at ${workspacePath}, adding default rules`);
-                config.rules = {
-                    directory: path.join(workspacePath, 'rules')
-                };
-                
-                // Write the updated configuration
-                await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2), 'utf-8');
-            }
-            
             // Create directories if they don't exist
-            const referencesDir = config.references.directory;
-            const rulesDir = config.rules.directory;
+            const referencesDir = path.join(configDir, 'refs');
+            const rulesDir = path.join(configDir, 'rules');
             
             if (!fs.existsSync(referencesDir)) {
                 log.info(`Creating references directory: ${referencesDir}`);
@@ -358,30 +335,8 @@ export class WorkspaceManager extends EventEmitter {
             if (!fs.existsSync(rulesDir)) {
                 log.info(`Creating rules directory: ${rulesDir}`);
                 fs.mkdirSync(rulesDir, { recursive: true });
-                
-                // Only create default rule if the directory is completely empty
-                const files = fs.readdirSync(rulesDir);
-                if (files.length === 0) {
-                    // Create a default rule
-                    const defaultRulePath = path.join(rulesDir, 'default-rule.mdw');
-                    const defaultRuleContent = `---\nname: default-rule\ndescription: Default rule for new workspace\npriorityLevel: 500\nenabled: true\n---\nThis is a default rule that was created when initializing the workspace. You can edit or delete this rule as needed.`;
-                    
-                    log.info(`Creating default rule at: ${defaultRulePath}`);
-                    await fs.promises.writeFile(defaultRulePath, defaultRuleContent, 'utf-8');
-                }
-            } else {
-                // Log existing rules for debugging
-                const existingRules = fs.readdirSync(rulesDir).filter(file => file.endsWith('.mdw'));
-                log.info(`Found ${existingRules.length} existing rules in ${rulesDir}: ${existingRules.join(', ')}`);
             }
             
-            // Create config directory if it doesn't exist
-            const configDir = path.join(workspacePath, 'config');
-            if (!fs.existsSync(configDir)) {
-                fs.mkdirSync(configDir, { recursive: true });
-                log.info(`Created config directory at ${configDir}`);
-            }
-
             // Create prompt.md file if it doesn't exist
             const promptFile = path.join(configDir, 'prompt.md');
             if (!fs.existsSync(promptFile)) {
@@ -399,7 +354,10 @@ export class WorkspaceManager extends EventEmitter {
 
     public async readWorkspace(workspacePath: string): Promise<WorkspaceConfig> {
         try {
-            const configPath = path.join(workspacePath, 'workspace.json');
+            const configManager = await this.configManager(workspacePath);
+            const configDir =configManager.getConfigDir();
+
+            const configPath = path.join(configDir, 'workspace.json');
             const configContent = await fs.promises.readFile(configPath, 'utf-8');
             let config: WorkspaceConfig = JSON.parse(configContent);
             
@@ -417,15 +375,6 @@ export class WorkspaceManager extends EventEmitter {
                 config.metadata.lastAccessed = new Date().toISOString();
             }
             
-            // Ensure required sections exist
-            if (!config.references) {
-                config.references = { directory: 'references' };
-            }
-            
-            if (!config.rules) {
-                config.rules = { directory: 'rules' };
-            }
-            
             // Write the updated config back to the file
             await this.writeWorkspace(workspacePath, config);
             
@@ -438,7 +387,10 @@ export class WorkspaceManager extends EventEmitter {
 
     public async writeWorkspace(workspacePath: string, config: WorkspaceConfig): Promise<void> {
         try {
-            const configPath = path.join(workspacePath, 'workspace.json');
+            const configManager = await this.configManager(workspacePath);
+            const configDir =configManager.getConfigDir();
+
+            const configPath = path.join(configDir, 'workspace.json');
             
             // Read the existing config if it exists
             let existingConfig: WorkspaceConfig | null = null;
@@ -471,16 +423,7 @@ export class WorkspaceManager extends EventEmitter {
                 };
                 log.info(`Created default metadata for workspace`);
             }
-            
-            // Ensure required sections exist
-            if (!config.references) {
-                config.references = { directory: 'references' };
-            }
-            
-            if (!config.rules) {
-                config.rules = { directory: 'rules' };
-            }
-            
+                    
             // Write the updated config
             await fs.promises.writeFile(configPath, JSON.stringify(config, null, 2));
             log.info(`Updated workspace configuration at ${workspacePath}`);
@@ -494,14 +437,6 @@ export class WorkspaceManager extends EventEmitter {
         // Basic schema validation
         if (!config.metadata) {
             throw new Error('Missing required metadata section in workspace configuration');
-        }
-
-        if (!config.references) {
-            throw new Error('Missing required references section in workspace configuration');
-        }
-
-        if (!config.rules) {
-            throw new Error('Missing required rules section in workspace configuration');
         }
 
         if (!config.metadata.name) {
@@ -519,15 +454,6 @@ export class WorkspaceManager extends EventEmitter {
         // Optional fields
         if (!config.metadata.lastAccessed) {
             config.metadata.lastAccessed = new Date().toISOString();
-        }
-
-        // Optional directory paths with defaults
-        if (!config.references.directory) {
-            config.references.directory = 'references';
-        }
-
-        if (!config.rules.directory) {
-            config.rules.directory = 'rules';
         }
 
         return true;
