@@ -55,6 +55,7 @@ const api: API = {
   showChatMenu: (hasSelection: boolean, x: number, y: number) => ipcRenderer.invoke('show-chat-menu', hasSelection, x, y),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   saveServerConfig: (server) => ipcRenderer.invoke('saveServerConfig', server),
+  reloadServerInfo: (serverName: string) => ipcRenderer.invoke('reloadServerInfo', serverName),
   deleteServerConfig: (name: string) => ipcRenderer.invoke('deleteServerConfig', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
     

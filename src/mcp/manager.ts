@@ -96,6 +96,10 @@ export class MCPClientManager {
         return this.clients.get(name);
     }
 
+    updateClient(name: string, client: McpClient): void {
+        this.clients.set(name, client);
+    }
+
     getAllClients(): McpClient[] {
         return Array.from(this.clients.values());
     }

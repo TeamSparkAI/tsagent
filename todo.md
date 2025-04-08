@@ -55,10 +55,6 @@ Tools
 
 ## Chat UX
 
-Show references and rules included in chat context
-- Show in list
-- Allow removal
-
 Allow user to @mention a rule or referencec to add them to the chat context (interactively, as you type, maybe with lookup/matching)
 - @ref:[referenceName]
 - @rule:[ruleName]
@@ -72,7 +68,7 @@ Allow user to @mention a toolset/tool to apply to the message
 
 Allow user to pick any chat element and store it as a reference
 
-Duplicate chat
+Clone chat tab
 
 Chat import/export
 - JSON file of messages/replies/references/rules
@@ -136,6 +132,9 @@ Maybe we have the concept of a "Workspace" which is a collection of all of our s
 
 ## References and Rules config
 
+Include: Always, Auto Attached, Agent Requested, Manual (these are the Cursor options)
+- Add tool to include/exclude ref/rule from current chat session (maybe see which refs/rules are attached/available)
+
 Store config in YAML frontmatter
 
 References
@@ -153,7 +152,7 @@ Examples:
 
 ## Tool Permission
 
-Allow tool from [server name]?
+Allow tool call from [server name]?
 
   Run [toolname] from [server/server name] (maybe pop this open to see server/tool config)
 
@@ -228,16 +227,31 @@ what files are in in test_files
 
 ## Workspaces Issues
 
+workspace.json (should it be workbench.json?)
+- Add Description to metadata - make name/discription editable
+- Check last accessed updating
+- Doesn't need refs/rules directory
+- Move config.json into workspace.json (get rid of config.json)
+- Have environment section where you can have env vars (including for the API keys)
+- Make sure those env vars are available to the app (maybe set them into state after dotenv)
+- Make LLMs use env vars for keys (priority is workspace env, the dotenv, then env)
+- Make "models" dict with entry for each provider, model
+
+If launching app and command line contains workspace path, open that workspace (GUI version of this, CLI will also do similar)
+
 If first window, should we automatically reload most recently used workspace?
 
 It's not clear that the workspace change notification is ever received (or if it's needed, or what will happen if it gets called)
-
-When you edit an MCP server config, it doesn't reconnect (shows connected, won't ping, presumably isn't in working state)
 
 Clone Workspace would be nice.
 
 For find/open workspace, it currently replaces workspace (if any) in current window.
 - Should it set workspace if current window doesn't have one, else open in new window?
+
+CLI
+- Process launch params (workspace path, --create)
+- Command to switch workspaces?
+- Command to show workspace info
 
 ## Project Org
 

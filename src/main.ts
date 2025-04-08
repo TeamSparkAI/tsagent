@@ -819,11 +819,73 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Reconnect the client with new config
       const client = appState?.mcpManager.getClient(server.name);
       if (client) {
-        client.disconnect();
+        await client.disconnect();
         // appState?.mcpManager.deleteClient(server.name);
+      }
+      
+      // Create and connect a new client with the updated configuration
+      try {
+        const newClient = createMcpClientFromConfig(appState, server);
+        await newClient.connect();
+        appState.mcpManager.updateClient(server.name, newClient);
+        log.info(`Reconnected MCP client for server: ${server.name}`);
+      } catch (error) {
+        log.error(`Error reconnecting MCP client for ${server.name}:`, error);
+        throw new Error(`Failed to reconnect server: ${error instanceof Error ? error.message : String(error)}`);
       }
     } catch (err) {
       log.error('Error saving server config:', err);
+      throw err;
+    }
+  });
+
+  ipcMain.handle('reloadServerInfo', async (event, serverName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    if (!appState) {
+      log.warn('[MAIN] reloadServerInfo: No app state found for window');
+      return;
+    }
+
+    try {
+      // Get current server configuration
+      const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
+      if (!currentWindowId) {
+        log.warn('No focused window found when reloading server info');
+        throw new Error('No focused window found');
+      }
+      
+      const activeWindows = workspaceManager.getActiveWindows();
+      const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
+      
+      if (!currentWindow) {
+        log.warn('No workspace selected, cannot reload server info');
+        throw new Error('No workspace selected');
+      }
+
+      const configManager = await workspaceManager.configManager(currentWindow.workspacePath);
+      const mcpServers = await configManager.getMcpConfig();
+      const serverConfig = mcpServers[serverName];
+      
+      if (!serverConfig) {
+        log.error(`No configuration found for server: ${serverName}`);
+        throw new Error(`No configuration found for server: ${serverName}`);
+      }
+      
+      // Disconnect existing client if any
+      const client = appState?.mcpManager.getClient(serverName);
+      if (client) {
+        await client.disconnect();
+      }
+      
+      // Create and connect a new client
+      const newClient = createMcpClientFromConfig(appState, serverConfig);
+      await newClient.connect();
+      appState.mcpManager.updateClient(serverName, newClient);
+      
+      log.info(`Reloaded MCP client for server: ${serverName}`);
+    } catch (err) {
+      log.error('Error reloading server info:', err);
       throw err;
     }
   });

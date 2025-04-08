@@ -419,6 +419,9 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             setShowEditModal(false);
             await loadServers();
             setSelectedServer(server);
+            
+            // Explicitly reload the server information to ensure connection is refreshed
+            await window.api.reloadServerInfo(server.name);
             await loadServerInfo(server.name);
         } catch (error) {
             log.error('Error saving server:', error);
