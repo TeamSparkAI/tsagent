@@ -408,6 +408,71 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
+  // Chat context (references and rules) IPC handlers
+  ipcMain.handle('chat:add-reference', (event, tabId: string, referenceName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
+    try {
+      return appState.chatSessionManager.addReference(tabId, referenceName);
+    } catch (error) {
+      log.error(`Error adding reference '${referenceName}' to chat session:`, error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('chat:remove-reference', (event, tabId: string, referenceName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
+    try {
+      return appState.chatSessionManager.removeReference(tabId, referenceName);
+    } catch (error) {
+      log.error(`Error removing reference '${referenceName}' from chat session:`, error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('chat:add-rule', (event, tabId: string, ruleName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
+    try {
+      return appState.chatSessionManager.addRule(tabId, ruleName);
+    } catch (error) {
+      log.error(`Error adding rule '${ruleName}' to chat session:`, error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('chat:remove-rule', (event, tabId: string, ruleName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
+    try {
+      return appState.chatSessionManager.removeRule(tabId, ruleName);
+    } catch (error) {
+      log.error(`Error removing rule '${ruleName}' from chat session:`, error);
+      throw error;
+    }
+  });
+
   ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
@@ -421,7 +486,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { 
         success: true,
         updates: result.updates,
-        lastSyncId: result.lastSyncId
+        lastSyncId: result.lastSyncId,
+        references: result.references,
+        rules: result.rules
       };
     } catch (error) {
       log.error('Error switching model:', error);

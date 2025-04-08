@@ -35,6 +35,10 @@ export class ChatAPI {
       const result = await window.api.sendMessage(this.tabId, message);
       // Update messages with the new updates
       this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
+      
+      // Update the references and rules from the response
+      // Note: This will trigger UI updates when getActiveReferences/Rules is called
+      
       // Return the last turn's message if available
       const lastAssistantMessage = result.updates[1];
       if (lastAssistantMessage.role === 'assistant') {
@@ -72,5 +76,66 @@ export class ChatAPI {
 
   public getCurrentModel(): LLMType {
     return this.currentModel;
+  }
+
+  // Chat context management methods
+  public async addReference(referenceName: string): Promise<boolean> {
+    try {
+      return await window.api.addChatReference(this.tabId, referenceName);
+    } catch (error) {
+      log.error(`Error adding reference '${referenceName}' to chat:`, error);
+      return false;
+    }
+  }
+
+  public async removeReference(referenceName: string): Promise<boolean> {
+    try {
+      return await window.api.removeChatReference(this.tabId, referenceName);
+    } catch (error) {
+      log.error(`Error removing reference '${referenceName}' from chat:`, error);
+      return false;
+    }
+  }
+
+  public async addRule(ruleName: string): Promise<boolean> {
+    try {
+      return await window.api.addChatRule(this.tabId, ruleName);
+    } catch (error) {
+      log.error(`Error adding rule '${ruleName}' to chat:`, error);
+      return false;
+    }
+  }
+
+  public async removeRule(ruleName: string): Promise<boolean> {
+    try {
+      return await window.api.removeChatRule(this.tabId, ruleName);
+    } catch (error) {
+      log.error(`Error removing rule '${ruleName}' from chat:`, error);
+      return false;
+    }
+  }
+
+  public async getActiveReferences(): Promise<string[]> {
+    // This requires refreshing the state first to ensure we have the latest data
+    // Return the references from the latest state
+    try {
+      const state = await window.api.getChatState(this.tabId);
+      return state.references;
+    } catch (error) {
+      log.error('Error getting active references:', error);
+      return [];
+    }
+  }
+
+  public async getActiveRules(): Promise<string[]> {
+    // This requires refreshing the state first to ensure we have the latest data
+    // Return the rules from the latest state
+    try {
+      const state = await window.api.getChatState(this.tabId);
+      return state.rules;
+    } catch (error) {
+      log.error('Error getting active rules:', error);
+      return [];
+    }
   }
 } 

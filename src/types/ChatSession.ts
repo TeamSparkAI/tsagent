@@ -16,11 +16,15 @@ export interface ChatState {
   messages: ChatMessage[];
   lastSyncId: number;
   currentModel: LLMType;
+  references: string[];
+  rules: string[];
 }
 
 export interface MessageUpdate {
   updates: ChatMessage[];
   lastSyncId: number;
+  references: string[];
+  rules: string[];
 }
 
 export interface ChatSessionOptions {

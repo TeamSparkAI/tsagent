@@ -12,6 +12,12 @@ export interface API {
   sendMessage: (tabId: string, message: string) => Promise<MessageUpdate>;
   switchModel: (tabId: string, modelType: string) => Promise<ChatSessionResponse>;
 
+  // Chat context management
+  addChatReference: (tabId: string, referenceName: string) => Promise<boolean>;
+  removeChatReference: (tabId: string, referenceName: string) => Promise<boolean>;
+  addChatRule: (tabId: string, ruleName: string) => Promise<boolean>;
+  removeChatRule: (tabId: string, ruleName: string) => Promise<boolean>;
+
   // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;
   getMCPClient: (serverName: string) => Promise<{

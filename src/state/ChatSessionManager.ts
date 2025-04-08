@@ -69,4 +69,24 @@ export class ChatSessionManager {
     const session = this.getSession(tabId);
     return session.getState();
   }
+
+  addReference(tabId: string, referenceName: string): boolean {
+    const session = this.getSession(tabId);
+    return session.addReference(referenceName);
+  }
+
+  removeReference(tabId: string, referenceName: string): boolean {
+    const session = this.getSession(tabId);
+    return session.removeReference(referenceName);
+  }
+
+  addRule(tabId: string, ruleName: string): boolean {
+    const session = this.getSession(tabId);
+    return session.addRule(ruleName);
+  }
+
+  removeRule(tabId: string, ruleName: string): boolean {
+    const session = this.getSession(tabId);
+    return session.removeRule(ruleName);
+  }
 } 

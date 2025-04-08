@@ -158,7 +158,9 @@ export class ChatSession {
       
       return {
         updates,
-        lastSyncId: this.lastSyncId
+        lastSyncId: this.lastSyncId,
+        references: [...this.references],
+        rules: [...this.rules]
       };
     } catch (error) {
       log.error(`Error handling message in session:`, error);
@@ -189,7 +191,9 @@ export class ChatSession {
       log.info(`Switched model to ${modelType}`);
       return {
         updates: [systemMessage],
-        lastSyncId: this.lastSyncId
+        lastSyncId: this.lastSyncId,
+        references: [...this.references],
+        rules: [...this.rules]
       };
     } catch (error) {
       log.error(`Error switching model:`, error);
@@ -200,7 +204,9 @@ export class ChatSession {
       this.lastSyncId++;
       return {
         updates: [systemMessage],
-        lastSyncId: this.lastSyncId
+        lastSyncId: this.lastSyncId,
+        references: [...this.references],
+        rules: [...this.rules]
       };
     }
   }
@@ -209,7 +215,69 @@ export class ChatSession {
     return {
       messages: [...this.messages],
       lastSyncId: this.lastSyncId,
-      currentModel: this.currentModel
+      currentModel: this.currentModel,
+      references: [...this.references],
+      rules: [...this.rules]
     };
+  }
+
+  addReference(referenceName: string): boolean {
+    if (this.references.includes(referenceName)) {
+      return false; // Already exists
+    }
+    
+    // Validate reference exists
+    const reference = this.appState.referencesManager.getReference(referenceName);
+    if (!reference) {
+      log.warn(`Attempted to add non-existent reference: ${referenceName}`);
+      return false;
+    }
+    
+    this.references.push(referenceName);
+    this.lastSyncId++;
+    log.info(`Added reference '${referenceName}' to chat session`);
+    return true;
+  }
+
+  removeReference(referenceName: string): boolean {
+    const index = this.references.indexOf(referenceName);
+    if (index === -1) {
+      return false; // Doesn't exist
+    }
+    
+    this.references.splice(index, 1);
+    this.lastSyncId++;
+    log.info(`Removed reference '${referenceName}' from chat session`);
+    return true;
+  }
+
+  addRule(ruleName: string): boolean {
+    if (this.rules.includes(ruleName)) {
+      return false; // Already exists
+    }
+    
+    // Validate rule exists
+    const rule = this.appState.rulesManager.getRule(ruleName);
+    if (!rule) {
+      log.warn(`Attempted to add non-existent rule: ${ruleName}`);
+      return false;
+    }
+    
+    this.rules.push(ruleName);
+    this.lastSyncId++;
+    log.info(`Added rule '${ruleName}' to chat session`);
+    return true;
+  }
+
+  removeRule(ruleName: string): boolean {
+    const index = this.rules.indexOf(ruleName);
+    if (index === -1) {
+      return false; // Doesn't exist
+    }
+    
+    this.rules.splice(index, 1);
+    this.lastSyncId++;
+    log.info(`Removed rule '${ruleName}' from chat session`);
+    return true;
   }
 } 

@@ -38,6 +38,12 @@ const api: API = {
   sendMessage: (tabId: string, message: string) => ipcRenderer.invoke('chat:send-message', tabId, message),
   switchModel: (tabId: string, model: string) => ipcRenderer.invoke('chat:switch-model', tabId, model),
   
+  // Chat context management
+  addChatReference: (tabId: string, referenceName: string) => ipcRenderer.invoke('chat:add-reference', tabId, referenceName),
+  removeChatReference: (tabId: string, referenceName: string) => ipcRenderer.invoke('chat:remove-reference', tabId, referenceName),
+  addChatRule: (tabId: string, ruleName: string) => ipcRenderer.invoke('chat:add-rule', tabId, ruleName),
+  removeChatRule: (tabId: string, ruleName: string) => ipcRenderer.invoke('chat:remove-rule', tabId, ruleName),
+  
   // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
   getMCPClient: (serverName: string) => ipcRenderer.invoke('get-mcp-client', serverName),
