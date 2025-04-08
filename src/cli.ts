@@ -104,10 +104,10 @@ function showHelp() {
   console.log(chalk.cyan('\nAvailable commands:'));
   console.log(chalk.yellow('  /help') + ' - Show this help menu');
   console.log(chalk.yellow('  /model') + ' - List available models');
-  console.log(chalk.yellow('  /model <name>') + ' - Switch to specified model');
+  console.log(chalk.yellow('  /model <n>') + ' - Switch to specified model');
   console.log(chalk.yellow('  /tools') + ' - List available tools from all configured MCP servers');
-  console.log(chalk.yellow('  /rules') + ' - List active rules');
-  console.log(chalk.yellow('  /references') + ' - List active references');
+  console.log(chalk.yellow('  /rules') + ' - List all rules (* active, - inactive)');
+  console.log(chalk.yellow('  /references') + ' - List all references (* active, - inactive)');
   console.log(chalk.yellow('  /clear') + ' - Clear the chat history');
   console.log(chalk.yellow('  /quit') + ' or ' + chalk.yellow('/exit') + ' - Exit the application');
   console.log('');
@@ -190,26 +190,32 @@ export function setupCLI(appState: AppState) {
           break;
 
         case COMMANDS.RULES:
-          // !!! This shows the included rules only - would be cool to show all rules and star the included ones.
-          if (chatSession.rules.length === 0) {
-            console.log(chalk.yellow('No rules currently active.'));
+          // Show all rules with asterisk for active ones and dash for inactive ones
+          const allRules = appState.rulesManager.getRules();
+          console.log(chalk.cyan('\nRules:'));
+          if (allRules.length === 0) {
+            console.log(chalk.yellow('No rules available.'));
           } else {
-            console.log(chalk.cyan('\nActive rules:'));
-            chatSession.rules.forEach(rule => {
-              console.log(`- ${rule}`);
+            allRules.forEach(rule => {
+              const isActive = chatSession.rules.includes(rule.name);
+              const marker = isActive ? '*' : '-';
+              console.log(`${marker} ${rule.name} (priority: ${rule.priorityLevel})${!rule.enabled ? ' [disabled]' : ''}`);
             });
             console.log('');
           }
           break;
 
         case COMMANDS.REFERENCES:
-          // !!! This shows the included references only - would be cool to show all references and star the included ones.
-          if (chatSession.references.length === 0) {
-            console.log(chalk.yellow('No references currently active.'));
+          // Show all references with asterisk for active ones and dash for inactive ones
+          const allReferences = appState.referencesManager.getReferences();
+          console.log(chalk.cyan('\nReferences:'));
+          if (allReferences.length === 0) {
+            console.log(chalk.yellow('No references available.'));
           } else {
-            console.log(chalk.cyan('\nActive references:'));
-            chatSession.references.forEach(reference => {
-              console.log(`- ${reference}`);
+            allReferences.forEach(reference => {
+              const isActive = chatSession.references.includes(reference.name);
+              const marker = isActive ? '*' : '-';
+              console.log(`${marker} ${reference.name} (priority: ${reference.priorityLevel})${!reference.enabled ? ' [disabled]' : ''}`);
             });
             console.log('');
           }
