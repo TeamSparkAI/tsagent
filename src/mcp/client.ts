@@ -70,7 +70,7 @@ export abstract class McpClientBase {
                 if (this.transport.stderr) {
                     this.transport.stderr.on('data', (data: Buffer) => {
                         const message = data.toString().trim();
-                        log.error('Transport stderr: ' + message);
+                        //log.error('Transport stderr: ' + message);
                         this.addErrorMessage(message);
                     });
                 }
