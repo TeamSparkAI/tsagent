@@ -239,4 +239,24 @@ Clone Workspace would be nice.
 For find/open workspace, it currently replaces workspace (if any) in current window.
 - Should it set workspace if current window doesn't have one, else open in new window?
 
-CLI - many
+## Project Org
+
+Implement css support (so we can share styles across app)
+
+Remodel project
+- main
+  - index.html
+  - main.ts
+  - subdirs for backend (mcp, state, llm)
+- cli
+  cli.ts
+- renderer
+  - renderer.tsx
+  - components
+  - styles
+    - global.css
+- preload
+  - preload.ts
+- shared
+  - api.ts
+  - types

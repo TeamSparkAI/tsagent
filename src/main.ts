@@ -147,6 +147,8 @@ function intializeLogging(isElectron: boolean) {
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     log.transports.file.resolvePathFn = () => path.join(userDataPath, `app-${timestamp}.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
+    log.transports.file.level = 'info';
+    log.transports.console.level = 'error';
   } else {
     // In CLI mode, only show error and above to the console, no file logging
     log.transports.console.level = 'error';
