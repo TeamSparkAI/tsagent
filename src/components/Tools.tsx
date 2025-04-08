@@ -83,6 +83,28 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         return 'rules';
     });
 
+    // Add JSON editing mode toggle
+    const [isJsonMode, setIsJsonMode] = useState(false);
+    
+    // Add state for the JSON text
+    const [jsonText, setJsonText] = useState<string>(() => {
+        if (server) {
+            return JSON.stringify(server, null, 2);
+        }
+        return JSON.stringify({
+            name: '',
+            config: {
+                type: 'stdio',
+                command: '',
+                args: [],
+                env: {}
+            }
+        }, null, 2);
+    });
+    
+    // Add state for JSON validation errors
+    const [jsonError, setJsonError] = useState<string | null>(null);
+
     // Log initial state values
     useEffect(() => {
         console.log("EditServerModal initial state:", {
@@ -90,212 +112,361 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         });
     }, []);
 
-    const handleSave = () => {
-        // Parse the environment JSON
-        let envObject = JSON.parse(env);
-        
-        // Create the base server config object
-        let stdioConfig: any = {
-            type: 'stdio',
-            command,
-            args: argsArray.filter(arg => arg.trim() !== ''), // Only filter out empty args when saving
-        };
-        
-        // Only include the env property if there are environment variables
-        if (Object.keys(envObject).length > 0) {
-            stdioConfig.env = envObject;
-        }
-        
-        const serverConfig: McpConfig = {
-            name,
-            config: serverType === 'stdio'
-                ? stdioConfig
-                : serverType === 'sse'
-                ? {
+    // Update JSON when form fields change
+    useEffect(() => {
+        if (!isJsonMode) {
+            // Build server config object based on form fields
+            let configObj: any = {};
+            
+            if (serverType === 'stdio') {
+                configObj = {
+                    type: 'stdio',
+                    command,
+                    args: argsArray.filter(arg => arg.trim() !== ''),
+                };
+                
+                if (env && env !== '{}') {
+                    try {
+                        configObj.env = JSON.parse(env);
+                    } catch (e) {
+                        // If env JSON is invalid, don't update it
+                    }
+                }
+            } else if (serverType === 'sse') {
+                configObj = {
                     type: 'sse',
                     url,
                     headers
-                }
-                : {
+                };
+            } else {
+                configObj = {
                     type: 'internal',
                     tool: internalTool
+                };
+            }
+            
+            const serverObj = {
+                name,
+                config: configObj
+            };
+            
+            setJsonText(JSON.stringify(serverObj, null, 2));
+        }
+    }, [isJsonMode, name, serverType, command, argsArray, env, url, headers, internalTool]);
+
+    // Update form fields when JSON changes
+    const updateFormFromJson = () => {
+        try {
+            const serverObj = JSON.parse(jsonText);
+            setJsonError(null);
+            
+            // Update name
+            if (serverObj.name !== undefined) {
+                setName(serverObj.name);
+            }
+            
+            // Update config based on type
+            if (serverObj.config) {
+                const configType = serverObj.config.type || 'stdio';
+                setServerType(configType as 'stdio' | 'sse' | 'internal');
+                
+                if (configType === 'stdio') {
+                    setCommand(serverObj.config.command || '');
+                    setArgsArray(Array.isArray(serverObj.config.args) ? serverObj.config.args : []);
+                    setEnv(JSON.stringify(serverObj.config.env || {}));
+                } else if (configType === 'sse') {
+                    setUrl(serverObj.config.url || '');
+                    setHeaders(serverObj.config.headers || {});
+                } else if (configType === 'internal') {
+                    setInternalTool(serverObj.config.tool || 'rules');
                 }
-        };
-        onSave(serverConfig);
+            }
+            
+            return true;
+        } catch (e) {
+            setJsonError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+            return false;
+        }
+    };
+
+    const handleSave = () => {
+        if (isJsonMode) {
+            try {
+                const serverObj = JSON.parse(jsonText);
+                
+                // Basic validation
+                if (!serverObj.name) {
+                    setJsonError('Server name is required');
+                    return;
+                }
+                
+                if (!serverObj.config || !serverObj.config.type) {
+                    setJsonError('Server config with type is required');
+                    return;
+                }
+                
+                onSave(serverObj);
+            } catch (e) {
+                setJsonError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+            }
+        } else {
+            // Parse the environment JSON
+            let envObject = JSON.parse(env);
+            
+            // Create the base server config object
+            let stdioConfig: any = {
+                type: 'stdio',
+                command,
+                args: argsArray.filter(arg => arg.trim() !== ''), // Only filter out empty args when saving
+            };
+            
+            // Only include the env property if there are environment variables
+            if (Object.keys(envObject).length > 0) {
+                stdioConfig.env = envObject;
+            }
+            
+            const serverConfig: McpConfig = {
+                name,
+                config: serverType === 'stdio'
+                    ? stdioConfig
+                    : serverType === 'sse'
+                    ? {
+                        type: 'sse',
+                        url,
+                        headers
+                    }
+                    : {
+                        type: 'internal',
+                        tool: internalTool
+                    }
+            };
+            onSave(serverConfig);
+        }
+    };
+
+    const toggleMode = () => {
+        if (isJsonMode) {
+            // When switching from JSON to form, validate and update form fields
+            if (updateFormFromJson()) {
+                setIsJsonMode(false);
+            }
+        } else {
+            // When switching to JSON, we've already updated the JSON in the useEffect
+            setIsJsonMode(true);
+        }
     };
 
     return (
         <div style={{ padding: '20px' }}>
-            <h2 style={{ marginTop: 0 }}>{server ? 'Edit Server' : 'New Server'}</h2>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h2 style={{ margin: 0 }}>{server ? 'Edit Server' : 'New Server'}</h2>
+                <button 
+                    onClick={toggleMode}
+                    style={{ 
+                        padding: '6px 12px',
+                        backgroundColor: '#666',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    {isJsonMode ? 'Switch to Form Mode' : 'Switch to JSON Mode'}
+                </button>
+            </div>
             
-            <div style={{ 
-                display: 'grid', 
-                gridTemplateColumns: '120px 1fr',
-                gap: '12px',
-                alignItems: 'center',
-                marginBottom: '20px'
-            }}>
-                <label style={{ fontWeight: 'bold' }}>Name:</label>
-                <input 
-                    type="text" 
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    style={{ width: '100%', padding: '4px 8px' }}
-                />
-
-                <label style={{ fontWeight: 'bold' }}>Type:</label>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <select 
-                        value={serverType}
-                        onChange={(e) => setServerType(e.target.value as 'stdio' | 'sse' | 'internal')}
-                        style={{ width: 'auto', padding: '4px 8px' }}
-                    >
-                        <option value="stdio">Stdio</option>
-                        <option value="sse">SSE</option>
-                        <option value="internal">Internal</option>
-                    </select>
+            {isJsonMode ? (
+                <div style={{ marginBottom: '20px' }}>
+                    {jsonError && (
+                        <div style={{ color: 'red', marginBottom: '10px' }}>
+                            {jsonError}
+                        </div>
+                    )}
+                    <textarea 
+                        value={jsonText}
+                        onChange={(e) => {
+                            setJsonText(e.target.value);
+                            setJsonError(null);
+                        }}
+                        style={{ 
+                            width: '100%', 
+                            height: '250px', 
+                            fontFamily: 'monospace',
+                            padding: '8px',
+                            border: jsonError ? '1px solid red' : '1px solid #ccc'
+                        }}
+                    />
                 </div>
+            ) : (
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '120px 1fr',
+                    gap: '12px',
+                    alignItems: 'center',
+                    marginBottom: '20px'
+                }}>
+                    <label style={{ fontWeight: 'bold' }}>Name:</label>
+                    <input 
+                        type="text" 
+                        value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        style={{ width: '100%', padding: '4px 8px' }}
+                    />
 
-                {serverType === 'stdio' && (
-                    <>
-                        <label style={{ fontWeight: 'bold' }}>Command:</label>
-                        <input 
-                            type="text" 
-                            value={command}
-                            onChange={(e) => setCommand(e.target.value)}
-                            style={{ width: '100%', padding: '4px 8px' }}
-                        />
-
-                        <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Arguments:</label>
-                        <div>
-                            {argsArray.map((arg, index) => (
-                                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                    <input
-                                        type="text"
-                                        value={arg}
-                                        onChange={(e) => {
-                                            const newArgs = [...argsArray];
-                                            newArgs[index] = e.target.value;
-                                            setArgsArray(newArgs);
-                                        }}
-                                        style={{ flex: 1, padding: '4px 8px' }}
-                                    />
-                                    <button onClick={() => {
-                                        const newArgs = [...argsArray];
-                                        newArgs.splice(index, 1);
-                                        setArgsArray(newArgs);
-                                    }}>
-                                        Remove
-                                    </button>
-                                </div>
-                            ))}
-                            <button onClick={() => {
-                                setArgsArray([...argsArray, '']); // Add an empty string arg
-                            }}>Add Argument</button>
-                        </div>
-
-                        <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Environment:</label>
-                        <div>
-                            {Object.entries(JSON.parse(env)).map(([key, value], index) => (
-                                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                    <input
-                                        type="text"
-                                        value={key}
-                                        placeholder="Key"
-                                        onChange={(e) => {
-                                            const newEnv = { ...JSON.parse(env) };
-                                            delete newEnv[key];
-                                            newEnv[e.target.value] = value;
-                                            setEnv(JSON.stringify(newEnv));
-                                        }}
-                                        style={{ width: '40%', padding: '4px 8px' }}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={value as string}
-                                        placeholder="Value"
-                                        onChange={(e) => {
-                                            setEnv(JSON.stringify({ ...JSON.parse(env), [key]: e.target.value }));
-                                        }}
-                                        style={{ flex: 1, padding: '4px 8px' }}
-                                    />
-                                    <button onClick={() => {
-                                        const newEnv = { ...JSON.parse(env) };
-                                        delete newEnv[key];
-                                        setEnv(JSON.stringify(newEnv));
-                                    }}>
-                                        Remove
-                                    </button>
-                                </div>
-                            ))}
-                            <button onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
-                        </div>
-                    </>
-                )}
-
-                {serverType === 'sse' && (
-                    <>
-                        <label style={{ fontWeight: 'bold' }}>URL:</label>
-                        <input 
-                            type="text" 
-                            value={url}
-                            onChange={(e) => setUrl(e.target.value)}
-                            style={{ width: '100%', padding: '4px 8px' }}
-                        />
-
-                        <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Headers:</label>
-                        <div>
-                            {Object.entries(headers).map(([key, value], index) => (
-                                <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                    <input
-                                        type="text"
-                                        value={key}
-                                        placeholder="Key"
-                                        onChange={(e) => {
-                                            const newHeaders = { ...headers };
-                                            delete newHeaders[key];
-                                            newHeaders[e.target.value] = value;
-                                            setHeaders(newHeaders);
-                                        }}
-                                        style={{ width: '40%', padding: '4px 8px' }}
-                                    />
-                                    <input
-                                        type="text"
-                                        value={value}
-                                        placeholder="Value"
-                                        onChange={(e) => {
-                                            setHeaders({ ...headers, [key]: e.target.value });
-                                        }}
-                                        style={{ flex: 1, padding: '4px 8px' }}
-                                    />
-                                    <button onClick={() => {
-                                        const newHeaders = { ...headers };
-                                        delete newHeaders[key];
-                                        setHeaders(newHeaders);
-                                    }}>
-                                        Remove
-                                    </button>
-                                </div>
-                            ))}
-                            <button onClick={() => setHeaders({ ...headers, '': '' })}>Add Header</button>
-                        </div>
-                    </>
-                )}
-
-                {serverType === 'internal' && (
-                    <>
-                        <label style={{ fontWeight: 'bold' }}>Tool:</label>
+                    <label style={{ fontWeight: 'bold' }}>Type:</label>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
                         <select 
-                            value={internalTool}
-                            onChange={(e) => setInternalTool(e.target.value as 'rules' | 'references')}
+                            value={serverType}
+                            onChange={(e) => setServerType(e.target.value as 'stdio' | 'sse' | 'internal')}
                             style={{ width: 'auto', padding: '4px 8px' }}
                         >
-                            <option value="rules">Rules</option>
-                            <option value="references">References</option>
+                            <option value="stdio">Stdio</option>
+                            <option value="sse">SSE</option>
+                            <option value="internal">Internal</option>
                         </select>
-                    </>
-                )}
-            </div>
+                    </div>
+
+                    {serverType === 'stdio' && (
+                        <>
+                            <label style={{ fontWeight: 'bold' }}>Command:</label>
+                            <input 
+                                type="text" 
+                                value={command}
+                                onChange={(e) => setCommand(e.target.value)}
+                                style={{ width: '100%', padding: '4px 8px' }}
+                            />
+
+                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Arguments:</label>
+                            <div>
+                                {argsArray.map((arg, index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                        <input
+                                            type="text"
+                                            value={arg}
+                                            onChange={(e) => {
+                                                const newArgs = [...argsArray];
+                                                newArgs[index] = e.target.value;
+                                                setArgsArray(newArgs);
+                                            }}
+                                            style={{ flex: 1, padding: '4px 8px' }}
+                                        />
+                                        <button onClick={() => {
+                                            const newArgs = [...argsArray];
+                                            newArgs.splice(index, 1);
+                                            setArgsArray(newArgs);
+                                        }}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                                <button onClick={() => {
+                                    setArgsArray([...argsArray, '']); // Add an empty string arg
+                                }}>Add Argument</button>
+                            </div>
+
+                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Environment:</label>
+                            <div>
+                                {Object.entries(JSON.parse(env)).map(([key, value], index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                        <input
+                                            type="text"
+                                            value={key}
+                                            placeholder="Key"
+                                            onChange={(e) => {
+                                                const newEnv = { ...JSON.parse(env) };
+                                                delete newEnv[key];
+                                                newEnv[e.target.value] = value;
+                                                setEnv(JSON.stringify(newEnv));
+                                            }}
+                                            style={{ width: '40%', padding: '4px 8px' }}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={value as string}
+                                            placeholder="Value"
+                                            onChange={(e) => {
+                                                setEnv(JSON.stringify({ ...JSON.parse(env), [key]: e.target.value }));
+                                            }}
+                                            style={{ flex: 1, padding: '4px 8px' }}
+                                        />
+                                        <button onClick={() => {
+                                            const newEnv = { ...JSON.parse(env) };
+                                            delete newEnv[key];
+                                            setEnv(JSON.stringify(newEnv));
+                                        }}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                                <button onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
+                            </div>
+                        </>
+                    )}
+
+                    {serverType === 'sse' && (
+                        <>
+                            <label style={{ fontWeight: 'bold' }}>URL:</label>
+                            <input 
+                                type="text" 
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                style={{ width: '100%', padding: '4px 8px' }}
+                            />
+
+                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Headers:</label>
+                            <div>
+                                {Object.entries(headers).map(([key, value], index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                        <input
+                                            type="text"
+                                            value={key}
+                                            placeholder="Key"
+                                            onChange={(e) => {
+                                                const newHeaders = { ...headers };
+                                                delete newHeaders[key];
+                                                newHeaders[e.target.value] = value;
+                                                setHeaders(newHeaders);
+                                            }}
+                                            style={{ width: '40%', padding: '4px 8px' }}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={value}
+                                            placeholder="Value"
+                                            onChange={(e) => {
+                                                setHeaders({ ...headers, [key]: e.target.value });
+                                            }}
+                                            style={{ flex: 1, padding: '4px 8px' }}
+                                        />
+                                        <button onClick={() => {
+                                            const newHeaders = { ...headers };
+                                            delete newHeaders[key];
+                                            setHeaders(newHeaders);
+                                        }}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                                <button onClick={() => setHeaders({ ...headers, '': '' })}>Add Header</button>
+                            </div>
+                        </>
+                    )}
+
+                    {serverType === 'internal' && (
+                        <>
+                            <label style={{ fontWeight: 'bold' }}>Tool:</label>
+                            <select 
+                                value={internalTool}
+                                onChange={(e) => setInternalTool(e.target.value as 'rules' | 'references')}
+                                style={{ width: 'auto', padding: '4px 8px' }}
+                            >
+                                <option value="rules">Rules</option>
+                                <option value="references">References</option>
+                            </select>
+                        </>
+                    )}
+                </div>
+            )}
 
             <div style={{ 
                 display: 'flex',
