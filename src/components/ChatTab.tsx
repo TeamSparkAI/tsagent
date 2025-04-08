@@ -31,6 +31,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const isFirstRenderRef = useRef<boolean>(true);
   const [scrollPosition, setScrollPosition] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [chatState, setChatState] = useState<ChatState>({
     messages: [],
     selectedModel: LLMType.Test
@@ -186,9 +187,15 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   if (id !== activeTabId) return null;
 
   const sendMessage = async () => {
-    if (!inputValue.trim()) return;
+    if (!inputValue.trim() || isLoading) return;
 
     try {
+      setIsLoading(true);
+      setInputValue('');
+      if (textareaRef.current) {
+        textareaRef.current.style.height = '38px';
+      }
+      
       const response = await chatApiRef.current!.sendMessage(inputValue);
       setChatState({
         messages: chatApiRef.current!.getMessages(),
@@ -204,10 +211,16 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       }
     } catch (error) {
       log.error('Failed to get response:', error);
-    }
-    setInputValue('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = '38px';
+    } finally {
+      setIsLoading(false);
+      
+      // Use setTimeout to ensure the DOM has been updated before focusing
+      setTimeout(() => {
+        if (textareaRef.current) {
+          textareaRef.current.disabled = false;  // Explicitly enable the textarea
+          textareaRef.current.focus();
+        }
+      }, 0);
     }
   };
 
@@ -410,6 +423,41 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             background-color: #feeeee;
             color: #e63757;
           }
+          
+          .input-container {
+            position: relative;
+            display: flex;
+            margin-top: 10px;
+          }
+          
+          .loading-indicator {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 3px 10px;
+            border-radius: 10px;
+            font-size: 12px;
+            animation: pulse 1.5s infinite;
+          }
+          
+          @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+          }
+          
+          #send-button {
+            opacity: 1;
+            transition: opacity 0.2s;
+          }
+          
+          #send-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+          }
         `}
       </style>
       <div id="model-container">
@@ -581,6 +629,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       </div>
       
       <div className="input-container">
+        {isLoading && <div className="loading-indicator">Waiting for response...</div>}
         <textarea
           ref={textareaRef}
           id="message-input"
@@ -598,8 +647,11 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           placeholder="Type your message..."
           onContextMenu={(e) => e.stopPropagation()}
           rows={1}
+          disabled={isLoading}
         />
-        <button id="send-button" onClick={sendMessage}>Send</button>
+        <button id="send-button" onClick={sendMessage} disabled={isLoading || !inputValue.trim()}>
+          {isLoading ? 'Sending...' : 'Send'}
+        </button>
       </div>
     </div>
   );
