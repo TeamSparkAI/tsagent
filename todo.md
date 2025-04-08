@@ -237,10 +237,6 @@ workspace.json (should it be workbench.json?)
 - Make LLMs use env vars for keys (priority is workspace env, the dotenv, then env)
 - Make "models" dict with entry for each provider, model
 
-If launching app and command line contains workspace path, open that workspace (GUI version of this, CLI will also do similar)
-
-If first window, should we automatically reload most recently used workspace?
-
 It's not clear that the workspace change notification is ever received (or if it's needed, or what will happen if it gets called)
 
 Clone Workspace would be nice.

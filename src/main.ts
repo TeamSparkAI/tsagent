@@ -168,7 +168,7 @@ async function initializeWorkspaceManager() {
 async function startApp() {
   if (process.argv.includes('--cli')) {
     intializeLogging(false);
-
+    
     // For CLI mode, use the config directory within the current directory
     const workspacePath = path.join(process.cwd(), 'config');
     log.info(`CLI mode: Using config directory: ${workspacePath}`);
@@ -184,10 +184,7 @@ async function startApp() {
     // Initialize the LLM Factory with AppState
     setupCLI(cliAppState);
   } else {
-    // For GUI mode, we don't create a ConfigManager at all on startup
-    log.info(`GUI mode: No workspace selected on startup`);
-    
-    // Set app name before anything else
+        // Set app name before anything else
     process.env.ELECTRON_APP_NAME = 'TeamSpark Workbench';
     app.setName('TeamSpark Workbench');
 
@@ -220,34 +217,25 @@ async function startApp() {
       log.info('App ready, starting initialization');
       await initializeWorkspaceManager();
       log.info('Initialization complete, creating window');
-      mainWindow = await createWindow();
 
-      /* !!!
-      // Initialize workspace if provided via command line
-      let workspacePathArg: string | null = null;
-      for (let i = 2; i < process.argv.length; i++) {
-        const arg = process.argv[i];
-        // Ignore flags (arguments starting with - or --)
-        if (!arg.startsWith('-')) {
-          workspacePathArg = arg;
-          break; // Found the first non-flag argument, assume it's the workspace path
-        }
-      }
-
-      if (workspacePathArg) {
-        log.info(`Found potential workspace path argument: ${workspacePathArg}`);
-        try {
-          // Optional: Add validation here to check if it's a valid path/directory
-          // For now, we'll assume it's correct if provided
-          await initializeWorkspace(workspacePathArg);
-        } catch (error) {
-          log.error(`Error initializing workspace from command line argument '${workspacePathArg}':`, error);
-          // Handle error appropriately, maybe show a dialog to the user
-        }
+      // If workspace path on command line, open that workspace 
+      const filteredArgs = process.argv.slice(2).filter(arg => !arg.startsWith('-'));
+      const workspacePath = filteredArgs.length > 0 ? filteredArgs[0] : null;
+      
+      if (workspacePath) {
+        log.info(`Opening workspace from command line: ${workspacePath}`);
+        mainWindow = await createWindow(workspacePath);
       } else {
-        log.info('No workspace path provided via command line arguments.');
+        // Else if there is a most recently used workspace, open that 
+        const mostRecentlyUsedWorkspace = workspaceManager.getRecentWorkspaces(); // !!! Should this be workspaceManager.getLastActiveWorkspace()?
+        if (mostRecentlyUsedWorkspace.length > 0) {
+          log.info(`Opening most recently used workspace: ${mostRecentlyUsedWorkspace[0]}`);
+          mainWindow = await createWindow(mostRecentlyUsedWorkspace[0]);
+        } else {
+          log.info('No most recently used workspace, creating new window with no workspace');
+          mainWindow = await createWindow();
+        }
       }
-      */
 
       // Set up IPC handlers after potential workspace initialization
       setupIpcHandlers(mainWindow);
