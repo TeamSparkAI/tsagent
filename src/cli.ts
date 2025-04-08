@@ -54,13 +54,44 @@ async function toolsCommand() {
 
     const mcpClients = appState.mcpManager.getAllClients()
     for (const mcpClient of mcpClients) {
-      console.log(chalk.blue(`Server: ${mcpClient.serverVersion?.name}`));
+      console.log(chalk.cyan.bold(`Server: ${mcpClient.serverVersion?.name}`));
       console.log(chalk.dim('------------------------'));        
       if (mcpClient.serverTools.length === 0) {
         console.log('No tools available');
       } else {
         mcpClient.serverTools.forEach((tool: Tool) => {
-          console.log(`- ${tool.name}: ${tool.description || 'No description'}`);
+          const toolName = chalk.yellow(tool.name);
+          const description = tool.description || 'No description';
+          
+          // Format description: max 80 chars, proper word wrap with indentation
+          if (description.length > 80) {
+            const firstLine = description.substring(0, 80).split(' ').slice(0, -1).join(' ');
+            console.log(`- ${toolName}`);
+            console.log(`    ${firstLine}`);
+            
+            // Get the rest of the description
+            const remainingDesc = description.substring(firstLine.length).trim();
+            
+            // Split remaining description into chunks of ~80 chars on word boundaries
+            let startIndex = 0;
+            while (startIndex < remainingDesc.length) {
+              let endIndex = startIndex + 80;
+              if (endIndex < remainingDesc.length) {
+                // Find the last space before the 80 char limit
+                const lastSpace = remainingDesc.substring(startIndex, endIndex).lastIndexOf(' ');
+                if (lastSpace !== -1) {
+                  endIndex = startIndex + lastSpace;
+                }
+              } else {
+                endIndex = remainingDesc.length;
+              }
+              
+              console.log(`    ${remainingDesc.substring(startIndex, endIndex)}`);
+              startIndex = endIndex + 1;
+            }
+          } else {
+            console.log(`- ${toolName}: ${description}`);
+          }
         });
       }
       console.log('\n');
