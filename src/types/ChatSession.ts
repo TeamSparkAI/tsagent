@@ -12,16 +12,6 @@ export type ChatMessage = {
   modelReply: ModelReply;
 };
 
-export interface ChatSession {
-  messages: ChatMessage[];
-  lastSyncId: number;
-  currentModel: LLMType;
-  llm: ILLM;
-  appState: AppState;
-  rules: string[];
-  references: string[];
-}
-
 export interface ChatState {
   messages: ChatMessage[];
   lastSyncId: number;

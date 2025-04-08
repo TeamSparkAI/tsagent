@@ -226,6 +226,17 @@ can you make a new rule so that you will use markdown lists when returning lists
 
 what files are in in test_files
 
-## Workspaces bugs
+## Workspaces Issues
 
 It's not clear that the workspace change notification is ever received (or if it's needed, or what will happen if it gets called)
+
+When you edit an MCP server config, it doesn't reconnect (shows connected, won't ping, presumably isn't in working state)
+
+Clone Workspace would be nice.
+
+For find/open workspace, it currently replaces workspace (if any) in current window.
+- Should it set workspace if current window doesn't have one, else open in new window?
+
+If first window, should we automatically reload most recently used workspace?
+
+CLI - many

@@ -155,7 +155,7 @@ function intializeLogging(isElectron: boolean) {
 }
 
 // Initialize paths and managers
-async function initialize() {
+async function initializeWorkspaceManager() {
   log.info('Starting initialization process');
 
   // Create and initialize WorkspaceManager
@@ -165,16 +165,16 @@ async function initialize() {
 
 async function startApp() {
   if (process.argv.includes('--cli')) {
+    intializeLogging(false);
+
     // For CLI mode, use the config directory within the current directory
     const workspacePath = path.join(process.cwd(), 'config');
     log.info(`CLI mode: Using config directory: ${workspacePath}`);
-    
+
     // For CLI mode, we still need to create a ConfigManager
     const configManager = ConfigManager.getInstance(false);
     configManager.setConfigPath(workspacePath);
-    intializeLogging(false);
-    await initialize();
-
+    
     // Use CLI-specific AppState directly
     const cliAppState = new AppState(configManager);
     await cliAppState.initialize();
@@ -216,7 +216,7 @@ async function startApp() {
     // Move initialization into the ready event
     app.whenReady().then(async () => {
       log.info('App ready, starting initialization');
-      await initialize();
+      await initializeWorkspaceManager();
       log.info('Initialization complete, creating window');
       mainWindow = await createWindow();
 
