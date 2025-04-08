@@ -6,9 +6,9 @@ import { McpClient } from './mcp/types';
 import { McpClientStdio, McpClientSse } from './mcp/client';
 import log from 'electron-log';
 import { Tool } from '@modelcontextprotocol/sdk/types';
-import { ChatMessage } from './types/ChatSession';
 import path from 'path';
 import { AppState } from './state/AppState';
+import { ChatSession } from './state/ChatSession';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -104,6 +104,8 @@ export function setupCLI(appState: AppState) {
   let currentLLM = appState.llmFactory.create(LLMType.Test);
   let currentModel = 'test';
 
+  const chatSession = new ChatSession(appState);
+
   const findModelName = (input: string): string | undefined => {
     const normalizedInput = input.toLowerCase();
     return Object.keys(AVAILABLE_MODELS).find(
@@ -139,7 +141,8 @@ export function setupCLI(appState: AppState) {
         
         if (modelName) {
           try {
-            currentLLM = appState.llmFactory.create(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
+            chatSession.switchModel(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
+            //currentLLM = appState.llmFactory.create(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
             currentModel = modelName;
             const displayName = MODEL_DISPLAY_NAMES[modelName] || modelName;
             console.log(`Switched to ${displayName} model`);
@@ -164,12 +167,22 @@ export function setupCLI(appState: AppState) {
       }
 
       try {
-        const messages: ChatMessage[] = [
-          { role: 'system', content: await configManager.getSystemPrompt() },
-          { role: 'user', content: input }
-        ];
-        const response = await currentLLM.generateResponse(messages);
-        console.log(`AI: ${response}`);
+        const messageUpdate = await chatSession.handleMessage(input);
+        for (const update of messageUpdate.updates) {
+          if (update.role === 'assistant') {
+            // console.log(`${update.role}: ${JSON.stringify(update.modelReply)}`);
+            for (const turn of update.modelReply.turns) {
+              if (turn.message) {
+                console.log(`${turn.message}`);
+              }
+              if (turn.toolCalls) {
+                for (const toolCall of turn.toolCalls) {
+                  console.log(`  Tool call: ${toolCall.toolName}: ${JSON.stringify(toolCall.args)}`);
+                }
+              }
+            }
+          }
+        }
       } catch (error: unknown) {
         if (error instanceof Error) {
           console.error('Error:', error.message);
