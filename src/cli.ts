@@ -9,6 +9,8 @@ import { Tool } from '@modelcontextprotocol/sdk/types';
 import path from 'path';
 import { AppState } from './state/AppState';
 import { ChatSession } from './state/ChatSession';
+import chalk from 'chalk';
+import ora from 'ora';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -33,7 +35,6 @@ const mcpClients = new Map<string, McpClient>();
 
 async function toolsCommand() {
   try {
-    const configDir = configManager.getConfigDir();
     const appState = new AppState(configManager);
     await appState.initialize();
 
@@ -41,8 +42,8 @@ async function toolsCommand() {
 
     const mcpClients = appState.mcpManager.getAllClients()
     for (const mcpClient of mcpClients) {
-      console.log(`Server: ${mcpClient.serverVersion?.name}`);
-      console.log('------------------------');        
+      console.log(chalk.blue(`Server: ${mcpClient.serverVersion?.name}`));
+      console.log(chalk.dim('------------------------'));        
       if (mcpClient.serverTools.length === 0) {
         console.log('No tools available');
       } else {
@@ -101,7 +102,6 @@ export function setupCLI(appState: AppState) {
   console.log('  /tools - List available tools from all configured MCP servers');
   console.log('\n');  
   
-  let currentLLM = appState.llmFactory.create(LLMType.Test);
   let currentModel = 'test';
 
   const chatSession = new ChatSession(appState);
@@ -167,7 +167,9 @@ export function setupCLI(appState: AppState) {
       }
 
       try {
+        const spinner = ora('Thinking...').start();
         const messageUpdate = await chatSession.handleMessage(input);
+        spinner.stop();
         for (const update of messageUpdate.updates) {
           if (update.role === 'assistant') {
             // console.log(`${update.role}: ${JSON.stringify(update.modelReply)}`);
