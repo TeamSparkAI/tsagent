@@ -59,9 +59,6 @@ Allow user to @mention a rule or referencec to add them to the chat context (int
 - @ref:[referenceName]
 - @rule:[ruleName]
 
-When a ChatMessage pulls in references or rules, should we track that in the message (in addition to adding them to the chat session)
-- If we removed such a message from the chat, would we expect the ref/rule to be removed?
-
 Allow user to @mention a toolset/tool to apply to the message
 - @tool:[toolset,toolset.tool,tool] 
 - Not clear if selective tool inclusion is the right idea, maybe configurable - use all tools, determine tools, explicit tool use only?)
@@ -80,25 +77,6 @@ Edit chat
 Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 - Maybe this is better as a specific log category/file
-
-## Logic
-
-Can we have an LLM help us determine refs/rules to add based on message (or other context)? 
-- This could be the LLM we're using
-- Or maybe we could run a local LLM that just specialized in this
-
-## Context
-
-Context of a chat message includes:
-- System prompt
-- History (chat history, tool calls, tool results, etc, possibly summarized)
-- References (insights, facts, or other data provided by the user, or saved from chats)
-  - @ref
-- Rules (rules that apply to the chat message)
-  - @rule
-- Tools (tools that apply to the chat message)
-  - @toolset, @tool
-- User message
 
 ## Agents
 
@@ -121,14 +99,6 @@ Track token usage for chat session
 Would a hosted version of this be useful?
 - Refs and rules would work fine
 - Not clear what tools could be made to work on a hosted server
-
-Maybe we have the concept of a "Workspace" which is a collection of all of our stuff (config, chats)
-- workspaces.json (/config) - list of workspaces
-- workbench.json - config for workspace itself (is there any?  Agent name, notes?)
-- mcp-servers.json - config for MCP servers (or do we put in workspace config?)
-- prompt.md (put this in workspace config?)
-- refs (dir of md files)
-- rules (dir of md files)
 
 ## References and Rules config
 
@@ -201,36 +171,20 @@ When LLM returns error, need to set parts, currently (this is the error above, c
     "parts": []
   },
 
-## Demo
-
-Select Gemini
-
-what's my name?
-
-@ref:about-me what's my name?
-
-what else do you know about me?
-
-can you put the information about the files in test_files (including file name, size, and date) into a new database table
-
-show me what tables I have
-
-show me the contents of file_info
-
-Can you show me that as a table
-
-can you make a new rule so that you will use markdown lists when returning lists of items, and you will use tables when returning multiple items with attributes
-
-@rules:new-rule
-
-what files are in in test_files
-
 ## Workspaces Issues
 
-workspace.json (should it be workbench.json?)
+Structure
+- workspaces.json (in app files directory) - list of workspaces
+- In a workdspace directory:
+  - worksapce.json - config for workspace itself (name, description, last accessed?)
+  - mcp-servers.json - config for MCP servers (or do we put in workspace config?)
+  - prompt.md (put this in workspace config?)
+  - refs (dir of mdw files - YAML frontmatter + GFM text)
+  - rules (dir of mdw files - YAML frontmatter + GFM text)
+
+workspace.json
 - Add Description to metadata - make name/discription editable
 - Check last accessed updating
-- Doesn't need refs/rules directory
 - Move config.json into workspace.json (get rid of config.json)
 - Have environment section where you can have env vars (including for the API keys)
 - Make sure those env vars are available to the app (maybe set them into state after dotenv)

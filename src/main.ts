@@ -3,7 +3,6 @@ import * as path from 'path';
 import { LLMType } from './llm/types';
 import { createMcpClientFromConfig } from './mcp/client';
 import log from 'electron-log';
-import 'dotenv/config';
 import * as fs from 'fs';
 import { setupCLI } from './cli';
 import { McpConfig } from './mcp/types';
@@ -11,8 +10,6 @@ import { ConfigManager } from './state/ConfigManager';
 import { AppState } from './state/AppState';
 import { WorkspaceManager } from './main/workspaceManager';
 
-// Configure electron-log
-// Remove the global ConfigManager instance
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
