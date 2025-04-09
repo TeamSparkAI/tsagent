@@ -5,6 +5,7 @@ import { OpenAILLM } from './openaiLLM';
 import { GeminiLLM } from './geminiLLM';
 import { AppState } from '../state/AppState';
 import log from 'electron-log';
+import { OllamaLLM } from './ollamaLLM';
 
 export class LLMFactory {
   private appState: AppState;
@@ -30,6 +31,9 @@ export class LLMFactory {
       case LLMType.OpenAI:
         log.info('Creating OpenAI LLM instance');
         return new OpenAILLM('gpt-3.5-turbo', this.appState);
+      case LLMType.Ollama:
+        log.info('Creating Ollama LLM instance');
+        return new OllamaLLM('llama3.2', this.appState);
       case LLMType.Test:
         log.info('Creating Test LLM instance');
         return new TestLLM(this.appState);

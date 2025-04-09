@@ -472,6 +472,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <option value={LLMType.Gemini}>Gemini</option>
           <option value={LLMType.Claude}>Claude</option>
           <option value={LLMType.OpenAI}>OpenAI</option>
+          <option value={LLMType.Ollama}>Ollama</option>
         </select>
         <button 
           id="context-button" 

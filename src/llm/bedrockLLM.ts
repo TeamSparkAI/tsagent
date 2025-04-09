@@ -1,0 +1,129 @@
+import { ILLM } from './types';
+import { Tool } from '@modelcontextprotocol/sdk/types';
+import { AppState } from '../state/AppState';
+import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole } from '@aws-sdk/client-bedrock-runtime';
+import log from 'electron-log';
+import { ChatMessage } from '../types/ChatSession';
+import { ModelReply, Turn } from '../types/ModelReply';
+
+export class BedrockLLM implements ILLM {
+  private readonly appState: AppState;
+  private readonly modelName: string;
+  private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
+
+  private client!: BedrockRuntimeClient;
+
+  constructor(modelName: string, appState: AppState) {
+    this.modelName = modelName;
+    this.appState = appState;
+    
+    try {
+      const accessKey = this.appState.configManager.getConfigValue('BEDROCK_SECRET_ACCESS_KEY');
+      const accessKeyId = this.appState.configManager.getConfigValue('BEDROCK_ACCESS_KEY_ID');
+      if (!accessKey || !accessKeyId) {
+        throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your config.json file.');
+      }
+      this.client = new BedrockRuntimeClient({ 
+        region: 'us-east-1', 
+        credentials: {
+            secretAccessKey: accessKey,
+            accessKeyId: accessKeyId
+        }
+      });
+      log.info('Bedrock LLM initialized successfully');
+    } catch (error) {
+      log.error('Failed to initialize Bedrock LLM:', error);
+      throw error;
+    }
+  }
+
+  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+    const modelReply: ModelReply = {
+      inputTokens: 0,
+      outputTokens: 0,
+      timestamp: Date.now(),
+      turns: []
+    }
+
+    try {
+      log.info('Generating response with Bedrock');
+
+      const tools: BedrockTool[] = this.appState.mcpManager.getAllTools().map((tool: Tool) => {
+        return {
+          toolSpec: {
+            name: tool.name,
+            description: tool.description,
+            inputSchema: { json: JSON.stringify(tool.inputSchema) }, // !!! I'm skeptical of this
+          }
+        }
+      });
+
+      // If the first message is the system prompt, we will to remove it from the messages array and we'll inject it as a 
+      // system message using the specific property on the create call.  We originally did this by just sticking the system
+      // prompt in the first position of the messages array as a user message and it seemed to work, but this is the more
+      // explicit "Anthropic way" of doing it.
+      //
+      var systemPrompt = null;
+      if (messages[0].role === 'system') {
+        systemPrompt = messages[0].content;
+        messages.shift();
+      }
+
+      // Turn our ChatMessage[] into an proper Bedrock message array
+      const turnMessages: Message[] = [];
+      for (const message of messages) {
+        if ('modelReply' in message) {
+          // Process each turn in the LLM reply
+        } else {
+          // Handle regular messages
+          turnMessages.push({
+            role: message.role == 'user' ? ConversationRole.USER : ConversationRole.ASSISTANT,
+            content: [ { text: message.content } ]
+          });
+        }
+      }
+ 
+      const converseCommand: ConverseCommandInput = {
+        modelId: this.modelName,
+        messages: turnMessages,
+        toolConfig: {
+          tools: tools,
+        }
+      }
+
+      const currentResponse = await this.client.send(new ConverseCommand(converseCommand));
+
+      let turnCount = 0;
+      while (turnCount < this.MAX_TURNS) {
+        const turn: Turn = {};
+        turnCount++;
+        let hasToolUse = false;
+
+        // process the current response
+
+        // call tools and loop until no more tools are used
+
+        // Break if no tool uses in this turn
+        if (!hasToolUse) break;
+      }
+      
+      if (turnCount >= this.MAX_TURNS) {
+        modelReply.turns.push({
+          error: 'Maximum number of tool uses reached'
+        });
+      }
+
+      modelReply.inputTokens = currentResponse.usage?.inputTokens ?? 0;
+      modelReply.outputTokens = currentResponse.usage?.outputTokens ?? 0;
+
+      log.info('Bedrock response generated successfully');
+      return modelReply;
+    } catch (error: any) {
+      log.error('Bedrock API error:', error.message);
+      modelReply.turns.push({
+        error: `Error: Failed to generate response from Bedrock - ${error.message}`
+      });
+      return modelReply;
+    }
+  }
+} 
