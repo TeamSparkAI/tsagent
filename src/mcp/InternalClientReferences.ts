@@ -4,6 +4,17 @@ import { CallToolResultWithElapsedTime, McpClient } from "./types";
 import log from 'electron-log';
 import { ReferencesManager } from '../state/ReferencesManager';
 
+/**
+ * Interface for reference arguments with all fields optional
+ */
+interface ReferenceArgs {
+    name?: string;
+    description?: string;
+    priorityLevel?: number;
+    enabled?: boolean;
+    text?: string;
+}
+
 export class McpClientInternalReferences implements McpClient {
     private referencesManager: ReferencesManager;
     serverVersion: { name: string; version: string } | null = { name: "References", version: "1.0.0" };
@@ -35,7 +46,7 @@ export class McpClientInternalReferences implements McpClient {
                         description: "The actual reference text"
                     }
                 },
-                required: ["name", "description", "priorityLevel", "enabled", "text"]
+                required: ["name", "text"]
             }
         },
         {
@@ -111,6 +122,68 @@ export class McpClientInternalReferences implements McpClient {
         this.referencesManager = referencesManager;
     }
 
+    /**
+     * Validates reference arguments, ensuring each field has the correct type if present.
+     * @param args User-provided arguments
+     * @param requiredFields Array of field names that are required
+     * @returns Validated arguments typed as ReferenceArgs
+     * @throws Error if any field has an invalid type or if a required field is missing
+     */
+    private validateReferenceArgs(args?: Record<string, unknown>, requiredFields: string[] = []): ReferenceArgs {
+        if (!args) {
+            if (requiredFields.length > 0) {
+                throw new Error(`Missing required arguments: ${requiredFields.join(', ')}`);
+            }
+            return {};
+        }
+
+        // Check that all required fields are present
+        const missingFields = requiredFields.filter(field => !(field in args));
+        if (missingFields.length > 0) {
+            throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
+        }
+
+        // Validate the types of any provided arguments and assign to typed result
+        const validated: ReferenceArgs = {};
+
+        if ('name' in args) {
+            if (typeof args.name !== 'string') {
+                throw new Error('Reference name must be a string');
+            }
+            validated.name = args.name;
+        }
+
+        if ('description' in args) {
+            if (typeof args.description !== 'string') {
+                throw new Error('Reference description must be a string');
+            }
+            validated.description = args.description;
+        }
+
+        if ('priorityLevel' in args) {
+            if (typeof args.priorityLevel !== 'number' || isNaN(args.priorityLevel)) {
+                throw new Error('Reference priorityLevel must be a number');
+            }
+            validated.priorityLevel = args.priorityLevel;
+        }
+
+        if ('enabled' in args) {
+            if (typeof args.enabled !== 'boolean') {
+                throw new Error('Reference enabled must be a boolean');
+            }
+            validated.enabled = args.enabled;
+        }
+
+        if ('text' in args) {
+            if (typeof args.text !== 'string') {
+                throw new Error('Reference text must be a string');
+            }
+            validated.text = args.text;
+        }
+
+        return validated;
+    }
+
     async connect(): Promise<boolean> {
         return true;
     }
@@ -136,74 +209,95 @@ export class McpClientInternalReferences implements McpClient {
         
         try {
             switch (tool.name) {
-                case "createReference":
-                    if (!args?.name || !args?.description || !args?.priorityLevel || !args?.enabled || !args?.text) {
-                        throw new Error("Missing required fields for createReference");
-                    }
-                    this.referencesManager.saveReference({
-                        name: args.name as string,
-                        description: args.description as string,
-                        priorityLevel: args.priorityLevel as number,
-                        enabled: args.enabled as boolean,
-                        text: args.text as string
-                    });
+                case "createReference": {
+                    const validatedArgs = this.validateReferenceArgs(args, ["name", "text"]);
+                    
+                    // Create a reference with defaults for any missing fields
+                    const newReference: Reference = {
+                        name: validatedArgs.name!,
+                        description: validatedArgs.description || "",
+                        priorityLevel: validatedArgs.priorityLevel ?? 500,
+                        enabled: validatedArgs.enabled ?? true,
+                        text: validatedArgs.text!
+                    };
+                    
+                    this.referencesManager.saveReference(newReference);
+                    
                     return {
-                        content: [{ type: "text", text: `Reference "${args.name}" created successfully` }],
+                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" created successfully` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "getReference":
-                    if (!args?.name) {
-                        throw new Error("Missing name for getReference");
-                    }
+                case "getReference": {
+                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
+                    
                     const references = this.referencesManager.getReferences();
-                    const reference = references.find((r: Reference) => r.name === args.name);
+                    const reference = references.find((r: Reference) => r.name === validatedArgs.name);
+                    
                     if (!reference) {
-                        throw new Error(`Reference "${args.name}" not found`);
+                        throw new Error(`Reference "${validatedArgs.name}" not found`);
                     }
+                    
                     return {
                         content: [{ type: "text", text: JSON.stringify(reference, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "updateReference":
-                    if (!args?.name) {
-                        throw new Error("Missing name for updateReference");
-                    }
-                    const existingReferences = await this.referencesManager.getReferences();
-                    const existingReference = existingReferences.find((r: Reference) => r.name === args.name);
+                case "updateReference": {
+                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
+                    
+                    const existingReferences = this.referencesManager.getReferences();
+                    const existingReference = existingReferences.find((r: Reference) => r.name === validatedArgs.name);
+                    
                     if (!existingReference) {
-                        throw new Error(`Reference "${args.name}" not found`);
+                        throw new Error(`Reference "${validatedArgs.name}" not found`);
                     }
+                    
+                    // Create updated reference by combining existing reference with validated updates
                     const updatedReference: Reference = {
-                        ...existingReference,
-                        description: args.description ? args.description as string : existingReference.description,
-                        priorityLevel: args.priorityLevel ? args.priorityLevel as number : existingReference.priorityLevel,
-                        enabled: args.enabled !== undefined ? args.enabled as boolean : existingReference.enabled,
-                        text: args.text ? args.text as string : existingReference.text
+                        name: existingReference.name,
+                        description: validatedArgs.description ?? existingReference.description,
+                        priorityLevel: validatedArgs.priorityLevel ?? existingReference.priorityLevel,
+                        enabled: validatedArgs.enabled ?? existingReference.enabled,
+                        text: validatedArgs.text ?? existingReference.text
                     };
+                    
                     this.referencesManager.saveReference(updatedReference);
+                    
                     return {
-                        content: [{ type: "text", text: `Reference "${args.name}" updated successfully` }],
+                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" updated successfully` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "deleteReference":
-                    if (!args?.name) {
-                        throw new Error("Missing name for deleteReference");
-                    }
-                    this.referencesManager.deleteReference(args.name as string);
+                case "deleteReference": {
+                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
+                    
+                    this.referencesManager.deleteReference(validatedArgs.name!);
+                    
                     return {
-                        content: [{ type: "text", text: `Reference "${args.name}" deleted successfully` }],
+                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" deleted successfully` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "listReferences":
+                case "listReferences": {
                     const allReferences = this.referencesManager.getReferences();
+                    
+                    // Create a new array with the text field omitted from each reference
+                    const referencesWithoutText = allReferences.map(reference => {
+                        // Destructure to omit the text field
+                        const { text, ...referenceWithoutText } = reference;
+                        return referenceWithoutText;
+                    });
+                    
                     return {
-                        content: [{ type: "text", text: JSON.stringify(allReferences, null, 2) }],
+                        content: [{ type: "text", text: JSON.stringify(referencesWithoutText, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
                 default:
                     throw new Error(`Unknown tool: ${tool.name}`);

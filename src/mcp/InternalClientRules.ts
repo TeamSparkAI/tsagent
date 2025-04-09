@@ -4,6 +4,17 @@ import { CallToolResultWithElapsedTime, McpClient } from "./types";
 import log from 'electron-log';
 import { RulesManager } from '../state/RulesManager';
 
+/**
+ * Interface for rule arguments with all fields optional
+ */
+interface RuleArgs {
+    name?: string;
+    description?: string;
+    priorityLevel?: number;
+    enabled?: boolean;
+    text?: string;
+}
+
 export class McpClientInternalRules implements McpClient {
     private rulesManager: RulesManager;
     serverVersion: { name: string; version: string } | null =  { name: "Rules", version: "1.0.0" };
@@ -35,7 +46,7 @@ export class McpClientInternalRules implements McpClient {
                         description: "The actual rule text"
                     }
                 },
-                required: ["name", "description", "priorityLevel", "enabled", "text"]
+                required: ["name", "text"]
             }
         },
         {
@@ -111,6 +122,68 @@ export class McpClientInternalRules implements McpClient {
         this.rulesManager = rulesManager;
     }
 
+    /**
+     * Validates rule arguments, ensuring each field has the correct type if present.
+     * @param args User-provided arguments
+     * @param requiredFields Array of field names that are required
+     * @returns Validated arguments typed as RuleArgs
+     * @throws Error if any field has an invalid type or if a required field is missing
+     */
+    private validateRuleArgs(args?: Record<string, unknown>, requiredFields: string[] = []): RuleArgs {
+        if (!args) {
+            if (requiredFields.length > 0) {
+                throw new Error(`Missing required arguments: ${requiredFields.join(', ')}`);
+            }
+            return {};
+        }
+
+        // Check that all required fields are present
+        const missingFields = requiredFields.filter(field => !(field in args));
+        if (missingFields.length > 0) {
+            throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
+        }
+
+        // Validate the types of any provided arguments and assign to typed result
+        const validated: RuleArgs = {};
+
+        if ('name' in args) {
+            if (typeof args.name !== 'string') {
+                throw new Error('Rule name must be a string');
+            }
+            validated.name = args.name;
+        }
+
+        if ('description' in args) {
+            if (typeof args.description !== 'string') {
+                throw new Error('Rule description must be a string');
+            }
+            validated.description = args.description;
+        }
+
+        if ('priorityLevel' in args) {
+            if (typeof args.priorityLevel !== 'number' || isNaN(args.priorityLevel)) {
+                throw new Error('Rule priorityLevel must be a number');
+            }
+            validated.priorityLevel = args.priorityLevel;
+        }
+
+        if ('enabled' in args) {
+            if (typeof args.enabled !== 'boolean') {
+                throw new Error('Rule enabled must be a boolean');
+            }
+            validated.enabled = args.enabled;
+        }
+
+        if ('text' in args) {
+            if (typeof args.text !== 'string') {
+                throw new Error('Rule text must be a string');
+            }
+            validated.text = args.text;
+        }
+
+        return validated;
+    }
+
     async connect(): Promise<boolean> {
         return true;
     }
@@ -136,74 +209,95 @@ export class McpClientInternalRules implements McpClient {
         
         try {
             switch (tool.name) {
-                case "createRule":
-                    if (!args?.name || !args?.description || !args?.priorityLevel || !args?.enabled || !args?.text) {
-                        throw new Error("Missing required fields for createRule");
-                    }
-                    this.rulesManager.saveRule({
-                        name: args.name as string,
-                        description: args.description as string,
-                        priorityLevel: args.priorityLevel as number,
-                        enabled: args.enabled as boolean,
-                        text: args.text as string
-                    });
+                case "createRule": {
+                    const validatedArgs = this.validateRuleArgs(args, ["name", "text"]);
+                    
+                    // Create a rule with defaults for any missing fields
+                    const newRule: Rule = {
+                        name: validatedArgs.name!,
+                        description: validatedArgs.description || "",
+                        priorityLevel: validatedArgs.priorityLevel ?? 500,
+                        enabled: validatedArgs.enabled ?? true,
+                        text: validatedArgs.text!
+                    };
+                    
+                    this.rulesManager.saveRule(newRule);
+                    
                     return {
-                        content: [{ type: "text", text: `Rule "${args.name}" created successfully` }],
+                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" created successfully` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "getRule":
-                    if (!args?.name) {
-                        throw new Error("Missing name for getRule");
-                    }
+                case "getRule": {
+                    const validatedArgs = this.validateRuleArgs(args, ["name"]);
+                    
                     const rules = this.rulesManager.getRules();
-                    const rule = rules.find((r: Rule) => r.name === args.name);
+                    const rule = rules.find((r: Rule) => r.name === validatedArgs.name);
+                    
                     if (!rule) {
-                        throw new Error(`Rule "${args.name}" not found`);
+                        throw new Error(`Rule "${validatedArgs.name}" not found`);
                     }
+                    
                     return {
                         content: [{ type: "text", text: JSON.stringify(rule, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "updateRule":
-                    if (!args?.name) {
-                        throw new Error("Missing name for updateRule");
-                    }
-                    const existingRules = await this.rulesManager.getRules();
-                    const existingRule = existingRules.find((r: Rule) => r.name === args.name);
+                case "updateRule": {
+                    const validatedArgs = this.validateRuleArgs(args, ["name"]);                    
+                    
+                    const existingRules = this.rulesManager.getRules();
+                    const existingRule = existingRules.find((r: Rule) => r.name === validatedArgs.name);
+                    
                     if (!existingRule) {
-                        throw new Error(`Rule "${args.name}" not found`);
+                        throw new Error(`Rule "${validatedArgs.name}" not found`);
                     }
+                    
+                    // Create updated rule by combining existing rule with validated updates
                     const updatedRule: Rule = {
-                        ...existingRule,
-                        description: args.description ? args.description as string : existingRule.description,
-                        priorityLevel: args.priorityLevel ? args.priorityLevel as number : existingRule.priorityLevel,
-                        enabled: args.enabled !== undefined ? args.enabled as boolean : existingRule.enabled,
-                        text: args.text ? args.text as string : existingRule.text
+                        name: existingRule.name,
+                        description: validatedArgs.description ?? existingRule.description,
+                        priorityLevel: validatedArgs.priorityLevel ?? existingRule.priorityLevel,
+                        enabled: validatedArgs.enabled ?? existingRule.enabled,
+                        text: validatedArgs.text ?? existingRule.text
                     };
+                    
                     this.rulesManager.saveRule(updatedRule);
+                    
                     return {
-                        content: [{ type: "text", text: `Rule "${args.name}" updated successfully` }],
+                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" updated successfully` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "deleteRule":
-                    if (!args?.name) {
-                        throw new Error("Missing name for deleteRule");
-                    }
-                    this.rulesManager.deleteRule(args.name as string);
+                case "deleteRule": {
+                    const validatedArgs = this.validateRuleArgs(args, ["name"]);                    
+                    
+                    this.rulesManager.deleteRule(validatedArgs.name!);
+                    
                     return {
-                        content: [{ type: "text", text: `Rule "${args.name}" deleted successfully` }],
+                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" deleted successfully` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
-                case "listRules":
+                case "listRules": {
                     const allRules = this.rulesManager.getRules();
+                    
+                    // Create a new array with the text field omitted from each rule
+                    const rulesWithoutText = allRules.map(rule => {
+                        // Destructure to omit the text field
+                        const { text, ...ruleWithoutText } = rule;
+                        return ruleWithoutText;
+                    });
+                    
                     return {
-                        content: [{ type: "text", text: JSON.stringify(allRules, null, 2) }],
+                        content: [{ type: "text", text: JSON.stringify(rulesWithoutText, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
+                }
 
                 default:
                     throw new Error(`Unknown tool: ${tool.name}`);
