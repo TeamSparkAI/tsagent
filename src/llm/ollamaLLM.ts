@@ -68,18 +68,13 @@ export class OllamaLLM implements ILLM {
         };
       });
 
-      // If the first message is the system prompt, we will to remove it from the messages array and we'll inject it as a 
-      // system message using the specific property on the create call.  We originally did this by just sticking the system
-      // prompt in the first position of the messages array as a user message and it seemed to work, but this is the more
-      // explicit "Anthropic way" of doing it.
-      //
-      var systemPrompt = null;
-      if (messages[0].role === 'system') {
-        systemPrompt = messages[0].content;
-        messages.shift();
-      }
-
       // Turn our ChatMessage[] into an proper Ollama message array
+      //
+      // Note: Ollama doesn't use a tool call id, nor do they accept any information about the tool call in the tool call results
+      //       messsage.  As far as I can tell, they way they correlate them (if they do) is by the order of the tool call and tool
+      //       result messages.  So both here, and in the response processing later, we just add the simple tool results message
+      //       immediately after the tool call message.
+      //
       const turnMessages: Message[] = [];
       for (const message of messages) {
         if ('modelReply' in message) {
@@ -108,7 +103,7 @@ export class OllamaLLM implements ILLM {
                     }
                   ]
                 });
-                // Push the tool call result - !!! Is this all?
+                // Push the tool call result
                 turnMessages.push({
                   role: 'tool' as const,
                   content: toolCall.output,
@@ -117,7 +112,7 @@ export class OllamaLLM implements ILLM {
             }
           }
         } else {
-          // Handle regular messages
+          // Handle regular messages (including system prompt message)
           turnMessages.push({
             role: message.role,
             content: message.content
@@ -139,7 +134,7 @@ export class OllamaLLM implements ILLM {
           tools: tools
         });
     
-        log.info('Ollama response:', JSON.stringify(currentResponse, null, 2));
+        // log.info('Ollama response:', JSON.stringify(currentResponse, null, 2));
 
         // process the current response
         const content = currentResponse.message.content;

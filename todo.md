@@ -21,10 +21,11 @@ We probably want to have a list of providers (basically representing an API/SDK)
   - OpenAI
     - GPT-4o
     - GPT-4o (latest)
-
-Priority would be:
-- Amazon Bedrock
-- Ollama (local Lllama, DeepSeek, etc)
+  - Bedrock
+    - Many
+  - Ollama
+    - Llame 3.2
+    - DeepSeek
 
 This is a decent design/start, but isn't complete or up-to-date: https://github.com/fkesheh/any-llm
 
@@ -39,6 +40,17 @@ It would be great to have it pluggable, but maybe later.
 Do we have a Models tab that lists all the models and let's you view/update their default config?
 
 If we tied a chat window to a model, we could have a "settings" button that lets you override the model settings for that chat.
+
+## Usage
+
+Currently we track token usage at the LLM response level, but we don't accumulate them on each turn.
+We should probably record the token usage on each turn and accumulate them for the overall LlmReply.
+It would be nice to expose this in the UX (turn counts and total counts for a given reply).
+
+Track token usage for chat session
+
+Track cost for call/session
+- This could be tricky if we allow model switches in a session.
 
 ## Tools
 
@@ -92,9 +104,6 @@ LLM model chosen and model config applies at least to chat level?
 Maybe global tools list is very large, agent/workspace is a curated subset (pulled from main list)
 
 ## Misc
-
-Track token usage for chat session
-- This is model-specific, which is a little odd (track model for metrics?)
 
 Would a hosted version of this be useful?
 - Refs and rules would work fine

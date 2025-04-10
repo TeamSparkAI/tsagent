@@ -98,7 +98,7 @@ export class BedrockLLM implements ILLM {
 							for (const toolCall of turn.toolCalls) {
 								messageContent.push({ toolUse: {
 									toolUseId: toolCall.toolCallId,
-									name: toolCall.toolName,
+									name: toolCall.serverName + '_' + toolCall.toolName,
 									input: toolCall.args as Record<string, any>
 								} });
 							}
