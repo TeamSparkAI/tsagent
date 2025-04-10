@@ -6,7 +6,8 @@ export enum LLMType {
   Claude = 'claude',
   OpenAI = 'openai',
   Gemini = 'gemini',
-  Ollama = "ollama"
+  Ollama = "ollama",
+  Bedrock = "bedrock"
 }
 
 export interface ILLM {

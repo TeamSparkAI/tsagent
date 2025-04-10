@@ -18,6 +18,7 @@ const AVAILABLE_MODELS: Record<string, LLMType> = {
   'claude': LLMType.Claude,
   'openai': LLMType.OpenAI,
   'ollama': LLMType.Ollama,
+  'bedrock': LLMType.Bedrock,
   'test': LLMType.Test
 } as const;
 
@@ -27,7 +28,8 @@ const MODEL_DISPLAY_NAMES: Record<string, string> = {
   'gemini': 'Gemini',
   'claude': 'Claude',
   'openai': 'OpenAI',
-  'ollama': 'Ollama'
+  'ollama': 'Ollama',
+  'bedrock': 'Bedrock'
 };
 
 // Define commands

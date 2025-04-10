@@ -1,7 +1,7 @@
 import { ILLM } from './types';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { AppState } from '../state/AppState';
-import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole } from '@aws-sdk/client-bedrock-runtime';
+import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole, ConverseCommandOutput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
 import { ModelReply, Turn } from '../types/ModelReply';
@@ -48,13 +48,29 @@ export class BedrockLLM implements ILLM {
     try {
       log.info('Generating response with Bedrock');
 
+			// Build the Bedrock tools array from the MCP tools
       const tools: BedrockTool[] = this.appState.mcpManager.getAllTools().map((tool: Tool) => {
+        const properties: Record<string, any> = {};
+        
+        // Convert properties safely with type checking
+        if (tool.inputSchema && tool.inputSchema.properties && typeof tool.inputSchema.properties === 'object') {
+          Object.keys(tool.inputSchema.properties).forEach(key => {
+            properties[key] = tool.inputSchema.properties![key];
+          });
+        }
+        
         return {
           toolSpec: {
             name: tool.name,
             description: tool.description,
-            inputSchema: { json: JSON.stringify(tool.inputSchema) }, // !!! I'm skeptical of this
-          }
+            inputSchema: { 
+              json: {
+                type: "object",
+                properties: properties,
+                required: Array.isArray(tool.inputSchema.required) ? tool.inputSchema.required : []
+              }
+            },
+          },
         }
       });
 
@@ -74,6 +90,40 @@ export class BedrockLLM implements ILLM {
       for (const message of messages) {
         if ('modelReply' in message) {
           // Process each turn in the LLM reply
+          for (const turn of message.modelReply.turns) {
+						// Push the assistant's message (including any tool calls)
+						const messageContent: ContentBlock[] = [];
+						messageContent.push({ text: turn.message! });
+						if (turn.toolCalls && turn.toolCalls.length > 0) {
+							for (const toolCall of turn.toolCalls) {
+								messageContent.push({ toolUse: {
+									toolUseId: toolCall.toolCallId,
+									name: toolCall.toolName,
+									input: toolCall.args as Record<string, any>
+								} });
+							}
+						}
+            turnMessages.push({
+              role: ConversationRole.ASSISTANT,
+              content: messageContent
+            });
+						// Push the tool call results (if multiple tool calls, we push the results in a single message)
+						if (turn.toolCalls && turn.toolCalls.length > 0) {
+							const toolResults: ContentBlock[] = [];
+							for (const toolCall of turn.toolCalls) {
+								toolResults.push({
+									toolResult: {
+										toolUseId: toolCall.toolCallId,
+										content: [ { text: toolCall.output } ]
+									}
+								});
+							}
+							turnMessages.push({
+								role: ConversationRole.USER,
+								content: toolResults
+							});
+						}
+          }
         } else {
           // Handle regular messages
           turnMessages.push({
@@ -83,15 +133,7 @@ export class BedrockLLM implements ILLM {
         }
       }
  
-      const converseCommand: ConverseCommandInput = {
-        modelId: this.modelName,
-        messages: turnMessages,
-        toolConfig: {
-          tools: tools,
-        }
-      }
-
-      const currentResponse = await this.client.send(new ConverseCommand(converseCommand));
+			let currentResponse: ConverseCommandOutput | null = null;
 
       let turnCount = 0;
       while (turnCount < this.MAX_TURNS) {
@@ -99,9 +141,81 @@ export class BedrockLLM implements ILLM {
         turnCount++;
         let hasToolUse = false;
 
-        // process the current response
+        const converseCommand: ConverseCommandInput = {
+					modelId: this.modelName,
+					messages: turnMessages,
+					toolConfig: {
+						tools: tools,
+					}
+				}
 
-        // call tools and loop until no more tools are used
+				if (systemPrompt) {
+					converseCommand.system = [
+						{
+							text: systemPrompt
+						}
+					]
+				}
+    
+				currentResponse = await this.client.send(new ConverseCommand(converseCommand));
+
+				// We're going to push the response message here so that any tool results added in the processing of this call are added after this message
+				turnMessages.push(currentResponse.output?.message!);
+    
+				// log.info('Bedrock send response:', JSON.stringify(currentResponse));
+
+        const content = currentResponse.output?.message?.content;
+				if (content && content.length > 0) {
+					for (const part of content) {
+						if (part.text) {
+							turn.message = (turn.message || '') + part.text;
+						}
+
+						if (part.toolUse) {
+							hasToolUse = true;
+
+							const toolCall = part.toolUse;
+							const toolName = toolCall.name!;
+							const toolUseId = toolCall.toolUseId;
+							const toolArgs = toolCall.input as Record<string, any>;
+
+							const toolResult = await this.appState.mcpManager.callTool(toolName, toolArgs);
+
+              if (toolResult.content[0]?.type === 'text') {
+                const resultText = toolResult.content[0].text;
+
+								// For Bedrock, we push the toolResult as a new user message (we could be smarter and push multiple tool results in a single user message)
+								turnMessages.push({
+									role: ConversationRole.USER,
+									content: [
+										{
+											toolResult: {
+												toolUseId: toolUseId,
+												content: [ { text: resultText } ]
+											}
+										}
+									]
+								})
+
+                if (!turn.toolCalls) {
+                  turn.toolCalls = [];
+                }
+  
+                // Record the function call and result
+                turn.toolCalls.push({
+                  serverName: this.appState.mcpManager.getToolServerName(toolName),
+                  toolName: this.appState.mcpManager.getToolName(toolName),
+                  args: toolArgs,
+                  output: resultText,
+                  toolCallId: toolUseId,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                });  
+              }
+						}
+					}
+        }
+
+        modelReply.turns.push(turn);
 
         // Break if no tool uses in this turn
         if (!hasToolUse) break;
@@ -113,8 +227,8 @@ export class BedrockLLM implements ILLM {
         });
       }
 
-      modelReply.inputTokens = currentResponse.usage?.inputTokens ?? 0;
-      modelReply.outputTokens = currentResponse.usage?.outputTokens ?? 0;
+      modelReply.inputTokens = currentResponse!.usage?.inputTokens ?? 0;
+      modelReply.outputTokens = currentResponse!.usage?.outputTokens ?? 0;
 
       log.info('Bedrock response generated successfully');
       return modelReply;

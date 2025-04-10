@@ -6,6 +6,7 @@ import { GeminiLLM } from './geminiLLM';
 import { AppState } from '../state/AppState';
 import log from 'electron-log';
 import { OllamaLLM } from './ollamaLLM';
+import { BedrockLLM } from './bedrockLLM';
 
 export class LLMFactory {
   private appState: AppState;
@@ -34,6 +35,9 @@ export class LLMFactory {
       case LLMType.Ollama:
         log.info('Creating Ollama LLM instance');
         return new OllamaLLM('llama3.2', this.appState);
+      case LLMType.Bedrock:
+        log.info('Creating Bedrock LLM instance');
+        return new BedrockLLM('amazon.nova-pro-v1:0', this.appState);
       case LLMType.Test:
         log.info('Creating Test LLM instance');
         return new TestLLM(this.appState);
