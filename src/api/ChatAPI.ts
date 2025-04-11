@@ -7,19 +7,63 @@ import log from 'electron-log';
 export class ChatAPI {
   private tabId: string;
   private currentModel: LLMType;
+  private currentModelName: string;
+  private currentModelId: string | undefined;
   private messages: (RendererChatMessage & { modelReply?: ModelReply })[] = [];
 
   constructor(tabId: string) {
     this.tabId = tabId;
     this.currentModel = LLMType.Test; // Set default model
+    this.currentModelName = 'Frosty'; // Set default model name
     this.initModel();
   }
 
+  private async updateModelNameFromState(modelType: LLMType, modelId?: string): Promise<void> {
+    if (modelId) {
+      try {
+        // Try to find the model name from the model list
+        const models = await this.getModels(modelType);
+        const model = models.find((m: any) => m.id === modelId);
+        if (model && model.name) {
+          this.currentModelName = model.name;
+        } else {
+          // If we can't find the exact model, use the ID as the display name
+          this.currentModelName = modelId;
+        }
+      } catch (error) {
+        log.error('Failed to get model information:', error);
+        // Use the model ID as a fallback display name
+        this.currentModelName = modelId;
+      }
+    } else if (modelType === LLMType.Test) {
+      // Special case for Test model
+      this.currentModelName = 'Frosty';
+    } else {
+      // Default to a capitalized version of the model type
+      this.currentModelName = modelType.charAt(0).toUpperCase() + 
+        modelType.slice(1);
+    }
+  }
+
   private async initModel() {
-    const state = await window.api.getChatState(this.tabId);
-    this.currentModel = state.currentModel;
-    // Convert any existing messages from the session
-    this.messages = state.messages.map(this.convertMessageToChatMessage);
+    try {
+      const state = await window.api.getChatState(this.tabId);
+      
+      // Update local state with session state from the server
+      this.currentModel = state.currentModel;
+      this.currentModelId = state.currentModelId;
+      
+      // Update the model name 
+      await this.updateModelNameFromState(state.currentModel, state.currentModelId);
+      
+      log.info(`Initialized ChatAPI with model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}, name: ${this.currentModelName}`);
+      
+      // Convert any existing messages from the session
+      this.messages = state.messages.map(this.convertMessageToChatMessage);
+    } catch (error) {
+      log.error('Error initializing model in ChatAPI:', error);
+      throw error;
+    }
   }
 
   private convertMessageToChatMessage(message: ChatMessage): RendererChatMessage & { modelReply?: ModelReply } {
@@ -32,12 +76,24 @@ export class ChatAPI {
 
   public async sendMessage(message: string): Promise<string> {
     try {
+      // Log the model we're using to send the message
+      log.info(`Sending message using model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
+      
       const result = await window.api.sendMessage(this.tabId, message);
+      
       // Update messages with the new updates
       this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
       
-      // Update the references and rules from the response
-      // Note: This will trigger UI updates when getActiveReferences/Rules is called
+      // Refresh our model info from the server to ensure we stay in sync
+      const state = await window.api.getChatState(this.tabId);
+      this.currentModel = state.currentModel;
+      this.currentModelId = state.currentModelId;
+      
+      // Update the model name
+      await this.updateModelNameFromState(state.currentModel, state.currentModelId);
+      
+      // Log the updated model information
+      log.info(`Model after sending message: ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}, name: ${this.currentModelName}`);
       
       // Return the last turn's message if available
       const lastAssistantMessage = result.updates[1];
@@ -70,12 +126,57 @@ export class ChatAPI {
     }
   }
 
+  // Extended version of switchModel that supports specifying a modelId
+  public async changeModel(model: LLMType, modelId?: string, modelName?: string): Promise<boolean> {
+    try {
+      // Pass the modelId to the backend
+      const result = await window.api.switchModel(this.tabId, model, modelId);
+      
+      if (result.success) {
+        this.currentModel = model;
+        this.currentModelId = modelId; // Store the exact modelId without modification
+        
+        // Update the model name when provided or calculate it
+        if (modelName) {
+          this.currentModelName = modelName;
+        } else {
+          await this.updateModelNameFromState(model, modelId);
+        }
+        
+        // Update messages with any new updates
+        this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
+        
+        log.info(`Changed to model provider: ${model}, modelId: ${modelId}, modelName: ${this.currentModelName}`);
+        return true;
+      } else {
+        log.info('ChatAPI: Model switch failed:', result.error);
+        return false;
+      }
+    } catch (error) {
+      log.error('ChatAPI: Error in changeModel:', error);
+      return false;
+    }
+  }
+
   public getMessages(): RendererChatMessage[] {
     return [...this.messages];
   }
 
   public getCurrentModel(): LLMType {
     return this.currentModel;
+  }
+  
+  public getCurrentModelName(): string {
+    return this.currentModelName;
+  }
+
+  public async getModels(provider: LLMType): Promise<any[]> {
+    try {
+      return await window.api.getModelsForProvider(provider);
+    } catch (error) {
+      log.error(`Error getting models for provider ${provider}:`, error);
+      return [];
+    }
   }
 
   // Chat context management methods

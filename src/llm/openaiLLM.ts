@@ -54,8 +54,12 @@ export class OpenAILLM implements ILLM {
 
   async getModels(): Promise<ILLMModel[]> {
     const modelList = await this.client.models.list();
-    // log.info('OpenAI models:', modelList.data);
-    return modelList.data.map((model) => ({
+    const killwords = ["dall-e", "tts", "whisper", "embedding", "embed", "audio", "transcribe", "moderation", "babbage", "davinci"];
+    const filteredModels = modelList.data.filter(model => 
+      !killwords.some(word => model.id.toLowerCase().includes(word))
+    );
+    log.info('OpenAI models:', filteredModels);
+    return filteredModels.map((model) => ({
       provider: LLMType.OpenAI,
       id: model.id,
       name: model.id,

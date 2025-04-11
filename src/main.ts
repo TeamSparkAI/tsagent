@@ -90,12 +90,6 @@ export async function initializeWorkspace(workspacePath: string, windowId?: stri
   const windowAppState = new AppState(configManager);
   await windowAppState.initialize();
   appStateMap.set(windowId, windowAppState);
-
-  // !!! DEBUG
-  log.info('LLM providers:', windowAppState.llmFactory.getProviderInfo());
-  for (const llmType of Object.values(LLMType)) {
-    log.info(`Models for ${llmType}: `, await windowAppState.llmFactory.create(llmType).getModels());
-  }
   
   // Set up event listeners for this window's AppState
   if (windowAppState.rulesManager) {
@@ -466,7 +460,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType) => {
+  ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType, modelId?: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const appState = getAppStateForWindow(windowId);
     
@@ -475,7 +469,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       throw new Error('ChatSessionManager not initialized');
     }
     try {
-      const result = appState.chatSessionManager.switchModel(tabId, modelType);
+      const result = appState.chatSessionManager.switchModel(tabId, modelType, modelId);
       return { 
         success: true,
         updates: result.updates,
@@ -1118,6 +1112,37 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     } catch (error) {
       log.error(`[WINDOW FOCUS] Error focusing window ${windowId}:`, error);
       return false;
+    }
+  });
+
+  // LLM Provider IPC handlers for model picker
+  ipcMain.handle('llm:get-provider-info', (event) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const appState = getAppStateForWindow(windowId);
+    
+    if (!appState?.llmFactory) {
+      log.warn(`LLMFactory not initialized for window: ${windowId}`);
+      return {};
+    }
+    return appState.llmFactory.getProviderInfo();
+  });
+
+  ipcMain.handle("llm:getModels", async (_event, provider: LLMType) => {
+    const requestKey = `${provider}`;
+    const now = Date.now();
+
+    try {
+      const windowId = BrowserWindow.getFocusedWindow()?.id.toString();
+      const appState = getAppStateForWindow(windowId);
+      if (!appState?.llmFactory) {
+        log.warn(`LLMFactory not initialized for window: ${windowId}`);
+        return [];
+      }
+      const llm = appState.llmFactory.create(provider);
+      return await llm.getModels();
+    } catch (error) {
+      log.error(`Error getting models for provider ${provider}:`, error);
+      return [];
     }
   });
 }

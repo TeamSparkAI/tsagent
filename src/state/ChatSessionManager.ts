@@ -55,10 +55,10 @@ export class ChatSessionManager {
     }
   }
 
-  switchModel(tabId: string, modelType: LLMType): MessageUpdate {
+  switchModel(tabId: string, modelType: LLMType, modelId?: string): MessageUpdate {
     const session = this.getSession(tabId);
     try {
-      return session.switchModel(modelType);
+      return session.switchModel(modelType, modelId);
     } catch (error) {
       log.error(`Error switching model for tab ${tabId}:`, error);
       throw error;

@@ -32,29 +32,29 @@ export class LLMFactory {
     return this.getProviderInfo()[type];
   }
 
-  create(modelType: LLMType): ILLM {
+  create(modelType: LLMType, modelId?: string): ILLM {
     if (!this.appState) {
       throw new Error('LLMFactory not initialized with AppState');
     }
 
-    log.info('LLMFactory creating model:', modelType);
+    log.info('LLMFactory creating model:', modelType, modelId ? `with model ID: ${modelId}` : '');
 
     switch (modelType) {
       case LLMType.Gemini:
         log.info('Creating Gemini LLM instance');
-        return new GeminiLLM('gemini-2.0-flash', this.appState);
+        return new GeminiLLM(modelId || 'gemini-2.0-flash', this.appState);
       case LLMType.Claude:
         log.info('Creating Claude LLM instance');
-        return new ClaudeLLM('claude-3-7-sonnet-20250219', this.appState);
+        return new ClaudeLLM(modelId || 'claude-3-7-sonnet-20250219', this.appState);
       case LLMType.OpenAI:
         log.info('Creating OpenAI LLM instance');
-        return new OpenAILLM('gpt-3.5-turbo', this.appState);
+        return new OpenAILLM(modelId || 'gpt-3.5-turbo', this.appState);
       case LLMType.Ollama:
         log.info('Creating Ollama LLM instance');
-        return new OllamaLLM('llama3.2', this.appState);
+        return new OllamaLLM(modelId || 'llama3.2', this.appState);
       case LLMType.Bedrock:
         log.info('Creating Bedrock LLM instance');
-        return new BedrockLLM('amazon.nova-pro-v1:0', this.appState);
+        return new BedrockLLM(modelId || 'amazon.nova-pro-v1:0', this.appState);
       case LLMType.Test:
         log.info('Creating Test LLM instance');
         return new TestLLM(this.appState);

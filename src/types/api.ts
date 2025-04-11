@@ -3,6 +3,7 @@ import { Reference } from './Reference';
 import { McpConfig, McpConfigFileServerConfig, CallToolResultWithElapsedTime } from '../mcp/types';
 import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
 import { WorkspaceWindow } from './workspace';
+import { LLMProviderInfo, ILLMModel } from '../llm/types';
 
 export interface API {
   // Chat session management
@@ -10,13 +11,17 @@ export interface API {
   closeChatTab: (tabId: string) => Promise<ChatSessionResponse>;
   getChatState: (tabId: string) => Promise<ChatState>;
   sendMessage: (tabId: string, message: string) => Promise<MessageUpdate>;
-  switchModel: (tabId: string, modelType: string) => Promise<ChatSessionResponse>;
+  switchModel: (tabId: string, modelType: string, modelId?: string) => Promise<ChatSessionResponse>;
 
   // Chat context management
   addChatReference: (tabId: string, referenceName: string) => Promise<boolean>;
   removeChatReference: (tabId: string, referenceName: string) => Promise<boolean>;
   addChatRule: (tabId: string, ruleName: string) => Promise<boolean>;
   removeChatRule: (tabId: string, ruleName: string) => Promise<boolean>;
+
+  // LLM Provider methods for model picker
+  getProviderInfo: () => Promise<Record<string, LLMProviderInfo>>;
+  getModelsForProvider: (provider: string) => Promise<ILLMModel[]>;
 
   // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;

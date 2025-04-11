@@ -8,6 +8,7 @@ export class ChatSession {
   messages: ChatMessage[] = [];
   lastSyncId: number = 0;
   currentModel: LLMType;
+  currentModelId: string | undefined;
   llm: ILLM;
   appState: AppState;
   rules: string[] = [];
@@ -16,9 +17,10 @@ export class ChatSession {
   constructor(appState: AppState, options: ChatSessionOptions = {}) {
     this.appState = appState;
     this.currentModel = options.modelType || LLMType.Test;
+    this.currentModelId = options.modelId;
     
     // Create the LLM instance
-    const llm = this.appState.llmFactory.create(this.currentModel);
+    const llm = this.appState.llmFactory.create(this.currentModel, this.currentModelId);
     if (!llm) {
       throw new Error(`Failed to create LLM instance for model ${this.currentModel}`);
     }
@@ -29,11 +31,11 @@ export class ChatSession {
       ...(options.initialMessages || []),
       {
         role: 'system',
-        content: `Welcome to TeamSpark AI Workbench! You are using the ${this.currentModel} model.`
+        content: `Welcome to TeamSpark AI Workbench! You are using the ${this.currentModel} model${this.currentModelId ? ` (${this.currentModelId})` : ''}.`
       }
     ];
     
-    log.info(`Created new chat session with model ${this.currentModel}`);
+    log.info(`Created new chat session with model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
   }
 
   // !!! Notes:
@@ -135,6 +137,15 @@ export class ChatSession {
     messages.push(userMessage);
 
     try {
+      // Log the model being used for this request
+      log.info(`Generating response using model ${this.currentModel}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);
+      
+      // Ensure we have a valid LLM instance with the current model and model ID
+      if (!this.llm) {
+        log.warn('No LLM instance available, creating a new one');
+        this.llm = this.appState.llmFactory.create(this.currentModel, this.currentModelId);
+      }
+      
       const response = await this.llm.generateResponse(messages);
       if (!response) {
         throw new Error(`Failed to generate response from ${this.currentModel}`);
@@ -168,27 +179,31 @@ export class ChatSession {
     }
   }
 
-  switchModel(modelType: LLMType): MessageUpdate {
+  switchModel(modelType: LLMType, modelId?: string): MessageUpdate {
     try {
       // Create new LLM instance
-      const llm = this.appState.llmFactory.create(modelType);
+      const llm = this.appState.llmFactory.create(modelType, modelId);
       if (!llm) {
         throw new Error(`Failed to create LLM instance for model ${modelType}`);
       }
 
       // Update session with new model and LLM
       this.currentModel = modelType;
+      this.currentModelId = modelId;
       this.llm = llm;
+
+      // Generate a display model name - either the model ID or a descriptive name for the model type
+      let displayName = modelId || modelType;
 
       // Add a system message about the model switch
       const systemMessage: ChatMessage = {
         role: 'system',
-        content: `Switched to ${modelType} model`
+        content: `Switched to ${modelType} model${modelId ? ` (${displayName})` : ''}`
       };
       this.messages.push(systemMessage);
       this.lastSyncId++;
       
-      log.info(`Switched model to ${modelType}`);
+      log.info(`Switched model to ${modelType}${modelId ? ` (${modelId})` : ''}`);
       return {
         updates: [systemMessage],
         lastSyncId: this.lastSyncId,
@@ -199,7 +214,7 @@ export class ChatSession {
       log.error(`Error switching model:`, error);
       const systemMessage: ChatMessage = {
         role: 'system',
-        content: `Failed to create LLM instance for model ${modelType}, error: ${error}`
+        content: `Failed to create LLM instance for model ${modelType}${modelId ? ` (${modelId})` : ''}, error: ${error}`
       };
       this.lastSyncId++;
       return {
@@ -216,6 +231,7 @@ export class ChatSession {
       messages: [...this.messages],
       lastSyncId: this.lastSyncId,
       currentModel: this.currentModel,
+      currentModelId: this.currentModelId,
       references: [...this.references],
       rules: [...this.rules]
     };

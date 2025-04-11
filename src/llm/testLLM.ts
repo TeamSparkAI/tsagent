@@ -22,6 +22,7 @@ export class TestLLM implements ILLM {
       provider: LLMType.Test,
       id: 'frosty1.0',
       name: 'Frosty 1.0',
+      description: 'Frosty is a simple mock LLM that always responds with "Happy Birthday!"',
       modelSource: 'Test'
     }];
   }

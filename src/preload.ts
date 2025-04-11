@@ -36,7 +36,7 @@ const api: API = {
   closeChatTab: (tabId: string) => ipcRenderer.invoke('chat:close-tab', tabId),
   getChatState: (tabId: string) => ipcRenderer.invoke('chat:get-state', tabId),
   sendMessage: (tabId: string, message: string) => ipcRenderer.invoke('chat:send-message', tabId, message),
-  switchModel: (tabId: string, model: string) => ipcRenderer.invoke('chat:switch-model', tabId, model),
+  switchModel: (tabId: string, model: string, modelId?: string) => ipcRenderer.invoke('chat:switch-model', tabId, model, modelId),
   
   // Chat context management
   addChatReference: (tabId: string, referenceName: string) => ipcRenderer.invoke('chat:add-reference', tabId, referenceName),
@@ -85,7 +85,11 @@ const api: API = {
   },
   offWorkspaceSwitched: (listener: (event: any, data: any) => void) => {
     ipcRenderer.removeListener('workspace:switched', listener);
-  }
+  },
+
+  // LLM Providers (new methods for model picker)
+  getProviderInfo: () => ipcRenderer.invoke('llm:get-provider-info'),
+  getModelsForProvider: (provider: string) => ipcRenderer.invoke('llm:getModels', provider),
 };
 
 // Log the API object to verify it's defined

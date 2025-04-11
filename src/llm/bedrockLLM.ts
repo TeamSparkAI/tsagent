@@ -5,7 +5,7 @@ import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, T
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
 import { ModelReply, Turn } from '../types/ModelReply';
-import { BedrockClient, ListFoundationModelsCommand } from '@aws-sdk/client-bedrock';
+import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
 
 export class BedrockLLM implements ILLM {
   private readonly appState: AppState;
@@ -48,6 +48,8 @@ export class BedrockLLM implements ILLM {
     }
   }
 
+	// !!! Tool use and system prompts are only supported for some models: https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-supported-models-features.html
+	//
   async getModels(): Promise<ILLMModel[]> {
 		const bedrockClient = new BedrockClient({
 			region: 'us-east-1',
@@ -56,12 +58,23 @@ export class BedrockLLM implements ILLM {
 				accessKeyId: this.appState.configManager.getConfigValue('BEDROCK_ACCESS_KEY_ID')
 			}
 		});
+		// To support inferece types othet than ON_DEMAND, we will need to list them specifically, and use the returned ARNs to create the models
+		// !!! LATER
+		// const inferenceProfiles = await bedrockClient.send(new ListInferenceProfilesCommand({}));
+		// const provisionedModels = await bedrockClient.send(new ListProvisionedModelThroughputsCommand({}));
+    //
 		const command = new ListFoundationModelsCommand({});
     const modelList = await bedrockClient.send(command);
-		// Filter the list to only include modelLifecycle: { status: 'ACTIVE' }
-		const activeModels = modelList.modelSummaries?.filter(model => model.modelLifecycle?.status === 'ACTIVE') || [];
-		// log.info('Bedrock models:', activeModels);
-		const models: ILLMModel[] = activeModels.map(model => ({
+		const filteredModels = modelList.modelSummaries?.filter(model => 
+			// Check for ACTIVE status (we don't want LEGACY models)
+			model.modelLifecycle?.status === 'ACTIVE' && 
+			// Check for ON_DEMAND inference type (we don't want PROVISIONED or INFERENCE_PROFILE models, we have to handle those separately)
+			model.inferenceTypesSupported?.includes('ON_DEMAND') &&
+			// Exclude models with "embed" in the ID (case insensitive) - these are generally embeddings models and not interactive chat models
+			!model.modelId?.toLowerCase().includes('embed')
+		) || [];
+		log.info('Bedrock filtered models:', filteredModels);
+		const models: ILLMModel[] = filteredModels.map(model => ({
 			provider: LLMType.Bedrock,
 			id: model.modelId || '',
 			name: model.modelName || model.modelId!,

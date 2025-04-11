@@ -7,11 +7,21 @@ import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
 import { ModelReply } from '../types/ModelReply';
 import log from 'electron-log';
+import { ModelPickerPanel } from './ModelPickerPanel';
+import { ILLMModel } from '../llm/types';
+import TestLogo from '../assets/frosty.png';
+import OllamaLogo from '../assets/ollama.png';
+import OpenAILogo from '../assets/openai.png';
+import GeminiLogo from '../assets/gemini.png';
+import AnthropicLogo from '../assets/anthropic.png';
+import BedrockLogo from '../assets/bedrock.png';
 
 // Add ChatState interface back
 interface ChatState {
   messages: (RendererChatMessage & { modelReply?: ModelReply })[];
   selectedModel: LLMType;
+  selectedModelName: string;
+  currentModelId?: string;
 }
 
 // Handle external links safely
@@ -21,6 +31,16 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
   if (href) {
     window.api.openExternal(href);
   }
+};
+
+// Map each provider to its logo
+const providerLogos: Record<LLMType, any> = {
+  [LLMType.Test]: TestLogo,
+  [LLMType.Ollama]: OllamaLogo,
+  [LLMType.OpenAI]: OpenAILogo,
+  [LLMType.Gemini]: GeminiLogo,
+  [LLMType.Claude]: AnthropicLogo,
+  [LLMType.Bedrock]: BedrockLogo,
 };
 
 export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {
@@ -34,7 +54,9 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [isLoading, setIsLoading] = useState(false);
   const [chatState, setChatState] = useState<ChatState>({
     messages: [],
-    selectedModel: LLMType.Test
+    selectedModel: LLMType.Test,
+    selectedModelName: 'Frosty',
+    currentModelId: 'frosty1.0'
   });
   const [inputValue, setInputValue] = useState('');
   const [expandedToolCalls, setExpandedToolCalls] = useState<Set<string>>(new Set());
@@ -43,70 +65,119 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [availableReferences, setAvailableReferences] = useState<{name: string, description: string}[]>([]);
   const [availableRules, setAvailableRules] = useState<{name: string, description: string}[]>([]);
   const [showContextPanel, setShowContextPanel] = useState(false);
+  const [showModelPickerPanel, setShowModelPickerPanel] = useState<boolean>(false);
+  const [models, setModels] = useState<ILLMModel[]>([]);
 
   useEffect(() => {
-    const initModel = async () => {
-      try {
-        // First create the chat session with initial welcome message
-        await window.api.createChatTab(id);
-        // Then initialize the ChatAPI
-        chatApiRef.current = new ChatAPI(id);
-        // Then get its state
-        const state = await window.api.getChatState(id);
-        setChatState((prev: ChatState) => ({ 
-          ...prev, 
-          selectedModel: state.currentModel,
-          messages: state.messages.map(msg => ({
-            type: msg.role === 'assistant' ? 'ai' : msg.role,
-            content: msg.role === 'assistant' ? '' : msg.content,
-            modelReply: msg.role === 'assistant' ? msg.modelReply : undefined
-          }))
-        }));
-        
-        // Load context data
-        if (chatApiRef.current) {
-          const refs = await chatApiRef.current.getActiveReferences();
-          const rules = await chatApiRef.current.getActiveRules();
-          setActiveReferences(refs);
-          setActiveRules(rules);
-        }
-        
-        setIsInitialized(true);
-      } catch (error) {
-        log.error('Error initializing chat tab:', error);
-      }
-    };
-    initModel();
-
-    // Load available references and rules for context panel
-    const loadAvailableContext = async () => {
-      try {
-        const refs = await window.api.getReferences();
-        const rules = await window.api.getRules();
-        setAvailableReferences(refs.map(ref => ({ name: ref.name, description: ref.description })));
-        setAvailableRules(rules.map(rule => ({ name: rule.name, description: rule.description })));
-      } catch (error) {
-        log.error('Error loading available context:', error);
-      }
-    };
-    loadAvailableContext();
-
-    // Listen for reference and rule changes
-    const refsListener = window.api.onReferencesChanged(() => {
-      loadAvailableContext();
-    });
-    const rulesListener = window.api.onRulesChanged(() => {
-      loadAvailableContext();
-    });
-    
-    return () => {
-      window.api.offReferencesChanged(refsListener);
-      window.api.offRulesChanged(rulesListener);
+    // This happens when the tab is first selected
+    if (id === activeTabId && !chatApiRef.current) {
+      log.info(`Tab ${id} is active, initializing chat API`);
       
-      // Clean up the chat session when the tab is closed
-      window.api.closeChatTab(id).catch(error => {
-        log.error('Error closing chat tab:', error);
+      // Then initialize the ChatAPI
+      chatApiRef.current = new ChatAPI(id);
+      
+      // Load the chat state
+      const initModel = async () => {
+        try {
+          // First create the chat session with initial welcome message
+          await window.api.createChatTab(id);
+          
+          if (chatApiRef.current) {
+            const state = await window.api.getChatState(id);
+            
+            // Get models to find model name if available
+            let modelName = 'Default';
+            
+            // Set default model names based on model type as fallback
+            if (state.currentModel === LLMType.Test) {
+              modelName = 'Frosty';
+            }
+            
+            // If model was previously selected with a specific ID, try to get actual model name
+            if (state.currentModelId) {
+              try {
+                const models = await chatApiRef.current.getModels(state.currentModel);
+                const selectedModel = models.find((m: any) => m.id === state.currentModelId);
+                if (selectedModel) {
+                  modelName = selectedModel.name;
+                } else {
+                  // If we can't find the model, use the ID as the name (without modification)
+                  modelName = state.currentModelId;
+                }
+              } catch (error) {
+                log.error('Failed to get model information:', error);
+                // If we can't get model info, use the ID as the name
+                modelName = state.currentModelId;
+              }
+            }
+            
+            setChatState({
+              messages: state.messages.map((msg: any) => ({
+                type: msg.role === 'assistant' ? 'ai' : msg.role,
+                content: msg.role === 'assistant' ? '' : msg.content,
+                modelReply: msg.role === 'assistant' ? msg.modelReply : undefined
+              })),
+              selectedModel: state.currentModel,
+              selectedModelName: modelName,
+              currentModelId: state.currentModelId
+            });
+            
+            // Load context data
+            const refs = await chatApiRef.current.getActiveReferences();
+            const rules = await chatApiRef.current.getActiveRules();
+            setActiveReferences(refs);
+            setActiveRules(rules);
+            
+            setIsInitialized(true);
+          }
+        } catch (error) {
+          log.error('Error initializing chat tab:', error);
+        }
+      };
+      
+      initModel();
+      
+      // Load available references and rules for context panel
+      const loadAvailableContext = async () => {
+        try {
+          const refs = await window.api.getReferences();
+          const rules = await window.api.getRules();
+          setAvailableReferences(refs.map(ref => ({ name: ref.name, description: ref.description })));
+          setAvailableRules(rules.map(rule => ({ name: rule.name, description: rule.description })));
+        } catch (error) {
+          log.error('Error loading available context:', error);
+        }
+      };
+      loadAvailableContext();
+      
+      // Listen for reference and rule changes
+      const refsListener = window.api.onReferencesChanged(() => {
+        loadAvailableContext();
       });
+      const rulesListener = window.api.onRulesChanged(() => {
+        loadAvailableContext();
+      });
+      
+      // Return cleanup function
+      return () => {
+        window.api.offReferencesChanged(refsListener);
+        window.api.offRulesChanged(rulesListener);
+        
+        // Clean up the chat API reference
+        chatApiRef.current = null;
+      };
+    }
+  }, [activeTabId, id]);
+
+  // Clean up the chat session when the component unmounts
+  useEffect(() => {
+    return () => {
+      // Clean up the chat session when the tab is closed
+      if (id) {
+        window.api.closeChatTab(id).catch(error => {
+          log.error('Error closing chat tab:', error);
+        });
+      }
     };
   }, [id]);
 
@@ -120,7 +191,9 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       setIsInitialized(false);
       setChatState({
         selectedModel: LLMType.Test,
-        messages: []
+        selectedModelName: 'Frosty',
+        messages: [],
+        currentModelId: ''
       });
       chatApiRef.current = null;
       isFirstRenderRef.current = true;
@@ -197,10 +270,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       }
       
       const response = await chatApiRef.current!.sendMessage(inputValue);
-      setChatState({
+      setChatState(prev => ({
         messages: chatApiRef.current!.getMessages(),
-        selectedModel: chatApiRef.current!.getCurrentModel()
-      });
+        selectedModel: chatApiRef.current!.getCurrentModel(),
+        selectedModelName: chatApiRef.current!.getCurrentModelName(),
+        currentModelId: prev.currentModelId
+      }));
       
       // Refresh the context to show any changes made during message processing
       if (chatApiRef.current) {
@@ -224,24 +299,32 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
-  const handleModelChange = async (model: LLMType) => {
+  const handleModelChange = async (model: LLMType, modelId?: string, modelName?: string) => {
     try {
-      log.info('Switching to model:', model);
-      const success = await chatApiRef.current!.switchModel(model);
-      setChatState((prev: ChatState) => ({
-        ...prev,
-        selectedModel: success ? model : prev.selectedModel,
-        messages: chatApiRef.current!.getMessages()
-      }));
-      log.info('Successfully switched to model:', model);
+      if (chatApiRef.current) {
+        const success = await chatApiRef.current.changeModel(model, modelId);
+        
+        setChatState(prev => ({
+          ...prev,
+          selectedModel: success ? model : prev.selectedModel,
+          selectedModelName: success && modelName ? modelName : prev.selectedModelName,
+          currentModelId: success && modelId ? modelId : prev.currentModelId
+        }));
+        
+        if (success) {
+          log.info(`Changed model to ${model} (${modelName || modelId || 'default'})`);
+        } else {
+          log.error(`Failed to change model to ${model}`);
+        }
+      }
     } catch (error) {
-      // Revert the model selection
-      setChatState((prev: ChatState) => ({
+      log.error('Error changing model:', error);
+      setChatState(prev => ({
         ...prev,
         selectedModel: prev.selectedModel,
-        messages: chatApiRef.current!.getMessages()
+        selectedModelName: prev.selectedModelName,
+        currentModelId: prev.currentModelId
       }));
-      log.error('Error switching model:', error);
     }
   };
 
@@ -339,6 +422,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         setActiveRules(rules);
       }
     }
+  };
+
+  const toggleModelPickerPanel = () => {
+    setShowModelPickerPanel(prev => !prev);
   };
 
   return (
@@ -458,23 +545,125 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             opacity: 0.5;
             cursor: not-allowed;
           }
+          
+          #model-container {
+            display: flex;
+            align-items: center;
+            justify-content: flex-start;
+            padding: 5px 0;
+          }
+          
+          #model-button {
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+          }
+          
+          #model-button.active {
+            background-color: #e0e0e0;
+            border-color: #999;
+          }
+          
+          #model-display {
+            margin-left: 10px;
+            font-weight: 500;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+          }
+          
+          #model-provider {
+            color: #666;
+            margin-right: 5px;
+          }
+          
+          #model-name {
+            color: #333;
+            font-weight: 600;
+          }
+          
+          #context-button {
+            margin-left: auto;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+          }
+          
+          #context-button.active {
+            background-color: #e0e0e0;
+            border-color: #999;
+          }
+          
+          #model-picker-container {
+            margin: 5px 0;
+            width: 100%;
+            z-index: 10;
+          }
+          
+          .model-logo {
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+            object-fit: contain;
+          }
+          
+          .model-info {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+          }
+          
+          .model-id {
+            margin-left: 5px;
+            color: #666;
+            font-size: 0.9em;
+          }
         `}
       </style>
       <div id="model-container">
-        <label htmlFor="model-select">Model:</label>
-        <select
-          id="model-select"
-          value={chatState.selectedModel}
-          onChange={(e) => handleModelChange(e.target.value as LLMType)}
-          onContextMenu={(e) => e.stopPropagation()}
+        <button 
+          id="model-button" 
+          onClick={toggleModelPickerPanel}
+          className={showModelPickerPanel ? 'active' : ''}
         >
-          <option value={LLMType.Test}>Test LLM</option>
-          <option value={LLMType.Gemini}>Gemini</option>
-          <option value={LLMType.Claude}>Claude</option>
-          <option value={LLMType.OpenAI}>OpenAI</option>
-          <option value={LLMType.Ollama}>Ollama</option>
-          <option value={LLMType.Bedrock}>Bedrock</option>
-        </select>
+          <span>Model</span>
+        </button>
+        
+        <div id="model-display">
+          <img 
+            src={providerLogos[chatState.selectedModel]} 
+            alt={chatState.selectedModel} 
+            className="model-logo"
+          />
+          <div className="model-info">
+            <span id="model-provider">
+              {(() => {
+                switch (chatState.selectedModel) {
+                  case LLMType.Test: return 'Test LLM';
+                  case LLMType.Gemini: return 'Gemini';
+                  case LLMType.Claude: return 'Claude';
+                  case LLMType.OpenAI: return 'OpenAI';
+                  case LLMType.Ollama: return 'Ollama';
+                  case LLMType.Bedrock: return 'Bedrock';
+                  default: return chatState.selectedModel;
+                }
+              })()}
+            </span>
+            <span id="model-name">
+              {chatState.selectedModelName}
+              {chatState.currentModelId && chatState.currentModelId !== chatState.selectedModelName && 
+                <span className="model-id">({chatState.currentModelId})</span>
+              }
+            </span>
+          </div>
+        </div>
+        
         <button 
           id="context-button" 
           onClick={toggleContextPanel} 
@@ -483,6 +672,18 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           Context
         </button>
       </div>
+      
+      {showModelPickerPanel && (
+        <div id="model-picker-container">
+          <ModelPickerPanel 
+            selectedModel={chatState.selectedModel}
+            onModelSelect={(model, modelId, modelName) => {
+              handleModelChange(model, modelId, modelName);
+            }}
+            onClose={() => setShowModelPickerPanel(false)}
+          />
+        </div>
+      )}
       
       {showContextPanel && (
         <div id="context-panel">

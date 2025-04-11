@@ -14,6 +14,13 @@ const commonConfig = {
         test: /\.tsx?$/,
         use: 'ts-loader',
         exclude: /node_modules/
+      },
+      {
+        test: /\.(png|jpg|jpeg|gif|svg)$/i,
+        type: 'asset/resource',
+        generator: {
+          filename: 'assets/images/[hash][ext][query]'
+        }
       }
     ]
   },
@@ -59,7 +66,8 @@ const rendererConfig = {
   entry: './src/renderer.tsx',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'renderer.js'
+    filename: 'renderer.js',
+    assetModuleFilename: 'assets/[hash][ext][query]'
   },
   performance: {
     hints: false // Disable performance hints for renderer since it's a desktop app
