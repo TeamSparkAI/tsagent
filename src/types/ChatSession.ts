@@ -15,7 +15,7 @@ export type ChatMessage = {
 export interface ChatState {
   messages: ChatMessage[];
   lastSyncId: number;
-  currentModel: LLMType;
+  currentModelProvider: LLMType;
   currentModelId?: string;
   references: string[];
   rules: string[];
@@ -29,7 +29,7 @@ export interface MessageUpdate {
 }
 
 export interface ChatSessionOptions {
-  modelType?: LLMType;
+  modelProvider?: LLMType;
   modelId?: string;
   initialMessages?: ChatMessage[];
 }

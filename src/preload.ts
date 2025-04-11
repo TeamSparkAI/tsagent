@@ -92,6 +92,7 @@ const api: API = {
   getModelsForProvider: (provider: string) => ipcRenderer.invoke('llm:getModels', provider),
 };
 
+/*
 // Log the API object to verify it's defined
 log.info('[PRELOAD] API object defined:', Object.keys(api));
 
@@ -103,6 +104,7 @@ for (const key of Object.keys(api)) {
     log.info(`[PRELOAD] Method ${key} toString:`, method.toString().substring(0, 100) + '...');
   }
 }
+*/
 
 // Expose the API to the renderer process
 try {

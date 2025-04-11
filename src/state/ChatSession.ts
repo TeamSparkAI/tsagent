@@ -16,8 +16,13 @@ export class ChatSession {
 
   constructor(appState: AppState, options: ChatSessionOptions = {}) {
     this.appState = appState;
-    this.currentModel = options.modelType || LLMType.Test;
-    this.currentModelId = options.modelId;
+    if (options.modelProvider && options.modelId) {
+      this.currentModel = options.modelProvider;
+      this.currentModelId = options.modelId;
+    } else {
+      this.currentModel = LLMType.Test;
+      this.currentModelId = "frosty1.0";
+    }
     
     // Create the LLM instance
     const llm = this.appState.llmFactory.create(this.currentModel, this.currentModelId);
@@ -38,34 +43,19 @@ export class ChatSession {
     log.info(`Created new chat session with model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
   }
 
-  // !!! Notes:
-  //
-  //  Based on the user message, we will determine references and rules to include with the request
-  //  UserMessage:
-  //    - Message (text)
-  //    - References (set)
-  //      - reference id
-  //    - Rules (set)
-  //      - rule id
-  //
-  //  We're going to construct and pass a bag of messages to the LLM
+  //  We're going to construct and pass a bag of messages to the LLM (context)
   //     - System prompt
   //     - Historical messages (set)
-  //       - User prompt (references and rules?)
+  //       - User message
   //       - Server reply (set)
   //         - Text reply (when no tool call, final message, when tool call, explanatory text related to tool call)
   //         - Tool call
   //         - Tool call result (coorrelated to call)
   //     - References (set)
   //     - Rules (set)
-  //     - User prompt
+  //     - User message
   //
-  // We may inject references or rules as appropriate (do we maintain historical references/rules in all cases, or do we curate the list
-  // at the time of the request?)  If we don't include rules/refs in the history, it might be harder for the LLM to understand the history,
-  // but if we do include them (esp rules), it might be a lot of rules that the LLM has to sort out (and prioritize).  We should make sure
-  // to include the priority of both either way.
-  //
-  // ModelReply type gives us metadata and turn results - inclding message, tool calls (possibly multiple), and an error if applicable
+  // ModelReply type gives us metadata and turn results - including message, tool calls (possibly multiple), and an error if applicable
   // - Sometimes we get multiple tool calls in one turn
   // - Sometimes we get explanatory text with a tool call (or multiple tool calls)
   //
@@ -230,7 +220,7 @@ export class ChatSession {
     return {
       messages: [...this.messages],
       lastSyncId: this.lastSyncId,
-      currentModel: this.currentModel,
+      currentModelProvider: this.currentModel,
       currentModelId: this.currentModelId,
       references: [...this.references],
       rules: [...this.rules]

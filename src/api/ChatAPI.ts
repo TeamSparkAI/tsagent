@@ -65,11 +65,11 @@ export class ChatAPI {
       const state = await window.api.getChatState(this.tabId);
       
       // Update local state with session state from the server
-      this.currentModel = state.currentModel;
+      this.currentModel = state.currentModelProvider;
       this.currentModelId = state.currentModelId;
       
       // Update the model name 
-      await this.updateModelNameFromState(state.currentModel, state.currentModelId);
+      await this.updateModelNameFromState(state.currentModelProvider, state.currentModelId);
       
       log.info(`Initialized ChatAPI with model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}, name: ${this.currentModelName}`);
       

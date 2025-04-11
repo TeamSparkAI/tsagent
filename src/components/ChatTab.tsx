@@ -89,14 +89,14 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             let modelName = 'Default';
             
             // Set default model names based on model type as fallback
-            if (state.currentModel === LLMType.Test) {
+            if (state.currentModelProvider === LLMType.Test) {
               modelName = 'Frosty';
             }
             
             // If model was previously selected with a specific ID, try to get actual model name
             if (state.currentModelId) {
               try {
-                const models = await chatApiRef.current.getModels(state.currentModel);
+                const models = await chatApiRef.current.getModels(state.currentModelProvider);
                 const selectedModel = models.find((m: any) => m.id === state.currentModelId);
                 if (selectedModel) {
                   modelName = selectedModel.name;
@@ -117,7 +117,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                 content: msg.role === 'assistant' ? '' : msg.content,
                 modelReply: msg.role === 'assistant' ? msg.modelReply : undefined
               })),
-              selectedModel: state.currentModel,
+              selectedModel: state.currentModelProvider,
               selectedModelName: modelName,
               currentModelId: state.currentModelId
             });
@@ -193,7 +193,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         selectedModel: LLMType.Test,
         selectedModelName: 'Frosty',
         messages: [],
-        currentModelId: ''
+        currentModelId: 'frosty1.0'
       });
       chatApiRef.current = null;
       isFirstRenderRef.current = true;
