@@ -492,6 +492,16 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     );
 };
 
+// Handle external links safely
+const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    const href = e.currentTarget.href;
+    if (href) {
+        window.api.openExternal(href);
+        log.debug(`Opening external link: ${href}`);
+    }
+};
+
 export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [servers, setServers] = useState<McpConfig[]>([]);
     const [selectedServer, setSelectedServer] = useState<McpConfig | null>(null);
@@ -852,11 +862,19 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                 </p>
                                 <p>
                                     For more information about MCP, visit the official documentation at{' '}
-                                    <a href="https://modelcontextprotocol.io/" target="_blank" rel="noopener noreferrer">
+                                    <a 
+                                        href="https://modelcontextprotocol.io/" 
+                                        onClick={handleLinkClick}
+                                        style={{ color: '#007bff', cursor: 'pointer' }}
+                                    >
                                         modelcontextprotocol.io
                                     </a>
                                     . You can also explore the official collection of MCP servers at{' '}
-                                    <a href="https://github.com/modelcontextprotocol/servers/" target="_blank" rel="noopener noreferrer">
+                                    <a 
+                                        href="https://github.com/modelcontextprotocol/servers/" 
+                                        onClick={handleLinkClick}
+                                        style={{ color: '#007bff', cursor: 'pointer' }}
+                                    >
                                         github.com/modelcontextprotocol/servers
                                     </a>
                                     .
