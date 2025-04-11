@@ -821,15 +821,15 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                       <div className="stats-item">
                         <span className="stats-label">Input Tokens:</span>
                         <span className="stats-value">
-                          {lastMessage.modelReply?.turns.reduce((total, turn) => 
-                            total + (turn.inputTokens || 0), 0) || 0}
+                          {(lastMessage.modelReply?.turns.reduce((total, turn) => 
+                            total + (turn.inputTokens || 0), 0) || 0).toLocaleString()}
                         </span>
                       </div>
                       <div className="stats-item">
                         <span className="stats-label">Output Tokens:</span>
                         <span className="stats-value">
-                          {lastMessage.modelReply?.turns.reduce((total, turn) => 
-                            total + (turn.outputTokens || 0), 0) || 0}
+                          {(lastMessage.modelReply?.turns.reduce((total, turn) => 
+                            total + (turn.outputTokens || 0), 0) || 0).toLocaleString()}
                         </span>
                       </div>
                     </>
