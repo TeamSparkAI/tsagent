@@ -66,6 +66,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [availableRules, setAvailableRules] = useState<{name: string, description: string}[]>([]);
   const [showContextPanel, setShowContextPanel] = useState(false);
   const [showModelPickerPanel, setShowModelPickerPanel] = useState<boolean>(false);
+  const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [models, setModels] = useState<ILLMModel[]>([]);
 
   useEffect(() => {
@@ -385,7 +386,24 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   };
 
   const toggleContextPanel = () => {
-    setShowContextPanel(prev => !prev);
+    setShowContextPanel(!showContextPanel);
+    setShowStatsPanel(false);
+    setShowModelPickerPanel(false);
+    log.debug(`Context panel ${!showContextPanel ? 'opened' : 'closed'} for chat tab ${id}`);
+  };
+
+  const toggleStatsPanel = () => {
+    setShowStatsPanel(!showStatsPanel);
+    setShowContextPanel(false);
+    setShowModelPickerPanel(false);
+    log.debug(`Stats panel ${!showStatsPanel ? 'opened' : 'closed'} for chat tab ${id}`);
+  };
+
+  const toggleModelPickerPanel = () => {
+    setShowModelPickerPanel(!showModelPickerPanel);
+    setShowContextPanel(false);
+    setShowStatsPanel(false);
+    log.debug(`Model picker panel ${!showModelPickerPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
 
   const addReference = async (referenceName: string) => {
@@ -428,10 +446,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
-  const toggleModelPickerPanel = () => {
-    setShowModelPickerPanel(prev => !prev);
-  };
-
   return (
     <div className="chat-tab">
       <style>
@@ -448,6 +462,50 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           #context-button.active {
             background-color: #e0e0e0;
             border-color: #999;
+          }
+          
+          #stats-button {
+            margin-left: auto;
+            padding: 5px 10px;
+            background-color: #f0f0f0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+          }
+          
+          #stats-button.active {
+            background-color: #e0e0e0;
+            border-color: #999;
+          }
+          
+          #stats-panel {
+            margin: 5px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-gap: 10px;
+            max-height: 300px;
+            overflow-y: auto;
+          }
+          
+          .stats-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 12px;
+            border-bottom: 1px solid #eee;
+          }
+          
+          .stats-label {
+            font-weight: 500;
+            color: #666;
+          }
+          
+          .stats-value {
+            font-weight: 600;
+            color: #333;
           }
           
           #context-panel {
@@ -590,20 +648,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             font-weight: 600;
           }
           
-          #context-button {
-            margin-left: auto;
-            padding: 5px 10px;
-            background-color: #f0f0f0;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            cursor: pointer;
-          }
-          
-          #context-button.active {
-            background-color: #e0e0e0;
-            border-color: #999;
-          }
-          
           #model-picker-container {
             margin: 5px 0;
             width: 100%;
@@ -627,6 +671,17 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             margin-left: 5px;
             color: #666;
             font-size: 0.9em;
+          }
+          
+          .stats-section {
+            padding: 5px;
+          }
+          
+          .stats-section h3 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #333;
           }
         `}
       </style>
@@ -669,6 +724,14 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         </div>
         
         <button 
+          id="stats-button" 
+          onClick={toggleStatsPanel} 
+          className={showStatsPanel ? 'active' : ''}
+        >
+          Stats
+        </button>
+        
+        <button 
           id="context-button" 
           onClick={toggleContextPanel} 
           className={showContextPanel ? 'active' : ''}
@@ -686,6 +749,98 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             }}
             onClose={() => setShowModelPickerPanel(false)}
           />
+        </div>
+      )}
+      
+      {showStatsPanel && (
+        <div id="stats-panel">
+          <div className="stats-section">
+            <h3>Session Totals</h3>
+            <div className="stats-item">
+              <span className="stats-label">User Messages:</span>
+              <span className="stats-value">
+                {chatState.messages.filter(msg => msg.type === 'user').length}
+              </span>
+            </div>
+            <div className="stats-item">
+              <span className="stats-label">AI Responses (Turns):</span>
+              <span className="stats-value">
+                {chatState.messages
+                  .filter(msg => msg.type === 'ai' && msg.modelReply)
+                  .reduce((total, msg) => total + (msg.modelReply?.turns.length || 0), 0)}
+              </span>
+            </div>
+            <div className="stats-item">
+              <span className="stats-label">Total Input Tokens:</span>
+              <span className="stats-value">
+                {chatState.messages
+                  .filter(msg => msg.type === 'ai' && msg.modelReply)
+                  .reduce((total, msg) => total + 
+                    (msg.modelReply?.turns.reduce((turnTotal, turn) => 
+                      turnTotal + (turn.inputTokens || 0), 0) || 0), 0)
+                  .toLocaleString()}
+              </span>
+            </div>
+            <div className="stats-item">
+              <span className="stats-label">Total Output Tokens:</span>
+              <span className="stats-value">
+                {chatState.messages
+                  .filter(msg => msg.type === 'ai' && msg.modelReply)
+                  .reduce((total, msg) => total + 
+                    (msg.modelReply?.turns.reduce((turnTotal, turn) => 
+                      turnTotal + (turn.outputTokens || 0), 0) || 0), 0)
+                  .toLocaleString()}
+              </span>
+            </div>
+          </div>
+          
+          <div className="stats-section">
+            <h3>Last Message</h3>
+            {chatState.messages.filter(msg => msg.type === 'ai' && msg.modelReply).length > 0 && (
+              <>
+                {(() => {
+                  const lastMessage = [...chatState.messages]
+                    .filter(msg => msg.type === 'ai' && msg.modelReply)
+                    .sort((a, b) => (b.modelReply?.timestamp || 0) - (a.modelReply?.timestamp || 0))[0];
+                  
+                  return (
+                    <>
+                      <div className="stats-item">
+                        <span className="stats-label">AI Response Turns:</span>
+                        <span className="stats-value">
+                          {lastMessage.modelReply?.turns.length || 0}
+                        </span>
+                      </div>
+                      <div className="stats-item">
+                        <span className="stats-label">Tool Calls:</span>
+                        <span className="stats-value">
+                          {lastMessage.modelReply?.turns.reduce((total, turn) => 
+                            total + (turn.toolCalls?.length || 0), 0) || 0}
+                        </span>
+                      </div>
+                      <div className="stats-item">
+                        <span className="stats-label">Input Tokens:</span>
+                        <span className="stats-value">
+                          {lastMessage.modelReply?.turns.reduce((total, turn) => 
+                            total + (turn.inputTokens || 0), 0) || 0}
+                        </span>
+                      </div>
+                      <div className="stats-item">
+                        <span className="stats-label">Output Tokens:</span>
+                        <span className="stats-value">
+                          {lastMessage.modelReply?.turns.reduce((total, turn) => 
+                            total + (turn.outputTokens || 0), 0) || 0}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+              </>
+            )}
+            {chatState.messages.filter(msg => msg.type === 'ai' && msg.modelReply).length === 0 && (
+              <p>No AI responses yet</p>
+            )}
+          </div>
         </div>
       )}
       

@@ -8,27 +8,9 @@ https://modelcontextprotocol.io/
 
 ## Model abstraction
 
-We probably want to have a list of providers (basically representing an API/SDK)
-- Under each provider we have a list of models (with model configuration)
-- So we'd have something like:
-  - Google Gemini
-    - Gemini 1.5 Pro
-    - Gemini 1.5 Flash
-    - Gemini 1.5 Pro (latest)
-  - Anthropic
-    - Claude 3.5 Sonnet
-    - Claude 3.5 Sonnet (latest)
-  - OpenAI
-    - GPT-4o
-    - GPT-4o (latest)
-  - Bedrock
-    - Many
-  - Ollama
-    - Llame 3.2
-    - DeepSeek
-
 This is a decent design/start, but isn't complete or up-to-date: https://github.com/fkesheh/any-llm
 
+May need model capabilities (supports system prompt - within Bedrock at least, others)
 Need configuration specs for models (what values they take, the type and range, description, etc)
 Pricing config with default (input/output token pricing)
 Need default configuration for each model
@@ -42,12 +24,6 @@ Do we have a Models tab that lists all the models and let's you view/update thei
 If we tied a chat window to a model, we could have a "settings" button that lets you override the model settings for that chat.
 
 ## Usage
-
-Currently we track token usage at the LLM response level, but we don't accumulate them on each turn.
-We should probably record the token usage on each turn and accumulate them for the overall LlmReply.
-It would be nice to expose this in the UX (turn counts and total counts for a given reply).
-
-Track token usage for chat session
 
 Track cost for call/session
 - This could be tricky if we allow model switches in a session.
@@ -67,7 +43,7 @@ Tools
 
 ## Chat UX
 
-Allow user to @mention a rule or referencec to add them to the chat context (interactively, as you type, maybe with lookup/matching)
+Allow user to @mention a rule or reference to add them to the chat context (interactively, as you type, maybe with lookup/matching)
 - @ref:[referenceName]
 - @rule:[ruleName]
 
@@ -169,17 +145,6 @@ Test support for SSE server
 - Local weather server in /mcp-sse
   - uv run weather.py
 
-## Bugs
-
-When building tool call history, need to make sure tool names are prefixed [fixed]
-
-When LLM returns error, need to set parts, currently (this is the error above, can't find function without prefix):
-
-  {
-    "role": "model",
-    "parts": []
-  },
-
 ## Workspaces Issues
 
 Structure
@@ -234,9 +199,6 @@ Remodel project
   - api.ts
   - types
 
-
-
-
 ## Model metadata
 
 API provider is top level (Anthropic Claude, OpenAI, Google Gemini, Amazon Bedrock, Ollama)
@@ -248,7 +210,6 @@ Common fields
   - For Bedrock we might want to select by this?
   - For OpenAI, Claude, Gemini, provider is implied
   - Ollama we could use details.family?
-
 
 Bedrock
     modelId: 'mistral.pixtral-large-2502-v1:0',
@@ -284,5 +245,5 @@ Claude
     display_name: 'Claude 3 Opus',
     created_at: '2024-02-29T00:00:00Z'
 
-Gemini
+Gemini (no API currently, but it is imminent)
     ???
