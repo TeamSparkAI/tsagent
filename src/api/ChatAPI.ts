@@ -96,8 +96,9 @@ export class ChatAPI {
       
       const result = await window.api.sendMessage(this.tabId, message);
       
-      // Update messages with the new updates
-      this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
+      // Get the full updated state to ensure we have all messages including system messages
+      const state = await window.api.getChatState(this.tabId);
+      this.messages = state.messages.map(this.convertMessageToChatMessage);
       
       // Return the last turn's message if available
       const lastAssistantMessage = result.updates[1];

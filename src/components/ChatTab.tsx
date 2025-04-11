@@ -215,7 +215,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const handleScroll = () => {
     if (chatContainerRef.current) {
       const newPosition = chatContainerRef.current.scrollTop;
-      log.info(`Manual scroll in tab ${id}, saving position:`, newPosition);
+      // log.info(`Manual scroll in tab ${id}, saving position:`, newPosition);
       setScrollPosition(newPosition);
     }
   };
@@ -241,10 +241,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     if (chatContainerRef.current) {
       if (id === activeTabId) {
         // When switching to this tab, restore scroll position
-        log.info(`Restoring scroll position for tab ${id} to:`, scrollPosition);
+        // log.info(`Restoring scroll position for tab ${id} to:`, scrollPosition);
         if (scrollPosition > 0) {
           chatContainerRef.current.scrollTop = scrollPosition;
-          log.info(`After restore, actual scroll position is:`, chatContainerRef.current.scrollTop);
+          // log.info(`After restore, actual scroll position is:`, chatContainerRef.current.scrollTop);
         }
       }
     }
@@ -304,14 +304,18 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       if (chatApiRef.current) {
         const success = await chatApiRef.current.changeModel(model, modelId);
         
-        setChatState(prev => ({
-          ...prev,
-          selectedModel: success ? model : prev.selectedModel,
-          selectedModelName: success && modelName ? modelName : prev.selectedModelName,
-          currentModelId: success && modelId ? modelId : prev.currentModelId
-        }));
-        
         if (success) {
+          // Get updated messages that include the system message about model change
+          const updatedMessages = chatApiRef.current.getMessages();
+          
+          setChatState(prev => ({
+            ...prev,
+            selectedModel: model,
+            selectedModelName: modelName || prev.selectedModelName,
+            currentModelId: modelId || prev.currentModelId,
+            messages: updatedMessages // Update messages to include system message
+          }));
+          
           log.info(`Changed model to ${model} (${modelName || modelId || 'default'})`);
         } else {
           log.error(`Failed to change model to ${model}`);
