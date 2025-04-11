@@ -41,7 +41,8 @@ const COMMANDS = {
   EXIT: '/exit',
   TOOLS: '/tools',
   RULES: '/rules',
-  REFERENCES: '/references'
+  REFERENCES: '/references',
+  STATS: '/stats'
 };
 
 const workspacePath = path.join(process.cwd(), 'config');
@@ -143,6 +144,7 @@ function showHelp() {
   console.log(chalk.yellow('  /tools') + ' - List available tools from all configured MCP servers');
   console.log(chalk.yellow('  /rules') + ' - List all rules (* active, - inactive)');
   console.log(chalk.yellow('  /references') + ' - List all references (* active, - inactive)');
+  console.log(chalk.yellow('  /stats') + ' - Display statistics for the current chat session');
   console.log(chalk.yellow('  /clear') + ' - Clear the chat history');
   console.log(chalk.yellow('  /quit') + ' or ' + chalk.yellow('/exit') + ' - Exit the application');
   console.log('');
@@ -187,6 +189,87 @@ export function setupCLI(appState: AppState) {
         case COMMANDS.EXIT:
           console.log(chalk.green('Goodbye!'));
           return false; // Signal to stop the loop
+
+        case COMMANDS.STATS:
+          // Display chat statistics
+          console.log(chalk.cyan('\nChat Statistics:'));
+          
+          // Session totals
+          console.log(chalk.cyan('  Session Totals:'));
+          
+          const userMessages = chatSession.messages.filter(msg => msg.role === 'user').length;
+          console.log(`    User Messages: ${chalk.yellow(userMessages)}`);
+          
+          // Calculate AI responses (turns)
+          const aiResponses = chatSession.messages
+            .filter(msg => msg.role === 'assistant')
+            .reduce((total, msg) => total + (('modelReply' in msg) ? msg.modelReply.turns.length : 0), 0);
+          console.log(`    AI Responses (Turns): ${chalk.yellow(aiResponses)}`);
+          
+          // Calculate total input tokens
+          const totalInputTokens = chatSession.messages
+            .filter(msg => msg.role === 'assistant')
+            .reduce((total, msg) => {
+              if ('modelReply' in msg) {
+                return total + msg.modelReply.turns.reduce((turnTotal, turn) => 
+                  turnTotal + (turn.inputTokens || 0), 0);
+              }
+              return total;
+            }, 0);
+          console.log(`    Total Input Tokens: ${chalk.yellow(totalInputTokens.toLocaleString())}`);
+          
+          // Calculate total output tokens
+          const totalOutputTokens = chatSession.messages
+            .filter(msg => msg.role === 'assistant')
+            .reduce((total, msg) => {
+              if ('modelReply' in msg) {
+                return total + msg.modelReply.turns.reduce((turnTotal, turn) => 
+                  turnTotal + (turn.outputTokens || 0), 0);
+              }
+              return total;
+            }, 0);
+          console.log(`    Total Output Tokens: ${chalk.yellow(totalOutputTokens.toLocaleString())}`);
+          
+          // Last message stats
+          console.log(chalk.cyan('\n  Last Message:'));
+          
+          const aiMessages = chatSession.messages.filter(msg => msg.role === 'assistant');
+          if (aiMessages.length > 0) {
+            // Get the last AI message
+            const lastMessage = [...aiMessages]
+              .sort((a, b) => {
+                if ('modelReply' in a && 'modelReply' in b) {
+                  return (b.modelReply.timestamp || 0) - (a.modelReply.timestamp || 0);
+                }
+                return 0;
+              })[0];
+            
+            if ('modelReply' in lastMessage) {
+              // Display response turns
+              const responseTurns = lastMessage.modelReply.turns.length;
+              console.log(`    AI Response Turns: ${chalk.yellow(responseTurns)}`);
+              
+              // Count tool calls
+              const toolCalls = lastMessage.modelReply.turns.reduce((total, turn) => 
+                total + (turn.toolCalls?.length || 0), 0);
+              console.log(`    Tool Calls: ${chalk.yellow(toolCalls)}`);
+              
+              // Calculate input tokens for last message
+              const inputTokens = lastMessage.modelReply.turns.reduce((total, turn) => 
+                total + (turn.inputTokens || 0), 0);
+              console.log(`    Input Tokens: ${chalk.yellow(inputTokens.toLocaleString())}`);
+              
+              // Calculate output tokens for last message
+              const outputTokens = lastMessage.modelReply.turns.reduce((total, turn) => 
+                total + (turn.outputTokens || 0), 0);
+              console.log(`    Output Tokens: ${chalk.yellow(outputTokens.toLocaleString())}`);
+            }
+          } else {
+            console.log(chalk.yellow('    No AI responses yet'));
+          }
+          
+          console.log('');
+          break;
 
         case COMMANDS.MODEL:
           if (args.length === 0) {
