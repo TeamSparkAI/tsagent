@@ -1,4 +1,4 @@
-import { LLMType } from '../llm/types';
+import { LLMType, ILLMModel } from '../llm/types';
 import { RendererChatMessage } from '../types/ChatMessage';
 import { ChatMessage } from '../types/ChatSession';
 import { ModelReply } from '../types/ModelReply';
@@ -10,6 +10,7 @@ export class ChatAPI {
   private currentModelName: string;
   private currentModelId: string | undefined;
   private messages: (RendererChatMessage & { modelReply?: ModelReply })[] = [];
+  private currentModelInfo: ILLMModel | null = null; // Cache just the current model info
 
   constructor(tabId: string) {
     this.tabId = tabId;
@@ -21,10 +22,24 @@ export class ChatAPI {
   private async updateModelNameFromState(modelType: LLMType, modelId?: string): Promise<void> {
     if (modelId) {
       try {
-        // Try to find the model name from the model list
-        const models = await this.getModels(modelType);
-        const model = models.find((m: any) => m.id === modelId);
+        // For Test model, we know the name
+        if (modelType === LLMType.Test && modelId === 'frosty1.0') {
+          this.currentModelName = 'Frosty';
+          return;
+        }
+        
+        // If we already have the model info cached and it matches the current ID
+        if (this.currentModelInfo && this.currentModelInfo.id === modelId) {
+          this.currentModelName = this.currentModelInfo.name;
+          return;
+        }
+        
+        // Otherwise, try to find the model from the provider
+        const models = await window.api.getModelsForProvider(modelType);
+        const model = models.find((m: ILLMModel) => m.id === modelId);
         if (model && model.name) {
+          // Cache this model
+          this.currentModelInfo = model;
           this.currentModelName = model.name;
         } else {
           // If we can't find the exact model, use the ID as the display name
@@ -83,17 +98,6 @@ export class ChatAPI {
       
       // Update messages with the new updates
       this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
-      
-      // Refresh our model info from the server to ensure we stay in sync
-      const state = await window.api.getChatState(this.tabId);
-      this.currentModel = state.currentModel;
-      this.currentModelId = state.currentModelId;
-      
-      // Update the model name
-      await this.updateModelNameFromState(state.currentModel, state.currentModelId);
-      
-      // Log the updated model information
-      log.info(`Model after sending message: ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}, name: ${this.currentModelName}`);
       
       // Return the last turn's message if available
       const lastAssistantMessage = result.updates[1];
@@ -170,8 +174,10 @@ export class ChatAPI {
     return this.currentModelName;
   }
 
-  public async getModels(provider: LLMType): Promise<any[]> {
+  public async getModels(provider: LLMType, forceRefresh: boolean = false): Promise<ILLMModel[]> {
     try {
+      // Always fetch all models when explicitly called - this is primarily used by the model picker
+      log.info(`Fetching models for provider ${provider} from API`);
       return await window.api.getModelsForProvider(provider);
     } catch (error) {
       log.error(`Error getting models for provider ${provider}:`, error);

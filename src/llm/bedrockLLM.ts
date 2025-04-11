@@ -48,8 +48,6 @@ export class BedrockLLM implements ILLM {
     }
   }
 
-	// !!! Tool use and system prompts are only supported for some models: https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-supported-models-features.html
-	//
   async getModels(): Promise<ILLMModel[]> {
 		const bedrockClient = new BedrockClient({
 			region: 'us-east-1',
@@ -65,15 +63,26 @@ export class BedrockLLM implements ILLM {
     //
 		const command = new ListFoundationModelsCommand({});
     const modelList = await bedrockClient.send(command);
+
+		// Many Bedrock models do not support tools (or even chat generally)
+  	// https://docs.aws.amazon.com/bedrock/latest/userguide/conversation-inference-supported-models-features.html
+    //
+		const killterms = [
+			"titan",
+			"instruct", // Mistral AI Instruct, Jamba Instruct, Llama Instruct, etc.
+			"cohere.command-text",
+			"cohere.command-light-text",
+			"embed",
+		]
 		const filteredModels = modelList.modelSummaries?.filter(model => 
 			// Check for ACTIVE status (we don't want LEGACY models)
 			model.modelLifecycle?.status === 'ACTIVE' && 
 			// Check for ON_DEMAND inference type (we don't want PROVISIONED or INFERENCE_PROFILE models, we have to handle those separately)
 			model.inferenceTypesSupported?.includes('ON_DEMAND') &&
-			// Exclude models with "embed" in the ID (case insensitive) - these are generally embeddings models and not interactive chat models
-			!model.modelId?.toLowerCase().includes('embed')
+			// Exclude models that match any of the kill terms
+			!killterms.some(term => model.modelId?.toLowerCase().includes(term))
 		) || [];
-		log.info('Bedrock filtered models:', filteredModels);
+		//log.info('Bedrock filtered models:', filteredModels);
 		const models: ILLMModel[] = filteredModels.map(model => ({
 			provider: LLMType.Bedrock,
 			id: model.modelId || '',
@@ -139,7 +148,7 @@ export class BedrockLLM implements ILLM {
           for (const turn of message.modelReply.turns) {
 						// Push the assistant's message (including any tool calls)
 						const messageContent: ContentBlock[] = [];
-						messageContent.push({ text: turn.message! });
+						messageContent.push({ text: turn.message ?? turn.error! });
 						if (turn.toolCalls && turn.toolCalls.length > 0) {
 							for (const toolCall of turn.toolCalls) {
 								messageContent.push({ toolUse: {

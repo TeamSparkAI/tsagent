@@ -190,31 +190,6 @@ export class GeminiLLM implements ILLM {
     this.model.tools = modelTools ? [modelTools] : [];
 
     try {
-      // Note: Gemini valid roles: ["user", "model", "function", "system"]
-      //
-      // Note: The messages we actually get back from the API seem to use "model" as the role for the assistant's response.
-      //
-      // Vertex messages are in the format:
-      // [
-      //   {
-      //     role: 'user',
-      //     parts: [{ text: 'Hello, world!' }]
-      //   },
-      //   {
-      //     role: 'model',
-      //     parts: [
-      //       { text: 'Hello, world!' },
-      //       { functionCall: { name: 'my_function', args: { param1: 'value1', param2: 'value2' } } } 
-      //     ]
-      //   },
-      //   {
-      //     role: 'user',
-      //     parts: [
-      //       { functionResponse: { name: 'my_function', response: 'Hello, world!' } }
-      //     ]
-      //   }
-      // ]
-
       // Turn our ChatMessage[] into a VertexAI Content[]
       const history: Content[] = [];
       for (const message of messages) {
@@ -228,7 +203,7 @@ export class GeminiLLM implements ILLM {
             };
 
             if (turn.message) {
-              replyContent.parts.push({ text: turn.message ?? '' });
+              replyContent.parts.push({ text: turn.message ?? turn.error });
             }
             // Add the tool calls, if any
             if (turn.toolCalls && turn.toolCalls.length > 0) {

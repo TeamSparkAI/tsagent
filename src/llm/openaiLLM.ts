@@ -91,7 +91,7 @@ export class OpenAILLM implements ILLM {
             // Add the assistant's message (including any tool calls)
             const reply: ChatCompletionMessageParam = {
               role: "assistant" as const,
-              content: turn.message ?? undefined,
+              content: turn.message ?? turn.error,
             };
             // Add the tool calls, if any
             if (turn.toolCalls && turn.toolCalls.length > 0) {

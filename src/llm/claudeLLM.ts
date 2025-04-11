@@ -96,7 +96,7 @@ export class ClaudeLLM implements ILLM {
             if (turn.message) {
               turnMessages.push({
                 role: 'assistant' as const,
-                content: turn.message
+                content: turn.message ?? turn.error
               });
             }
             // Add the tool calls, if any
