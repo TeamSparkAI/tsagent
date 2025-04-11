@@ -50,8 +50,6 @@ export class OllamaLLM implements ILLM {
 
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
-      inputTokens: 0,
-      outputTokens: 0,
       timestamp: Date.now(),
       turns: []
     }
@@ -157,6 +155,9 @@ export class OllamaLLM implements ILLM {
     
         // log.info('Ollama response:', JSON.stringify(currentResponse, null, 2));
 
+        turn.inputTokens = currentResponse.prompt_eval_count ?? 0;
+        turn.outputTokens = currentResponse.eval_count ?? 0;
+
         // process the current response
         const content = currentResponse.message.content;
         const toolCalls = currentResponse.message.tool_calls;
@@ -231,9 +232,6 @@ export class OllamaLLM implements ILLM {
           error: 'Maximum number of tool uses reached'
         });
       }
-
-      modelReply.inputTokens = currentResponse!.prompt_eval_count ?? 0;
-      modelReply.outputTokens = currentResponse!.eval_count ?? 0;
 
       log.info('Ollama response generated successfully');
       return modelReply;

@@ -28,14 +28,14 @@ export class TestLLM implements ILLM {
 
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
     return {
-      inputTokens: 0,
-      outputTokens: 0,
       timestamp: Date.now(),
       turns: [
         {
-          message: 'Happy Birthday!'
+          message: 'Happy Birthday!',
+          inputTokens: 420,
+          outputTokens: 69
         }
       ]
     };
   }
-} 
+}

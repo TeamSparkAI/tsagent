@@ -1,8 +1,6 @@
 import { ChatMessage } from './ChatSession';
 
 export interface ModelReply {
-  inputTokens: number;
-  outputTokens: number;
   timestamp: number;
   turns: Turn[];
 }
@@ -11,6 +9,8 @@ export interface Turn {
   message?: string;
   toolCalls?: ToolCall[];
   error?: string;
+  inputTokens?: number;
+  outputTokens?: number;
 }
 
 export interface ToolCall {

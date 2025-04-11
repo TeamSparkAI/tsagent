@@ -175,8 +175,6 @@ export class GeminiLLM implements ILLM {
 
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
-      inputTokens: 0,
-      outputTokens: 0,
       timestamp: Date.now(),
       turns: []
     }
@@ -269,6 +267,9 @@ export class GeminiLLM implements ILLM {
         const response = result.response;
 
         log.info('response', JSON.stringify(response, null, 2));
+
+        turn.inputTokens = response.usageMetadata?.promptTokenCount ?? 0;
+        turn.outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
 
         // Process all parts of the response
         let hasToolUse = false;

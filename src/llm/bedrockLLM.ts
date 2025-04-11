@@ -94,8 +94,6 @@ export class BedrockLLM implements ILLM {
 
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
-      inputTokens: 0,
-      outputTokens: 0,
       timestamp: Date.now(),
       turns: []
     }
@@ -213,6 +211,8 @@ export class BedrockLLM implements ILLM {
 				}
     
 				currentResponse = await this.client.send(new ConverseCommand(converseCommand));
+				turn.inputTokens = currentResponse.usage?.inputTokens ?? 0;
+				turn.outputTokens = currentResponse.usage?.outputTokens ?? 0;
 
 				// We're going to push the response message here so that any tool results added in the processing of this call are added after this message
 				turnMessages.push(currentResponse.output?.message!);
@@ -281,9 +281,6 @@ export class BedrockLLM implements ILLM {
           error: 'Maximum number of tool uses reached'
         });
       }
-
-      modelReply.inputTokens = currentResponse!.usage?.inputTokens ?? 0;
-      modelReply.outputTokens = currentResponse!.usage?.outputTokens ?? 0;
 
       log.info('Bedrock response generated successfully');
       return modelReply;

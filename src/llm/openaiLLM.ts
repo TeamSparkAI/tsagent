@@ -73,8 +73,6 @@ export class OpenAILLM implements ILLM {
   //
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
-      inputTokens: 0,
-      outputTokens: 0,
       timestamp: Date.now(),
       turns: []
     }
@@ -157,6 +155,9 @@ export class OpenAILLM implements ILLM {
         }
 
         // log.info('OpenAIresponse', JSON.stringify(response, null, 2));
+
+        turn.inputTokens = completion.usage?.prompt_tokens ?? 0;
+        turn.outputTokens = completion.usage?.completion_tokens ?? 0;
 
         if (response.content) {
           turn.message = (turn.message || '') + response.content;

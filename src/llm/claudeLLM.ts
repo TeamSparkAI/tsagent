@@ -58,8 +58,6 @@ export class ClaudeLLM implements ILLM {
   //
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
-      inputTokens: 0,
-      outputTokens: 0,
       timestamp: Date.now(),
       turns: []
     }
@@ -151,6 +149,9 @@ export class ClaudeLLM implements ILLM {
         turnCount++;
         let hasToolUse = false;
 
+        turn.inputTokens = currentResponse.usage?.input_tokens ?? 0;
+        turn.outputTokens = currentResponse.usage?.output_tokens ?? 0;
+
         for (const content of currentResponse.content) {
           if (content.type === 'text') {
             // Need to keep all of the text responses in the messages collection for context
@@ -230,9 +231,6 @@ export class ClaudeLLM implements ILLM {
           error: 'Maximum number of tool uses reached'
         });
       }
-
-      modelReply.inputTokens = currentResponse.usage.input_tokens;
-      modelReply.outputTokens = currentResponse.usage.output_tokens;
 
       log.info('Claude response generated successfully');
       return modelReply;
