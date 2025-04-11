@@ -1,4 +1,4 @@
-import { ILLM, LLMType } from './types';
+import { ILLM, LLMType, LLMClass, LLMProviderInfo } from './types';
 import { TestLLM } from './testLLM';
 import { ClaudeLLM } from './claudeLLM';
 import { OpenAILLM } from './openaiLLM';
@@ -13,6 +13,23 @@ export class LLMFactory {
 
   constructor(appState: AppState) {
     this.appState = appState;
+  }
+
+  // Get provider information for all available LLM providers
+  getProviderInfo(): Record<LLMType, LLMProviderInfo> {
+    return {
+      [LLMType.Test]: TestLLM.getInfo(),
+      [LLMType.Claude]: ClaudeLLM.getInfo(),
+      [LLMType.OpenAI]: OpenAILLM.getInfo(),
+      [LLMType.Gemini]: GeminiLLM.getInfo(),
+      [LLMType.Ollama]: OllamaLLM.getInfo(),
+      [LLMType.Bedrock]: BedrockLLM.getInfo(),
+    };
+  }
+
+  // Get provider information for a specific LLM type
+  getProviderInfoByType(type: LLMType): LLMProviderInfo {
+    return this.getProviderInfo()[type];
   }
 
   create(modelType: LLMType): ILLM {

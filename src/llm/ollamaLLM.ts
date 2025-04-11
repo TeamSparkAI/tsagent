@@ -1,4 +1,4 @@
-import { ILLM } from './types';
+import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from './types';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { AppState } from '../state/AppState';
 import log from 'electron-log';
@@ -13,6 +13,16 @@ export class OllamaLLM implements ILLM {
 
   private client!: Ollama;
 
+  static getInfo(): LLMProviderInfo {
+    return {
+      name: "Ollama",
+      description: "Run open-source large language models locally on your own hardware",
+      website: "https://ollama.ai/",
+      requiresApiKey: false,
+      configKeys: ['OLLAMA_HOST']
+    };
+  }
+
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
     this.appState = appState;
@@ -25,6 +35,17 @@ export class OllamaLLM implements ILLM {
       log.error('Failed to initialize Ollama LLM:', error);
       throw error;
     }
+  }
+
+  async getModels(): Promise<ILLMModel[]> {
+    const modelList = await this.client.list();
+    // log.info('Ollama models:', modelList.models);
+    return modelList.models.map((model) => ({
+      provider: LLMType.Ollama,
+      id: model.model,
+      name: model.name,
+      modelSource: model.details?.family ?? "Unknown"
+    }));
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {

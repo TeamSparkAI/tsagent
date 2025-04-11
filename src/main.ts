@@ -90,6 +90,12 @@ export async function initializeWorkspace(workspacePath: string, windowId?: stri
   const windowAppState = new AppState(configManager);
   await windowAppState.initialize();
   appStateMap.set(windowId, windowAppState);
+
+  // !!! DEBUG
+  log.info('LLM providers:', windowAppState.llmFactory.getProviderInfo());
+  for (const llmType of Object.values(LLMType)) {
+    log.info(`Models for ${llmType}: `, await windowAppState.llmFactory.create(llmType).getModels());
+  }
   
   // Set up event listeners for this window's AppState
   if (windowAppState.rulesManager) {

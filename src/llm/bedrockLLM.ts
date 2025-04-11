@@ -1,10 +1,11 @@
-import { ILLM } from './types';
+import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from './types';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { AppState } from '../state/AppState';
 import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole, ConverseCommandOutput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import log from 'electron-log';
 import { ChatMessage } from '../types/ChatSession';
 import { ModelReply, Turn } from '../types/ModelReply';
+import { BedrockClient, ListFoundationModelsCommand } from '@aws-sdk/client-bedrock';
 
 export class BedrockLLM implements ILLM {
   private readonly appState: AppState;
@@ -12,6 +13,16 @@ export class BedrockLLM implements ILLM {
   private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
   private client!: BedrockRuntimeClient;
+
+  static getInfo(): LLMProviderInfo {
+    return {
+      name: "Amazon Bedrock",
+      description: "Amazon Bedrock is a fully managed service that offers a choice of high-performing foundation models from leading AI companies.",
+      website: "https://aws.amazon.com/bedrock/",
+      requiresApiKey: true,
+      configKeys: ['BEDROCK_ACCESS_KEY_ID', 'BEDROCK_SECRET_ACCESS_KEY']
+    };
+  }
 
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
@@ -35,6 +46,28 @@ export class BedrockLLM implements ILLM {
       log.error('Failed to initialize Bedrock LLM:', error);
       throw error;
     }
+  }
+
+  async getModels(): Promise<ILLMModel[]> {
+		const bedrockClient = new BedrockClient({
+			region: 'us-east-1',
+			credentials: {
+				secretAccessKey: this.appState.configManager.getConfigValue('BEDROCK_SECRET_ACCESS_KEY'),
+				accessKeyId: this.appState.configManager.getConfigValue('BEDROCK_ACCESS_KEY_ID')
+			}
+		});
+		const command = new ListFoundationModelsCommand({});
+    const modelList = await bedrockClient.send(command);
+		// Filter the list to only include modelLifecycle: { status: 'ACTIVE' }
+		const activeModels = modelList.modelSummaries?.filter(model => model.modelLifecycle?.status === 'ACTIVE') || [];
+		// log.info('Bedrock models:', activeModels);
+		const models: ILLMModel[] = activeModels.map(model => ({
+			provider: LLMType.Bedrock,
+			id: model.modelId || '',
+			name: model.modelName || model.modelId!,
+			modelSource: model.providerName || 'Unknown'
+		}));
+		return models;
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {

@@ -1,4 +1,4 @@
-import { ILLM } from './types';
+import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from './types';
 import Anthropic from '@anthropic-ai/sdk';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
@@ -13,6 +13,16 @@ export class ClaudeLLM implements ILLM {
   private client!: Anthropic;
   private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
+  static getInfo(): LLMProviderInfo {
+    return {
+      name: "Anthropic Claude",
+      description: "Claude is a family of AI assistants created by Anthropic to be helpful, harmless, and honest",
+      website: "https://www.anthropic.com/claude",
+      requiresApiKey: true,
+      configKeys: ['ANTHROPIC_API_KEY']
+    };
+  }
+  
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
     this.appState = appState;
@@ -28,6 +38,18 @@ export class ClaudeLLM implements ILLM {
       log.error('Failed to initialize Claude LLM:', error);
       throw error;
     }
+  }
+  
+  async getModels(): Promise<ILLMModel[]> {
+    const modelList = await this.client.models.list();
+    // log.info('Claude models:', modelList.data);
+    const models: ILLMModel[] = modelList.data.map((model) => ({
+      provider: LLMType.Claude,
+      id: model.id!,
+      name: model.display_name || model.id!,
+      modelSource: 'Anthropic'
+    }));
+    return models;
   }
 
   // Note: The Anthropic API is stateless, so we need to establish the initial state using our ChatMessage[] context (passed in

@@ -1,4 +1,4 @@
-import { ILLM } from './types';
+import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from './types';
 import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams, GenerativeModel, Content, Part } from '@google/generative-ai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
@@ -86,6 +86,16 @@ export class GeminiLLM implements ILLM {
     };
   }
 
+  static getInfo(): LLMProviderInfo {
+    return {
+      name: "Google Gemini",
+      description: "Google's Gemini models are multimodal AI systems that can understand and combine different types of information",
+      website: "https://deepmind.google/technologies/gemini/",
+      requiresApiKey: true,
+      configKeys: ['GOOGLE_API_KEY']
+    };
+  }
+
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
     this.appState = appState;
@@ -103,6 +113,64 @@ export class GeminiLLM implements ILLM {
       log.error('Failed to initialize Gemini LLM:', error);
       throw error;
     }
+  }
+
+  async getModels(): Promise<ILLMModel[]> {
+    // Currently no support for listModels in the Node SDK - may be coming: https://github.com/google-gemini/generative-ai-js/issues/54
+    // For now we're going to make a hardcoded list of current models.
+    const models: ILLMModel[] = [
+    {
+      provider: LLMType.Gemini,
+      id: "gemini-2.5-pro-preview-03-25",
+      name: "Gemini 2.5 Pro Preview",
+      description: "Enhanced thinking and reasoning, multimodal understanding, advanced coding, and more",
+      modelSource: "Google"
+    },
+    {
+      provider: LLMType.Gemini,
+      id: "gemini-2.0-flash",
+      name: "Gemini 2.0 Flash",
+      description: "Next generation features, speed, thinking, realtime streaming, and multimodal generation",
+      modelSource: "Google"
+    },
+    {
+      provider: LLMType.Gemini,
+      id: "gemini-2.0-flash-lite",
+      name: "Gemini 2.0 Flash-Lite",
+      description: "Cost efficiency and low latency",
+      modelSource: "Google"
+    },
+    {
+      provider: LLMType.Gemini,
+      id: "gemini-2.0-flash-live-001",
+      name: "Gemini 2.0 Flash Live",
+      description: "Low-latency bidirectional voice and video interactions",
+      modelSource: "Google"
+    },
+    {
+      provider: LLMType.Gemini,
+      id: "gemini-1.5-flash",
+      name: "Gemini 1.5 Flash",
+      description: "Fast and versatile performance across a diverse variety of tasks",
+      modelSource: "Google"
+    },
+    {
+      provider: LLMType.Gemini,
+      id: "gemini-1.5-flash-8b",
+      name: "Gemini 1.5 Flash-8B",
+      description: "High volume and lower intelligence tasks",
+      modelSource: "Google"
+    },
+    {
+      provider: LLMType.Gemini,
+      id: "gemini-1.5-pro",
+      name: "Gemini 1.5 Pro",
+      description: "Complex reasoning tasks requiring more intelligence",
+      modelSource: "Google"
+    }];
+    // log.info('Gemini models', JSON.stringify(models, null, 2));
+
+    return models;
   }
 
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {

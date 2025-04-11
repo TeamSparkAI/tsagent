@@ -1,4 +1,4 @@
-import { ILLM } from './types';
+import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from './types';
 import OpenAI from 'openai';
 import { AppState } from '../state/AppState';
 import { Tool } from "@modelcontextprotocol/sdk/types";
@@ -25,10 +25,16 @@ export class OpenAILLM implements ILLM {
     };
   }
 
-  // Note: The OpenAI API is stateless, so we need to establish the initial state using our ChatMessage[] context (passed in
-  //       as messages).  Then as we are processing turns, we also need to add any reponses we receive from the model, as well as
-  //       any replies we make (such as tool call results), to this state.
-  //
+  static getInfo(): LLMProviderInfo {
+    return {
+      name: "OpenAI",
+      description: "OpenAI models including GPT-3.5, GPT-4, and other advanced language models",
+      website: "https://openai.com",
+      requiresApiKey: true,
+      configKeys: ['OPENAI_API_KEY']
+    };
+  }
+
   constructor(modelName: string, appState: AppState) {
     this.modelName = modelName;
     this.appState = appState;
@@ -46,6 +52,21 @@ export class OpenAILLM implements ILLM {
     }
   }
 
+  async getModels(): Promise<ILLMModel[]> {
+    const modelList = await this.client.models.list();
+    // log.info('OpenAI models:', modelList.data);
+    return modelList.data.map((model) => ({
+      provider: LLMType.OpenAI,
+      id: model.id,
+      name: model.id,
+      modelSource: "OpenAI"
+    }));
+  }
+
+  // Note: The OpenAI chat API is stateless, so we need to establish the initial state using our ChatMessage[] context (passed in
+  //       as messages).  Then as we are processing turns, we also need to add any reponses we receive from the model, as well as
+  //       any replies we make (such as tool call results), to this state.
+  //
   async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       inputTokens: 0,
