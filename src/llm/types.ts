@@ -14,7 +14,7 @@ export enum LLMType {
 export interface LLMProviderInfo {
   name: string;
   description: string;
-  website: string;
+  website?: string;
   requiresApiKey: boolean;
   configKeys?: string[];
 }

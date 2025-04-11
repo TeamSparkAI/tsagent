@@ -208,13 +208,20 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
             </div>
             <p>{providerInfo[selectedProvider].description}</p>
             <div className="provider-meta">
-              <a 
-                href={providerInfo[selectedProvider].website} 
-                target="_blank" 
-                rel="noopener noreferrer"
-              >
-                Visit Website
-              </a>
+              {providerInfo[selectedProvider].website && (
+                <a 
+                  href="#" 
+                  onClick={(e) => {
+                    e.preventDefault();
+                    const website = providerInfo[selectedProvider].website;
+                    if (typeof website === 'string') {
+                      window.api.openExternal(website);
+                    }
+                  }}
+                >
+                  Visit Website
+                </a>
+              )}
               {providerInfo[selectedProvider].requiresApiKey && (
                 <div className="api-key-notice">
                   <strong>Requires API Key</strong>
