@@ -503,19 +503,19 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return true;
   });
 
-  ipcMain.handle('get-server-configs', async () => {
-    const focusedWindow = BrowserWindow.getFocusedWindow();
-    if (!focusedWindow) {
-      log.warn('No focused window found when getting server configs');
+  ipcMain.handle('get-server-configs', async (event) => {
+    const senderWindow = BrowserWindow.fromWebContents(event.sender);
+    if (!senderWindow) {
+      log.warn('Cannot identify sender window when getting server configs');
       return [];
     }
 
-    const windowId = focusedWindow.id;
+    const windowId = senderWindow.id.toString();
     const activeWindows = workspaceManager.getActiveWindows();
-    const currentWindow = activeWindows.find(w => w.windowId === windowId.toString());
+    const currentWindow = activeWindows.find(w => w.windowId === windowId);
     
     if (!currentWindow) {
-      log.warn('No workspace found for window when getting server configs');
+      log.warn(`No workspace found for window ${windowId} when getting server configs`);
       return [];
     }
 
@@ -554,13 +554,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('get-mcp-client', async (event, serverName: string) => {
     try {
-      // Check if a workspace is selected
-      const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
-      if (!currentWindowId) {
-        log.warn('No focused window found when getting MCP client');
-        throw new Error('No focused window found');
+      // Use the sender's window instead of focused window
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWindow) {
+        log.warn('Cannot identify sender window when getting MCP client');
+        throw new Error('Cannot identify sender window');
       }
       
+      const currentWindowId = senderWindow.id.toString();
       const activeWindows = workspaceManager.getActiveWindows();
       const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
       
@@ -569,7 +570,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         throw new Error('No workspace selected');
       }
       
-      const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+      const windowId = senderWindow.id.toString();
       const appState = getAppStateForWindow(windowId);
 
       // Get the ConfigManager for the current workspace
@@ -600,9 +601,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         }
         
         // Get the current window's AppState
-        const windowAppState = getAppStateForWindow(currentWindowId);
+        const windowAppState = getAppStateForWindow(windowId);
         if (!windowAppState) {
-          throw new Error(`No AppState found for window: ${currentWindowId}`);
+          throw new Error(`No AppState found for window: ${windowId}`);
         }
         client = createMcpClientFromConfig(windowAppState, serverConfig);
         if (client) {
@@ -830,13 +831,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
-      // Check if a workspace is selected
-      const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
-      if (!currentWindowId) {
-        log.warn('No focused window found when saving server config');
-        throw new Error('No focused window found');
+      // Use the sender's window instead of focused window
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWindow) {
+        log.warn('Cannot identify sender window when saving server config');
+        throw new Error('Cannot identify sender window');
       }
       
+      const currentWindowId = senderWindow.id.toString();
       const activeWindows = workspaceManager.getActiveWindows();
       const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
       
@@ -898,13 +900,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
-      // Get current server configuration
-      const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
-      if (!currentWindowId) {
-        log.warn('No focused window found when reloading server info');
-        throw new Error('No focused window found');
+      // Use the sender's window instead of focused window
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWindow) {
+        log.warn('Cannot identify sender window when reloading server info');
+        throw new Error('Cannot identify sender window');
       }
       
+      const currentWindowId = senderWindow.id.toString();
       const activeWindows = workspaceManager.getActiveWindows();
       const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
       
@@ -949,13 +952,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
-      // Check if a workspace is selected
-      const currentWindowId = BrowserWindow.getFocusedWindow()?.id.toString();
-      if (!currentWindowId) {
-        log.warn('No focused window found when deleting server config');
-        throw new Error('No focused window found');
+      // Use the sender's window instead of focused window
+      const senderWindow = BrowserWindow.fromWebContents(event.sender);
+      if (!senderWindow) {
+        log.warn('Cannot identify sender window when deleting server config');
+        throw new Error('Cannot identify sender window');
       }
       
+      const currentWindowId = senderWindow.id.toString();
       const activeWindows = workspaceManager.getActiveWindows();
       const currentWindow = activeWindows.find(w => w.windowId === currentWindowId);
       
