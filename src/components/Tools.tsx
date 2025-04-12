@@ -89,15 +89,18 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     // Add state for the JSON text
     const [jsonText, setJsonText] = useState<string>(() => {
         if (server) {
-            return JSON.stringify(server, null, 2);
+            // Format as { "serverName": { config properties } }
+            const configWithoutType = { ...server.config };
+            return JSON.stringify({
+                [server.name]: configWithoutType
+            }, null, 2);
         }
         return JSON.stringify({
-            name: '',
-            config: {
-                type: 'stdio',
-                command: '',
-                args: [],
-                env: {}
+            "serverName": {
+                "type": "stdio",
+                "command": "",
+                "args": [],
+                "env": {}
             }
         }, null, 2);
     });
@@ -111,6 +114,95 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
             name, serverType, effectiveType, command, argsArray, env, url, headers, internalTool
         });
     }, []);
+
+    // Update form fields when JSON changes
+    const updateFormFromJson = () => {
+        try {
+            const parsedJson = JSON.parse(jsonText);
+            setJsonError(null);
+            
+            // Check if we have the mcpServers wrapper format
+            if (parsedJson.mcpServers && typeof parsedJson.mcpServers === 'object') {
+                // Extract the first server from mcpServers
+                const serverNames = Object.keys(parsedJson.mcpServers);
+                if (serverNames.length > 0) {
+                    const serverName = serverNames[0];
+                    const configObj = parsedJson.mcpServers[serverName];
+                    
+                    if (!serverName) {
+                        setJsonError('Server name is required');
+                        return false;
+                    }
+                    
+                    // Update name
+                    setName(serverName);
+                    
+                    // For mcpServers format, we need to add type if missing
+                    const configType = configObj.type || 'stdio';
+                    setServerType(configType as 'stdio' | 'sse' | 'internal');
+                    
+                    if (configType === 'stdio' || !configType) {
+                        setCommand(configObj.command || '');
+                        setArgsArray(Array.isArray(configObj.args) ? configObj.args : []);
+                        setEnv(JSON.stringify(configObj.env || {}));
+                    } else if (configType === 'sse') {
+                        setUrl(configObj.url || '');
+                        setHeaders(configObj.headers || {});
+                    } else if (configType === 'internal') {
+                        setInternalTool(configObj.tool || 'rules');
+                    }
+                    
+                    // Update JSON text to standard format without mcpServers wrapper
+                    const standardFormat = {
+                        [serverName]: {
+                            ...configObj,
+                            type: configType  // Ensure type is set (and overrides any existing type)
+                        }
+                    };
+                    setJsonText(JSON.stringify(standardFormat, null, 2));
+                    
+                    return true;
+                }
+            } else {
+                // Handle regular format (without mcpServers wrapper)
+                const serverObj = parsedJson;
+                
+                // Extract server name (the first key) and config (the value)
+                const serverName = Object.keys(serverObj)[0];
+                const configObj = serverObj[serverName];
+                
+                if (!serverName) {
+                    setJsonError('Server name is required');
+                    return false;
+                }
+                
+                // Update name
+                setName(serverName);
+                
+                // Update config based on type
+                if (configObj) {
+                    const configType = configObj.type || 'stdio';
+                    setServerType(configType as 'stdio' | 'sse' | 'internal');
+                    
+                    if (configType === 'stdio') {
+                        setCommand(configObj.command || '');
+                        setArgsArray(Array.isArray(configObj.args) ? configObj.args : []);
+                        setEnv(JSON.stringify(configObj.env || {}));
+                    } else if (configType === 'sse') {
+                        setUrl(configObj.url || '');
+                        setHeaders(configObj.headers || {});
+                    } else if (configType === 'internal') {
+                        setInternalTool(configObj.tool || 'rules');
+                    }
+                }
+            }
+            
+            return true;
+        } catch (e) {
+            setJsonError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
+            return false;
+        }
+    };
 
     // Update JSON when form fields change
     useEffect(() => {
@@ -145,67 +237,85 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 };
             }
             
+            // Format as { "serverName": { config properties } }
             const serverObj = {
-                name,
-                config: configObj
+                [name]: configObj
             };
             
             setJsonText(JSON.stringify(serverObj, null, 2));
         }
     }, [isJsonMode, name, serverType, command, argsArray, env, url, headers, internalTool]);
 
-    // Update form fields when JSON changes
-    const updateFormFromJson = () => {
-        try {
-            const serverObj = JSON.parse(jsonText);
-            setJsonError(null);
-            
-            // Update name
-            if (serverObj.name !== undefined) {
-                setName(serverObj.name);
-            }
-            
-            // Update config based on type
-            if (serverObj.config) {
-                const configType = serverObj.config.type || 'stdio';
-                setServerType(configType as 'stdio' | 'sse' | 'internal');
-                
-                if (configType === 'stdio') {
-                    setCommand(serverObj.config.command || '');
-                    setArgsArray(Array.isArray(serverObj.config.args) ? serverObj.config.args : []);
-                    setEnv(JSON.stringify(serverObj.config.env || {}));
-                } else if (configType === 'sse') {
-                    setUrl(serverObj.config.url || '');
-                    setHeaders(serverObj.config.headers || {});
-                } else if (configType === 'internal') {
-                    setInternalTool(serverObj.config.tool || 'rules');
-                }
-            }
-            
-            return true;
-        } catch (e) {
-            setJsonError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
-            return false;
-        }
-    };
-
     const handleSave = () => {
         if (isJsonMode) {
             try {
-                const serverObj = JSON.parse(jsonText);
+                const parsedJson = JSON.parse(jsonText);
+                
+                // Check if we have the mcpServers wrapper format
+                if (parsedJson.mcpServers && typeof parsedJson.mcpServers === 'object') {
+                    // Extract the first server from mcpServers
+                    const serverNames = Object.keys(parsedJson.mcpServers);
+                    if (serverNames.length > 0) {
+                        const serverName = serverNames[0];
+                        const configObj = parsedJson.mcpServers[serverName];
+                        
+                        // Basic validation
+                        if (!serverName) {
+                            setJsonError('Server name is required');
+                            return;
+                        }
+                        
+                        if (!configObj) {
+                            setJsonError('Server config is required');
+                            return;
+                        }
+                        
+                        // Ensure type defaults to 'stdio' if not provided
+                        if (!configObj.type) {
+                            configObj.type = 'stdio';
+                        }
+                        
+                        // Convert to internal format
+                        const mcpConfig: McpConfig = {
+                            name: serverName,
+                            config: configObj
+                        };
+                        
+                        onSave(mcpConfig);
+                        return;
+                    }
+                }
+                
+                // Handle regular format (without mcpServers wrapper)
+                const serverObj = parsedJson;
+                
+                // Extract server name and config
+                const serverName = Object.keys(serverObj)[0];
+                const configObj = serverObj[serverName];
                 
                 // Basic validation
-                if (!serverObj.name) {
+                if (!serverName) {
                     setJsonError('Server name is required');
                     return;
                 }
                 
-                if (!serverObj.config || !serverObj.config.type) {
-                    setJsonError('Server config with type is required');
+                if (!configObj) {
+                    setJsonError('Server config is required');
                     return;
                 }
                 
-                onSave(serverObj);
+                // Ensure type defaults to 'stdio' if not provided
+                if (!configObj.type) {
+                    configObj.type = 'stdio';
+                }
+                
+                // Convert to internal format
+                const mcpConfig: McpConfig = {
+                    name: serverName,
+                    config: configObj
+                };
+                
+                onSave(mcpConfig);
             } catch (e) {
                 setJsonError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
             }
