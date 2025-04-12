@@ -2,12 +2,12 @@ import { app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as log from 'electron-log';
-import { WorkspaceWindow, WorkspaceConfig } from '../types/workspace';
-import { ConfigManager } from '../state/ConfigManager';
+import { WorkspaceWindow, WorkspaceConfig } from '../shared/workspace';
+import { ConfigManager } from './state/ConfigManager';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
-import { AppState } from '../state/AppState';
-import { McpClient } from '../mcp/types';
+import { AppState } from './state/AppState';
+import { McpClient } from './mcp/types';
 
 // Near the top with other state
 const mcpClients = new Map<string, McpClient>();

@@ -45,7 +45,7 @@ const commonConfig = {
 const mainConfig = {
   ...commonConfig,
   target: 'electron-main',
-  entry: './src/main.ts',
+  entry: './src/main/main.ts',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'main.js'
@@ -63,7 +63,7 @@ const mainConfig = {
 const rendererConfig = {
   ...commonConfig,
   target: 'web',
-  entry: './src/renderer.tsx',
+  entry: './src/renderer/renderer.tsx',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'renderer.js',
@@ -77,7 +77,7 @@ const rendererConfig = {
 const preloadConfig = {
   ...commonConfig,
   target: 'electron-preload',
-  entry: './src/preload.ts',
+  entry: './src/preload/preload.ts',
   output: {
     path: path.resolve(__dirname, 'dist'),
     filename: 'preload.js'

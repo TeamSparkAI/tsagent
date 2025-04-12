@@ -13,7 +13,7 @@
     "sourceMap": true,
     "typeRoots": [
       "./node_modules/@types",
-      "./src/types"
+      "src/shared"
     ]
   },
   "include": [

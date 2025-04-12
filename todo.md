@@ -181,24 +181,6 @@ CLI
 
 Implement css support (so we can share styles across app)
 
-Remodel project
-- main
-  - index.html
-  - main.ts
-  - subdirs for backend (mcp, state, llm)
-- cli
-  cli.ts
-- renderer
-  - renderer.tsx
-  - components
-  - styles
-    - global.css
-- preload
-  - preload.ts
-- shared
-  - api.ts
-  - types
-
 ## Model metadata
 
 API provider is top level (Anthropic Claude, OpenAI, Google Gemini, Amazon Bedrock, Ollama)

@@ -1,5 +1,5 @@
-import { McpClientStdio } from '../mcp/client';
-import { McpClient } from '../mcp/types';
+import { McpClientStdio } from '../main/mcp/client';
+import { McpClient } from '../main/mcp/types';
 
 describe('MCP Client', () => {
     let client: McpClient;

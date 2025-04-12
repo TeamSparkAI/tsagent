@@ -7,7 +7,7 @@
   "scripts": {
     "start": "npm run build && electron . --ignore-certificate-errors",
     "cli": "npm run build && node dist/main.js --cli",
-    "build": "rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.js && cp src/index.html dist/",
+    "build": "rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.js && cp src/renderer/index.html dist/",
     "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.js",
     "test": "jest",
     "pack": "electron-builder --dir",
