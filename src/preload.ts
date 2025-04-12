@@ -53,6 +53,7 @@ const api: API = {
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
   showChatMenu: (hasSelection: boolean, x: number, y: number) => ipcRenderer.invoke('show-chat-menu', hasSelection, x, y),
+  showEditControlMenu: (editFlags) => ipcRenderer.invoke('show-edit-control-menu', editFlags),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   saveServerConfig: (server) => ipcRenderer.invoke('saveServerConfig', server),
   reloadServerInfo: (serverName: string) => ipcRenderer.invoke('reloadServerInfo', serverName),

@@ -35,6 +35,16 @@ export interface API {
   getSystemPrompt: () => Promise<string>;
   saveSystemPrompt: (prompt: string) => Promise<void>;
   showChatMenu: (hasSelection: boolean, x: number, y: number) => Promise<void>;
+  showEditControlMenu: (editFlags: { 
+    canUndo: boolean;
+    canRedo: boolean; 
+    canCut: boolean; 
+    canCopy: boolean; 
+    canPaste: boolean; 
+    canSelectAll: boolean;
+    x: number;
+    y: number;
+  }) => Promise<void>;
   openExternal: (url: string) => Promise<boolean>;
   getRules: () => Promise<Rule[]>;
   saveRule: (rule: Rule) => Promise<void>;

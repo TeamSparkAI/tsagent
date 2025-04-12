@@ -480,5 +480,39 @@
       <button id="debug-button" title="Open DevTools">🛠️</button>
     </div>
     <script type="module" src="renderer.js"></script>
+    <script>
+      // Global context menu handler for editable elements
+      document.addEventListener('contextmenu', (e) => {
+        // Check if the target is an editable element
+        const isInput = e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA';
+        const isContentEditable = e.target.isContentEditable;
+        
+        if (isInput || isContentEditable) {
+          e.preventDefault(); // Prevent the default context menu
+          
+          // Get edit state information
+          const targetEl = e.target;
+          const hasSelection = (targetEl.selectionStart !== undefined && 
+                                targetEl.selectionEnd !== undefined && 
+                                targetEl.selectionEnd > targetEl.selectionStart) ||
+                             (window.getSelection && window.getSelection().toString().length > 0);
+          
+          const isEmpty = targetEl.value === '' || 
+                         (targetEl.textContent === '' && isContentEditable);
+          
+          // Show custom context menu
+          window.api.showEditControlMenu({
+            canUndo: document.queryCommandEnabled('undo'),
+            canRedo: document.queryCommandEnabled('redo'),
+            canCut: hasSelection,
+            canCopy: hasSelection,
+            canPaste: document.queryCommandEnabled('paste'),
+            canSelectAll: !isEmpty,
+            x: e.clientX,
+            y: e.clientY
+          });
+        }
+      });
+    </script>
   </body>
 </html> 

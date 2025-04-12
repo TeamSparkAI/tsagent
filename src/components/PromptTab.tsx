@@ -92,7 +92,6 @@ export const PromptTab: React.FC<TabProps> = ({ id, activeTabId, name, type, sty
         value={prompt}
         onChange={handleTextareaChange}
         placeholder="Enter system prompt..."
-        onContextMenu={(e) => e.stopPropagation()}
       />
       <div className="button-container">
         <button 

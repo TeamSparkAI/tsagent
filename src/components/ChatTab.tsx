@@ -334,6 +334,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
+    log.info(`[CHAT TAB] Handling context menu for tab ${id}`);
     e.preventDefault();
     
     // Get clicked element
@@ -1007,7 +1008,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             }
           }}
           placeholder="Type your message..."
-          onContextMenu={(e) => e.stopPropagation()}
           rows={1}
           disabled={isLoading}
         />

@@ -746,6 +746,55 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     menu.popup({ x, y });
   });
 
+  // Add IPC handler for edit control context menu
+  ipcMain.handle('show-edit-control-menu', (event, editFlags) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    
+    const menu = Menu.buildFromTemplate([
+      { 
+        label: 'Undo', 
+        accelerator: 'CmdOrCtrl+Z',
+        role: editFlags.canUndo ? 'undo' : undefined,
+        enabled: editFlags.canUndo
+      },
+      { 
+        label: 'Redo', 
+        accelerator: 'Shift+CmdOrCtrl+Z',
+        role: editFlags.canRedo ? 'redo' : undefined,
+        enabled: editFlags.canRedo
+      },
+      { type: 'separator' },
+      { 
+        label: 'Cut', 
+        accelerator: 'CmdOrCtrl+X',
+        role: editFlags.canCut ? 'cut' : undefined,
+        enabled: editFlags.canCut
+      },
+      { 
+        label: 'Copy', 
+        accelerator: 'CmdOrCtrl+C',
+        role: editFlags.canCopy ? 'copy' : undefined,
+        enabled: editFlags.canCopy
+      },
+      { 
+        label: 'Paste', 
+        accelerator: 'CmdOrCtrl+V',
+        role: editFlags.canPaste ? 'paste' : undefined,
+        enabled: editFlags.canPaste
+      },
+      { type: 'separator' },
+      { 
+        label: 'Select All', 
+        accelerator: 'CmdOrCtrl+A',
+        role: editFlags.canSelectAll ? 'selectAll' : undefined,
+        enabled: editFlags.canSelectAll
+      }
+    ]);
+
+    menu.popup({ window, x: editFlags.x, y: editFlags.y });
+  });
+
   ipcMain.handle('open-external', async (_, url: string) => {
     try {
       await shell.openExternal(url);
