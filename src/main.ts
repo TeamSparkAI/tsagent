@@ -739,7 +739,23 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       {
         label: 'Select All',
         accelerator: 'CmdOrCtrl+A',
-        role: 'selectAll' as const,
+        click: (menuItem, browserWindow) => {
+          if (browserWindow) {
+            browserWindow.webContents.executeJavaScript(`
+              (function() {
+                // Select only the chat container content
+                const chatContainerEl = document.getElementById('chat-container');
+                if (chatContainerEl) {
+                  const range = document.createRange();
+                  range.selectNodeContents(chatContainerEl);
+                  const selection = window.getSelection();
+                  selection.removeAllRanges();
+                  selection.addRange(range);
+                }
+              })();
+            `);
+          }
+        }
       }
     ]);
 
