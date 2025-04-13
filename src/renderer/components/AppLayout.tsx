@@ -4,8 +4,6 @@ import { PromptTab } from './PromptTab';
 import { ChatTab } from './ChatTab';
 import { ReferencesTab } from './ReferencesTab';
 import { WorkspaceTab } from './WorkspaceTab';
-import { TabContent } from '../types/TabContent';
-import '../styles/AppLayout.css';
 
 interface Tab {
   label: string;

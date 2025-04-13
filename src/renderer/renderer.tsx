@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from '../renderer/components/App';
 import log from 'electron-log';
+import './global.css';  // Import global styles
 
 // Add logging to verify renderer process is loading
 log.info('[RENDERER] Renderer process is loading');

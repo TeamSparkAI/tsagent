@@ -25,7 +25,7 @@ const commonConfig = {
     ]
   },
   resolve: {
-    extensions: ['.tsx', '.ts', '.js']
+    extensions: ['.tsx', '.ts', '.js', '.css']
   },
   optimization: {
     minimize: true,
@@ -69,8 +69,20 @@ const rendererConfig = {
     filename: 'renderer.js',
     assetModuleFilename: 'assets/[hash][ext][query]'
   },
+  module: {
+    rules: [
+      ...commonConfig.module.rules,
+      {
+        test: /\.css$/,
+        use: [
+          'style-loader',
+          'css-loader'
+        ]
+      }
+    ]
+  },
   performance: {
-    hints: false // Disable performance hints for renderer since it's a desktop app
+    hints: false
   }
 };
 
