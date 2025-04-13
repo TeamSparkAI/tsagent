@@ -51,7 +51,7 @@ body {
   min-width: 120px;  /* Ensure tabs have enough width for labels */
   text-align: center;
 }
-.close-button {
+.close-tab-button {
   font-size: 18px;
   line-height: 18px;
   opacity: 0.6;
@@ -102,127 +102,10 @@ body {
   display: none;
   height: 100%;
 }
-.tab-content.active {
+.tab-content.active { 
   display: flex;
   flex-direction: column;
   height: 100%;
-}
-.chat-tab {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-}
-#chat-container {
-  overflow-y: auto;
-  padding: 10px;
-  border: 1px solid #ccc;
-  flex: 1 1 auto;    /* Allow growing and shrinking */
-  height: 0;         /* Force scrolling when content overflows */
-  user-select: text;  /* Enable text selection */
-  -webkit-user-select: text;  /* For Safari */
-}
-.message {
-  margin-bottom: 10px;
-  padding: 5px;
-  user-select: text;
-  -webkit-user-select: text;
-}
-/* Markdown styles */
-.message.ai {
-  background-color: #f5f5f5;
-}
-.message.ai pre {
-  background-color: #f8f8f8;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 8px;
-  overflow-x: auto;
-}
-.message.ai code {
-  background-color: #f0f0f0;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-family: monospace;
-}
-.message.ai p {
-  margin: 8px 0;
-}
-.message.ai ul, .message.ai ol {
-  margin: 8px 0;
-  padding-left: 20px;
-}
-/* Markdown table styles */
-.message.ai table {
-  border-collapse: collapse;
-  margin: 10px 0;
-  width: 100%;
-}
-.message.ai th,
-.message.ai td {
-  border: 1px solid #ddd;
-  padding: 8px;
-  text-align: left;
-}
-.message.ai th {
-  background-color: #f8f8f8;
-  font-weight: bold;
-}
-.message.ai tr:nth-child(even) {
-  background-color: #f9f9f9;
-}
-.message.ai tr:hover {
-  background-color: #f5f5f5;
-}
-.user { background-color: #e3f2fd; }
-.ai { background-color: #f5f5f5; }
-.system { background-color: #fff3e0; }
-.error { background-color: #ffebee; }
-.input-container {
-  display: flex;
-  gap: 10px;
-  padding: 5px 0;
-  flex: 0 0 auto;    /* Don't grow or shrink */
-  align-items: flex-start;  /* Align items to top */
-}
-#message-input {
-  flex-grow: 1;
-  padding: 8px;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  font-size: 14px;
-  resize: none;
-  height: 38px;  /* Adjusted to prevent scrollbar (line-height + padding + border) */
-  max-height: 200px;
-  overflow-y: auto;
-  line-height: 1.4;
-  font-family: inherit;
-  box-sizing: border-box;  /* Include padding in height calculation */
-}
-#send-button {
-  padding: 8px 20px;
-  background-color: #007bff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-}
-#send-button:hover {
-  background-color: #0056b3;
-}
-#model-container {
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;    /* Don't grow or shrink */
-}
-#model-container label {
-  font-weight: 500;
-}
-#model-select {
-  margin-right: 10px;
-  padding: 5px;
 }
 .tools-container {
   height: 100%;

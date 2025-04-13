@@ -177,10 +177,6 @@ CLI
 - Command to switch workspaces?
 - Command to show workspace info
 
-## Project Org
-
-Implement css support (so we can share styles across app)
-
 ## Model metadata
 
 API provider is top level (Anthropic Claude, OpenAI, Google Gemini, Amazon Bedrock, Ollama)

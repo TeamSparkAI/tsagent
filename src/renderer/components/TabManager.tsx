@@ -47,7 +47,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
           >
             {child.props.name}
             {child.props.type === 'chat' && 
-              <span className="close-button" onClick={(e) => { e.stopPropagation(); onCloseTab(child.props.id); }}>×</span>
+              <span className="close-tab-button" onClick={(e) => { e.stopPropagation(); onCloseTab(child.props.id); }}>×</span>
             }
           </button>
         ))}

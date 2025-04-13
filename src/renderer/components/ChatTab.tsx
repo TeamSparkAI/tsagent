@@ -482,7 +482,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             <span id="model-name">
               {chatState.selectedModelName}
               {chatState.currentModelId && chatState.currentModelId !== chatState.selectedModelName && 
-                <span className="model-id">({chatState.currentModelId})</span>
+                <span className="chat-model-id">({chatState.currentModelId})</span>
               }
             </span>
           </div>
