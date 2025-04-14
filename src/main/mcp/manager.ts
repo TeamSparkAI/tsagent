@@ -3,7 +3,7 @@ import { createMcpClientFromConfig } from './client';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
-import { AppState } from '../state/AppState';
+import { WorkspaceManager } from '../state/WorkspaceManager';
 
 function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig {
     return obj && typeof obj === 'object' && 'type' in obj;
@@ -16,8 +16,8 @@ export class MCPClientManager {
         this.clients = new Map<string, McpClient>();
     }
 
-    async loadClients(appState: AppState) {
-        const mcpServers = await appState.configManager.getMcpConfig();
+    async loadClients(workspace: WorkspaceManager) {
+        const mcpServers = await workspace.getMcpConfig();
         for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
             try {
                 if (!serverConfig || !serverConfig.config) {
@@ -25,7 +25,7 @@ export class MCPClientManager {
                     continue;
                 }
         
-                const client = createMcpClientFromConfig(appState, serverConfig);      
+                const client = createMcpClientFromConfig(workspace, serverConfig);      
                 if (client) {
                     await client.connect();
                     this.clients.set(serverName, client);

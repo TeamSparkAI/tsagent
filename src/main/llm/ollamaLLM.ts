@@ -1,13 +1,13 @@
 import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import { Tool } from '@modelcontextprotocol/sdk/types';
-import { AppState } from '../state/AppState';
 import log from 'electron-log';
 import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { ChatResponse, Message, Ollama, Tool as OllamaTool } from 'ollama'
+import { WorkspaceManager } from '../state/WorkspaceManager';
 
 export class OllamaLLM implements ILLM {
-  private readonly appState: AppState;
+  private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
@@ -23,12 +23,12 @@ export class OllamaLLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, appState: AppState) {
+  constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
-    this.appState = appState;
+    this.workspace = workspace;
     
     try {
-      const host = this.appState.configManager.getConfigValue('OLLAMA_HOST') ?? 'http://127.0.0.1:11434';
+      const host = this.workspace.getProviderSettingsValue(LLMType.Ollama, 'OLLAMA_HOST') ?? 'http://127.0.0.1:11434';
       this.client = new Ollama({ host: host });
       log.info('Ollama LLM initialized successfully');
     } catch (error) {
@@ -58,7 +58,7 @@ export class OllamaLLM implements ILLM {
       log.info('Generating response with Ollama');
 
       // Convert our tools into an array of whatever Ollama expects 
-      const tools: OllamaTool[] = this.appState.mcpManager.getAllTools().map((tool: Tool) => {
+      const tools: OllamaTool[] = this.workspace.mcpManager.getAllTools().map((tool: Tool) => {
         const properties: Record<string, any> = {};
         
         // Convert properties safely with type checking
@@ -192,7 +192,7 @@ export class OllamaLLM implements ILLM {
             });
             
             // Call the tool  
-            const result = await this.appState.mcpManager.callTool(toolName, toolArgs);
+            const result = await this.workspace.mcpManager.callTool(toolName, toolArgs);
             log.info('Tool result:', result);
   
             const toolResultContent = result.content[0];
@@ -207,8 +207,8 @@ export class OllamaLLM implements ILLM {
               }
 
               turn.toolCalls.push({
-                serverName: this.appState.mcpManager.getToolServerName(toolName),
-                toolName: this.appState.mcpManager.getToolName(toolName),
+                serverName: this.workspace.mcpManager.getToolServerName(toolName),
+                toolName: this.workspace.mcpManager.getToolName(toolName),
                 args: toolArgs ?? {},
                 toolCallId: Math.random().toString(16).slice(2, 10), // Random ID, since Ollama doesn't provide one
                 output: toolResultContent?.text ?? '',

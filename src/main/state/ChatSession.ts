@@ -1,8 +1,8 @@
 import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions } from '../../shared/ChatSession';
 import { LLMType } from '../../shared/llm';
 import { ILLM } from '../../shared/llm';
-import { AppState } from './AppState';
 import log from 'electron-log';
+import { WorkspaceManager } from './WorkspaceManager';
 
 export class ChatSession {
   messages: ChatMessage[] = [];
@@ -10,12 +10,12 @@ export class ChatSession {
   currentModel: LLMType;
   currentModelId: string | undefined;
   llm: ILLM;
-  appState: AppState;
+  workspace: WorkspaceManager;
   rules: string[] = [];
   references: string[] = [];
 
-  constructor(appState: AppState, options: ChatSessionOptions = {}) {
-    this.appState = appState;
+  constructor(workspace: WorkspaceManager, options: ChatSessionOptions = {}) {
+    this.workspace = workspace;
     if (options.modelProvider && options.modelId) {
       this.currentModel = options.modelProvider;
       this.currentModelId = options.modelId;
@@ -25,7 +25,7 @@ export class ChatSession {
     }
     
     // Create the LLM instance
-    const llm = this.appState.llmFactory.create(this.currentModel, this.currentModelId);
+    const llm = this.workspace.llmFactory.create(this.currentModel, this.currentModelId);
     if (!llm) {
       throw new Error(`Failed to create LLM instance for model ${this.currentModel}`);
     }
@@ -61,7 +61,7 @@ export class ChatSession {
   //
   async handleMessage(message: string): Promise<MessageUpdate> {
     // Get system prompt from config
-    const systemPrompt = await this.appState.configManager.getSystemPrompt();
+    const systemPrompt = await this.workspace.getSystemPrompt();
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       ...this.messages.filter(m => m.role !== 'system')
@@ -100,7 +100,7 @@ export class ChatSession {
 
     // Add the references and rules to the messages array
     for (const referenceName of this.references) {
-      const reference = this.appState.referencesManager.getReference(referenceName);
+      const reference = this.workspace.referencesManager.getReference(referenceName);
       if (reference) {
         messages.push({
           role: 'user',
@@ -110,7 +110,7 @@ export class ChatSession {
     }
     
     for (const ruleName of this.rules) {
-      const rule = this.appState.rulesManager.getRule(ruleName);
+      const rule = this.workspace.rulesManager.getRule(ruleName);
       if (rule) {
         messages.push({
           role: 'user',
@@ -133,7 +133,7 @@ export class ChatSession {
       // Ensure we have a valid LLM instance with the current model and model ID
       if (!this.llm) {
         log.warn('No LLM instance available, creating a new one');
-        this.llm = this.appState.llmFactory.create(this.currentModel, this.currentModelId);
+        this.llm = this.workspace.llmFactory.create(this.currentModel, this.currentModelId);
       }
       
       const response = await this.llm.generateResponse(messages);
@@ -172,7 +172,7 @@ export class ChatSession {
   switchModel(modelType: LLMType, modelId?: string): MessageUpdate {
     try {
       // Create new LLM instance
-      const llm = this.appState.llmFactory.create(modelType, modelId);
+      const llm = this.workspace.llmFactory.create(modelType, modelId);
       if (!llm) {
         throw new Error(`Failed to create LLM instance for model ${modelType}`);
       }
@@ -233,7 +233,7 @@ export class ChatSession {
     }
     
     // Validate reference exists
-    const reference = this.appState.referencesManager.getReference(referenceName);
+    const reference = this.workspace.referencesManager.getReference(referenceName);
     if (!reference) {
       log.warn(`Attempted to add non-existent reference: ${referenceName}`);
       return false;
@@ -263,7 +263,7 @@ export class ChatSession {
     }
     
     // Validate rule exists
-    const rule = this.appState.rulesManager.getRule(ruleName);
+    const rule = this.workspace.rulesManager.getRule(ruleName);
     if (!rule) {
       log.warn(`Attempted to add non-existent rule: ${ruleName}`);
       return false;

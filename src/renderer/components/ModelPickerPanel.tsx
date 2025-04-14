@@ -32,7 +32,6 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
   onModelSelect,
   onClose
 }) => {
-  // Inline the useAppState hook functions
   const getProviderInfo = useCallback(async () => {
     return await window.api.getProviderInfo();
   }, []);

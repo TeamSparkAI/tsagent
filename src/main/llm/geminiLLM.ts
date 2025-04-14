@@ -3,11 +3,11 @@ import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams, Genera
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../../shared/ChatSession';
-import { AppState } from '../state/AppState';
 import { ModelReply, Turn } from '../../shared/ModelReply';
+import { WorkspaceManager } from '../state/WorkspaceManager';
 
 export class GeminiLLM implements ILLM {
-  private readonly appState: AppState;
+  private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
@@ -96,12 +96,12 @@ export class GeminiLLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, appState: AppState) {
+  constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
-    this.appState = appState;
-    
+    this.workspace = workspace;
+
     try {
-      const apiKey = this.appState.configManager.getConfigValue('GEMINI_API_KEY');
+      const apiKey = this.workspace.getProviderSettingsValue(LLMType.Gemini, 'GOOGLE_API_KEY')!;
       if (!apiKey) {
         throw new Error('GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
@@ -180,7 +180,7 @@ export class GeminiLLM implements ILLM {
     }
 
     var modelTools: GeminiTool | undefined = undefined;
-    const tools = this.appState.mcpManager.getAllTools();
+    const tools = this.workspace.mcpManager.getAllTools();
     log.info('tools', JSON.stringify(tools, null, 2));
     if (tools.length > 0) {
       modelTools = this.convertMCPToolsToGeminiTool(tools);
@@ -293,7 +293,7 @@ export class GeminiLLM implements ILLM {
               log.info('Function call detected:', part.functionCall);
 
               // Call the tool
-              const toolResult = await this.appState.mcpManager.callTool(toolName, toolArgs);
+              const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs);
               log.info('Tool result:', toolResult);
 
               // Record the function call and result
@@ -304,8 +304,8 @@ export class GeminiLLM implements ILLM {
                   turn.toolCalls = [];
                 }
                 turn.toolCalls.push({
-                  serverName: this.appState.mcpManager.getToolServerName(toolName),
-                  toolName: this.appState.mcpManager.getToolName(toolName),
+                  serverName: this.workspace.mcpManager.getToolServerName(toolName),
+                  toolName: this.workspace.mcpManager.getToolName(toolName),
                   args: toolArgs,
                   toolCallId: Math.random().toString(16).slice(2, 10), // Random ID, since VertexAI doesn't provide one
                   output: resultText,

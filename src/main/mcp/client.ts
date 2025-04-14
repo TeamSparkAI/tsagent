@@ -8,7 +8,7 @@ import log from 'electron-log';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
 import { McpClientInternalRules } from './InternalClientRules';
 import { McpClientInternalReferences } from './InternalClientReferences';
-import { AppState } from '../state/AppState';
+import { WorkspaceManager } from '../state/WorkspaceManager';
 
 export abstract class McpClientBase {
     protected mcp: Client;
@@ -221,7 +221,7 @@ export class McpClientSse extends McpClientBase implements McpClient {
     }
 }
 
-export function createMcpClientFromConfig(appState: AppState, clientConfig: McpConfig) : McpClient {
+export function createMcpClientFromConfig(workspace: WorkspaceManager, clientConfig: McpConfig) : McpClient {
     let client: McpClient;
     const serverName = clientConfig.name;
     const config = clientConfig.config;
@@ -240,9 +240,9 @@ export function createMcpClientFromConfig(appState: AppState, clientConfig: McpC
         );
     } else if (serverType === 'internal') {
         if (config.tool === 'rules') {
-            client = new McpClientInternalRules(appState.rulesManager);
+            client = new McpClientInternalRules(workspace.rulesManager);
         } else if (config.tool === 'references') {
-            client = new McpClientInternalReferences(appState.referencesManager);
+            client = new McpClientInternalReferences(workspace.referencesManager);
         } else {
             throw new Error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
         }

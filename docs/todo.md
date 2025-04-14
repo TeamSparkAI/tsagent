@@ -19,13 +19,30 @@ Would be nice to have db online with latest models and pricing.
 
 It would be great to have it pluggable, but maybe later.
 
-Do we have a Models tab that lists all the models and let's you view/update their default config?
-
 If we tied a chat window to a model, we could have a "settings" button that lets you override the model settings for that chat.
+
+## Model config
+
+Model Providers page - lists available and installed providers
+- Configure model with required values
+- Install/uninstall
+- Test?
+
+In new profile, do we install Frosty by default?  Or is no default reasonable (does the chat page / model picker work with no providers)
+
+In subsequent model pickers, only show installed/available models
+
+If only one model, make sure it's selected as default
+
+Keep track of last selected model, on new chat window, start with that model
+
+CLI: List and be able to select model from a provider
+
+Should all models have defaults (trickier to pick for Bedrock and Ollama)
 
 ## Usage
 
-Track cost for call/session
+Track $ cost for call/session
 - This could be tricky if we allow model switches in a session.
 
 ## Tools
@@ -147,24 +164,6 @@ Test support for SSE server
 
 ## Workspaces Issues
 
-Structure
-- workspaces.json (in app files directory) - list of workspaces
-- In a workdspace directory:
-  - worksapce.json - config for workspace itself (name, description, last accessed?)
-  - mcp-servers.json - config for MCP servers (or do we put in workspace config?)
-  - prompt.md (put this in workspace config?)
-  - refs (dir of mdw files - YAML frontmatter + GFM text)
-  - rules (dir of mdw files - YAML frontmatter + GFM text)
-
-workspace.json
-- Add Description to metadata - make name/discription editable
-- Check last accessed updating
-- Move config.json into workspace.json (get rid of config.json)
-- Have environment section where you can have env vars (including for the API keys)
-- Make sure those env vars are available to the app (maybe set them into state after dotenv)
-- Make LLMs use env vars for keys (priority is workspace env, the dotenv, then env)
-- Make "models" dict with entry for each provider, model
-
 It's not clear that the workspace change notification is ever received (or if it's needed, or what will happen if it gets called)
 
 Clone Workspace would be nice.
@@ -177,51 +176,79 @@ CLI
 - Command to switch workspaces?
 - Command to show workspace info
 
-## Model metadata
+## Before Release
 
-API provider is top level (Anthropic Claude, OpenAI, Google Gemini, Amazon Bedrock, Ollama)
+Provider config UX
 
-Common fields
-  ModelId (what we use to select model internally)
-  ModelName (what we show in the UX)
-  Provider Name
-  - For Bedrock we might want to select by this?
-  - For OpenAI, Claude, Gemini, provider is implied
-  - Ollama we could use details.family?
+Package for dist
+- Verify app icon (including in app)
 
-Bedrock
-    modelId: 'mistral.pixtral-large-2502-v1:0',
-    modelName: 'Pixtral Large (25.02)',
-    outputModalities: [ 'TEXT' ], // some add 'IMAGE', 'VIDEO'
-    providerName: 'Mistral AI',
-    modelLifecycle: { status: 'LEGACY' }, // or 'ACTIVE'
-    
-Ollama
-    name: 'llama3.2:latest',
-    model: 'llama3.2:latest',
-    modified_at: '2025-04-09T14:45:37.566736658-07:00',
-    size: 2019393189,
-    digest: 'a80c4f17acd55265feec403c7aef86be0c25983ab279d83f3bcd3abbcb5b8b72',
-    details: {
-      parent_model: '',
-      format: 'gguf',
-      family: 'llama',
-      families: [Array],
-      parameter_size: '3.2B',
-      quantization_level: 'Q4_K_M'
+Top-level menus?
+
+CLI
+- Register CLI on first run (like Ollama) - tspark
+- Workspace support (command line params)
+- Model selector
+
+Max turns config (UX or just config file setting)
+
+## Providers tab
+
+New tab for Model Providers
+
+List of installed providers
+
+Add new provider (from list, available-installed)
+
+Configure/test provider
+- Provider indicates what config items it needs (name, description of each)
+
+## tspark.json
+
+Workspaces -> workspaces.json (in app files directory) - list of workspaces
+
+Workspace -> tspark.json - in root of workspace (currently in /config?)
+
+Integrate workspace (metadata), current config (not providers), and MCP config, and add app settings.
+
+WorkspaceManager ()
+
+{
+  metadata: {
+    name: "xxxx",
+    description: "xxxxxx",
+    created: "2025-04-07T17:32:29.081Z",
+    lastAccessed: "2025-04-07T17:32:29.081Z",
+    version: "1.0.0"
+  },
+  settings: {
+    maxTurns: 10
+  }
+  providers: {
+    anthropic: {
+      ANTHROPIC_API_KEY: "xxxxx"
+    },
+    gemini: {
+      GEMINI_API_KEY: "xxxxx"
+    },
+    openai: {
+      OPENAI_API_KEY: "xxxxx"
+    },
+    bedrock: {
+      BEDROCK_ACCESS_KEY_ID: "xxxxx",
+      BEDROCK_SECRET_ACCESS_KEY: "xxxxx"
+    },
+    ollama: {
+      OLLAMA_HOST: "xxxxx" (optional)
     }
+  },
+  mcpServers: {
+    server: {
+      command: "xxxx"
+    }
+  }
+}
 
-Open AI
-    id: 'gpt-4-turbo-2024-04-09',
-    object: 'model',
-    created: 1712601677,
-    owned_by: 'system' // sometimes 'openai' or 'openai-internal'
-
-Claude
-    type: 'model',
-    id: 'claude-3-opus-20240229',
-    display_name: 'Claude 3 Opus',
-    created_at: '2024-02-29T00:00:00Z'
-
-Gemini (no API currently, but it is imminent)
-    ???
+/prompts/system.md (GFM)
+/references/*.mdt (YAML frontmatter + GFM text)
+/rules/*.mdt (YAML frontmatter + GFM text)

@@ -1,6 +1,4 @@
 import { LLMType } from './llm';
-import { ILLM } from './llm';
-import { AppState } from '../main/state/AppState';
 import { ModelReply } from './ModelReply';
 
 // These represent the Electron-side chat history (requests and responses)

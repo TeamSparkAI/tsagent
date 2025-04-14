@@ -1,16 +1,13 @@
 import readlinePromise from 'readline/promises';
 import { LLMType } from '../shared/llm';
-import { ConfigManager } from '../main/state/ConfigManager';
-import { McpClient } from '../main/mcp/types';
-import { McpClientStdio, McpClientSse } from '../main/mcp/client';
 import log from 'electron-log';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import path from 'path';
-import { AppState } from '../main/state/AppState';
 import { ChatSession } from '../main/state/ChatSession';
 import chalk from 'chalk';
 import ora from 'ora';
 import { MessageUpdate } from '../shared/ChatSession';
+import { WorkspaceManager } from '../main/state/WorkspaceManager';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -45,19 +42,11 @@ const COMMANDS = {
   STATS: '/stats'
 };
 
-const workspacePath = path.join(process.cwd(), 'config');
-const configManager = ConfigManager.getInstance(false);
-configManager.setConfigPath(workspacePath);
-const mcpClients = new Map<string, McpClient>();
-
-async function toolsCommand() {
+async function toolsCommand(workspace: WorkspaceManager) {
   try {
-    const appState = new AppState(configManager);
-    await appState.initialize();
-
     console.log('Checking available tools on MCP servers...\n');
 
-    const mcpClients = appState.mcpManager.getAllClients()
+    const mcpClients = workspace.mcpManager.getAllClients()
     for (const mcpClient of mcpClients) {
       console.log(chalk.cyan.bold(`Server: ${mcpClient.serverVersion?.name}`));
       console.log(chalk.dim('------------------------'));        
@@ -106,36 +95,6 @@ async function toolsCommand() {
   }
 }
 
-async function connectToServer(serverName: string) {
-  try {
-    const mcpServers = await configManager.getMcpConfig();
-    const serverConfig = mcpServers[serverName];
-    if (!serverConfig) {
-      log.error(`No configuration found for server: ${serverName}`);
-      return;
-    }
-
-    let client: McpClient;
-    if (serverConfig.config.type === 'stdio') {
-      client = new McpClientStdio({
-        command: serverConfig.config.command,
-        args: serverConfig.config.args,
-        env: serverConfig.config.env
-      });
-    } else if (serverConfig.config.type === 'sse') {
-      client = new McpClientSse(new URL(serverConfig.config.url), serverConfig.config.headers);
-    } else {
-      throw new Error(`Unsupported server type: ${serverConfig.config.type}`);
-    }
-
-    await client.connect();
-    mcpClients.set(serverName, client);
-    log.info(`Connected to server: ${serverName}`);
-  } catch (err) {
-    log.error(`Error connecting to server ${serverName}:`, err);
-  }
-}
-
 function showHelp() {
   console.log(chalk.cyan('\nAvailable commands:'));
   console.log(chalk.yellow('  /help') + ' - Show this help menu');
@@ -150,12 +109,12 @@ function showHelp() {
   console.log('');
 }
 
-export function setupCLI(appState: AppState) {
+export function setupCLI(workspace: WorkspaceManager) {
   console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
   showHelp();
   
   let currentModel = 'test';
-  const chatSession = new ChatSession(appState);
+  const chatSession = new ChatSession(workspace);
 
   const findModelName = (input: string): string | undefined => {
     const normalizedInput = input.toLowerCase();
@@ -304,12 +263,12 @@ export function setupCLI(appState: AppState) {
           break;
 
         case COMMANDS.TOOLS:
-          await toolsCommand();
+          await toolsCommand(workspace);
           break;
 
         case COMMANDS.RULES:
           // Show all rules with asterisk for active ones and dash for inactive ones
-          const allRules = appState.rulesManager.getRules();
+          const allRules = workspace.rulesManager.getRules();
           console.log(chalk.cyan('\nRules:'));
           if (allRules.length === 0) {
             console.log(chalk.yellow('No rules available.'));
@@ -325,7 +284,7 @@ export function setupCLI(appState: AppState) {
 
         case COMMANDS.REFERENCES:
           // Show all references with asterisk for active ones and dash for inactive ones
-          const allReferences = appState.referencesManager.getReferences();
+          const allReferences = workspace.referencesManager.getReferences();
           console.log(chalk.cyan('\nReferences:'));
           if (allReferences.length === 0) {
             console.log(chalk.yellow('No references available.'));

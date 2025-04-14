@@ -1,7 +1,7 @@
 import { ChatMessage } from '../../shared/ChatSession';
 import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
-import { AppState } from '../state/AppState';
 import { ModelReply } from '../../shared/ModelReply';
+import { WorkspaceManager } from '../state/WorkspaceManager';
 
 export class TestLLM implements ILLM {
 
@@ -14,7 +14,7 @@ export class TestLLM implements ILLM {
     };
   }
   
-  constructor(public appState: AppState) {}
+  constructor(public workspace: WorkspaceManager) {}
 
   async getModels(): Promise<ILLMModel[]> {
     return [{

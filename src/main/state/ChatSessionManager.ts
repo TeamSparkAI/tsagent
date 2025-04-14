@@ -1,13 +1,13 @@
 import { ChatSessionOptions, ChatState, MessageUpdate } from '../../shared/ChatSession';
 import { LLMType } from '../../shared/llm';
-import { AppState } from './AppState';
 import log from 'electron-log';
 import { ChatSession } from './ChatSession';
+import { WorkspaceManager } from './WorkspaceManager';
 
 export class ChatSessionManager {
   private sessions = new Map<string, ChatSession>();
   
-  constructor(private appState: AppState) {
+  constructor(private workspace: WorkspaceManager) {
     log.info('ChatSessionManager initialized');
   }
   
@@ -18,7 +18,7 @@ export class ChatSessionManager {
     }
 
     // Create new ChatSession instance
-    const session = new ChatSession(this.appState, options);
+    const session = new ChatSession(this.workspace, options);
     this.sessions.set(tabId, session);
     
     log.info(`Created new chat session for tab ${tabId} with model ${session.currentModel}`);

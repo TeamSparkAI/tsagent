@@ -1,14 +1,14 @@
 import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import OpenAI from 'openai';
-import { AppState } from '../state/AppState';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
 import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
+import { WorkspaceManager } from '../state/WorkspaceManager';
 
 export class OpenAILLM implements ILLM {
-  private readonly appState: AppState;
+  private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private client!: OpenAI;
   private readonly MAX_TURNS = 10;
@@ -35,12 +35,12 @@ export class OpenAILLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, appState: AppState) {
+  constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
-    this.appState = appState;
+    this.workspace = workspace;
     
     try {
-      const apiKey = this.appState.configManager.getConfigValue('OPENAI_API_KEY');
+      const apiKey = this.workspace.getProviderSettingsValue(LLMType.OpenAI, 'OPENAI_API_KEY')!;
       if (!apiKey) {
         throw new Error('OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
@@ -132,7 +132,7 @@ export class OpenAILLM implements ILLM {
 
       // log.info('Starting OpenAI LLM with messages:', JSON.stringify(currentMessages, null, 2));
 
-      const tools = this.appState.mcpManager.getAllTools();
+      const tools = this.workspace.mcpManager.getAllTools();
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
 
       let turnCount = 0;
@@ -176,7 +176,7 @@ export class OpenAILLM implements ILLM {
               log.info('Processing function call:', toolCall.function);
 
               // Call the tool
-              const toolResult = await this.appState.mcpManager.callTool(
+              const toolResult = await this.workspace.mcpManager.callTool(
                 toolCall.function.name,
                 JSON.parse(toolCall.function.arguments)
               );
@@ -190,8 +190,8 @@ export class OpenAILLM implements ILLM {
   
                 // Record the function call and result
                 turn.toolCalls.push({
-                  serverName: this.appState.mcpManager.getToolServerName(toolCall.function.name),
-                  toolName: this.appState.mcpManager.getToolName(toolCall.function.name),
+                  serverName: this.workspace.mcpManager.getToolServerName(toolCall.function.name),
+                  toolName: this.workspace.mcpManager.getToolName(toolCall.function.name),
                   args: JSON.parse(toolCall.function.arguments),
                   output: resultText,
                   toolCallId: toolCall.id,

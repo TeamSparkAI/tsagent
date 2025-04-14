@@ -2,13 +2,12 @@ import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import Anthropic from '@anthropic-ai/sdk';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
-import { AppState } from '../state/AppState';
 import log from 'electron-log';
 import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
-
+import { WorkspaceManager } from '../state/WorkspaceManager';
 export class ClaudeLLM implements ILLM {
-  private readonly appState: AppState;
+  private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private client!: Anthropic;
   private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
@@ -23,12 +22,12 @@ export class ClaudeLLM implements ILLM {
     };
   }
   
-  constructor(modelName: string, appState: AppState) {
+  constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
-    this.appState = appState;
+    this.workspace = workspace;
     
     try {
-      const apiKey = this.appState.configManager.getConfigValue('ANTHROPIC_API_KEY');
+      const apiKey = this.workspace.getProviderSettingsValue(LLMType.Claude, 'ANTHROPIC_API_KEY')!;
       if (!apiKey) {
         throw new Error('ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
@@ -65,7 +64,7 @@ export class ClaudeLLM implements ILLM {
     try {
       log.info('Generating response with Claude');
 
-      const tools = this.appState.mcpManager.getAllTools().map((tool: Tool) => {
+      const tools = this.workspace.mcpManager.getAllTools().map((tool: Tool) => {
         return {
           name: tool.name,
           description: tool.description,
@@ -180,7 +179,7 @@ export class ClaudeLLM implements ILLM {
               ]
             });
 
-            const result = await this.appState.mcpManager.callTool(toolName, toolArgs);
+            const result = await this.workspace.mcpManager.callTool(toolName, toolArgs);
             log.info('Tool result:', result);
 
             const toolResultContent = result.content[0];
@@ -201,8 +200,8 @@ export class ClaudeLLM implements ILLM {
               }
 
               turn.toolCalls.push({
-                serverName: this.appState.mcpManager.getToolServerName(toolName),
-                toolName: this.appState.mcpManager.getToolName(toolName),
+                serverName: this.workspace.mcpManager.getToolServerName(toolName),
+                toolName: this.workspace.mcpManager.getToolName(toolName),
                 args: toolArgs ?? {},
                 toolCallId: toolUseId,
                 output: toolResultContent?.text ?? '',

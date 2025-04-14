@@ -1,6 +1,6 @@
 import { ChatMessage } from './ChatSession';
 import { ModelReply } from './ModelReply';
-
+import { WorkspaceManager } from '../main/state/WorkspaceManager';
 export enum LLMType {
   Test = 'test',
   Claude = 'claude',
@@ -32,7 +32,7 @@ export interface ILLM {
 
 // Constructor type with static methods
 export type LLMClass = {
-  new(modelName: string, appState: any): ILLM;
+  new(modelName: string, workspace: WorkspaceManager): ILLM;
 } & ILLMStatic;
 
 export interface ILLMModel {

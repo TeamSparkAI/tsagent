@@ -1,14 +1,14 @@
 import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import { Tool } from '@modelcontextprotocol/sdk/types';
-import { AppState } from '../state/AppState';
 import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole, ConverseCommandOutput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import log from 'electron-log';
 import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
+import { WorkspaceManager } from '../state/WorkspaceManager';
 
 export class BedrockLLM implements ILLM {
-  private readonly appState: AppState;
+  private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
@@ -24,15 +24,15 @@ export class BedrockLLM implements ILLM {
     };
   }
 
-  constructor(modelName: string, appState: AppState) {
+  constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
-    this.appState = appState;
+    this.workspace = workspace;
     
     try {
-      const accessKey = this.appState.configManager.getConfigValue('BEDROCK_SECRET_ACCESS_KEY');
-      const accessKeyId = this.appState.configManager.getConfigValue('BEDROCK_ACCESS_KEY_ID');
+      const accessKey = this.workspace.getProviderSettingsValue(LLMType.Bedrock, 'BEDROCK_SECRET_ACCESS_KEY');
+      const accessKeyId = this.workspace.getProviderSettingsValue(LLMType.Bedrock, 'BEDROCK_ACCESS_KEY_ID');
       if (!accessKey || !accessKeyId) {
-        throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your config.json file.');
+        throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your workspace configuration.');
       }
       this.client = new BedrockRuntimeClient({ 
         region: 'us-east-1', 
@@ -52,8 +52,8 @@ export class BedrockLLM implements ILLM {
 		const bedrockClient = new BedrockClient({
 			region: 'us-east-1',
 			credentials: {
-				secretAccessKey: this.appState.configManager.getConfigValue('BEDROCK_SECRET_ACCESS_KEY'),
-				accessKeyId: this.appState.configManager.getConfigValue('BEDROCK_ACCESS_KEY_ID')
+				secretAccessKey: this.workspace.getProviderSettingsValue(LLMType.Bedrock, 'BEDROCK_SECRET_ACCESS_KEY')!,
+				accessKeyId: this.workspace.getProviderSettingsValue(LLMType.Bedrock, 'BEDROCK_ACCESS_KEY_ID')!
 			}
 		});
 		// To support inferece types othet than ON_DEMAND, we will need to list them specifically, and use the returned ARNs to create the models
@@ -102,7 +102,7 @@ export class BedrockLLM implements ILLM {
       log.info('Generating response with Bedrock');
 
 			// Build the Bedrock tools array from the MCP tools
-      const tools: BedrockTool[] = this.appState.mcpManager.getAllTools().map((tool: Tool) => {
+      const tools: BedrockTool[] = this.workspace.mcpManager.getAllTools().map((tool: Tool) => {
         const properties: Record<string, any> = {};
         
         // Convert properties safely with type checking
@@ -234,7 +234,7 @@ export class BedrockLLM implements ILLM {
 							const toolUseId = toolCall.toolUseId;
 							const toolArgs = toolCall.input as Record<string, any>;
 
-							const toolResult = await this.appState.mcpManager.callTool(toolName, toolArgs);
+							const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs);
 
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
@@ -258,8 +258,8 @@ export class BedrockLLM implements ILLM {
   
                 // Record the function call and result
                 turn.toolCalls.push({
-                  serverName: this.appState.mcpManager.getToolServerName(toolName),
-                  toolName: this.appState.mcpManager.getToolName(toolName),
+                  serverName: this.workspace.mcpManager.getToolServerName(toolName),
+                  toolName: this.workspace.mcpManager.getToolName(toolName),
                   args: toolArgs,
                   output: resultText,
                   toolCallId: toolUseId,
