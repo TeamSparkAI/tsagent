@@ -187,20 +187,25 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   useEffect(() => {
     log.info('[CHAT TAB] Setting up workspace:switched event listener');
     
-    const handleWorkspaceSwitched = () => {
-      log.info(`[CHAT TAB] Workspace switched, resetting tab ${id}`);
-      // Reset state
-      setIsInitialized(false);
-      setChatState({
-        selectedModel: LLMType.Test,
-        selectedModelName: 'Frosty',
-        messages: [],
-        currentModelId: 'frosty1.0'
-      });
-      chatApiRef.current = null;
-      isFirstRenderRef.current = true;
-      lastMessageCountRef.current = 0;
-      setScrollPosition(0);
+    const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {   
+      const currentWindowId = await window.api.getCurrentWindowId();
+      log.info(`[CHAT TAB] Received workspace:switched, current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
+        
+      // Only update the UI if this event is targeted at the current window
+      if (currentWindowId === data.targetWindowId) {
+        // Reset state
+        setIsInitialized(false);
+        setChatState({
+          selectedModel: LLMType.Test,
+          selectedModelName: 'Frosty',
+          messages: [],
+          currentModelId: 'frosty1.0'
+        });
+        chatApiRef.current = null;
+        isFirstRenderRef.current = true;
+        lastMessageCountRef.current = 0;
+        setScrollPosition(0);
+      }
     };
     
     const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);

@@ -629,9 +629,14 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     useEffect(() => {
         loadServers();
         // Add event listener for workspace changes
-        const handleWorkspaceSwitched = () => {
-            log.info('[TOOLS TAB] Received workspace:switched event');
-            loadServers();
+        const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {   
+            const currentWindowId = await window.api.getCurrentWindowId();
+            log.info(`[TOOLS TAB] Received workspace:switched, current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
+              
+            // Only update the UI if this event is targeted at the current window
+            if (currentWindowId === data.targetWindowId) {      
+                await loadServers();
+            }
         };
 
         // Use the API method instead of DOM event listener

@@ -64,21 +64,6 @@ async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow
     registerWorkspaceWithWindow(window.id.toString(), workspace);
   }
 
-  // Set up event listener for workspace changes
-  workspacesManager.on('workspace:switched', (event) => {
-    log.info(`[MAIN] Received workspace:switched event from WorkspaceManager:`, event);
-    if (window) {
-      log.info(`[MAIN] Sending workspace:switched event to main window ${window.id}`);
-      window.webContents.send('workspace:switched', {
-        windowId: event.windowId,
-        workspacePath: event.workspacePath,
-        targetWindowId: event.windowId
-      });
-    } else {
-      log.warn(`[MAIN] Cannot send workspace:switched event - mainWindow is null`);
-    }
-  });
-
   // Load the index.html file
   const indexPath = path.join(__dirname, 'index.html');
   log.info('Loading index.html from:', indexPath);
@@ -479,8 +464,6 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     try {
       const mcpServers = await workspace.getMcpConfig();
       
-      log.info(`[MAIN PROCESS] getServerConfigs: ${JSON.stringify(mcpServers)}`);
-
       // If mcpServers is empty or undefined, return an empty array
       if (!mcpServers || Object.keys(mcpServers).length === 0) {
         log.info('No MCP server configurations found in workspace');
@@ -945,7 +928,6 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Check if the window is registered with the WorkspaceManager
       const activeWindows = workspacesManager.getActiveWindows();
 
-      // !!! This doesn't smell right - the switchWorkspace will trigger workspace:switched for this window, which will create and register the workspace
       const workspace = await WorkspaceManager.create(workspacePath);
       log.info(`[WORKSPACE SWITCH] Workspace created: ${workspace.workspaceDir}`);
 
@@ -956,33 +938,6 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     } catch (error) {
       log.error(`[WORKSPACE SWITCH] Error in IPC handler switching window ${windowId} to workspace ${workspacePath}:`, error);
       return false;
-    }
-  });
-
-  // Handle workspace switching
-  ipcMain.on('workspace:switched', async (event, { windowId, workspacePath }) => {
-    try {
-      log.info(`[WORKSPACE MANAGER] Reloading workspace for window ${windowId} at ${workspacePath}`);
-      
-      // Get the window that sent the request
-      const currentWindow = BrowserWindow.fromWebContents(event.sender);
-      if (!currentWindow) {
-        log.warn('No window found for the renderer process');
-        return;
-      }
-      
-      // Verify that the window ID matches the window that sent the request
-      if (currentWindow.id.toString() !== windowId) {
-        log.warn(`[WORKSPACE MANAGER] Window ID mismatch: expected ${windowId}, got ${currentWindow.id}`);
-        return;
-      }
-      
-      const workspace = await WorkspaceManager.create(workspacePath);
-      registerWorkspaceWithWindow(windowId, workspace);
-            
-      log.info(`[WORKSPACE MANAGER] Workspace initialization completed for ${workspacePath}`);
-    } catch (error) {
-      log.error('[WORKSPACE MANAGER] Error during workspace initialization:', error);
     }
   });
 

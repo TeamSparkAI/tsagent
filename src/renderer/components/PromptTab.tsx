@@ -40,18 +40,25 @@ export const PromptTab: React.FC<TabProps> = ({ id, activeTabId, name, type, sty
     });
 
     // Listen for workspace changes
-    const handleWorkspaceSwitched = () => {
-      log.info('[PROMPT TAB] Received workspace:switched event, refreshing prompt');
-      window.api.getSystemPrompt().then((loadedPrompt: string) => {
-        log.info(`[PROMPT TAB] Loaded new system prompt after workspace switch: ${loadedPrompt.substring(0, 50)}...`);
-        setPrompt(loadedPrompt);
-        setOriginalPrompt(loadedPrompt);
-        if (textareaRef.current) {
-          adjustTextareaHeight(textareaRef.current);
+    const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {   
+      const currentWindowId = await window.api.getCurrentWindowId();
+      log.info(`[PROMPT TAB] Received workspace:switched, current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
+        
+      // Only update the UI if this event is targeted at the current window
+      if (currentWindowId === data.targetWindowId) {
+        log.info('[PROMPT TAB] Event is targeted at this window, refreshing prompt');
+        try {
+          const loadedPrompt = await window.api.getSystemPrompt();
+          log.info(`[PROMPT TAB] Loaded new system prompt after workspace switch: ${loadedPrompt.substring(0, 50)}...`);
+          setPrompt(loadedPrompt);
+          setOriginalPrompt(loadedPrompt);
+          if (textareaRef.current) {
+            adjustTextareaHeight(textareaRef.current);
+          }
+        } catch (error) {
+          log.error(`[PROMPT TAB] Error loading prompt after workspace switch:`, error);
         }
-      }).catch(error => {
-        log.error(`[PROMPT TAB] Error loading prompt after workspace switch:`, error);
-      });
+      }
     };
 
     // Use the API method instead of DOM event listener

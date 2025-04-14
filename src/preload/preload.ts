@@ -59,15 +59,6 @@ const api: API = {
   reloadServerInfo: (serverName: string) => ipcRenderer.invoke('reloadServerInfo', serverName),
   deleteServerConfig: (name: string) => ipcRenderer.invoke('deleteServerConfig', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
-    
-  onConfigurationChanged: (callback: () => void) => {
-    const wrappedCallback = () => callback();
-    ipcRenderer.on('configuration:changed', wrappedCallback);
-    return wrappedCallback;
-  },
-  offConfigurationChanged: (listener: () => void) => {
-    ipcRenderer.removeListener('configuration:changed', listener);
-  },
 
   // Workspace handlers
   showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),

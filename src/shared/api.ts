@@ -62,8 +62,6 @@ export interface API {
   offRulesChanged: (listener: () => void) => void;
   onReferencesChanged: (callback: () => void) => () => void;
   offReferencesChanged: (listener: () => void) => void;
-  onConfigurationChanged: (callback: () => void) => () => void;
-  offConfigurationChanged: (listener: () => void) => void;
 
   // Workspace methods
   showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;

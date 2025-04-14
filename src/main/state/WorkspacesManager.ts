@@ -195,14 +195,10 @@ export class WorkspacesManager extends EventEmitter {
     }
 
     /**
-     * Switches a window to a different workspace
+     * Tracks workspace switch and notifies all windows
      * @param windowId The ID of the window
      * @param workspacePath The path to the workspace
      */
-    // When we change the workspace in a window, we need to do two things:
-    // 1. Update the workspace for thw window that is getting the new workspace, and trigger UX refresh to reflect the new workspace
-    // 2. Update all other windows so they can update their Workspace tab to reflect the new workspace in the window, recents, etc.
-    //
     public async switchWorkspace(windowId: string, workspacePath: string): Promise<void> {
         try {
             log.info(`[WORKSPACE SWITCH] Starting workspace switch for window ${windowId} to workspace ${workspacePath}`);
@@ -225,13 +221,10 @@ export class WorkspacesManager extends EventEmitter {
             
             // Save the state
             await this.saveState();
-            
+
             // Get the window
             const browserWindow = BrowserWindow.fromId(parseInt(windowId));
             if (browserWindow) {
-                // Notify the renderer process that configuration has changed
-                browserWindow.webContents.send('configuration:changed');
-                
                 // Send the event to all windows, but include targetWindowId to indicate which window should update its content
                 log.info(`[WORKSPACE SWITCH] Sending workspace:switched event to all windows with targetWindowId ${windowId}`);
                 BrowserWindow.getAllWindows().forEach(win => {
@@ -242,10 +235,6 @@ export class WorkspacesManager extends EventEmitter {
                         targetWindowId: windowId // This indicates which window should update its content
                     });
                 });
-                
-                // Also emit the event for main process listeners
-                log.info(`[WORKSPACE SWITCH] Emitting workspace:switched event for main process listeners`);
-                this.emit('workspace:switched', { windowId, workspacePath });
             } else {
                 log.warn(`[WORKSPACE SWITCH] Could not find browser window with ID ${windowId}`);
             }

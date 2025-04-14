@@ -50,61 +50,37 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
   }, []);
 
   useEffect(() => {
-    // Listen for configuration changes
-    const handleConfigurationChanged = () => {
-      log.info('[WORKSPACE TAB] Configuration changed, refreshing workspace data');
-      loadData();
-    };
-    
     // Listen for workspace switched event using the API method
-    const handleWorkspaceSwitched = (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {
-      log.info('[WORKSPACE TAB] Received workspace:switched event with data:', data);
-      
-      // Get the current window ID
-      window.api.getCurrentWindowId().then(id => {
+    const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {      
+      try {
+        // Get the current window ID
+        const id = await window.api.getCurrentWindowId();
         log.info(`[WORKSPACE TAB] Current window ID: ${id}, target window ID: ${data.targetWindowId}`);
         
         // Only update the UI if this event is targeted at the current window
         if (id === data.targetWindowId) {
-          log.info(`[WORKSPACE TAB] Event is targeted at this window, refreshing data`);
-          // Force a refresh of the data
-          loadData().then(() => {
-            log.info('[WORKSPACE TAB] Data refreshed after workspace switch');
-          }).catch(error => {
-            log.error('[WORKSPACE TAB] Error refreshing data after workspace switch:', error);
-          });
+          log.info(`[WORKSPACE TAB] Event is targeted at this window, refreshing all workspace data`);
+          await loadData();
         } else {
-          log.info(`[WORKSPACE TAB] Event is not targeted at this window, ignoring`);
-          // Even if not targeted, we should still update the activeWindows list
-          // but we'll do it without refreshing the entire UI
-          window.api.getActiveWindows().then(windows => {
-            log.info(`[WORKSPACE TAB] Updating activeWindows list without refreshing UI`);
-            setActiveWindows(windows);
-          }).catch(error => {
-            log.error(`[WORKSPACE TAB] Error updating activeWindows list:`, error);
-          });
+          log.info(`[WORKSPACE TAB] Event is not targeted at this window, refreshing active windows only`);
+          // If not targeted, we still need to update the activeWindows list, but we'll do it without refreshing the entire UI
+          const windows = await window.api.getActiveWindows();
+          setActiveWindows(windows);
         }
-      }).catch(error => {
-        log.error(`[WORKSPACE TAB] Error getting current window ID:`, error);
-      });
+      } catch (error) {
+        log.error(`[WORKSPACE TAB] Error in workspace switch handler:`, error);
+      }
     };
     
     // Set up event listeners
     log.info('[WORKSPACE TAB] Setting up event listeners');
-    const configListener = window.api.onConfigurationChanged(handleConfigurationChanged);
     const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
-    log.info('[WORKSPACE TAB] Event listeners set up');
     
     // Clean up the event listeners when the component unmounts
     return () => {
-      log.info('[WORKSPACE TAB] Cleaning up event listeners');
       if (listener) {
+        log.info('[WORKSPACE TAB] Cleaning up event listeners');
         window.api.offWorkspaceSwitched(listener);
-        log.info('[WORKSPACE TAB] Successfully removed workspace:switched listener');
-      }
-      if (configListener) {
-        window.api.offConfigurationChanged(configListener);
-        log.info('[WORKSPACE TAB] Successfully removed configuration:changed listener');
       }
     };
   }, []);

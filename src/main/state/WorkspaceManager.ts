@@ -186,9 +186,6 @@ export class WorkspaceManager {
       throw new Error('Config not loaded. Call loadConfig() first.');
     }
 
-    log.info(`[WORKSPACE MANAGER] getProviderSettingsValue: provider=${provider} key=${key}`);
-    log.info(`[WORKSPACE MANAGER] workspaceData.providers: ${JSON.stringify(this._workspaceData?.providers)}`);
-
     if (!this._workspaceData || !this._workspaceData.providers || !this._workspaceData.providers[provider] || !this._workspaceData.providers[provider][key]) {
       return null;
     }
@@ -225,20 +222,15 @@ export class WorkspaceManager {
     
     try {
       const mcpServers = this._workspaceData.mcpServers as McpConfigFile || {} as McpConfigFile;
-
-      log.info(`[WORKSPACE MANAGER] MCP config: ${JSON.stringify(mcpServers)}`);
       
       // Transform the configuration into the expected format
       const result: Record<string, McpConfig> = {};
       for (const [name, serverConfig] of Object.entries(mcpServers)) {
-        log.info(`[WORKSPACE MANAGER] MCP server: ${name} config: ${JSON.stringify(serverConfig)}`);
         result[name] = {
           name,
           config: serverConfig
         };
       }
-      
-      log.info(`[WORKSPACE MANAGER] MCP config result: ${JSON.stringify(result)}`);
       return result;
     } catch (error) {
       log.error('Error loading MCP config:', error);
