@@ -25,6 +25,8 @@ export interface API {
   getInstalledProviders: () => Promise<string[]>;
   addProvider: (provider: string) => Promise<boolean>;
   removeProvider: (provider: string) => Promise<boolean>;
+  getProviderConfig: (provider: string, key: string) => Promise<string | null>;
+  setProviderConfig: (provider: string, key: string, value: string) => Promise<boolean>;
 
   // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;

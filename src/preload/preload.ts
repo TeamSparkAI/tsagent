@@ -85,6 +85,8 @@ const api: API = {
   getInstalledProviders: () => ipcRenderer.invoke('llm:get-installed-providers'),
   addProvider: (provider: string) => ipcRenderer.invoke('llm:add-provider', provider),
   removeProvider: (provider: string) => ipcRenderer.invoke('llm:remove-provider', provider),
+  getProviderConfig: (provider: string, key: string) => ipcRenderer.invoke('llm:get-provider-config', provider, key),
+  setProviderConfig: (provider: string, key: string, value: string) => ipcRenderer.invoke('llm:set-provider-config', provider, key, value),
 };
 
 /*

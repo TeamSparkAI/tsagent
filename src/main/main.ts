@@ -990,6 +990,34 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return workspace.llmFactory.getProviderInfo();
   });
 
+  ipcMain.handle('llm:get-provider-config', (event, provider: string, key: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace) {
+      log.warn(`Workspace not found for window: ${windowId}`);
+      return null;
+    }
+    return workspace.getProviderSettingsValue(provider, key);
+  });
+
+  ipcMain.handle('llm:set-provider-config', async (event, provider: string, key: string, value: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace) {
+      log.warn(`Workspace not found for window: ${windowId}`);
+      return false;
+    }
+    try {
+      await workspace.setProviderSettingsValue(provider, key, value);
+      return true;
+    } catch (error) {
+      log.error(`Error setting provider config ${provider}.${key}:`, error);
+      return false;
+    }
+  });
+
   ipcMain.handle('llm:get-installed-providers', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const workspace = getWorkspaceForWindow(windowId);
