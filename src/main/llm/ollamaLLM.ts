@@ -18,8 +18,6 @@ export class OllamaLLM implements ILLM {
       name: "Ollama",
       description: "Run open-source large language models locally on your own hardware",
       website: "https://ollama.ai/",
-      requiresApiKey: false,
-      configKeys: ['OLLAMA_HOST'],
       configValues: [
         {
           caption: "Ollama host",

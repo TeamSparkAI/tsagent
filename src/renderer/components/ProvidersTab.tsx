@@ -59,10 +59,10 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
     if (provider) {
       // Initialize config with any existing values
       const initialConfig: Record<string, string> = {};
-      provider.info.configKeys?.forEach(async key => {
-        const value = await window.api.getProviderConfig(provider.id, key);
+      provider.info.configValues?.forEach(async configValue => {
+        const value = await window.api.getProviderConfig(provider.id, configValue.key);
         if (value !== null) {
-          initialConfig[key] = value;
+          initialConfig[configValue.key] = value;
         }
       });
       setConfig(initialConfig);
@@ -98,10 +98,10 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
     setSelectedProviderType(type);
     setIsSelectingProvider(false);
     const info = providerInfo[type];
-    if (info?.configKeys) {
+    if (info?.configValues) {
       const initialConfig: Record<string, string> = {};
-      info.configKeys.forEach(key => {
-        initialConfig[key] = '';
+      info.configValues.forEach(configValue => {
+        initialConfig[configValue.key] = configValue.default || '';
       });
       setConfig(initialConfig);
     }
@@ -228,7 +228,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             </a>
           )}
 
-          {(provider?.info.configKeys || providerInfo[selectedProviderType as LLMType]?.configKeys) && (
+          {(provider?.info.configValues || providerInfo[selectedProviderType as LLMType]?.configValues) && (
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'max-content 1fr',
@@ -237,31 +237,42 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
               marginBottom: '20px',
               width: '100%'
             }}>
-              {(provider?.info.configKeys || providerInfo[selectedProviderType as LLMType]?.configKeys || []).map(key => (
-                <React.Fragment key={key}>
-                  <label style={{ fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '8px' }}>{key}:</label>
+              {(provider?.info.configValues || providerInfo[selectedProviderType as LLMType]?.configValues || []).map(configValue => (
+                <React.Fragment key={configValue.key}>
+                  <label style={{ 
+                    fontWeight: 'bold', 
+                    whiteSpace: 'nowrap', 
+                    paddingRight: '8px',
+                    color: configValue.required ? '#dc3545' : 'inherit'
+                  }}>
+                    {configValue.caption || configValue.key}:
+                    {configValue.required && <span style={{ color: '#dc3545', marginLeft: '4px' }}>*</span>}
+                  </label>
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                     <input 
-                      type={visibleFields[key] ? 'text' : 'password'} 
-                      value={config[key] || ''}
-                      onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+                      type={configValue.secret && !visibleFields[configValue.key] ? 'password' : 'text'} 
+                      value={config[configValue.key] || ''}
+                      onChange={(e) => setConfig({ ...config, [configValue.key]: e.target.value })}
                       style={{ width: '100%', padding: '4px 8px' }}
-                      placeholder={`Enter ${key}`}
+                      placeholder={configValue.hint || `Enter ${configValue.caption || configValue.key}`}
+                      required={configValue.required}
                     />
-                    <button
-                      onClick={() => toggleFieldVisibility(key)}
-                      style={{
-                        padding: '4px 8px',
-                        backgroundColor: 'transparent',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0
-                      }}
-                    >
-                      {visibleFields[key] ? 'Hide' : 'Show'}
-                    </button>
+                    {configValue.secret && (
+                      <button
+                        onClick={() => toggleFieldVisibility(configValue.key)}
+                        style={{
+                          padding: '4px 8px',
+                          backgroundColor: 'transparent',
+                          border: '1px solid #ccc',
+                          borderRadius: '4px',
+                          cursor: 'pointer',
+                          whiteSpace: 'nowrap',
+                          flexShrink: 0
+                        }}
+                      >
+                        {visibleFields[configValue.key] ? 'Hide' : 'Show'}
+                      </button>
+                    )}
                   </div>
                 </React.Fragment>
               ))}
@@ -535,16 +546,6 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                           >
                             Visit Website
                           </a>
-                        )}
-                        {provider.info.requiresApiKey && (
-                          <div className="api-key-notice">
-                            <strong>Requires API Key</strong>
-                            {provider.info.configKeys && provider.info.configKeys.length > 0 && (
-                              <div className="config-keys">
-                                <small>Config Keys: {provider.info.configKeys.join(', ')}</small>
-                              </div>
-                            )}
-                          </div>
                         )}
                       </div>
 

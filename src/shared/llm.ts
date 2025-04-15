@@ -23,8 +23,6 @@ export interface LLMProviderInfo {
   name: string;
   description: string;
   website?: string;
-  requiresApiKey: boolean;
-  configKeys?: string[];
   configValues?: ILLMConfigValue[];
 }
 

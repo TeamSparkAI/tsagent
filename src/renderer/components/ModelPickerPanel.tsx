@@ -223,16 +223,6 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
                   Visit Website
                 </a>
               )}
-              {providerInfo[selectedProvider].requiresApiKey && (
-                <div className="api-key-notice">
-                  <strong>Requires API Key</strong>
-                  {providerInfo[selectedProvider].configKeys && providerInfo[selectedProvider].configKeys.length > 0 && (
-                    <div className="config-keys">
-                      <small>Config Keys: {providerInfo[selectedProvider].configKeys.join(', ')}</small>
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
           </div>
         )}
