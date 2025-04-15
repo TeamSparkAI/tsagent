@@ -48,13 +48,13 @@
 
 .provider-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   margin-bottom: 20px;
 }
 
 .provider-header h3 {
   margin: 0;
+  flex: 1;
 }
 
 .remove-button {
@@ -168,4 +168,18 @@
 
 .provider-info {
   margin-bottom: 20px;
+}
+
+.provider-logo {
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
+  object-fit: contain;
+}
+
+.provider-logo-large {
+  width: 40px;
+  height: 40px;
+  margin-right: 12px;
+  object-fit: contain;
 } 

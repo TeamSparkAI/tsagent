@@ -5,7 +5,25 @@ import { LLMType, LLMProviderInfo, ILLMModel } from '../../shared/llm';
 import { AboutView } from './AboutView';
 import log from 'electron-log';
 
+// Import provider logos
+import TestLogo from '../assets/frosty.png';
+import OllamaLogo from '../assets/ollama.png';
+import OpenAILogo from '../assets/openai.png';
+import GeminiLogo from '../assets/gemini.png';
+import AnthropicLogo from '../assets/anthropic.png';
+import BedrockLogo from '../assets/bedrock.png';
+
 import './ProvidersTab.css';
+
+// Map each provider to its logo
+const providerLogos: Record<LLMType, any> = {
+  [LLMType.Test]: TestLogo,
+  [LLMType.Ollama]: OllamaLogo,
+  [LLMType.OpenAI]: OpenAILogo,
+  [LLMType.Gemini]: GeminiLogo,
+  [LLMType.Claude]: AnthropicLogo,
+  [LLMType.Bedrock]: BedrockLogo,
+};
 
 interface Provider {
   id: string;
@@ -125,6 +143,11 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                     gap: '8px'
                   }}
                 >
+                  <img 
+                    src={providerLogos[provider.id as LLMType]} 
+                    alt={provider.info.name}
+                    className="provider-logo"
+                  />
                   {provider.info.name}
                 </div>
               ))}
@@ -160,6 +183,11 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
               return (
                 <>
                   <div className="provider-header">
+                    <img 
+                      src={providerLogos[provider.id as LLMType]} 
+                      alt={provider.info.name}
+                      className="provider-logo-large"
+                    />
                     <h3>{provider.info.name}</h3>
                     <button 
                       className="remove-button"
