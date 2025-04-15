@@ -915,12 +915,15 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                             setSelectedTool(null);
                         }}
                         style={{
-                            padding: '8px 16px',
+                            padding: '10px',
                             cursor: 'pointer',
-                            backgroundColor: tabState.mode === 'about' ? '#e0e0e0' : 'transparent',
+                            backgroundColor: tabState.mode === 'about' && !selectedServer ? '#e6f7ff' : 'transparent',
+                            borderLeft: tabState.mode === 'about' && !selectedServer ? '3px solid #1890ff' : 'none',
+                            borderRadius: '4px',
+                            marginBottom: '5px',
                             display: 'flex',
                             alignItems: 'center',
-                            gap: '8px',
+                            gap: '8px'
                         }}
                     >
                         <span style={{ color: '#666' }}>ℹ️</span>
@@ -937,15 +940,14 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                 }
                             }}
                             style={{
-                                padding: '8px 16px',
-                                cursor: showEditModal ? 'not-allowed' : 'pointer',
-                                backgroundColor: selectedServer?.name === server.name ? '#e0e0e0' : 'transparent',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                filter: showEditModal ? 'grayscale(0.5)' : 'none',
-                                pointerEvents: showEditModal ? 'none' : 'auto'
+                                padding: '10px',
+                                cursor: 'pointer',
+                                backgroundColor: selectedServer?.name === server.name ? '#e6f7ff' : 'transparent',
+                                borderLeft: selectedServer?.name === server.name ? '3px solid #1890ff' : 'none',
+                                borderRadius: '4px',
+                                marginBottom: '5px'
                             }}
+
                         >
                             <span>{server.name}</span>
                             <span style={{ color: '#666', fontSize: '0.9em' }}>({server.config.type ?? "stdio"})</span>
@@ -1003,15 +1005,13 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                         <div style={{ width: '50%', borderRight: '1px solid #ccc', overflow: 'auto' }}>
                             <div style={{ padding: '20px', paddingBottom: '40px' }}>
                                 <div 
-                                    style={{ 
-                                        display: 'flex', 
-                                        justifyContent: 'space-between', 
-                                        alignItems: 'center', 
-                                        marginBottom: '20px',
+                                    style={{
+                                        padding: '10px',
                                         cursor: 'pointer',
-                                        padding: '8px',
+                                        backgroundColor: selectedServer && !selectedTool ? '#e6f7ff' : 'transparent',
+                                        borderLeft: selectedServer && !selectedTool ? '3px solid #1890ff' : 'none',
                                         borderRadius: '4px',
-                                        backgroundColor: selectedServer && !selectedTool ? '#e0e0e0' : 'transparent'
+                                        marginBottom: '5px'
                                     }}
                                     onClick={() => setSelectedTool(null)}
                                 >
@@ -1020,16 +1020,16 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                 <div>
                                     {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => (
                                         <div 
-                                            key={tool.name} 
-                                            className="tool-item" 
-                                            style={{ 
-                                                marginBottom: '10px',
+                                            key={tool.name}
+                                            onClick={() => setSelectedTool(tool)}
+                                            style={{
                                                 padding: '10px',
                                                 cursor: 'pointer',
-                                                backgroundColor: selectedTool?.name === tool.name ? '#e0e0e0' : 'transparent',
-                                                borderRadius: '4px'
+                                                backgroundColor: selectedTool?.name === tool.name ? '#e6f7ff' : 'transparent',
+                                                borderLeft: selectedTool?.name === tool.name ? '3px solid #1890ff' : 'none',
+                                                borderRadius: '4px',
+                                                marginBottom: '5px'
                                             }}
-                                            onClick={() => setSelectedTool(tool)}
                                         >
                                             <h3 style={{ margin: 0 }}>{tool.name}</h3>
                                             <p style={{ margin: '5px 0 0 0', color: '#666' }}>{tool.description || 'No description'}</p>
@@ -1041,177 +1041,175 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
                         {/* Right side - Tool Details */}
                         <div style={{ width: '50%', overflow: 'auto' }}>
-                            {selectedServer ? (
-                                selectedTool ? (
-                                    <div style={{ padding: '20px', paddingBottom: '40px' }}>
-                                        <h2 style={{ margin: 0, marginBottom: '20px' }}>{selectedTool.name}</h2>
-                                        <p style={{ color: '#666', marginBottom: '20px' }}>{selectedTool.description || 'No description'}</p>
-                                        <div style={{ marginTop: '20px' }}>
-                                            <h3 style={{ marginBottom: '10px' }}>Run Tool:</h3>
-                                            {selectedTool.inputSchema?.properties && Object.entries(selectedTool.inputSchema.properties).map(([name, param]: [string, any]) => (
-                                                <div key={name} style={{ marginBottom: '10px' }}>
-                                                    <label style={{ display: 'block', marginBottom: '4px' }}>
-                                                        {name} ({param.type || 'unknown'})
-                                                    </label>
-                                                    {param.type === 'array' ? (
-                                                        renderArrayInput(name, param, testParams[name] as any[] || [])
-                                                    ) : param.type === 'boolean' ? (
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={testParams[name] as boolean || false}
-                                                                onChange={(e) => handleParamChange(name, e.target.checked)}
-                                                                style={{ margin: 0 }}
-                                                            />
-                                                            <span style={{ color: '#666' }}>{param.description || 'Enable this option'}</span>
-                                                        </div>
-                                                    ) : (
+                            {selectedTool ? (
+                                <div style={{ padding: '20px', paddingBottom: '40px' }}>
+                                    <h2 style={{ margin: 0, marginBottom: '20px' }}>{selectedTool.name}</h2>
+                                    <p style={{ color: '#666', marginBottom: '20px' }}>{selectedTool.description || 'No description'}</p>
+                                    <div style={{ marginTop: '20px' }}>
+                                        <h3 style={{ marginBottom: '10px' }}>Run Tool:</h3>
+                                        {selectedTool.inputSchema?.properties && Object.entries(selectedTool.inputSchema.properties).map(([name, param]: [string, any]) => (
+                                            <div key={name} style={{ marginBottom: '10px' }}>
+                                                <label style={{ display: 'block', marginBottom: '4px' }}>
+                                                    {name} ({param.type || 'unknown'})
+                                                </label>
+                                                {param.type === 'array' ? (
+                                                    renderArrayInput(name, param, testParams[name] as any[] || [])
+                                                ) : param.type === 'boolean' ? (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                                         <input
-                                                            type="text"
-                                                            value={testParams[name] as string || ''}
-                                                            onChange={(e) => handleParamChange(name, e.target.value)}
-                                                            style={{ width: '100%', padding: '4px 8px' }}
+                                                            type="checkbox"
+                                                            checked={testParams[name] as boolean || false}
+                                                            onChange={(e) => handleParamChange(name, e.target.checked)}
+                                                            style={{ margin: 0 }}
                                                         />
-                                                    )}
-                                                </div>
-                                            ))}
-                                            <button 
-                                                onClick={handleTestTool}
-                                                disabled={isTesting}
-                                                style={{ marginTop: '10px' }}
-                                            >
-                                                {isTesting ? 'Running...' : 'Run'}
-                                            </button>
-
-                                            {testResults && (
-                                                <div style={{ marginTop: '20px', border: '1px solid #ccc', borderRadius: '4px', padding: '10px' }}>
-                                                    <h3 style={{ margin: '0 0 10px 0' }}>Test Results:</h3>
-                                                    <div style={{ marginBottom: '10px' }}>
-                                                        <strong>Elapsed Time:</strong> {testResults.elapsedTime.toFixed(3)}ms
+                                                        <span style={{ color: '#666' }}>{param.description || 'Enable this option'}</span>
                                                     </div>
-                                                    <div style={{ marginBottom: '10px' }}>
-                                                        <strong>Arguments:</strong>
-                                                        <pre style={{ 
-                                                            margin: '5px 0 0 0',
-                                                            padding: '8px',
-                                                            backgroundColor: '#1e1e1e',
-                                                            color: '#fff',
-                                                            borderRadius: '4px',
-                                                            overflow: 'auto',
-                                                            fontFamily: 'monospace',
-                                                            whiteSpace: 'pre-wrap'
-                                                        }}>
-                                                            {JSON.stringify(testResults.args, null, 2)}
-                                                        </pre>
-                                                    </div>
-                                                    <div>
-                                                        <strong>Result:</strong>
-                                                        <pre style={{ 
-                                                            margin: '5px 0 0 0',
-                                                            padding: '8px',
-                                                            backgroundColor: '#1e1e1e',
-                                                            color: '#fff',
-                                                            borderRadius: '4px',
-                                                            overflow: 'auto',
-                                                            fontFamily: 'monospace',
-                                                            whiteSpace: 'pre-wrap'
-                                                        }}>
-                                                            {typeof testResults.result === 'string' ? testResults.result.replace(/\\n/g, '\n') : JSON.stringify(testResults.result, null, 2)}
-                                                        </pre>
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div style={{ padding: '20px', paddingBottom: '40px' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
-                                                <span style={{ 
-                                                    padding: '4px 8px', 
-                                                    backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
-                                                    color: 'white',
-                                                    borderRadius: '4px',
-                                                    fontSize: '14px'
-                                                }}>
-                                                    {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
-                                                </span>
-                                            </div>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                {serverInfo[selectedServer.name]?.isConnected && (
-                                                    <button 
-                                                        onClick={async () => {
-                                                            try {
-                                                                const result = await window.api.pingServer(selectedServer.name);
-                                                                alert(`Ping successful! Response time: ${result.elapsedTimeMs.toFixed(3)}ms`);
-                                                            } catch (err) {
-                                                                alert('Ping failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
-                                                            }
-                                                        }}
-                                                        style={{ padding: '4px 8px' }}
-                                                    >
-                                                        Ping
-                                                    </button>
+                                                ) : (
+                                                    <input
+                                                        type="text"
+                                                        value={testParams[name] as string || ''}
+                                                        onChange={(e) => handleParamChange(name, e.target.value)}
+                                                        style={{ width: '100%', padding: '4px 8px' }}
+                                                    />
                                                 )}
+                                            </div>
+                                        ))}
+                                        <button 
+                                            onClick={handleTestTool}
+                                            disabled={isTesting}
+                                            style={{ marginTop: '10px' }}
+                                        >
+                                            {isTesting ? 'Running...' : 'Run'}
+                                        </button>
+
+                                        {testResults && (
+                                            <div style={{ marginTop: '20px', border: '1px solid #ccc', borderRadius: '4px', padding: '10px' }}>
+                                                <h3 style={{ margin: '0 0 10px 0' }}>Test Results:</h3>
+                                                <div style={{ marginBottom: '10px' }}>
+                                                    <strong>Elapsed Time:</strong> {testResults.elapsedTime.toFixed(3)}ms
+                                                </div>
+                                                <div style={{ marginBottom: '10px' }}>
+                                                    <strong>Arguments:</strong>
+                                                    <pre style={{ 
+                                                        margin: '5px 0 0 0',
+                                                        padding: '8px',
+                                                        backgroundColor: '#1e1e1e',
+                                                        color: '#fff',
+                                                        borderRadius: '4px',
+                                                        overflow: 'auto',
+                                                        fontFamily: 'monospace',
+                                                        whiteSpace: 'pre-wrap'
+                                                    }}>
+                                                        {JSON.stringify(testResults.args, null, 2)}
+                                                    </pre>
+                                                </div>
+                                                <div>
+                                                    <strong>Result:</strong>
+                                                    <pre style={{ 
+                                                        margin: '5px 0 0 0',
+                                                        padding: '8px',
+                                                        backgroundColor: '#1e1e1e',
+                                                        color: '#fff',
+                                                        borderRadius: '4px',
+                                                        overflow: 'auto',
+                                                        fontFamily: 'monospace',
+                                                        whiteSpace: 'pre-wrap'
+                                                    }}>
+                                                        {typeof testResults.result === 'string' ? testResults.result.replace(/\\n/g, '\n') : JSON.stringify(testResults.result, null, 2)}
+                                                    </pre>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : selectedServer ? (
+                                <div style={{ padding: '20px', paddingBottom: '40px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                            <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
+                                            <span style={{ 
+                                                padding: '4px 8px', 
+                                                backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
+                                                color: 'white',
+                                                borderRadius: '4px',
+                                                fontSize: '14px'
+                                            }}>
+                                                {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
+                                            </span>
+                                        </div>
+                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                            {serverInfo[selectedServer.name]?.isConnected && (
                                                 <button 
-                                                    onClick={() => handleEditServer(selectedServer)}
+                                                    onClick={async () => {
+                                                        try {
+                                                            const result = await window.api.pingServer(selectedServer.name);
+                                                            alert(`Ping successful! Response time: ${result.elapsedTimeMs.toFixed(3)}ms`);
+                                                        } catch (err) {
+                                                            alert('Ping failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
+                                                        }
+                                                    }}
                                                     style={{ padding: '4px 8px' }}
                                                 >
-                                                    Edit
+                                                    Ping
                                                 </button>
-                                                <button 
-                                                    onClick={() => handleDeleteServer(selectedServer)}
-                                                    style={{ 
-                                                        padding: '4px 8px', 
-                                                        backgroundColor: '#ff4444', 
-                                                        color: 'white',
-                                                        border: 'none',
-                                                        borderRadius: '4px',
-                                                        cursor: 'pointer'
-                                                    }}
-                                                >
-                                                    Delete
-                                                </button>
-                                            </div>
+                                            )}
+                                            <button 
+                                                onClick={() => handleEditServer(selectedServer)}
+                                                style={{ padding: '4px 8px' }}
+                                            >
+                                                Edit
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteServer(selectedServer)}
+                                                style={{ 
+                                                    padding: '4px 8px', 
+                                                    backgroundColor: '#ff4444', 
+                                                    color: 'white',
+                                                    border: 'none',
+                                                    borderRadius: '4px',
+                                                    cursor: 'pointer'
+                                                }}
+                                            >
+                                                Delete
+                                            </button>
                                         </div>
+                                    </div>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <h3 style={{ margin: '0 0 10px 0' }}>Configuration:</h3>
+                                        <pre style={{ 
+                                            margin: 0,
+                                            padding: '8px',
+                                            backgroundColor: '#1e1e1e',
+                                            color: '#fff',
+                                            borderRadius: '4px',
+                                            overflow: 'auto',
+                                            fontFamily: 'monospace',
+                                            whiteSpace: 'pre-wrap'
+                                        }}>
+                                            {JSON.stringify(selectedServer.config, null, 2)}
+                                        </pre>
+                                    </div>
+                                    {serverInfo[selectedServer.name]?.errorLog && serverInfo[selectedServer.name].errorLog.length > 0 && (
                                         <div style={{ marginBottom: '20px' }}>
-                                            <h3 style={{ margin: '0 0 10px 0' }}>Configuration:</h3>
+                                            <h3 style={{ margin: '0 0 10px 0' }}>Server Log:</h3>
                                             <pre style={{ 
                                                 margin: 0,
                                                 padding: '8px',
                                                 backgroundColor: '#1e1e1e',
-                                                color: '#fff',
+                                                color: '#ff4444',
                                                 borderRadius: '4px',
                                                 overflow: 'auto',
                                                 fontFamily: 'monospace',
                                                 whiteSpace: 'pre-wrap'
                                             }}>
-                                                {JSON.stringify(selectedServer.config, null, 2)}
+                                                {serverInfo[selectedServer.name].errorLog.join('\n')}
                                             </pre>
                                         </div>
-                                        {serverInfo[selectedServer.name]?.errorLog && serverInfo[selectedServer.name].errorLog.length > 0 && (
-                                            <div style={{ marginBottom: '20px' }}>
-                                                <h3 style={{ margin: '0 0 10px 0' }}>Server Log:</h3>
-                                                <pre style={{ 
-                                                    margin: 0,
-                                                    padding: '8px',
-                                                    backgroundColor: '#1e1e1e',
-                                                    color: '#ff4444',
-                                                    borderRadius: '4px',
-                                                    overflow: 'auto',
-                                                    fontFamily: 'monospace',
-                                                    whiteSpace: 'pre-wrap'
-                                                }}>
-                                                    {serverInfo[selectedServer.name].errorLog.join('\n')}
-                                                </pre>
-                                            </div>
-                                        )}
-                                        <div style={{ color: '#666', textAlign: 'center', padding: '40px' }}>
-                                            Select a tool from the list on the left to view its details and test it.
-                                        </div>
+                                    )}
+                                    <div style={{ color: '#666', textAlign: 'center', padding: '40px' }}>
+                                        Select a tool from the list on the left to view its details and test it.
                                     </div>
-                                )
+                                </div>
                             ) : (
                                 <div style={{ padding: '20px', color: '#666' }}>
                                     Select a server to view or edit it, or click Add Server to create a new one.

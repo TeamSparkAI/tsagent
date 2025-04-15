@@ -4,6 +4,7 @@ import { PromptTab } from './PromptTab';
 import { ChatTab } from './ChatTab';
 import { ReferencesTab } from './ReferencesTab';
 import { WorkspaceTab } from './WorkspaceTab';
+import { ProvidersTab } from './ProvidersTab';
 
 interface Tab {
   label: string;
@@ -19,6 +20,11 @@ export const AppLayout: React.FC = () => {
       id: 'workspace',
       label: 'Workspace',
       content: <WorkspaceTab id="workspace" activeTabId={activeTabId} name="Workspace" type="workspace" />
+    },
+    {
+      id: 'providers',
+      label: 'Providers',
+      content: <ProvidersTab id="providers" activeTabId={activeTabId} name="Providers" type="providers" />
     },
     {
       id: 'chat',

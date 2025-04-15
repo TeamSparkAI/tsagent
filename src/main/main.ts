@@ -990,6 +990,51 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return workspace.llmFactory.getProviderInfo();
   });
 
+  ipcMain.handle('llm:get-installed-providers', (event) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace) {
+      log.warn(`Workspace not found for window: ${windowId}`);
+      return [];
+    }
+    return workspace.getInstalledProviders();
+  });
+
+  ipcMain.handle('llm:add-provider', async (event, provider: LLMType) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace) {
+      log.warn(`Workspace not found for window: ${windowId}`);
+      return false;
+    }
+    try {
+      await workspace.addProvider(provider);
+      return true;
+    } catch (error) {
+      log.error(`Error adding provider ${provider}:`, error);
+      return false;
+    }
+  });
+
+  ipcMain.handle('llm:remove-provider', async (event, provider: LLMType) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace) {
+      log.warn(`Workspace not found for window: ${windowId}`);
+      return false;
+    }
+    try {
+      await workspace.removeProvider(provider);
+      return true;
+    } catch (error) {
+      log.error(`Error removing provider ${provider}:`, error);
+      return false;
+    }
+  });
+
   ipcMain.handle("llm:getModels", async (_event, provider: LLMType) => {
     const requestKey = `${provider}`;
     const now = Date.now();

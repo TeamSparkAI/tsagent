@@ -22,6 +22,9 @@ export interface API {
   // LLM Provider methods for model picker
   getProviderInfo: () => Promise<Record<string, LLMProviderInfo>>;
   getModelsForProvider: (provider: string) => Promise<ILLMModel[]>;
+  getInstalledProviders: () => Promise<string[]>;
+  addProvider: (provider: string) => Promise<boolean>;
+  removeProvider: (provider: string) => Promise<boolean>;
 
   // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;

@@ -211,6 +211,33 @@ export class WorkspaceManager {
     await this.saveConfig();
   }
 
+  isProviderInstalled(provider: string): boolean {
+    return this._workspaceData?.providers?.[provider] !== undefined;
+  }
+
+  async addProvider(provider: string): Promise<void> {
+    if (!this._workspaceData) {
+      this._workspaceData = { providers: {} };
+    }
+    this._workspaceData.providers[provider] = {};
+    await this.saveConfig();
+  }
+
+  async removeProvider(provider: string): Promise<void> {
+    if (!this._workspaceData) {
+      this._workspaceData = { providers: {} };
+    }
+    delete this._workspaceData.providers[provider];
+    await this.saveConfig();
+  }
+
+  getInstalledProviders(): string[] {
+    if (!this._workspaceData || !this._workspaceData.providers) {
+      return [];
+    }
+    return Object.keys(this._workspaceData.providers);
+  }
+
   getProviderSettingsValue(provider: string, key: string): string | null {
     if (!this._configLoaded) {
       throw new Error('Config not loaded. Call loadConfig() first.');

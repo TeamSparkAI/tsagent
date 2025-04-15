@@ -365,12 +365,15 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                                     setSelectedReference(null);
                                 }}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '10px',
                                     cursor: 'pointer',
+                                    backgroundColor: tabState.mode === 'about' && !selectedReference ? '#e6f7ff' : 'transparent',
+                                    borderLeft: tabState.mode === 'about' && !selectedReference ? '3px solid #1890ff' : 'none',
+                                    borderRadius: '4px',
+                                    marginBottom: '5px',
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '8px',
-                                    backgroundColor: tabState.mode === 'about' ? '#e0e0e0' : 'transparent',
+                                    gap: '8px'
                                 }}
                             >
                                 <span style={{ color: '#666' }}>ℹ️</span>
@@ -387,9 +390,12 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                                         }
                                     }}
                                     style={{
-                                        padding: '8px 16px',
+                                        padding: '10px',
                                         cursor: isEditing ? 'not-allowed' : 'pointer',
-                                        backgroundColor: selectedReference?.name === reference.name ? '#e0e0e0' : 'transparent',
+                                        backgroundColor: selectedReference?.name === reference.name ? '#e6f7ff' : 'transparent',
+                                        borderLeft: selectedReference?.name === reference.name ? '3px solid #1890ff' : 'none',
+                                        borderRadius: '4px',
+                                        marginBottom: '5px',
                                         opacity: reference.enabled ? 1 : 0.5,
                                         display: 'flex',
                                         alignItems: 'center',

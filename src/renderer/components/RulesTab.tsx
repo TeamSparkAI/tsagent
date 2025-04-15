@@ -364,12 +364,15 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                                     setSelectedRule(null);
                                 }}
                                 style={{
-                                    padding: '8px 16px',
+                                    padding: '10px',
                                     cursor: 'pointer',
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: '8px',
-                                    backgroundColor: tabState.mode === 'about' ? '#e0e0e0' : 'transparent',
+                                    backgroundColor: tabState.mode === 'about' ? '#e6f7ff' : 'transparent',
+                                    borderLeft: tabState.mode === 'about' ? '3px solid #1890ff' : 'none',
+                                    borderRadius: '4px',
+                                    marginBottom: '5px'
                                 }}
                             >
                                 <span style={{ color: '#666' }}>ℹ️</span>
@@ -388,7 +391,9 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                                     style={{
                                         padding: '8px 16px',
                                         cursor: isEditing ? 'not-allowed' : 'pointer',
-                                        backgroundColor: selectedRule?.name === rule.name ? '#e0e0e0' : 'transparent',
+                                        backgroundColor: selectedRule?.name === rule.name ? '#e6f7ff' : 'transparent',
+                                        borderLeft: selectedRule?.name === rule.name ? '3px solid #1890ff' : 'none',
+                                        borderRadius: '4px',
                                         opacity: rule.enabled ? 1 : 0.5,
                                         display: 'flex',
                                         alignItems: 'center',

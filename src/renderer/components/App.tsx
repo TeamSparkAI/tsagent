@@ -6,6 +6,7 @@ import { PromptTab } from './PromptTab';
 import { RulesTab } from './RulesTab';
 import { ReferencesTab } from './ReferencesTab';
 import { WorkspaceTab } from './WorkspaceTab';
+import { ProvidersTab } from './ProvidersTab';
 import { v4 as uuidv4 } from 'uuid';
 import log from 'electron-log';
 
@@ -46,6 +47,11 @@ export const App: React.FC = () => {
             id: uuidv4(),
             type: 'workspace',
             title: 'Workspace'
+          },
+          {
+            id: uuidv4(),
+            type: 'providers',
+            title: 'Providers'
           },
           {
             id: uuidv4(),
@@ -153,6 +159,8 @@ export const App: React.FC = () => {
     switch (tab.type) {
       case 'workspace':
         return <WorkspaceTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+      case 'providers':
+        return <ProvidersTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'chat':
         return <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'prompt':
