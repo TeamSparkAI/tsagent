@@ -322,6 +322,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       throw new Error('ChatSessionManager not initialized');
     }
     try {
+      if (!workspace.chatSessionManager.hasSession(tabId)) {
+        log.info(`No session exists for tab ${tabId}, returning null`);
+        return null;
+      }
       return workspace.chatSessionManager.getSessionState(tabId);
     } catch (error) {
       log.error('Error getting chat state:', error);

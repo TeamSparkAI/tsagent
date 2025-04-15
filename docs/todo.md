@@ -187,7 +187,10 @@ Top-level menus?
 
 CLI
 - Register CLI on first run (like Ollama) - tspark
-- Workspace support (command line params)
+- Workspace support
+  - Command line params
+  - Re-open last workspace regardless of cwd?
+  - List recent workspaces, select workspace?
 - Model selector
 
 Max turns config (UX or just config file setting)
@@ -203,52 +206,12 @@ Add new provider (from list, available-installed)
 Configure/test provider
 - Provider indicates what config items it needs (name, description of each)
 
-## tspark.json
+## Workspace issues
 
-Workspaces -> workspaces.json (in app files directory) - list of workspaces
+Move prompt.md to prompts/system.md?
 
-Workspace -> tspark.json - in root of workspace (currently in /config?)
+Move all workspace management into WorkspacesManager (don't need two global maps)
 
-Integrate workspace (metadata), current config (not providers), and MCP config, and add app settings.
-
-WorkspaceManager ()
-
-{
-  metadata: {
-    name: "xxxx",
-    description: "xxxxxx",
-    created: "2025-04-07T17:32:29.081Z",
-    lastAccessed: "2025-04-07T17:32:29.081Z",
-    version: "1.0.0"
-  },
-  settings: {
-    maxTurns: 10
-  }
-  providers: {
-    anthropic: {
-      ANTHROPIC_API_KEY: "xxxxx"
-    },
-    gemini: {
-      GEMINI_API_KEY: "xxxxx"
-    },
-    openai: {
-      OPENAI_API_KEY: "xxxxx"
-    },
-    bedrock: {
-      BEDROCK_ACCESS_KEY_ID: "xxxxx",
-      BEDROCK_SECRET_ACCESS_KEY: "xxxxx"
-    },
-    ollama: {
-      OLLAMA_HOST: "xxxxx" (optional)
-    }
-  },
-  mcpServers: {
-    server: {
-      command: "xxxx"
-    }
-  }
-}
-
-/prompts/system.md (GFM)
-/references/*.mdt (YAML frontmatter + GFM text)
-/rules/*.mdt (YAML frontmatter + GFM text)
+Currently, all tabs are remounted (in App.tsx) on workspace:switch
+- This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch
+- We could try to be more clever, because all tabs other than the Chat tabs don't actually need to detach/attach (they can update themselves on workspace:switch)

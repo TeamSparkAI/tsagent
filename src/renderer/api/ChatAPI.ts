@@ -63,6 +63,9 @@ export class ChatAPI {
   private async initModel() {
     try {
       const state = await window.api.getChatState(this.tabId);
+      if (!state) {
+        throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
+      }
       
       // Update local state with session state from the server
       this.currentModel = state.currentModelProvider;
@@ -98,6 +101,9 @@ export class ChatAPI {
       
       // Get the full updated state to ensure we have all messages including system messages
       const state = await window.api.getChatState(this.tabId);
+      if (!state) {
+        throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
+      }
       this.messages = state.messages.map(this.convertMessageToChatMessage);
       
       // Return the last turn's message if available
@@ -228,6 +234,9 @@ export class ChatAPI {
     // Return the references from the latest state
     try {
       const state = await window.api.getChatState(this.tabId);
+      if (!state) {
+        throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
+      }
       return state.references;
     } catch (error) {
       log.error('Error getting active references:', error);
@@ -240,6 +249,9 @@ export class ChatAPI {
     // Return the rules from the latest state
     try {
       const state = await window.api.getChatState(this.tabId);
+      if (!state) {
+        throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
+      }
       return state.rules;
     } catch (error) {
       log.error('Error getting active rules:', error);

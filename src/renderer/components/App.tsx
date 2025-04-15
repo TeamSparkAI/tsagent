@@ -103,35 +103,26 @@ export const App: React.FC = () => {
     checkWorkspace();
     
     // Listen for workspace switched event from the API
-    const handleWorkspaceSwitched = (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {
+    const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {
       log.info('[APP] Workspace switched event received from API with data:', data);
       
-      // Get the current window ID
-      window.api.getCurrentWindowId().then(id => {
-        log.info(`[APP] Current window ID: ${id}, target window ID: ${data.targetWindowId}`);
+      const currentWindowId = await window.api.getCurrentWindowId();
+      log.info(`[APP] Current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
         
-        // Only update the UI if this event is targeted at the current window
-        if (id === data.targetWindowId) {
-          log.info(`[APP] Event is targeted at this window, updating tabs`);
-          checkWorkspace();
-        } else {
-          log.info(`[APP] Event is not targeted at this window, ignoring`);
-          // We don't need to do anything for non-targeted windows
-        }
-      }).catch(error => {
-        log.error(`[APP] Error getting current window ID:`, error);
-      });
+      // Only update the UI if this event is targeted at the current window
+      if (currentWindowId === data.targetWindowId) {
+        log.info(`[APP] Event is targeted at this window, updating tabs`);
+        checkWorkspace();
+      }
     };
     
     log.info('[APP] Setting up workspace:switched event listener');
     const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
-    log.info('[APP] Workspace:switched event listener set up');
     
     return () => {
-      log.info('[APP] Cleaning up workspace:switched event listener');
       if (listener) {
+        log.info('[APP] Cleaning up workspace:switched event listener');
         window.api.offWorkspaceSwitched(listener);
-        log.info('[APP] Successfully removed workspace:switched listener');
       }
     };
   }, []); // Empty dependency array to avoid circular dependency

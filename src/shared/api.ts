@@ -9,7 +9,7 @@ export interface API {
   // Chat session management
   createChatTab: (tabId: string) => Promise<ChatSessionResponse>;
   closeChatTab: (tabId: string) => Promise<ChatSessionResponse>;
-  getChatState: (tabId: string) => Promise<ChatState>;
+  getChatState: (tabId: string) => Promise<ChatState | null>;
   sendMessage: (tabId: string, message: string) => Promise<MessageUpdate>;
   switchModel: (tabId: string, modelType: string, modelId?: string) => Promise<ChatSessionResponse>;
 

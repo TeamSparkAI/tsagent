@@ -74,18 +74,21 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     // This happens when the tab is first selected
     if (id === activeTabId && !chatApiRef.current) {
       log.info(`Tab ${id} is active, initializing chat API`);
-      
-      // Then initialize the ChatAPI
-      chatApiRef.current = new ChatAPI(id);
-      
+            
       // Load the chat state
       const initModel = async () => {
         try {
           // First create the chat session with initial welcome message
           await window.api.createChatTab(id);
-          
+      
+          // Then initialize the ChatAPI
+          chatApiRef.current = new ChatAPI(id);
           if (chatApiRef.current) {
             const state = await window.api.getChatState(id);
+            if (!state) {
+              log.error(`[CHAT TAB] No chat state found for tab ${id}`);
+              return;
+            }
             
             // Get models to find model name if available
             let modelName = 'Default';
@@ -174,12 +177,21 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   // Clean up the chat session when the component unmounts
   useEffect(() => {
     return () => {
-      // Clean up the chat session when the tab is closed
-      if (id) {
-        window.api.closeChatTab(id).catch(error => {
-          log.error('Error closing chat tab:', error);
-        });
-      }
+      // Clean up the chat session (if any) when the tab is closed
+      (async () => {
+        if (id) {
+          try {
+            const chatState = await window.api.getChatState(id);
+            if (chatState) {
+              await window.api.closeChatTab(id);
+            } else {
+              log.info(`[CHAT TAB] No chat state found for tab ${id}, skipping cleanup`);
+            }
+          } catch (error) {
+            log.error('Error closing chat tab:', error);
+          }
+        }
+      })();
     };
   }, [id]);
 
@@ -212,8 +224,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     
     return () => {
       if (listener) {
-        window.api.offWorkspaceSwitched(listener);
         log.info('[CHAT TAB] Removed workspace:switched listener');
+        window.api.offWorkspaceSwitched(listener);
       }
     };
   }, [id]);
