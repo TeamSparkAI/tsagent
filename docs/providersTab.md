@@ -13,3 +13,18 @@ A provider will be considered "installed" if the workspaceManager isProviderInst
 The list of providers that can be added will be the total provider list minus any installed providers.
 
 The Add Provider should allow the user to select from a list of available providers, showing provider information as in the ModelPickerPanel (image, name, url, required config elements, etc)
+
+
+Provider currently exposes:
+
+      requiresApiKey: true,
+      configKeys: ['BEDROCK_ACCESS_KEY_ID', 'BEDROCK_SECRET_ACCESS_KEY']
+
+configKeys: {
+    caption: "Bedrock API access key",
+    hint: "xxxxxx"
+    default: "localhost:xxxx",
+    key: "BEDROCK_API_ACCESS_KEY",
+    secret: true,
+    required: true
+}

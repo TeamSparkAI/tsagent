@@ -31,7 +31,15 @@ export class OpenAILLM implements ILLM {
       description: "OpenAI models including GPT-3.5, GPT-4, and other advanced language models",
       website: "https://openai.com",
       requiresApiKey: true,
-      configKeys: ['OPENAI_API_KEY']
+      configKeys: ['OPENAI_API_KEY'],
+      configValues: [
+        {
+          caption: "OpenAI API key",
+          key: "OPENAI_API_KEY",
+          secret: true,
+          required: true,
+        }
+      ]
     };
   }
 

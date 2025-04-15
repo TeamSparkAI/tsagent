@@ -20,7 +20,21 @@ export class BedrockLLM implements ILLM {
       description: "Amazon Bedrock is a fully managed service that offers a choice of high-performing foundation models from leading AI companies.",
       website: "https://aws.amazon.com/bedrock/",
       requiresApiKey: true,
-      configKeys: ['BEDROCK_ACCESS_KEY_ID', 'BEDROCK_SECRET_ACCESS_KEY']
+      configKeys: ['BEDROCK_ACCESS_KEY_ID', 'BEDROCK_SECRET_ACCESS_KEY'],
+      configValues: [
+        {
+          caption: "Bedrock API access key ID",
+          key: "BEDROCK_ACCESS_KEY_ID",
+          secret: false,
+          required: true,
+        },
+        {
+          caption: "Bedrock API access key secret",
+          key: "BEDROCK_SECRET_ACCESS_KEY",
+          secret: true,
+          required: true,
+        }
+      ]
     };
   }
 

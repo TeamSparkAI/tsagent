@@ -10,7 +10,8 @@ export class TestLLM implements ILLM {
       name: "Test LLM",
       description: "A simple mock LLM implementation for testing purposes",
       requiresApiKey: false,
-      configKeys: []
+      configKeys: [],
+      configValues: []
     };
   }
   

@@ -1,4 +1,5 @@
 import { ChatMessage } from '../../shared/ChatSession';
+import { LLMProviderInfo } from '../../shared/llm';
 import { ModelReply } from '../../shared/ModelReply';
 
 export enum LLMType {
@@ -8,15 +9,6 @@ export enum LLMType {
   Gemini = 'gemini',
   Ollama = "ollama",
   Bedrock = "bedrock"
-}
-
-// Provider information
-export interface LLMProviderInfo {
-  name: string;
-  description: string;
-  website?: string;
-  requiresApiKey: boolean;
-  configKeys?: string[];
 }
 
 // Interface for static methods

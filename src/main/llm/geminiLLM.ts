@@ -92,7 +92,15 @@ export class GeminiLLM implements ILLM {
       description: "Google's Gemini models are multimodal AI systems that can understand and combine different types of information",
       website: "https://deepmind.google/technologies/gemini/",
       requiresApiKey: true,
-      configKeys: ['GOOGLE_API_KEY']
+      configKeys: ['GOOGLE_API_KEY'],
+      configValues: [
+        {
+          caption: "Google API key",
+          key: "GOOGLE_API_KEY",
+          secret: true,
+          required: true,
+        }
+      ]
     };
   }
 

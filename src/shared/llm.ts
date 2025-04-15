@@ -10,13 +10,22 @@ export enum LLMType {
   Bedrock = "bedrock"
 }
 
-// Provider information
+export interface ILLMConfigValue {
+  caption?: string;
+  hint?: string;
+  key: string;
+  secret?: boolean;
+  required?: boolean;
+  default?: string;
+}
+
 export interface LLMProviderInfo {
   name: string;
   description: string;
   website?: string;
   requiresApiKey: boolean;
   configKeys?: string[];
+  configValues?: ILLMConfigValue[];
 }
 
 // Interface for static methods

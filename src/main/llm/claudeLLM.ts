@@ -18,7 +18,15 @@ export class ClaudeLLM implements ILLM {
       description: "Claude is a family of AI assistants created by Anthropic to be helpful, harmless, and honest",
       website: "https://www.anthropic.com/claude",
       requiresApiKey: true,
-      configKeys: ['ANTHROPIC_API_KEY']
+      configKeys: ['ANTHROPIC_API_KEY'],
+      configValues: [
+        {
+          caption: "Anthropic API key",
+          key: "ANTHROPIC_API_KEY",
+          secret: true,
+          required: true,
+        }
+      ]
     };
   }
   
