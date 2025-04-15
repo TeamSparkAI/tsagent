@@ -43,6 +43,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
   const [error, setError] = useState<string | null>(null);
   const [selectedProviderType, setSelectedProviderType] = useState<LLMType | null>(null);
   const [providerInfo, setProviderInfo] = useState<Record<string, LLMProviderInfo>>({});
+  const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     const loadProviderInfo = async () => {
@@ -99,6 +100,13 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
       });
       setConfig(initialConfig);
     }
+  };
+
+  const toggleFieldVisibility = (key: string) => {
+    setVisibleFields(prev => ({
+      ...prev,
+      [key]: !prev[key]
+    }));
   };
 
   return (
@@ -166,13 +174,29 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
               {provider.info.configKeys.map(key => (
                 <React.Fragment key={key}>
                   <label style={{ fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '8px' }}>{key}:</label>
-                  <input 
-                    type="password" 
-                    value={config[key] || ''}
-                    onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                    style={{ width: '100%', padding: '4px 8px' }}
-                    placeholder={`Enter ${key}`}
-                  />
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input 
+                      type={visibleFields[key] ? 'text' : 'password'} 
+                      value={config[key] || ''}
+                      onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+                      style={{ width: '100%', padding: '4px 8px' }}
+                      placeholder={`Enter ${key}`}
+                    />
+                    <button
+                      onClick={() => toggleFieldVisibility(key)}
+                      style={{
+                        padding: '4px 8px',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0
+                      }}
+                    >
+                      {visibleFields[key] ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </React.Fragment>
               ))}
             </div>
@@ -228,13 +252,29 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
               {providerInfo[selectedProviderType].configKeys.map(key => (
                 <React.Fragment key={key}>
                   <label style={{ fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '8px' }}>{key}:</label>
-                  <input 
-                    type="password" 
-                    value={config[key] || ''}
-                    onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                    style={{ width: '100%', padding: '4px 8px' }}
-                    placeholder={`Enter ${key}`}
-                  />
+                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                    <input 
+                      type={visibleFields[key] ? 'text' : 'password'} 
+                      value={config[key] || ''}
+                      onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
+                      style={{ width: '100%', padding: '4px 8px' }}
+                      placeholder={`Enter ${key}`}
+                    />
+                    <button
+                      onClick={() => toggleFieldVisibility(key)}
+                      style={{
+                        padding: '4px 8px',
+                        backgroundColor: 'transparent',
+                        border: '1px solid #ccc',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        flexShrink: 0
+                      }}
+                    >
+                      {visibleFields[key] ? 'Hide' : 'Show'}
+                    </button>
+                  </div>
                 </React.Fragment>
               ))}
             </div>
