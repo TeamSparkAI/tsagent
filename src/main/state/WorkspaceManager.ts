@@ -48,7 +48,7 @@ export class WorkspaceManager {
   // populateNewWorkspace:
   //   - If true, the workspace will be populated with default values, if not, the workspace will be validated
   //
-  public static async create(workspacePath: string, populateNewWorkspace: boolean = false): Promise<WorkspaceManager> {
+  public static async create(workspacePath: string, populateNewWorkspace: boolean = false): Promise<WorkspaceManager | null> {
     // If workspacePath is to a file, extract the directory path and verify that the filename is tspark.json
     let workspaceDir: string;
     const normalizedWorkspacePath = path.normalize(workspacePath);
@@ -70,7 +70,13 @@ export class WorkspaceManager {
       }
     } else {
       if (!fs.existsSync(workspaceDir)) {
-        throw new Error(`Workspace directory does not exist: ${workspaceDir}`);
+        log.error(`Workspace directory does not exist: ${workspaceDir}`);
+        return null;
+      }
+      const workspaceFile = path.join(workspaceDir, WorkspaceManager.WORKSPACE_FILE_NAME);
+      if (!fs.existsSync(workspaceFile)) {
+        log.error(`Workspace file does not exist: ${workspaceFile}`);
+        return null;
       }
     }
 
@@ -158,12 +164,9 @@ export class WorkspaceManager {
   async loadConfig(): Promise<void> {
     if (this._configLoaded) return;
     
-    // Create default config if it doesn't exist
     if (!fs.existsSync(this._workspaceFile)) {
-      this._workspaceData = { config: {} };
-      await fs.promises.writeFile(this._workspaceFile, JSON.stringify(this._workspaceData, null, 2));
-      this._configLoaded = true;
-      return;
+      log.error(`Workspace file does not exist: ${this._workspaceFile}`);
+      throw new Error(`Workspace file does not exist: ${this._workspaceFile}`);
     }
 
     try {

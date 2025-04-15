@@ -39,7 +39,8 @@ const COMMANDS = {
   TOOLS: '/tools',
   RULES: '/rules',
   REFERENCES: '/references',
-  STATS: '/stats'
+  STATS: '/stats',
+  WORKSPACE: '/workspace'
 };
 
 async function toolsCommand(workspace: WorkspaceManager) {
@@ -104,6 +105,7 @@ function showHelp() {
   console.log(chalk.yellow('  /rules') + ' - List all rules (* active, - inactive)');
   console.log(chalk.yellow('  /references') + ' - List all references (* active, - inactive)');
   console.log(chalk.yellow('  /stats') + ' - Display statistics for the current chat session');
+  console.log(chalk.yellow('  /workspace') + ' - Display the current workspace path');
   console.log(chalk.yellow('  /clear') + ' - Clear the chat history');
   console.log(chalk.yellow('  /quit') + ' or ' + chalk.yellow('/exit') + ' - Exit the application');
   console.log('');
@@ -303,6 +305,12 @@ export function setupCLI(workspace: WorkspaceManager) {
           console.clear();
           console.log(chalk.green('Chat history cleared'));
           console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
+          break;
+
+        case COMMANDS.WORKSPACE:
+          console.log(chalk.cyan('\nWorkspace:'));
+          console.log(`  ${chalk.yellow(workspace.workspaceDir)}`);
+          console.log('');
           break;
 
         default:

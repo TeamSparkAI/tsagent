@@ -8,18 +8,20 @@ import { setupCLI } from '../cli/cli';
 import { McpConfig } from './mcp/types';
 import { WorkspacesManager } from './state/WorkspacesManager';
 import { WorkspaceManager } from './state/WorkspaceManager';
+import chalk from 'chalk';
 
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
 let workspacesManager: WorkspacesManager;
+const PRODUCT_NAME = 'TeamSpark AI Workbench';
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
 async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow> {
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
-    title: 'TeamSpark AI Workbench',
+    title: PRODUCT_NAME,
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
@@ -82,6 +84,9 @@ function intializeLogging(isElectron: boolean) {
     log.transports.console.level = 'info';
   } else {
     // In CLI mode, only show error and above to the console, no file logging
+    log.transports.file.resolvePathFn = () => path.join(process.cwd(), `tspark-console.log`);
+    log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
+    log.transports.file.level = 'info';
     log.transports.console.level = 'error';
   }
   log.info('App starting...');
@@ -99,10 +104,29 @@ async function initializeWorkspaceManager() {
 async function startApp() {
   if (process.argv.includes('--cli')) {
     intializeLogging(false);
-    
-    // New hotness...
-    const workspacePath = process.cwd(); // Or from command line param
-    const workspaceManager = await WorkspaceManager.create(workspacePath);
+
+    // -- workspace (path) the workspace directory or file (tspark.json), defaults to cwd
+    // -- create (bool) indicates whether the path should be created if it doesn't exist
+    //
+    let workspacePath = process.cwd();
+    let create = false;
+    for (let i = 0; i < process.argv.length; i++) {
+      if (process.argv[i] === '--workspace') {
+        // Resolve workspace path relative to cwd (unless it's an absolute path)
+        workspacePath = path.resolve(process.argv[i + 1]);
+      } else if (process.argv[i] === '--create') {
+        create = true;
+      }
+    }
+
+    const workspaceManager = await WorkspaceManager.create(workspacePath, create);
+    if (!workspaceManager) {
+      console.error(chalk.red(`${PRODUCT_NAME} failed to locate workspace (tspark.json) in directory: `), workspacePath);
+      console.error(chalk.dim('  Use '), chalk.bold('--workspace <path>'), chalk.dim(' absolute or relative path to a workspace directory (where tspark.json will be found or created)'));
+      console.error(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new workspace in the specified directory, or current working directory if workspace path not specified'));
+      process.exit(1);
+    }
+
     setupCLI(workspaceManager);
   } else {
         // Set app name before anything else
@@ -146,14 +170,26 @@ async function startApp() {
       if (workspacePath) {
         log.info(`Opening workspace from command line: ${workspacePath}`);
         const workspace = await WorkspaceManager.create(workspacePath);
-        mainWindow = await createWindow(workspace);
+        if (!workspace) {
+          log.error('Failed to find workspace (tspark.json) in directory provide on launch command line: ', workspacePath);
+          // !!! Ideally we should show the user this message in the UX
+          mainWindow = await createWindow();
+        } else {
+          mainWindow = await createWindow(workspace);
+        }
       } else {
         // Else if there is a most recently used workspace, open that 
         const mostRecentlyUsedWorkspace = workspacesManager.getRecentWorkspaces(); // !!! Should this be workspaceManager.getLastActiveWorkspace()?
         if (mostRecentlyUsedWorkspace.length > 0) {
           log.info(`Opening most recently used workspace: ${mostRecentlyUsedWorkspace[0]}`);
           const workspace = await WorkspaceManager.create(mostRecentlyUsedWorkspace[0]);
-          mainWindow = await createWindow(workspace);
+          if (!workspace) {
+            log.error('Failed to find workspace (tspark.json) in most recently used directory: ', mostRecentlyUsedWorkspace[0]);
+            // !!! Ideally we should show the user this message in the UX
+            mainWindow = await createWindow();
+          } else {
+            mainWindow = await createWindow(workspace);
+          }
         } else {
           log.info('No most recently used workspace, creating new window with no workspace');
           mainWindow = await createWindow();
@@ -845,6 +881,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('workspace:openWorkspace', async (_, filePath: string) => {
     log.info(`[WORKSPACE OPEN] IPC handler called for workspace:openWorkspace ${filePath}`);
     const workspace = await WorkspaceManager.create(filePath);
+    if (!workspace) {
+      // This is a directory the user just picked, so it should always be a valid workspace
+      log.error('Failed to find workspace (tspark.json) in directory provided: ', filePath);
+      // !!! Ideally we should show the user this message in the UX
+      return null;
+    }
     
     // Get the current window
     const currentWindow = BrowserWindow.getFocusedWindow();
@@ -870,6 +912,13 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const workspace = await WorkspaceManager.create(filePath);
     
     // Always create a new window
+    if (!workspace) {
+      // This is a directory the user just picked, so it should always be a valid workspace
+      log.error('Failed to find workspace (tspark.json) in directory provided: ', filePath);
+      // !!! Ideally we should show the user this message in the UX
+      return null;
+    }
+
     const window = await createWindow(workspace);
     return window.id;
   });
@@ -878,7 +927,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   //
   ipcMain.handle('workspace:createWorkspace', async (_, workspacePath: string) => {
     log.info(`[WORKSPACE CREATE] IPC handler called for workspace:createWorkspace ${workspacePath}`);
-    const workspace = await WorkspaceManager.create(workspacePath, true);    
+    const workspace = await WorkspaceManager.create(workspacePath, true) as WorkspaceManager; // Cannot be null when populateNewWorkspace is true    
     const window = await createWindow(workspace);
     return window.id;
   });
@@ -892,7 +941,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       const windowIdStr = windowId.toString();
 
       const workspace = await WorkspaceManager.create(workspacePath);
-      log.info(`[WORKSPACE SWITCH] Workspace created: ${workspace.workspaceDir}`);
+      if (!workspace) {
+        log.error('[WORKSPACE SWITCH] Failed to find workspace (tspark.json) in directory provided: ', workspacePath);
+        // !!! Ideally we should show the user this message in the UX
+        return false;
+      }
+      log.info(`[WORKSPACE SWITCH] Workspace found: ${workspace.workspaceDir}`);
       await workspacesManager.switchWorkspace(windowIdStr, workspace);
       return true;
     } catch (error) {

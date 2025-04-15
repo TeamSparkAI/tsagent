@@ -171,11 +171,6 @@ Clone Workspace would be nice.
 For find/open workspace, it currently replaces workspace (if any) in current window.
 - Should it set workspace if current window doesn't have one, else open in new window?
 
-CLI
-- Process launch params (workspace path, --create)
-- Command to switch workspaces?
-- Command to show workspace info
-
 ## Before Release
 
 Provider config UX
@@ -187,10 +182,6 @@ Top-level menus?
 
 CLI
 - Register CLI on first run (like Ollama) - tspark
-- Workspace support
-  - Command line params
-  - Re-open last workspace regardless of cwd?
-  - List recent workspaces, select workspace?
 - Model selector
 
 Max turns config (UX or just config file setting)
