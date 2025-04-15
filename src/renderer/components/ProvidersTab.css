@@ -182,4 +182,18 @@
   height: 40px;
   margin-right: 12px;
   object-fit: contain;
+}
+
+.configure-button {
+  padding: 6px 12px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-right: 8px;
+}
+
+.configure-button:hover {
+  background-color: #0056b3;
 } 

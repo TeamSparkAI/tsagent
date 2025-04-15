@@ -190,6 +190,12 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                     />
                     <h3>{provider.info.name}</h3>
                     <button 
+                      className="configure-button"
+                      onClick={() => {/* TODO: Implement configure provider dialog */}}
+                    >
+                      Configure
+                    </button>
+                    <button 
                       className="remove-button"
                       onClick={() => handleRemoveProvider(provider.id)}
                     >
