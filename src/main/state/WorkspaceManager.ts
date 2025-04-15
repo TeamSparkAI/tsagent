@@ -27,6 +27,7 @@ export class WorkspaceManager {
 
   private _rulesListener: (() => void) | null = null;
   private _referencesListener: (() => void) | null = null;
+  private _providersListener: (() => void) | null = null;
 
   private constructor(workspaceDir: string) {
     this._workspaceDir = workspaceDir;
@@ -126,6 +127,11 @@ export class WorkspaceManager {
     };
     this._referencesManager.on('referencesChanged', referencesListener);
     this._referencesListener = referencesListener;
+
+    const providersListener = () => {
+      window.webContents.send('providers-changed');
+    };
+    this._providersListener = providersListener;
   }
 
   public uninitializeListeners(): void {
@@ -134,6 +140,9 @@ export class WorkspaceManager {
     }
     if (this._referencesListener) {
       this._referencesListener();
+    }
+    if (this._providersListener) {
+      this._providersListener();
     }
   }
 
@@ -215,20 +224,32 @@ export class WorkspaceManager {
     return this._workspaceData?.providers?.[provider] !== undefined;
   }
 
-  async addProvider(provider: string): Promise<void> {
+  public async addProvider(provider: string): Promise<void> {
     if (!this._workspaceData) {
       this._workspaceData = { providers: {} };
     }
     this._workspaceData.providers[provider] = {};
     await this.saveConfig();
+    
+    // After successfully adding the provider, emit the event
+    log.info('[WorkspaceManager] addProvider: emitting providers-changed');
+    if (this._providersListener) {
+      this._providersListener();
+    }
   }
 
-  async removeProvider(provider: string): Promise<void> {
+  public async removeProvider(provider: string): Promise<void> {
     if (!this._workspaceData) {
       this._workspaceData = { providers: {} };
     }
     delete this._workspaceData.providers[provider];
     await this.saveConfig();
+    
+    // After successfully removing the provider, emit the event
+    log.info('[WorkspaceManager] removeProvider: emitting providers-changed');
+    if (this._providersListener) {
+      this._providersListener();
+    }
   }
 
   getInstalledProviders(): string[] {

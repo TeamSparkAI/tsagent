@@ -173,8 +173,6 @@ For find/open workspace, it currently replaces workspace (if any) in current win
 
 ## Before Release
 
-Provider config UX
-
 Package for dist
 - Verify app icon (including in app)
 
@@ -187,16 +185,18 @@ CLI
 Max turns config (UX or just config file setting)
 - Should probably be a property of the chatsession
 
+Chat tabs (all) need to be aware of installed providers and changes to installed providers
+- Model picker needs to use installed providers
+- What happens if current model for a Chat session is from a provider that gets removed
+- This implies a chat tab can have no model (meaning it needs to be inactive until it has a model)
+
 ## Providers tab
 
-New tab for Model Providers
+How do we tell if a provider is properly configured and working?  Test/ping?
 
-List of installed providers
+Either show models or error
 
-Add new provider (from list, available-installed)
-
-Configure/test provider
-- Provider indicates what config items it needs (name, description of each)
+Each model could have "Start Chat" that launches a chat with that model
 
 ## Workspace issues
 
@@ -207,3 +207,12 @@ Track (and persist) last selected model, select it when creating new chat tab
 Currently, all tabs are remounted (in App.tsx) on workspace:switch
 - This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch
 - We could try to be more clever, because all tabs other than the Chat tabs don't actually need to detach/attach (they can update themselves on workspace:switch)
+
+## Settings
+
+New settings tab, list of items on left, details on right
+- System Prompt
+- Chat Settings
+  - Max turn count
+- Model Settings (default model settings)
+  - Temperature

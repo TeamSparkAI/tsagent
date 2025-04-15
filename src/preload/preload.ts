@@ -87,6 +87,14 @@ const api: API = {
   removeProvider: (provider: string) => ipcRenderer.invoke('llm:remove-provider', provider),
   getProviderConfig: (provider: string, key: string) => ipcRenderer.invoke('llm:get-provider-config', provider, key),
   setProviderConfig: (provider: string, key: string, value: string) => ipcRenderer.invoke('llm:set-provider-config', provider, key, value),
+  onProvidersChanged: (callback: () => void) => {
+    const wrappedCallback = () => callback();
+    ipcRenderer.on('providers-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offProvidersChanged: (listener: () => void) => {
+    ipcRenderer.removeListener('providers-changed', listener);
+  },
 };
 
 /*

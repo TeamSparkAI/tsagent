@@ -64,7 +64,7 @@ export class OpenAILLM implements ILLM {
     const filteredModels = modelList.data.filter(model => 
       !killwords.some(word => model.id.toLowerCase().includes(word))
     );
-    log.info('OpenAI models:', filteredModels);
+    //log.info('OpenAI models:', filteredModels);
     return filteredModels.map((model) => ({
       provider: LLMType.OpenAI,
       id: model.id,
