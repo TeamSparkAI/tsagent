@@ -44,6 +44,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
   const [selectedProviderType, setSelectedProviderType] = useState<LLMType | null>(null);
   const [providerInfo, setProviderInfo] = useState<Record<string, LLMProviderInfo>>({});
   const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
+  const [isSelectingProvider, setIsSelectingProvider] = useState(!provider);
 
   useEffect(() => {
     const loadProviderInfo = async () => {
@@ -92,6 +93,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
 
   const handleProviderSelect = (type: LLMType) => {
     setSelectedProviderType(type);
+    setIsSelectingProvider(false);
     const info = providerInfo[type];
     if (info?.configKeys) {
       const initialConfig: Record<string, string> = {};
@@ -111,9 +113,19 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
 
   return (
     <div style={{ padding: '20px', width: '100%', boxSizing: 'border-box' }}>
-      <h2 style={{ marginTop: 0 }}>
-        Configure Provider
-      </h2>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: '20px'
+      }}>
+        <h2 style={{ margin: 0 }}>
+          {isSelectingProvider ? 'Add Provider' : (provider ? 'Configure Provider' : 'Add Provider')}
+        </h2>
+        {isSelectingProvider && (
+          <button onClick={onCancel}>Cancel</button>
+        )}
+      </div>
       
       {error && (
         <div style={{ 
@@ -131,7 +143,43 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
         </div>
       )}
 
-      {provider ? (
+      {isSelectingProvider ? (
+        <div style={{ marginBottom: '20px', width: '100%' }}>
+          <p>Select a provider to add:</p>
+          <div style={{ 
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+            gap: '16px',
+            marginTop: '16px',
+            width: '100%'
+          }}>
+            {Object.entries(providerInfo).map(([type, info]) => (
+              <div
+                key={type}
+                onClick={() => handleProviderSelect(type as LLMType)}
+                style={{
+                  padding: '16px',
+                  border: `2px solid ${selectedProviderType === type ? '#1890ff' : '#e8e8e8'}`,
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                <img 
+                  src={providerLogos[type as LLMType]} 
+                  alt={info.name}
+                  className="provider-logo"
+                />
+                <h3 style={{ margin: 0 }}>{info.name}</h3>
+                <p style={{ margin: 0, textAlign: 'center' }}>{info.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
         <>
           <div style={{ 
             marginBottom: '20px',
@@ -140,20 +188,21 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             gap: '2px'
           }}>
             <img 
-              src={providerLogos[provider.id as LLMType]} 
-              alt={provider.info.name}
+              src={providerLogos[(provider?.id || selectedProviderType) as LLMType]} 
+              alt={provider?.info.name || providerInfo[selectedProviderType as LLMType]?.name}
               className="provider-logo-large"
             />
-            <h3 style={{ margin: 0 }}>{provider.info.name}</h3>
+            <h3 style={{ margin: 0 }}>{provider?.info.name || providerInfo[selectedProviderType as LLMType]?.name}</h3>
           </div>
-          <p>{provider.info.description}</p>
-          {provider.info.website && (
+          <p>{provider?.info.description || providerInfo[selectedProviderType as LLMType]?.description}</p>
+          {(provider?.info.website || providerInfo[selectedProviderType as LLMType]?.website) && (
             <a 
               href="#" 
               onClick={(e) => {
                 e.preventDefault();
-                if (typeof provider.info.website === 'string') {
-                  window.api.openExternal(provider.info.website);
+                const website = provider?.info.website || providerInfo[selectedProviderType as LLMType]?.website;
+                if (typeof website === 'string') {
+                  window.api.openExternal(website);
                 }
               }}
               style={{ display: 'block', marginBottom: '24px' }}
@@ -162,7 +211,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             </a>
           )}
 
-          {provider.info.configKeys && provider.info.configKeys.length > 0 && (
+          {(provider?.info.configKeys || providerInfo[selectedProviderType as LLMType]?.configKeys) && (
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'max-content 1fr',
@@ -171,85 +220,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
               marginBottom: '20px',
               width: '100%'
             }}>
-              {provider.info.configKeys.map(key => (
-                <React.Fragment key={key}>
-                  <label style={{ fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '8px' }}>{key}:</label>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input 
-                      type={visibleFields[key] ? 'text' : 'password'} 
-                      value={config[key] || ''}
-                      onChange={(e) => setConfig({ ...config, [key]: e.target.value })}
-                      style={{ width: '100%', padding: '4px 8px' }}
-                      placeholder={`Enter ${key}`}
-                    />
-                    <button
-                      onClick={() => toggleFieldVisibility(key)}
-                      style={{
-                        padding: '4px 8px',
-                        backgroundColor: 'transparent',
-                        border: '1px solid #ccc',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0
-                      }}
-                    >
-                      {visibleFields[key] ? 'Hide' : 'Show'}
-                    </button>
-                  </div>
-                </React.Fragment>
-              ))}
-            </div>
-          )}
-        </>
-      ) : (
-        <>
-          <div style={{ marginBottom: '20px', width: '100%' }}>
-            <p>Select a provider to add:</p>
-            <div style={{ 
-              display: 'grid',
-              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-              gap: '16px',
-              marginTop: '16px',
-              width: '100%'
-            }}>
-              {Object.entries(providerInfo).map(([type, info]) => (
-                <div
-                  key={type}
-                  onClick={() => handleProviderSelect(type as LLMType)}
-                  style={{
-                    padding: '16px',
-                    border: `2px solid ${selectedProviderType === type ? '#1890ff' : '#e8e8e8'}`,
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  <img 
-                    src={providerLogos[type as LLMType]} 
-                    alt={info.name}
-                    className="provider-logo"
-                  />
-                  <h3 style={{ margin: 0 }}>{info.name}</h3>
-                  <p style={{ margin: 0, textAlign: 'center' }}>{info.description}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {selectedProviderType && providerInfo[selectedProviderType]?.configKeys && (
-            <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'max-content 1fr',
-              gap: '12px',
-              alignItems: 'center',
-              marginBottom: '20px',
-              width: '100%'
-            }}>
-              {providerInfo[selectedProviderType].configKeys.map(key => (
+              {(provider?.info.configKeys || providerInfo[selectedProviderType as LLMType]?.configKeys || []).map(key => (
                 <React.Fragment key={key}>
                   <label style={{ fontWeight: 'bold', whiteSpace: 'nowrap', paddingRight: '8px' }}>{key}:</label>
                   <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
@@ -288,21 +259,24 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
         gap: '8px',
         width: '100%'
       }}>
-        <button onClick={onCancel}>Cancel</button>
-        <button 
-          onClick={handleSave}
-          disabled={!provider && !selectedProviderType}
-          style={{ 
-            padding: '6px 12px',
-            backgroundColor: '#0066cc',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          {provider ? 'Save' : 'Add Provider'}
-        </button>
+        {!isSelectingProvider && (
+          <>
+            <button onClick={onCancel}>Cancel</button>
+            <button 
+              onClick={handleSave}
+              style={{ 
+                padding: '6px 12px',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer'
+              }}
+            >
+              {provider ? 'OK' : 'Add Provider'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
