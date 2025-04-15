@@ -25,6 +25,9 @@ export class WorkspaceManager {
   private _chatSessionManager: ChatSessionManager;
   private _llmFactory: LLMFactory;
 
+  private _rulesListener: (() => void) | null = null;
+  private _referencesListener: (() => void) | null = null;
+
   private constructor(workspaceDir: string) {
     this._workspaceDir = workspaceDir;
     this._workspaceFile = path.join(this._workspaceDir, WorkspaceManager.WORKSPACE_FILE_NAME);
@@ -34,6 +37,7 @@ export class WorkspaceManager {
     this._mcpManager = new MCPClientManager();
     this._chatSessionManager = new ChatSessionManager(this); // Needs system prompt, rules, references, tools functions, and llmFactory (pretty much everything)
     this._llmFactory = new LLMFactory(this); // Needs provider config and tools functions from MCP manager
+
     log.info(`[WORKSPACE MANAGER] Initialized with workspacePath=${workspaceDir}`);
   }
  
@@ -102,6 +106,29 @@ export class WorkspaceManager {
     
     await workspaceManager.mcpManager.loadClients(workspaceManager);
     return workspaceManager;
+  }
+
+  public initializeListeners(window: Electron.BrowserWindow): void {
+    const rulesListener = () => {
+      window.webContents.send('rules-changed');
+    };
+    this._rulesManager.on('rulesChanged', rulesListener);
+    this._rulesListener = rulesListener;
+  
+    const referencesListener = () => {
+      window.webContents.send('references-changed');
+    };
+    this._referencesManager.on('referencesChanged', referencesListener);
+    this._referencesListener = referencesListener;
+  }
+
+  public uninitializeListeners(): void {
+    if (this._rulesListener) {
+      this._rulesListener();
+    }
+    if (this._referencesListener) {
+      this._referencesListener();
+    }
   }
 
   get workspaceDir(): string {

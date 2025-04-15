@@ -15,34 +15,6 @@ const __dirname = path.dirname(__filename);
 let workspacesManager: WorkspacesManager;
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
-const windowIdToWorkspaceMap = new Map<string, WorkspaceManager>();
-
-function registerWorkspaceWithWindow(windowId: string, workspace: WorkspaceManager) {
-  windowIdToWorkspaceMap.set(windowId, workspace);
-  workspacesManager.registerWindow(windowId, workspace.workspaceDir);
-
-  // Set up event listeners for this window's Workspace
-  if (workspace.rulesManager) {
-    workspace.rulesManager.on('rulesChanged', () => {
-      // Find the BrowserWindow for this windowId
-      const window = BrowserWindow.getAllWindows().find(w => w.id.toString() === windowId);
-      if (window) {
-        window.webContents.send('rules-changed');
-      }
-    });
-  }
-
-  if (workspace.referencesManager) {
-    workspace.referencesManager.on('referencesChanged', () => {
-      // Find the BrowserWindow for this windowId
-      const window = BrowserWindow.getAllWindows().find(w => w.id.toString() === windowId);
-      if (window) {
-        window.webContents.send('references-changed');
-      }
-    });
-  }  
-}
-
 async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow> {
   const window = new BrowserWindow({
     width: 1200,
@@ -61,7 +33,7 @@ async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow
   // window.webContents.openDevTools();
 
   if (workspace) {
-    registerWorkspaceWithWindow(window.id.toString(), workspace);
+    workspacesManager.registerWindow(window.id.toString(), workspace);
   }
 
   // Load the index.html file
@@ -69,6 +41,10 @@ async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow
   log.info('Loading index.html from:', indexPath);
   log.info('File exists:', fs.existsSync(indexPath));
   window.loadFile(indexPath);
+
+  window.on('close', () => {
+    workspacesManager.switchWorkspace(window.id.toString(), null);
+  });
 
   return window;
 }
@@ -84,7 +60,7 @@ function getWorkspaceForWindow(windowId?: string): WorkspaceManager | null {
     windowId = focusedWindow.id.toString();
   }
   
-  const workspace = windowIdToWorkspaceMap.get(windowId);
+  const workspace = workspacesManager.getWorkspaceForWindow(windowId);
   if (!workspace) {
     log.warn(`No WorkspaceManager found for window: ${windowId}`);
     return null;
@@ -861,19 +837,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return null;
     }
     
-    const windowId = currentWindow.id.toString();
-    // Log active windows in WorkspaceManager
-    const activeWindows = workspacesManager.getActiveWindows();
-    log.info(`[WINDOW ID] Current window ID: ${windowId}, Active windows in WorkspaceManager: ${activeWindows.map((w: any) => w.windowId).join(', ')}`);
-    
-    // Check if the window is registered with the WorkspaceManager
-    const isRegistered = activeWindows.some(window => window.windowId === windowId);
-    if (!isRegistered) {
-      log.info(`[WINDOW ID] Window ${windowId} is not registered with WorkspaceManager. No workspace selected.`);
-      // No longer automatically registering with a default workspace
-    }
-    
-    return windowId;
+    return currentWindow.id.toString();
   });
 
   // Open the workspace at filePath in the current window, or if no current window, create a new one
@@ -886,8 +850,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const currentWindow = BrowserWindow.getFocusedWindow();
     if (currentWindow) {
       log.info(`[WORKSPACE OPEN] Opening workspace ${workspace.workspaceDir} in current window ${currentWindow.id}`);
-
-      registerWorkspaceWithWindow(currentWindow.id.toString(), workspace);
+      workspacesManager.registerWindow(currentWindow.id.toString(), workspace);
             
       // Return the current window's ID
       return currentWindow.id;
@@ -915,8 +878,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   //
   ipcMain.handle('workspace:createWorkspace', async (_, workspacePath: string) => {
     log.info(`[WORKSPACE CREATE] IPC handler called for workspace:createWorkspace ${workspacePath}`);
-    const workspace = await WorkspaceManager.create(workspacePath, true);
-    
+    const workspace = await WorkspaceManager.create(workspacePath, true);    
     const window = await createWindow(workspace);
     return window.id;
   });
@@ -928,16 +890,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.info(`[WORKSPACE SWITCH] IPC handler called for window ${windowId} to workspace ${workspacePath}`);
       // Convert windowId to string to ensure consistent handling
       const windowIdStr = windowId.toString();
-      
-      // Check if the window is registered with the WorkspaceManager
-      const activeWindows = workspacesManager.getActiveWindows();
 
       const workspace = await WorkspaceManager.create(workspacePath);
       log.info(`[WORKSPACE SWITCH] Workspace created: ${workspace.workspaceDir}`);
-
-      registerWorkspaceWithWindow(windowIdStr, workspace);      
-      await workspacesManager.switchWorkspace(windowIdStr, workspacePath);
-      log.info(`[WORKSPACE SWITCH] Successfully switched workspace in IPC handler`);
+      await workspacesManager.switchWorkspace(windowIdStr, workspace);
       return true;
     } catch (error) {
       log.error(`[WORKSPACE SWITCH] Error in IPC handler switching window ${windowId} to workspace ${workspacePath}:`, error);

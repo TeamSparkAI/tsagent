@@ -164,7 +164,7 @@ Test support for SSE server
 
 ## Workspaces Issues
 
-It's not clear that the workspace change notification is ever received (or if it's needed, or what will happen if it gets called)
+Workspace metadata (name/desc) would be nice in UX
 
 Clone Workspace would be nice.
 
@@ -194,6 +194,7 @@ CLI
 - Model selector
 
 Max turns config (UX or just config file setting)
+- Should probably be a property of the chatsession
 
 ## Providers tab
 
@@ -207,8 +208,6 @@ Configure/test provider
 - Provider indicates what config items it needs (name, description of each)
 
 ## Workspace issues
-
-Move all workspace management into WorkspacesManager (don't need two global maps)
 
 Track (and persist) last selected model, select it when creating new chat tab
 - If provider is available?
