@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 export class RulesManager extends EventEmitter {
   private rules: Rule[] = [];
   private rulesDir: string;
+  private static readonly RULE_FILE_EXTENSION = '.mdt';
 
   constructor(configDir: string) {
     super();
@@ -23,7 +24,7 @@ export class RulesManager extends EventEmitter {
   private loadRules() {
     log.info(`[RULES MANAGER] Loading rules from directory: ${this.rulesDir}`);
     this.rules = [];
-    const files = fs.readdirSync(this.rulesDir).filter(file => file.endsWith('.mdw'));
+    const files = fs.readdirSync(this.rulesDir).filter(file => file.endsWith(RulesManager.RULE_FILE_EXTENSION));
     log.info(`[RULES MANAGER] Found ${files.length} rule files`);
     
     for (const file of files) {
@@ -38,7 +39,7 @@ export class RulesManager extends EventEmitter {
           const text = parts.slice(2).join('---\n').trim();
           
           const rule: Rule = {
-            name: metadata.name || path.basename(file, '.mdw'),
+            name: metadata.name || path.basename(file, RulesManager.RULE_FILE_EXTENSION),
             description: metadata.description || '',
             priorityLevel: metadata.priorityLevel || 500,
             enabled: metadata.enabled ?? true,
@@ -96,7 +97,7 @@ export class RulesManager extends EventEmitter {
       this.deleteRule(existingRule.name);
     }
 
-    const fileName = `${rule.name}.mdw`;
+    const fileName = `${rule.name}${RulesManager.RULE_FILE_EXTENSION}`;
     const filePath = path.join(this.rulesDir, fileName);
     
     const metadata = {
@@ -118,7 +119,7 @@ export class RulesManager extends EventEmitter {
   }
 
   public deleteRule(name: string) {
-    const filePath = path.join(this.rulesDir, `${name}.mdw`);
+    const filePath = path.join(this.rulesDir, `${name}${RulesManager.RULE_FILE_EXTENSION}`);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
       this.loadRules();

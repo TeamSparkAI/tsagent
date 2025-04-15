@@ -44,6 +44,6 @@ tspark.json - in root of workspace
   }
 }
 
-/prompts/system.md (GFM)
+/prompt.md (GFM)
 /references/*.mdt (YAML frontmatter + GFM text)
 /rules/*.mdt (YAML frontmatter + GFM text)

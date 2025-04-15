@@ -208,9 +208,11 @@ Configure/test provider
 
 ## Workspace issues
 
-Move prompt.md to prompts/system.md?
-
 Move all workspace management into WorkspacesManager (don't need two global maps)
+
+Track (and persist) last selected model, select it when creating new chat tab
+- If provider is available?
+- What happens if not provider?
 
 Currently, all tabs are remounted (in App.tsx) on workspace:switch
 - This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch

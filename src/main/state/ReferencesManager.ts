@@ -8,6 +8,7 @@ import { EventEmitter } from 'events';
 export class ReferencesManager extends EventEmitter {
     private references: Reference[] = [];
     private referencesDir: string;
+    private static readonly REFERENCE_FILE_EXTENSION = '.mdt';
 
     constructor(configDir: string) {
         super();
@@ -20,7 +21,7 @@ export class ReferencesManager extends EventEmitter {
 
     private loadReferences() {
         this.references = [];
-        const files = fs.readdirSync(this.referencesDir).filter(file => file.endsWith('.mdw'));
+        const files = fs.readdirSync(this.referencesDir).filter(file => file.endsWith(ReferencesManager.REFERENCE_FILE_EXTENSION));
         
         for (const file of files) {
             const filePath = path.join(this.referencesDir, file);
@@ -33,7 +34,7 @@ export class ReferencesManager extends EventEmitter {
                     const text = parts.slice(2).join('---\n').trim();
                     
                     const reference: Reference = {
-                        name: metadata.name || path.basename(file, '.mdw'),
+                        name: metadata.name || path.basename(file, ReferencesManager.REFERENCE_FILE_EXTENSION),
                         description: metadata.description || '',
                         priorityLevel: metadata.priorityLevel || 500,
                         enabled: metadata.enabled ?? true,
@@ -88,7 +89,7 @@ export class ReferencesManager extends EventEmitter {
             this.deleteReference(existingReference.name);
         }
 
-        const fileName = `${reference.name}.mdw`;
+        const fileName = `${reference.name}${ReferencesManager.REFERENCE_FILE_EXTENSION}`;
         const filePath = path.join(this.referencesDir, fileName);
         
         const metadata = {
@@ -111,7 +112,7 @@ export class ReferencesManager extends EventEmitter {
     }
 
     public deleteReference(name: string) {
-        const filePath = path.join(this.referencesDir, `${name}.mdw`);
+        const filePath = path.join(this.referencesDir, `${name}${ReferencesManager.REFERENCE_FILE_EXTENSION}`);
         if (fs.existsSync(filePath)) {
             fs.unlinkSync(filePath);
             this.loadReferences();
