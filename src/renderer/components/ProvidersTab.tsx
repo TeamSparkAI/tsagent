@@ -36,9 +36,10 @@ interface EditProviderModalProps {
   provider?: Provider;
   onSave: (config: Record<string, string>) => void;
   onCancel: () => void;
+  installedProviders: string[];
 }
 
-const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave, onCancel }) => {
+const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave, onCancel, installedProviders }) => {
   const [config, setConfig] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [selectedProviderType, setSelectedProviderType] = useState<LLMType | null>(null);
@@ -78,13 +79,15 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
         for (const [key, value] of Object.entries(config)) {
           await window.api.setProviderConfig(selectedProviderType, key, value);
         }
+        // Close the modal after successful addition
+        onSave(config);
       } else if (provider) {
         // Updating existing provider
         for (const [key, value] of Object.entries(config)) {
           await window.api.setProviderConfig(provider.id, key, value);
         }
+        onSave(config);
       }
-      await onSave(config);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save provider configuration');
       return;
@@ -146,38 +149,52 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
       {isSelectingProvider ? (
         <div style={{ marginBottom: '20px', width: '100%' }}>
           <p>Select a provider to add:</p>
-          <div style={{ 
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
-            gap: '16px',
-            marginTop: '16px',
-            width: '100%'
-          }}>
-            {Object.entries(providerInfo).map(([type, info]) => (
-              <div
-                key={type}
-                onClick={() => handleProviderSelect(type as LLMType)}
-                style={{
-                  padding: '16px',
-                  border: `2px solid ${selectedProviderType === type ? '#1890ff' : '#e8e8e8'}`,
-                  borderRadius: '8px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <img 
-                  src={providerLogos[type as LLMType]} 
-                  alt={info.name}
-                  className="provider-logo"
-                />
-                <h3 style={{ margin: 0 }}>{info.name}</h3>
-                <p style={{ margin: 0, textAlign: 'center' }}>{info.description}</p>
-              </div>
-            ))}
-          </div>
+          {Object.entries(providerInfo).filter(([type]) => !installedProviders.includes(type)).length === 0 ? (
+            <div style={{ 
+              marginTop: '16px',
+              padding: '20px',
+              backgroundColor: '#f8f9fa',
+              borderRadius: '8px',
+              textAlign: 'center'
+            }}>
+              <p style={{ margin: 0, color: '#666' }}>All available providers are already installed.</p>
+            </div>
+          ) : (
+            <div style={{ 
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+              gap: '16px',
+              marginTop: '16px',
+              width: '100%'
+            }}>
+              {Object.entries(providerInfo)
+                .filter(([type]) => !installedProviders.includes(type))
+                .map(([type, info]) => (
+                  <div
+                    key={type}
+                    onClick={() => handleProviderSelect(type as LLMType)}
+                    style={{
+                      padding: '16px',
+                      border: `2px solid ${selectedProviderType === type ? '#1890ff' : '#e8e8e8'}`,
+                      borderRadius: '8px',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      gap: '8px'
+                    }}
+                  >
+                    <img 
+                      src={providerLogos[type as LLMType]} 
+                      alt={info.name}
+                      className="provider-logo"
+                    />
+                    <h3 style={{ margin: 0 }}>{info.name}</h3>
+                    <p style={{ margin: 0, textAlign: 'center' }}>{info.description}</p>
+                  </div>
+                ))}
+            </div>
+          )}
         </div>
       ) : (
         <>
@@ -329,16 +346,33 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
   };
 
   const handleSaveProvider = async (config: Record<string, string>) => {
-    if (!editingProvider) return;
-    
     try {
-      // Save each config key
-      for (const [key, value] of Object.entries(config)) {
-        await window.api.setProviderConfig(editingProvider.id, key, value);
+      if (editingProvider) {
+        // Save each config key for existing provider
+        for (const [key, value] of Object.entries(config)) {
+          await window.api.setProviderConfig(editingProvider.id, key, value);
+        }
       }
+      // Refresh the providers list
+      const installedProviders = await window.api.getInstalledProviders();
+      const allProviderInfo = await window.api.getProviderInfo();
+      const providersWithModels = await Promise.all(
+        installedProviders.map(async (provider: string) => {
+          const models = await window.api.getModelsForProvider(provider);
+          const info = allProviderInfo[provider as LLMType];
+          return {
+            id: provider,
+            name: provider,
+            models,
+            info
+          };
+        })
+      );
+      setProviders(providersWithModels);
       setIsEditing(false);
       setEditingProvider(undefined);
     } catch (error) {
+      log.error('Error saving provider:', error);
       throw error;
     }
   };
@@ -375,6 +409,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
             setIsEditing(false);
             setEditingProvider(undefined);
           }}
+          installedProviders={providers.map(p => p.id)}
         />
       ) : (
         <>
