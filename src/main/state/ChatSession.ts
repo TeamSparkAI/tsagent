@@ -7,9 +7,9 @@ import { WorkspaceManager } from './WorkspaceManager';
 export class ChatSession {
   messages: ChatMessage[] = [];
   lastSyncId: number = 0;
-  currentModel: LLMType;
-  currentModelId: string | undefined;
-  llm: ILLM;
+  currentProvider?: LLMType;
+  currentModelId?: string;
+  llm?: ILLM;
   workspace: WorkspaceManager;
   rules: string[] = [];
   references: string[] = [];
@@ -17,30 +17,37 @@ export class ChatSession {
   constructor(workspace: WorkspaceManager, options: ChatSessionOptions = {}) {
     this.workspace = workspace;
     if (options.modelProvider && options.modelId) {
-      this.currentModel = options.modelProvider;
+      this.currentProvider = options.modelProvider;
       this.currentModelId = options.modelId;
     } else {
-      this.currentModel = LLMType.Test;
-      this.currentModelId = "frosty1.0";
+      this.currentProvider = undefined;
+      this.currentModelId = undefined;
     }
     
+    let modelDescription = '';
+
     // Create the LLM instance
-    const llm = this.workspace.llmFactory.create(this.currentModel, this.currentModelId);
-    if (!llm) {
-      throw new Error(`Failed to create LLM instance for model ${this.currentModel}`);
+    if (this.currentProvider && this.currentModelId) {
+      const llm = this.workspace.llmFactory.create(this.currentProvider, this.currentModelId);
+      if (!llm) {
+        throw new Error(`Failed to create LLM instance for model ${this.currentProvider}`);
+      }
+      this.llm = llm;
+      modelDescription = `You are using the ${this.currentProvider} model${this.currentModelId ? ` (${this.currentModelId})` : ''}`;
+    } else {
+      modelDescription = 'No model selected';
     }
-    this.llm = llm;
 
     // Initialize messages
     this.messages = [
       ...(options.initialMessages || []),
       {
         role: 'system',
-        content: `Welcome to TeamSpark AI Workbench! You are using the ${this.currentModel} model${this.currentModelId ? ` (${this.currentModelId})` : ''}.`
+        content: `Welcome to TeamSpark AI Workbench! ${modelDescription}`
       }
     ];
     
-    log.info(`Created new chat session with model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
+    log.info(`Created new chat session with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
   }
 
   //  We're going to construct and pass a bag of messages to the LLM (context)
@@ -60,6 +67,10 @@ export class ChatSession {
   // - Sometimes we get explanatory text with a tool call (or multiple tool calls)
   //
   async handleMessage(message: string): Promise<MessageUpdate> {
+    if (!this.llm) {
+      throw new Error('No LLM instance available');
+    }
+
     // Get system prompt from config
     const systemPrompt = await this.workspace.getSystemPrompt();
     const messages: ChatMessage[] = [
@@ -128,17 +139,10 @@ export class ChatSession {
 
     try {
       // Log the model being used for this request
-      log.info(`Generating response using model ${this.currentModel}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);
-      
-      // Ensure we have a valid LLM instance with the current model and model ID
-      if (!this.llm) {
-        log.warn('No LLM instance available, creating a new one');
-        this.llm = this.workspace.llmFactory.create(this.currentModel, this.currentModelId);
-      }
-      
+      log.info(`Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
       const response = await this.llm.generateResponse(messages);
       if (!response) {
-        throw new Error(`Failed to generate response from ${this.currentModel}`);
+        throw new Error(`Failed to generate response from ${this.currentProvider}`);
       }
 
       log.info('All turns', JSON.stringify(response.turns, null, 2));
@@ -178,7 +182,7 @@ export class ChatSession {
       }
 
       // Update session with new model and LLM
-      this.currentModel = modelType;
+      this.currentProvider = modelType;
       this.currentModelId = modelId;
       this.llm = llm;
 
@@ -220,7 +224,7 @@ export class ChatSession {
     return {
       messages: [...this.messages],
       lastSyncId: this.lastSyncId,
-      currentModelProvider: this.currentModel,
+      currentModelProvider: this.currentProvider,
       currentModelId: this.currentModelId,
       references: [...this.references],
       rules: [...this.rules]

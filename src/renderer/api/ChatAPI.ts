@@ -6,28 +6,20 @@ import log from 'electron-log';
 
 export class ChatAPI {
   private tabId: string;
-  private currentModel: LLMType;
-  private currentModelName: string;
-  private currentModelId: string | undefined;
+  private currentProvider?: LLMType;
+  private currentModelName?: string;
+  private currentModelId?: string;
   private messages: (RendererChatMessage & { modelReply?: ModelReply })[] = [];
   private currentModelInfo: ILLMModel | null = null; // Cache just the current model info
 
   constructor(tabId: string) {
     this.tabId = tabId;
-    this.currentModel = LLMType.Test; // Set default model
-    this.currentModelName = 'Frosty'; // Set default model name
     this.initModel();
   }
 
   private async updateModelNameFromState(modelType: LLMType, modelId?: string): Promise<void> {
     if (modelId) {
       try {
-        // For Test model, we know the name
-        if (modelType === LLMType.Test && modelId === 'frosty1.0') {
-          this.currentModelName = 'Frosty';
-          return;
-        }
-        
         // If we already have the model info cached and it matches the current ID
         if (this.currentModelInfo && this.currentModelInfo.id === modelId) {
           this.currentModelName = this.currentModelInfo.name;
@@ -50,9 +42,6 @@ export class ChatAPI {
         // Use the model ID as a fallback display name
         this.currentModelName = modelId;
       }
-    } else if (modelType === LLMType.Test) {
-      // Special case for Test model
-      this.currentModelName = 'Frosty';
     } else {
       // Default to a capitalized version of the model type
       this.currentModelName = modelType.charAt(0).toUpperCase() + 
@@ -68,13 +57,15 @@ export class ChatAPI {
       }
       
       // Update local state with session state from the server
-      this.currentModel = state.currentModelProvider;
+      this.currentProvider = state.currentModelProvider;
       this.currentModelId = state.currentModelId;
       
-      // Update the model name 
-      await this.updateModelNameFromState(state.currentModelProvider, state.currentModelId);
+      // Update the model name if we have a provider and model ID
+      if (state.currentModelProvider && state.currentModelId) {
+        await this.updateModelNameFromState(state.currentModelProvider, state.currentModelId);
+      }
       
-      log.info(`Initialized ChatAPI with model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}, name: ${this.currentModelName}`);
+      log.info(`Initialized ChatAPI with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}, name: ${this.currentModelName}`);
       
       // Convert any existing messages from the session
       this.messages = state.messages.map(this.convertMessageToChatMessage);
@@ -95,7 +86,7 @@ export class ChatAPI {
   public async sendMessage(message: string): Promise<string> {
     try {
       // Log the model we're using to send the message
-      log.info(`Sending message using model ${this.currentModel}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
+      log.info(`Sending message using model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
       
       const result = await window.api.sendMessage(this.tabId, message);
       
@@ -123,7 +114,7 @@ export class ChatAPI {
     try {
       const result = await window.api.switchModel(this.tabId, model);
       if (result.success) {
-        this.currentModel = model;
+        this.currentProvider = model;
         // Update messages with the new updates
         this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
         return true;
@@ -144,7 +135,7 @@ export class ChatAPI {
       const result = await window.api.switchModel(this.tabId, model, modelId);
       
       if (result.success) {
-        this.currentModel = model;
+        this.currentProvider = model;
         this.currentModelId = modelId; // Store the exact modelId without modification
         
         // Update the model name when provided or calculate it
@@ -173,11 +164,11 @@ export class ChatAPI {
     return [...this.messages];
   }
 
-  public getCurrentModel(): LLMType {
-    return this.currentModel;
+  public getCurrentModel(): LLMType | undefined {
+    return this.currentProvider;
   }
   
-  public getCurrentModelName(): string {
+  public getCurrentModelName(): string | undefined {
     return this.currentModelName;
   }
 

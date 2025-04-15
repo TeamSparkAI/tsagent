@@ -21,7 +21,7 @@ export class ChatSessionManager {
     const session = new ChatSession(this.workspace, options);
     this.sessions.set(tabId, session);
     
-    log.info(`Created new chat session for tab ${tabId} with model ${session.currentModel}`);
+    log.info(`Created new chat session for tab ${tabId} with model ${session.currentProvider}`);
     return session;
   }
 

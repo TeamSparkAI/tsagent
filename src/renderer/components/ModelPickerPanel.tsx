@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LLMType, LLMProviderInfo, ILLMModel } from '../../shared/llm';
+import log from 'electron-log';
 
 // Import provider logos
 import TestLogo from '../assets/frosty.png';
@@ -22,13 +23,13 @@ const providerLogos: Record<LLMType, any> = {
 };
 
 interface ModelPickerPanelProps {
-  selectedModel: LLMType;
+  selectedModel?: LLMType;
   onModelSelect: (model: LLMType, modelId: string, modelName: string) => void;
   onClose: () => void;
 }
 
 export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({ 
-  selectedModel, 
+  selectedModel = LLMType.Test,
   onModelSelect,
   onClose
 }) => {
@@ -58,34 +59,63 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
       try {
         setLoading(true);
         
-        // First fetch the provider info
-        const info = await getProviderInfo();
+        // First fetch the provider info and installed providers
+        const [info, installedProviders] = await Promise.all([
+          getProviderInfo(),
+          window.api.getInstalledProviders()
+        ]);
         
         // Only update state if component is still mounted
         if (isMounted) {
-          setProviderInfo(info);
-          setSelectedProvider(selectedModel);
+          // Filter provider info to only show installed providers
+          const filteredInfo = Object.fromEntries(
+            Object.entries(info).filter(([key]) => installedProviders.includes(key))
+          ) as Record<LLMType, LLMProviderInfo>;
           
-          // Then fetch models for the selected provider
-          try {
-            const availableModels = await getModelsForProvider(selectedModel);
-            if (isMounted) {
-              setModels(availableModels);
-              
-              if (availableModels.length > 0) {
-                setSelectedModelId(availableModels[0].id);
-                setSelectedModelName(availableModels[0].name);
+          setProviderInfo(filteredInfo);
+          
+          // If the selected model is not installed, switch to first available
+          if (!installedProviders.includes(selectedModel)) {
+            const firstAvailable = installedProviders[0] as LLMType;
+            if (firstAvailable) {
+              setSelectedProvider(firstAvailable);
+              try {
+                const availableModels = await getModelsForProvider(firstAvailable);
+                if (isMounted) {
+                  setModels(availableModels);
+                  if (availableModels.length > 0) {
+                    setSelectedModelId(availableModels[0].id);
+                    setSelectedModelName(availableModels[0].name);
+                  }
+                }
+              } catch (error) {
+                log.error(`Failed to load models for provider ${firstAvailable}:`, error);
+                if (isMounted) {
+                  setModels([]);
+                }
               }
             }
-          } catch (error) {
-            console.error(`Failed to load models for provider ${selectedModel}:`, error);
-            if (isMounted) {
-              setModels([]);
+          } else {
+            setSelectedProvider(selectedModel);
+            try {
+              const availableModels = await getModelsForProvider(selectedModel);
+              if (isMounted) {
+                setModels(availableModels);
+                if (availableModels.length > 0) {
+                  setSelectedModelId(availableModels[0].id);
+                  setSelectedModelName(availableModels[0].name);
+                }
+              }
+            } catch (error) {
+              log.error(`Failed to load models for provider ${selectedModel}:`, error);
+              if (isMounted) {
+                setModels([]);
+              }
             }
           }
         }
       } catch (error) {
-        console.error('Failed to load provider information:', error);
+        log.error('Failed to load provider information:', error);
       } finally {
         if (isMounted) {
           setLoading(false);
@@ -99,7 +129,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [getProviderInfo, getModelsForProvider, selectedModel]); // Include the inlined functions as dependencies
+  }, [getProviderInfo, getModelsForProvider, selectedModel]);
   
   // Update the second useEffect to use the ref instead of comparing selectedProvider and selectedModel
   useEffect(() => {
@@ -142,6 +172,78 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
       isMounted = false;
     };
   }, [selectedProvider, getModelsForProvider]); // Include getModelsForProvider as a dependency
+
+  // Add effect to handle provider changes
+  useEffect(() => {
+    const handleProvidersChanged = async () => {
+      log.info('[ModelPickerPanel] handleProvidersChanged');
+      try {
+        setLoading(true);
+        const info = await getProviderInfo();
+        const installedProviders = await window.api.getInstalledProviders();
+        
+        // Filter provider info to only show installed providers
+        const filteredInfo = Object.fromEntries(
+          Object.entries(info).filter(([key]) => installedProviders.includes(key))
+        ) as Record<LLMType, LLMProviderInfo>;
+        
+        setProviderInfo(filteredInfo);
+        
+        // If current provider is no longer installed, switch to first available provider
+        if (!installedProviders.includes(selectedProvider)) {
+          const firstAvailable = installedProviders[0] as LLMType;
+          if (firstAvailable) {
+            await handleProviderSelect(firstAvailable);
+          }
+        }
+      } catch (error) {
+        log.error('Error handling provider changes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const listener = window.api.onProvidersChanged(handleProvidersChanged);
+    return () => {
+      window.api.offProvidersChanged(listener);
+    };
+  }, [selectedProvider]);
+
+  // Add effect to handle references changes
+  useEffect(() => {
+    const handleReferencesChanged = async () => {
+      log.info('[ModelPickerPanel] handleReferencesChanged');
+      try {
+        setLoading(true);
+        const info = await getProviderInfo();
+        const installedProviders = await window.api.getInstalledProviders();
+        
+        // Filter provider info to only show installed providers
+        const filteredInfo = Object.fromEntries(
+          Object.entries(info).filter(([key]) => installedProviders.includes(key))
+        ) as Record<LLMType, LLMProviderInfo>;
+        
+        setProviderInfo(filteredInfo);
+        
+        // If current provider is no longer installed, switch to first available provider
+        if (!installedProviders.includes(selectedProvider)) {
+          const firstAvailable = installedProviders[0] as LLMType;
+          if (firstAvailable) {
+            await handleProviderSelect(firstAvailable);
+          }
+        }
+      } catch (error) {
+        log.error('Error handling references changes:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    const listener = window.api.onReferencesChanged(handleReferencesChanged);
+    return () => {
+      window.api.offReferencesChanged(listener);
+    };
+  }, [selectedProvider]);
 
   // Handle provider selection
   const handleProviderSelect = (provider: LLMType) => {

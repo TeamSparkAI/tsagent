@@ -182,14 +182,6 @@ CLI
 - Register CLI on first run (like Ollama) - tspark
 - Model selector
 
-Max turns config (UX or just config file setting)
-- Should probably be a property of the chatsession
-
-Chat tabs (all) need to be aware of installed providers and changes to installed providers
-- Model picker needs to use installed providers
-- What happens if current model for a Chat session is from a provider that gets removed
-- This implies a chat tab can have no model (meaning it needs to be inactive until it has a model)
-
 ## Providers tab
 
 How do we tell if a provider is properly configured and working?  Test/ping?
@@ -201,8 +193,6 @@ Each model could have "Start Chat" that launches a chat with that model
 ## Workspace issues
 
 Track (and persist) last selected model, select it when creating new chat tab
-- If provider is available?
-- What happens if not provider?
 
 Currently, all tabs are remounted (in App.tsx) on workspace:switch
 - This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch
@@ -214,5 +204,27 @@ New settings tab, list of items on left, details on right
 - System Prompt
 - Chat Settings
   - Max turn count
+  - Max output tokens
 - Model Settings (default model settings)
-  - Temperature
+  - See below
+
+Would we want to be able to set these per chat session also?
+
+Max tokens (?)
+Max output tokens (?)
+
+### Common model settings
+
+Temperature (0.0 to 1.0):
+
+Temperature controls how random and creative the AI's responses are.
+* Lower values (closer to 0): Make the output more predictable, focused, and factual. Good for tasks where accuracy is key.
+* Higher values (closer to 1): Introduce more randomness and surprise, leading to more creative and varied responses. Good for brainstorming or creative writing.   
+
+Top-P (Nucleus Sampling) (0.0 to 1.0):
+
+Top-P also influences the randomness of the AI's output by considering a selection of the most likely words.   
+* Lower values (closer to 0): Focus the AI on a smaller, more probable set of words, resulting in more predictable and focused output.   
+* Higher values (closer to 1): Allow the AI to consider a wider range of less probable but still relevant words, leading to more diverse and sometimes more creative responses.   
+
+Important Note: It's generally recommended to adjust either Temperature or Top-P, but not both at the same time, for the most predictable control over the AI's behavior.

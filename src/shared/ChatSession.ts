@@ -13,7 +13,7 @@ export type ChatMessage = {
 export interface ChatState {
   messages: ChatMessage[];
   lastSyncId: number;
-  currentModelProvider: LLMType;
+  currentModelProvider?: LLMType;
   currentModelId?: string;
   references: string[];
   rules: string[];
