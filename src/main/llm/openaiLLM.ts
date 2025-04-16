@@ -6,12 +6,12 @@ import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 import { WorkspaceManager } from '../state/WorkspaceManager';
+import { ChatSession } from '../state/ChatSession';
 
 export class OpenAILLM implements ILLM {
   private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private client!: OpenAI;
-  private readonly MAX_TURNS = 10;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
     return {
@@ -77,7 +77,7 @@ export class OpenAILLM implements ILLM {
   //       as messages).  Then as we are processing turns, we also need to add any reponses we receive from the model, as well as
   //       any replies we make (such as tool call results), to this state.
   //
-  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -142,7 +142,7 @@ export class OpenAILLM implements ILLM {
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
 
       let turnCount = 0;
-      while (turnCount < this.MAX_TURNS) {
+      while (turnCount < session.maxChatTurns) {
         const turn: Turn = {};
         let hasToolUse = false;
         turnCount++;
@@ -152,7 +152,10 @@ export class OpenAILLM implements ILLM {
           model: this.modelName,
           messages: currentMessages,
           tools: functions.length > 0 ? functions.map(fn => ({ type: 'function', function: fn })) : undefined,
-          tool_choice: functions.length > 0 ? 'auto' : undefined
+          tool_choice: functions.length > 0 ? 'auto' : undefined,
+          max_tokens: session.maxOutputTokens,
+          temperature: session.temperature,
+          top_p: session.topP,
         });
 
         const response = completion.choices[0]?.message;
@@ -220,7 +223,7 @@ export class OpenAILLM implements ILLM {
         if (!hasToolUse) break;
       }
 
-      if (turnCount >= this.MAX_TURNS) {
+      if (turnCount >= session.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });

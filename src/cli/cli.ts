@@ -3,11 +3,12 @@ import { LLMType } from '../shared/llm';
 import log from 'electron-log';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import path from 'path';
-import { ChatSession } from '../main/state/ChatSession';
+import { ChatSession, ChatSessionOptionsWithRequiredSettings } from '../main/state/ChatSession';
 import chalk from 'chalk';
 import ora from 'ora';
 import { MessageUpdate } from '../shared/ChatSession';
 import { WorkspaceManager } from '../main/state/WorkspaceManager';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../shared/workspace';
 
 // Define the model map with proper type
 const AVAILABLE_MODELS: Record<string, LLMType> = {
@@ -111,12 +112,25 @@ function showHelp() {
   console.log('');
 }
 
+function getSettingsValue(workspace: WorkspaceManager, key: string, defaultValue: number): number {
+  const settingsValue = workspace.getSettingsValue(key);
+  return settingsValue ? parseFloat(settingsValue) : defaultValue;
+}
+
 export function setupCLI(workspace: WorkspaceManager) {
   console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
   showHelp();
   
   let currentModel = 'test';
-  const chatSession = new ChatSession(workspace);
+
+  const chatSessionOptions: ChatSessionOptionsWithRequiredSettings = {
+    maxChatTurns: getSettingsValue(workspace, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT),
+    maxOutputTokens: getSettingsValue(workspace, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT),
+    temperature: getSettingsValue(workspace, TEMPERATURE_KEY, TEMPERATURE_DEFAULT),
+    topP: getSettingsValue(workspace, TOP_P_KEY, TOP_P_DEFAULT)
+  };
+
+  const chatSession = new ChatSession(workspace, chatSessionOptions);
 
   const findModelName = (input: string): string | undefined => {
     const normalizedInput = input.toLowerCase();
@@ -399,4 +413,5 @@ export function setupCLI(workspace: WorkspaceManager) {
 
   // Replace this with direct call
   runCLI();
+  return;
 } 

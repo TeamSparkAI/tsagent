@@ -17,6 +17,10 @@ export interface ChatState {
   currentModelId?: string;
   references: string[];
   rules: string[];
+  maxChatTurns: number;
+  maxOutputTokens: number;
+  temperature: number;
+  topP: number;
 }
 
 export interface MessageUpdate {
@@ -30,6 +34,10 @@ export interface ChatSessionOptions {
   modelProvider?: LLMType;
   modelId?: string;
   initialMessages?: ChatMessage[];
+  maxChatTurns?: number;
+  maxOutputTokens?: number;
+  temperature?: number;
+  topP?: number;
 }
 
 export interface ChatSessionResponse {

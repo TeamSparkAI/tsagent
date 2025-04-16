@@ -59,8 +59,6 @@ We create a chat which is associated with an agent
 - Chat can override agent settings
 - Chat can have its own rules, tools, and references (in addition to the agent's)?
 
-LLM model chosen and model config applies at least to chat level?
-
 Maybe global tools list is very large, agent/workspace is a curated subset (pulled from main list)
 
 ## Misc
@@ -153,6 +151,8 @@ CLI
 
 Should all models have defaults (trickier to pick for Bedrock and Ollama)?  Probably only impacts CLI.
 
+CLI has bug - when no model selected, it shows Test as selected, messages fail (spin forever)
+
 How do we tell if a provider is properly configured and working?  Test/ping?
 
 Either show models or error
@@ -169,33 +169,6 @@ Currently, all tabs are remounted (in App.tsx) on workspace:switch
 
 ## Settings
 
-New settings tab, list of items on left, details on right
-- System Prompt
-- Chat Settings
-  - Max turn count
-  - Max output tokens
-- Model Settings (default model settings)
-  - See below
+Add "Settings" tab to chat settings where it can see / edit settings for the session
 
-Would we want to be able to set these per chat session also ("Settings" that had chat and model settings)?
-
-Max tokens (?)
-Max output tokens (?)
-
-### Common model settings
-
-Note: For both settings, "use model default" or "override model default"
-
-Temperature (0.0 to 1.0):
-
-Temperature controls how random and creative the AI's responses are.
-* Lower values (closer to 0): Make the output more predictable, focused, and factual. Good for tasks where accuracy is key.
-* Higher values (closer to 1): Introduce more randomness and surprise, leading to more creative and varied responses. Good for brainstorming or creative writing.   
-
-Top-P (Nucleus Sampling) (0.0 to 1.0):
-
-Top-P also influences the randomness of the AI's output by considering a selection of the most likely words.   
-* Lower values (closer to 0): Focus the AI on a smaller, more probable set of words, resulting in more predictable and focused output.   
-* Higher values (closer to 1): Allow the AI to consider a wider range of less probable but still relevant words, leading to more diverse and sometimes more creative responses.   
-
-Important Note: It's generally recommended to adjust either Temperature or Top-P, but not both at the same time, for the most predictable control over the AI's behavior.
+What are the implications for the CLI (getting/setting workspace values, overriding for session, seeing session values)

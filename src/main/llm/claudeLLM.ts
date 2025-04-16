@@ -6,11 +6,11 @@ import log from 'electron-log';
 import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { WorkspaceManager } from '../state/WorkspaceManager';
+import { ChatSession } from '../state/ChatSession';
 export class ClaudeLLM implements ILLM {
   private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private client!: Anthropic;
-  private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
   static getInfo(): LLMProviderInfo {
     return {
@@ -61,7 +61,7 @@ export class ClaudeLLM implements ILLM {
   //       as messages).  Then as we are processing turns, we also need to add any reponses we receive from the model, as well as
   //       any replies we make (such as tool call results), to this state.
   //
-  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -142,14 +142,16 @@ export class ClaudeLLM implements ILLM {
 
       let currentResponse = await this.client.messages.create({
         model: this.modelName,
-        max_tokens: 1000,
+        max_tokens: session.maxOutputTokens,
+        temperature: session.temperature,
+        top_p: session.topP,
         messages: turnMessages,
         system: systemPrompt || undefined,
         tools,
       });
 
       let turnCount = 0;
-      while (turnCount < this.MAX_TURNS) {
+      while (turnCount < session.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
         let hasToolUse = false;
@@ -231,7 +233,7 @@ export class ClaudeLLM implements ILLM {
         if (!hasToolUse) break;
       }
       
-      if (turnCount >= this.MAX_TURNS) {
+      if (turnCount >= session.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });

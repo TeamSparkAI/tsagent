@@ -7,6 +7,8 @@ import { ReferencesManager } from './ReferencesManager';
 import { ChatSessionManager } from './ChatSessionManager';
 import { LLMFactory } from '../llm/llmFactory';
 import { MCPClientManager } from '../mcp/manager';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_KEY } from '../../shared/workspace';
 
 export class WorkspaceManager {
   private static readonly WORKSPACE_FILE_NAME = 'tspark.json';
@@ -94,10 +96,10 @@ export class WorkspaceManager {
             version: '1.0.0'
           },
           settings: {
-            maxChatTurns: 10,
-            maxOutputTokens: 1000,
-            temperature: 0.7,
-            topP: 0.9
+            [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT,
+            [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT,
+            [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT,
+            [TOP_P_KEY]: TOP_P_DEFAULT
           },
           providers: {},
           mcpServers: {}

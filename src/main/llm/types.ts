@@ -1,7 +1,7 @@
 import { ChatMessage } from '../../shared/ChatSession';
 import { LLMProviderInfo } from '../../shared/llm';
 import { ModelReply } from '../../shared/ModelReply';
-
+import { ChatSession } from '../state/ChatSession';
 export enum LLMType {
   Test = 'test',
   Claude = 'claude',
@@ -19,7 +19,7 @@ export interface ILLMStatic {
 // Interface for instance methods
 export interface ILLM {
   getModels(): Promise<ILLMModel[]>;
-  generateResponse(messages: ChatMessage[]): Promise<ModelReply>;
+  generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply>;
 } 
 
 // Constructor type with static methods

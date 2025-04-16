@@ -5,13 +5,13 @@ import log from 'electron-log';
 import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { WorkspaceManager } from '../state/WorkspaceManager';
+import { ChatSession } from '../state/ChatSession';
 
 export class GeminiLLM implements ILLM {
   private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
   private genAI: GoogleGenerativeAI;
   private model: GenerativeModel;
-  private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
   private convertPropertyType(prop: any): { type: SchemaType; items?: { type: SchemaType; properties?: Record<string, any>; required?: string[] }; description?: string } {
     const baseType = (prop.type || "string").toLowerCase() as SchemaType;
@@ -179,7 +179,7 @@ export class GeminiLLM implements ILLM {
     return models;
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -261,11 +261,16 @@ export class GeminiLLM implements ILLM {
       log.info('currentPrompt', currentPrompt);
 
       const chat = this.model.startChat({
-        history
+        history,
+        generationConfig: {
+          maxOutputTokens: session.maxOutputTokens,
+          temperature: session.temperature,
+          topP: session.topP
+        }
       });
 
       let turnCount = 0;
-      while (turnCount < this.MAX_TURNS) {
+      while (turnCount < session.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
         log.info(`Sending message prompt "${currentPrompt}", turn count: ${turnCount}`);
@@ -329,7 +334,7 @@ export class GeminiLLM implements ILLM {
         if (!hasToolUse) break;
       }
 
-      if (turnCount >= this.MAX_TURNS) {
+      if (turnCount >= session.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });

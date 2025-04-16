@@ -6,11 +6,11 @@ import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
 import { WorkspaceManager } from '../state/WorkspaceManager';
+import { ChatSession } from '../state/ChatSession';
 
 export class BedrockLLM implements ILLM {
   private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
-  private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
   private client!: BedrockRuntimeClient;
 
@@ -104,7 +104,7 @@ export class BedrockLLM implements ILLM {
 		return models;
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -201,13 +201,18 @@ export class BedrockLLM implements ILLM {
 			let currentResponse: ConverseCommandOutput | null = null;
 
       let turnCount = 0;
-      while (turnCount < this.MAX_TURNS) {
+      while (turnCount < session.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
         let hasToolUse = false;
 
         const converseCommand: ConverseCommandInput = {
 					modelId: this.modelName,
+          inferenceConfig: {
+            maxTokens: session.maxOutputTokens,
+            temperature: session.temperature,
+            topP: session.topP
+          },
 					messages: turnMessages,
 					toolConfig: {
 						tools: tools,
@@ -288,7 +293,7 @@ export class BedrockLLM implements ILLM {
         if (!hasToolUse) break;
       }
       
-      if (turnCount >= this.MAX_TURNS) {
+      if (turnCount >= session.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });

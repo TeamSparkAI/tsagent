@@ -3,22 +3,23 @@ import log from 'electron-log';
 import { TabProps } from '../types/TabProps';
 import { AboutView } from './AboutView';
 import './SettingsTab.css';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY } from '../../shared/workspace';
 
 export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
   const [activeSection, setActiveSection] = useState<string>('about');
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('');
   const [initialSystemPrompt, setInitialSystemPrompt] = useState<string>('');
   const [currentChatSettings, setCurrentChatSettings] = useState({
-    maxChatTurns: 10,
-    maxOutputTokens: 1000,
-    temperature: 0.7,
-    topP: 0.9
+    maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
+    maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
+    temperature: TEMPERATURE_DEFAULT,
+    topP: TOP_P_DEFAULT
   });
   const [initialChatSettings, setInitialChatSettings] = useState({
-    maxChatTurns: 10,
-    maxOutputTokens: 1000,
-    temperature: 0.7,
-    topP: 0.9
+    maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
+    maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
+    temperature: TEMPERATURE_DEFAULT,
+    topP: TOP_P_DEFAULT
   });
 
   useEffect(() => {
@@ -30,16 +31,16 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
         setInitialSystemPrompt(systemPrompt || '');
         
         // Load chat settings
-        const maxChatTurns = await window.api.getSettingsValue('maxChatTurns');
-        const maxOutputTokens = await window.api.getSettingsValue('maxOutputTokens');
-        const temperature = await window.api.getSettingsValue('temperature');
-        const topP = await window.api.getSettingsValue('topP');
+        const maxChatTurns = await window.api.getSettingsValue(MAX_CHAT_TURNS_KEY);
+        const maxOutputTokens = await window.api.getSettingsValue(MAX_OUTPUT_TOKENS_KEY);
+        const temperature = await window.api.getSettingsValue(TEMPERATURE_KEY);
+        const topP = await window.api.getSettingsValue(TOP_P_KEY);
 
         const loadedChatSettings = {
-          maxChatTurns: maxChatTurns ? parseInt(maxChatTurns) : 10,
-          maxOutputTokens: maxOutputTokens ? parseInt(maxOutputTokens) : 1000,
-          temperature: temperature ? parseFloat(temperature) : 0.7,
-          topP: topP ? parseFloat(topP) : 0.9
+          maxChatTurns: maxChatTurns ? parseInt(maxChatTurns) : MAX_CHAT_TURNS_DEFAULT,
+          maxOutputTokens: maxOutputTokens ? parseInt(maxOutputTokens) : MAX_OUTPUT_TOKENS_DEFAULT,
+          temperature: temperature ? parseFloat(temperature) : TEMPERATURE_DEFAULT,
+          topP: topP ? parseFloat(topP) : TOP_P_DEFAULT
         };
 
         setCurrentChatSettings(loadedChatSettings);
@@ -64,10 +65,10 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const handleSaveChatSettings = async () => {
     try {
-      await window.api.setSettingsValue('maxChatTurns', currentChatSettings.maxChatTurns.toString());
-      await window.api.setSettingsValue('maxOutputTokens', currentChatSettings.maxOutputTokens.toString());
-      await window.api.setSettingsValue('temperature', currentChatSettings.temperature.toString());
-      await window.api.setSettingsValue('topP', currentChatSettings.topP.toString());
+      await window.api.setSettingsValue(MAX_CHAT_TURNS_KEY, currentChatSettings.maxChatTurns.toString());
+      await window.api.setSettingsValue(MAX_OUTPUT_TOKENS_KEY, currentChatSettings.maxOutputTokens.toString());
+      await window.api.setSettingsValue(TEMPERATURE_KEY, currentChatSettings.temperature.toString());
+      await window.api.setSettingsValue(TOP_P_KEY, currentChatSettings.topP.toString());
       setInitialChatSettings(currentChatSettings);
       log.info('Chat settings saved successfully');
     } catch (error) {

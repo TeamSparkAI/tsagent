@@ -1,5 +1,15 @@
 import { BrowserWindow } from 'electron';
 
+export const MAX_CHAT_TURNS_KEY = 'maxTurns';
+export const MAX_OUTPUT_TOKENS_KEY = 'maxOutputTokens';
+export const TEMPERATURE_KEY = 'temperature';
+export const TOP_P_KEY = 'topP';
+
+export const MAX_CHAT_TURNS_DEFAULT = 20;
+export const MAX_OUTPUT_TOKENS_DEFAULT = 1000;
+export const TEMPERATURE_DEFAULT = 0.5;
+export const TOP_P_DEFAULT = 0.5;
+
 export interface WorkspaceWindow {
     windowId: string;
     workspacePath: string;

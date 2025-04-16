@@ -5,11 +5,11 @@ import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { ChatResponse, Message, Ollama, Tool as OllamaTool } from 'ollama'
 import { WorkspaceManager } from '../state/WorkspaceManager';
+import { ChatSession } from '../state/ChatSession';
 
 export class OllamaLLM implements ILLM {
   private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
-  private readonly MAX_TURNS = 10;  // Maximum number of tool use turns
 
   private client!: Ollama;
 
@@ -53,7 +53,7 @@ export class OllamaLLM implements ILLM {
     }));
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -147,7 +147,7 @@ export class OllamaLLM implements ILLM {
       let currentResponse: ChatResponse | null = null;
  
       let turnCount = 0;
-      while (turnCount < this.MAX_TURNS) {
+      while (turnCount < session.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
         let hasToolUse = false;
@@ -155,7 +155,12 @@ export class OllamaLLM implements ILLM {
         currentResponse = await this.client.chat({
           model: this.modelName,
           messages: turnMessages,
-          tools: tools
+          tools: tools,
+          options: {
+            num_predict: session.maxOutputTokens,
+            temperature: session.temperature,
+            top_p: session.topP
+          }
         });
     
         // log.info('Ollama response:', JSON.stringify(currentResponse, null, 2));
@@ -232,7 +237,7 @@ export class OllamaLLM implements ILLM {
         if (!hasToolUse) break;  
       }
       
-      if (turnCount >= this.MAX_TURNS) {
+      if (turnCount >= session.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });

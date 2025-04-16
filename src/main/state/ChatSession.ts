@@ -4,6 +4,9 @@ import { ILLM } from '../../shared/llm';
 import log from 'electron-log';
 import { WorkspaceManager } from './WorkspaceManager';
 
+type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP'>>;
+export type ChatSessionOptionsWithRequiredSettings = Omit<ChatSessionOptions, keyof RequiredSettings> & RequiredSettings;
+
 export class ChatSession {
   messages: ChatMessage[] = [];
   lastSyncId: number = 0;
@@ -13,8 +16,12 @@ export class ChatSession {
   workspace: WorkspaceManager;
   rules: string[] = [];
   references: string[] = [];
+  maxChatTurns: number;
+  maxOutputTokens: number;
+  temperature: number;
+  topP: number;
 
-  constructor(workspace: WorkspaceManager, options: ChatSessionOptions = {}) {
+  constructor(workspace: WorkspaceManager, options: ChatSessionOptionsWithRequiredSettings) {
     this.workspace = workspace;
     if (options.modelProvider && options.modelId) {
       this.currentProvider = options.modelProvider;
@@ -23,6 +30,11 @@ export class ChatSession {
       this.currentProvider = undefined;
       this.currentModelId = undefined;
     }
+
+    this.maxChatTurns = options.maxChatTurns;
+    this.maxOutputTokens = options.maxOutputTokens;
+    this.temperature = options.temperature;
+    this.topP = options.topP;
     
     let modelDescription = '';
 
@@ -140,7 +152,7 @@ export class ChatSession {
     try {
       // Log the model being used for this request
       log.info(`Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
-      const response = await this.llm.generateResponse(messages);
+      const response = await this.llm.generateResponse(this, messages);
       if (!response) {
         throw new Error(`Failed to generate response from ${this.currentProvider}`);
       }
@@ -227,7 +239,11 @@ export class ChatSession {
       currentModelProvider: this.currentProvider,
       currentModelId: this.currentModelId,
       references: [...this.references],
-      rules: [...this.rules]
+      rules: [...this.rules],
+      maxChatTurns: this.maxChatTurns,
+      maxOutputTokens: this.maxOutputTokens,
+      temperature: this.temperature,
+      topP: this.topP
     };
   }
 

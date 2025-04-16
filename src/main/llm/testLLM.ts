@@ -1,6 +1,7 @@
 import { ChatMessage } from '../../shared/ChatSession';
 import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import { ModelReply } from '../../shared/ModelReply';
+import { ChatSession } from '../state/ChatSession';
 import { WorkspaceManager } from '../state/WorkspaceManager';
 
 export class TestLLM implements ILLM {
@@ -25,12 +26,12 @@ export class TestLLM implements ILLM {
     }];
   }
 
-  async generateResponse(messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     return {
       timestamp: Date.now(),
       turns: [
         {
-          message: 'Happy Birthday!',
+          message: `Happy Birthday! (maxChatTurns: ${session.maxChatTurns}, maxOutputTokens: ${session.maxOutputTokens}, temperature: ${session.temperature.toFixed(2)}, topP: ${session.topP.toFixed(2)})`,
           inputTokens: 420,
           outputTokens: 69
         }
