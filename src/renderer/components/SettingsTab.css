@@ -120,62 +120,6 @@
   margin-bottom: 20px;
 }
 
-.settings-grid {
-  display: grid;
-  grid-template-columns: min-content auto;
-  row-gap: 2px;
-  column-gap: 20px;
-  align-items: center;
-}
-
-.setting-item {
-  display: contents;
-  margin-bottom: 15px;
-}
-
-.setting-item label {
-  font-weight: 500;
-  grid-column: 1;
-  white-space: nowrap;
-  padding-right: 20px;
-}
-
-.setting-item input[type="number"] {
-  width: 80px;
-  padding: 5px;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  grid-column: 2;
-  margin-bottom: 0;
-}
-
-.slider-container {
-  grid-column: 2;
-  display: flex;
-  align-items: center;
-  gap: 20px;
-}
-
-.setting-item input[type="range"] {
-  width: 250px;
-  margin: 0;
-}
-
-.setting-value {
-  font-size: 14px;
-  color: #666;
-  min-width: 40px;
-}
-
-.setting-description {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.5;
-  grid-column: 1 / -1;
-  margin-top: 0;
-  margin-bottom: 20px;
-}
-
 .settings-container button {
   padding: 8px 16px;
   background-color: #1890ff;

@@ -1,0 +1,76 @@
+.settings-section {
+  padding: 5px;
+}
+
+.settings-section h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-section h3 .setting-description {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+  font-weight: normal;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: min-content auto;
+  row-gap: 2px;
+  column-gap: 20px;
+  align-items: center;
+}
+
+.setting-item {
+  display: contents;
+  margin-bottom: 15px;
+}
+
+.setting-item label {
+  font-weight: 500;
+  grid-column: 1;
+  white-space: nowrap;
+  padding-right: 20px;
+}
+
+.setting-item input[type="number"] {
+  width: 80px;
+  padding: 5px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  grid-column: 2;
+  margin-bottom: 0;
+}
+
+.setting-item input[type="range"] {
+  width: 250px;
+  margin: 0;
+}
+
+.slider-container {
+  grid-column: 2;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.setting-value {
+  min-width: 40px;
+  text-align: right;
+  font-family: monospace;
+}
+
+.setting-description {
+  font-size: 14px;
+  color: #666;
+  line-height: 1.5;
+  grid-column: 1 / -1;
+  margin-top: 0;
+  margin-bottom: 20px;
+}

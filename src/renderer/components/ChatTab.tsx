@@ -17,6 +17,7 @@ import GeminiLogo from '../assets/gemini.png';
 import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
 import './ChatTab.css';
+import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 
 // Add ChatState interface back
 interface ChatState {
@@ -814,81 +815,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       
       {showSettingsPanel && (
         <div id="settings-panel">
-          <div className="settings-section">
-            <h3>
-              Chat Settings
-              <span className="setting-description">These settings apply only to this chat session.</span>
-            </h3>
-            <div className="settings-grid">
-              <div className="setting-item">
-                <label htmlFor="maxChatTurns">Maximum Chat Turns</label>
-                <input
-                  type="number"
-                  id="maxChatTurns"
-                  value={chatSettings.maxChatTurns}
-                  onChange={(e) => handleSettingsChange({ ...chatSettings, maxChatTurns: parseInt(e.target.value) })}
-                  min="1"
-                  max="100"
-                />
-                <div className="setting-description">
-                  Maximum number of turns (typically tool calls) allowed in response to a single message before forcing a stop.
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <label htmlFor="maxOutputTokens">Maximum Output Tokens</label>
-                <input
-                  type="number"
-                  id="maxOutputTokens"
-                  value={chatSettings.maxOutputTokens}
-                  onChange={(e) => handleSettingsChange({ ...chatSettings, maxOutputTokens: parseInt(e.target.value) })}
-                  min="100"
-                  max="4000"
-                />
-                <div className="setting-description">
-                  Maximum number of tokens the AI can generate in a single response.
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <label htmlFor="temperature">Temperature</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    id="temperature"
-                    value={chatSettings.temperature}
-                    onChange={(e) => handleSettingsChange({ ...chatSettings, temperature: parseFloat(e.target.value) })}
-                    min="0"
-                    max="1"
-                    step="0.05"
-                  />
-                  <div className="setting-value">{chatSettings.temperature.toFixed(2)}</div>
-                </div>
-                <div className="setting-description">
-                  Controls randomness in the AI's responses. Lower values make responses more focused and deterministic.
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <label htmlFor="topP">Top P (Nucleus Sampling)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    id="topP"
-                    value={chatSettings.topP}
-                    onChange={(e) => handleSettingsChange({ ...chatSettings, topP: parseFloat(e.target.value) })}
-                    min="0"
-                    max="1"
-                    step="0.05"
-                  />
-                  <div className="setting-value">{chatSettings.topP.toFixed(2)}</div>
-                </div>
-                <div className="setting-description">
-                  Controls diversity in the AI's responses. Lower values make responses more focused and deterministic.
-                </div>
-              </div>
-            </div>
-          </div>
+          <ChatSettingsForm
+            settings={chatSettings}
+            onSettingsChange={handleSettingsChange}
+          />
         </div>
       )}
       

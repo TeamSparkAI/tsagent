@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import log from 'electron-log';
 import { TabProps } from '../types/TabProps';
 import { AboutView } from './AboutView';
+import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import './SettingsTab.css';
 import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY } from '../../shared/workspace';
 
@@ -9,13 +10,13 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   const [activeSection, setActiveSection] = useState<string>('about');
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('');
   const [initialSystemPrompt, setInitialSystemPrompt] = useState<string>('');
-  const [currentChatSettings, setCurrentChatSettings] = useState({
+  const [currentChatSettings, setCurrentChatSettings] = useState<ChatSettings>({
     maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
     maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
     temperature: TEMPERATURE_DEFAULT,
     topP: TOP_P_DEFAULT
   });
-  const [initialChatSettings, setInitialChatSettings] = useState({
+  const [initialChatSettings, setInitialChatSettings] = useState<ChatSettings>({
     maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
     maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
     temperature: TEMPERATURE_DEFAULT,
@@ -36,7 +37,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
         const temperature = await window.api.getSettingsValue(TEMPERATURE_KEY);
         const topP = await window.api.getSettingsValue(TOP_P_KEY);
 
-        const loadedChatSettings = {
+        const loadedChatSettings: ChatSettings = {
           maxChatTurns: maxChatTurns ? parseInt(maxChatTurns) : MAX_CHAT_TURNS_DEFAULT,
           maxOutputTokens: maxOutputTokens ? parseInt(maxOutputTokens) : MAX_OUTPUT_TOKENS_DEFAULT,
           temperature: temperature ? parseFloat(temperature) : TEMPERATURE_DEFAULT,
@@ -147,82 +148,17 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             <p className="setting-description">
               Chat Settings will apply to all new chat sessions, and may be overridden on any individual chat session.
             </p>
-            <div className="settings-grid">
-              <div className="setting-item">
-                <label htmlFor="maxChatTurns">Maximum Chat Turns</label>
-                <input
-                  type="number"
-                  id="maxChatTurns"
-                  value={currentChatSettings.maxChatTurns}
-                  onChange={(e) => setCurrentChatSettings({ ...currentChatSettings, maxChatTurns: parseInt(e.target.value) })}
-                  min="1"
-                  max="100"
-                />
-                <div className="setting-description">
-                  Maximum number of turns (typically tool calls) allowed in response to a single message before forcing a stop.
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <label htmlFor="maxOutputTokens">Maximum Output Tokens</label>
-                <input
-                  type="number"
-                  id="maxOutputTokens"
-                  value={currentChatSettings.maxOutputTokens}
-                  onChange={(e) => setCurrentChatSettings({ ...currentChatSettings, maxOutputTokens: parseInt(e.target.value) })}
-                  min="100"
-                  max="4000"
-                />
-                <div className="setting-description">
-                  Maximum number of tokens the AI can generate in a single response.
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <label htmlFor="temperature">Temperature</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    id="temperature"
-                    value={currentChatSettings.temperature}
-                    onChange={(e) => setCurrentChatSettings({ ...currentChatSettings, temperature: parseFloat(e.target.value) })}
-                    min="0"
-                    max="1"
-                    step="0.05"
-                  />
-                  <div className="setting-value">{currentChatSettings.temperature.toFixed(2)}</div>
-                </div>
-                <div className="setting-description">
-                  Controls randomness in the AI's responses. Lower values make responses more focused and deterministic.
-                </div>
-              </div>
-
-              <div className="setting-item">
-                <label htmlFor="topP">Top P (Nucleus Sampling)</label>
-                <div className="slider-container">
-                  <input
-                    type="range"
-                    id="topP"
-                    value={currentChatSettings.topP}
-                    onChange={(e) => setCurrentChatSettings({ ...currentChatSettings, topP: parseFloat(e.target.value) })}
-                    min="0"
-                    max="1"
-                    step="0.05"
-                  />
-                  <div className="setting-value">{currentChatSettings.topP.toFixed(2)}</div>
-                </div>
-                <div className="setting-description">
-                  Controls diversity in the AI's responses. Lower values make responses more focused and deterministic.
-                </div>
-              </div>
-
-              <button 
-                onClick={handleSaveChatSettings}
-                disabled={!hasChatSettingsChanges}
-              >
-                Save Chat Settings
-              </button>
-            </div>
+            <ChatSettingsForm
+              settings={currentChatSettings}
+              onSettingsChange={setCurrentChatSettings}
+              showTitle={false}
+            />
+            <button 
+              onClick={handleSaveChatSettings}
+              disabled={!hasChatSettingsChanges}
+            >
+              Save Chat Settings
+            </button>
           </div>
         );
       default:
