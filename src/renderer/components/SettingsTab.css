@@ -130,6 +130,7 @@
   font-size: 14px;
   transition: background-color 0.3s;
   width: fit-content;
+  margin-top: 20px;
 }
 
 .settings-container button:hover {

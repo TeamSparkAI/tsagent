@@ -376,6 +376,5 @@
   display: grid;
   grid-template-columns: 1fr;
   grid-gap: 10px;
-  max-height: 300px;
-  overflow-y: auto;
+  overflow: visible;
 }

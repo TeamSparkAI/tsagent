@@ -29,7 +29,6 @@
 
 .setting-item {
   display: contents;
-  margin-bottom: 15px;
 }
 
 .setting-item label {
@@ -66,11 +65,15 @@
   font-family: monospace;
 }
 
+.setting-item:not(:last-child) .setting-description {
+  margin-bottom: 20px;
+}
+
 .setting-description {
   font-size: 14px;
   color: #666;
   line-height: 1.5;
   grid-column: 1 / -1;
   margin-top: 0;
-  margin-bottom: 20px;
+
 }
