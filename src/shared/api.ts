@@ -28,6 +28,10 @@ export interface API {
   getProviderConfig: (provider: string, key: string) => Promise<string | null>;
   setProviderConfig: (provider: string, key: string, value: string) => Promise<boolean>;
 
+  // Settings API
+  getSettingsValue: (key: string) => Promise<string | null>;
+  setSettingsValue: (key: string, value: string) => Promise<boolean>;
+
   // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;
   getMCPClient: (serverName: string) => Promise<{

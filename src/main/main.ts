@@ -1081,6 +1081,33 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return [];
     }
   });
+
+  // Settings IPC handlers
+  ipcMain.handle('get-settings-value', (event, key: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    if (!workspace) {
+      log.warn('No workspace found for window:', windowId);
+      return null;
+    }
+    return workspace.getSettingsValue(key);
+  });
+
+  ipcMain.handle('set-settings-value', async (event, key: string, value: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    if (!workspace) {
+      log.warn('No workspace found for window:', windowId);
+      return false;
+    }
+    try {
+      await workspace.setSettingsValue(key, value);
+      return true;
+    } catch (error) {
+      log.error(`Error setting setting ${key}:`, error);
+      return false;
+    }
+  });
 }
 
 startApp(); 

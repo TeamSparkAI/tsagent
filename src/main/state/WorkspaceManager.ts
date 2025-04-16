@@ -95,6 +95,9 @@ export class WorkspaceManager {
           },
           settings: {
             maxChatTurns: 10,
+            maxOutputTokens: 1000,
+            temperature: 0.7,
+            topP: 0.9
           },
           providers: {},
           mcpServers: {}

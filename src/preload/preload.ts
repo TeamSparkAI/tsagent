@@ -44,14 +44,18 @@ const api: API = {
   addChatRule: (tabId: string, ruleName: string) => ipcRenderer.invoke('chat:add-rule', tabId, ruleName),
   removeChatRule: (tabId: string, ruleName: string) => ipcRenderer.invoke('chat:remove-rule', tabId, ruleName),
   
+  // Settings API
+  getSettingsValue: (key: string) => ipcRenderer.invoke('get-settings-value', key),
+  setSettingsValue: (key: string, value: string) => ipcRenderer.invoke('set-settings-value', key, value),
+  getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
+  saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
+  
   // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
   getMCPClient: (serverName: string) => ipcRenderer.invoke('get-mcp-client', serverName),
   callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => 
     ipcRenderer.invoke('call-tool', serverName, toolName, args),
   toggleDevTools: () => ipcRenderer.invoke('toggle-dev-tools'),
-  getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
-  saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
   showChatMenu: (hasSelection: boolean, x: number, y: number) => ipcRenderer.invoke('show-chat-menu', hasSelection, x, y),
   showEditControlMenu: (editFlags) => ipcRenderer.invoke('show-edit-control-menu', editFlags),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
@@ -71,9 +75,9 @@ const api: API = {
   switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
   focusWindow: (windowId: string) => ipcRenderer.invoke('workspace:focusWindow', windowId),
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => {
-    const wrappedCallback = (_: any, data: any) => callback(data);
+    const wrappedCallback = (_event: any, data: any) => callback(data);
     ipcRenderer.on('workspace:switched', wrappedCallback);
-    return wrappedCallback; // Return the wrapped function for later removal
+    return wrappedCallback;
   },
   offWorkspaceSwitched: (listener: (event: any, data: any) => void) => {
     ipcRenderer.removeListener('workspace:switched', listener);

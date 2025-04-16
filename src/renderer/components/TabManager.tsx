@@ -4,7 +4,9 @@ import { ChatTab } from './ChatTab';
 import { Tools } from './Tools';
 import { RulesTab } from './RulesTab';
 import { ReferencesTab } from './ReferencesTab';
-import { PromptTab } from './PromptTab';
+import { WorkspaceTab } from './WorkspaceTab';
+import { ProvidersTab } from './ProvidersTab';
+import { SettingsTab } from './SettingsTab';
 import { TabProps } from '../types/TabProps';
 
 export interface TabInstance {

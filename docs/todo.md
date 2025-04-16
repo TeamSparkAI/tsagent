@@ -10,40 +10,7 @@ https://modelcontextprotocol.io/
 
 This is a decent design/start, but isn't complete or up-to-date: https://github.com/fkesheh/any-llm
 
-May need model capabilities (supports system prompt - within Bedrock at least, others)
-Need configuration specs for models (what values they take, the type and range, description, etc)
-Pricing config with default (input/output token pricing)
-Need default configuration for each model
-
-Would be nice to have db online with latest models and pricing.
-
 It would be great to have it pluggable, but maybe later.
-
-If we tied a chat window to a model, we could have a "settings" button that lets you override the model settings for that chat.
-
-## Model config
-
-Model Providers page - lists available and installed providers
-- Configure model with required values
-- Install/uninstall
-- Test?
-
-In new profile, do we install Frosty by default?  Or is no default reasonable (does the chat page / model picker work with no providers)
-
-In subsequent model pickers, only show installed/available models
-
-If only one model, make sure it's selected as default
-
-Keep track of last selected model, on new chat window, start with that model
-
-CLI: List and be able to select model from a provider
-
-Should all models have defaults (trickier to pick for Bedrock and Ollama)
-
-## Usage
-
-Track $ cost for call/session
-- This could be tricky if we allow model switches in a session.
 
 ## Tools
 
@@ -180,9 +147,11 @@ Top-level menus?
 
 CLI
 - Register CLI on first run (like Ollama) - tspark
-- Model selector
+- Model selector (install/configure providers?  allow providers via env?)
 
-## Providers tab
+## Providers tab and other stuff
+
+Should all models have defaults (trickier to pick for Bedrock and Ollama)?  Probably only impacts CLI.
 
 How do we tell if a provider is properly configured and working?  Test/ping?
 
@@ -208,12 +177,14 @@ New settings tab, list of items on left, details on right
 - Model Settings (default model settings)
   - See below
 
-Would we want to be able to set these per chat session also?
+Would we want to be able to set these per chat session also ("Settings" that had chat and model settings)?
 
 Max tokens (?)
 Max output tokens (?)
 
 ### Common model settings
+
+Note: For both settings, "use model default" or "override model default"
 
 Temperature (0.0 to 1.0):
 

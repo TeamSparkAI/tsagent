@@ -1,10 +1,11 @@
 import React from 'react';
 import { RulesTab } from './RulesTab';
-import { PromptTab } from './PromptTab';
 import { ChatTab } from './ChatTab';
 import { ReferencesTab } from './ReferencesTab';
 import { WorkspaceTab } from './WorkspaceTab';
 import { ProvidersTab } from './ProvidersTab';
+import { SettingsTab } from './SettingsTab';
+import { Tools } from './Tools';
 
 interface Tab {
   label: string;
@@ -27,14 +28,9 @@ export const AppLayout: React.FC = () => {
       content: <ProvidersTab id="providers" activeTabId={activeTabId} name="Providers" type="providers" />
     },
     {
-      id: 'chat',
-      label: 'Chat',
-      content: <ChatTab id="chat" activeTabId={activeTabId} name="Chat" type="chat" />
-    },
-    {
-      id: 'prompt',
-      label: 'Prompt',
-      content: <PromptTab id="prompt" activeTabId={activeTabId} name="Prompt" type="prompt" />
+      id: 'settings',
+      label: 'Settings',
+      content: <SettingsTab id="settings" activeTabId={activeTabId} name="Settings" type="settings" />
     },
     {
       id: 'rules',
@@ -55,6 +51,16 @@ export const AppLayout: React.FC = () => {
         name="References"
         type="references"
       />
+    },
+    {
+      id: 'tools',
+      label: 'Tools',
+      content: <Tools id="tools" activeTabId={activeTabId} name="Tools" type="tools" />
+    },
+    {
+      id: 'chat',
+      label: 'Chat',
+      content: <ChatTab id="chat" activeTabId={activeTabId} name="Chat" type="chat" />
     }
   ];
 
