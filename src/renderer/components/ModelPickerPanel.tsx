@@ -271,7 +271,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     <div className="model-picker-panel">
       <div className="model-picker-header">
         <h2>Select Model</h2>
-        <button className="close-button" onClick={onClose}>×</button>
+        <button className="btn close-button" onClick={onClose}>×</button>
       </div>
       
       <div className="model-picker-content">
@@ -355,19 +355,8 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
       </div>
       
       <div className="model-picker-footer">
-        <button 
-          className="cancel-button" 
-          onClick={onClose}
-        >
-          Cancel
-        </button>
-        <button 
-          className="apply-button" 
-          onClick={applyModelSelection}
-          disabled={!selectedModelId}
-        >
-          Apply
-        </button>
+        <button className="btn cancel-button" onClick={onClose}>Cancel</button>
+        <button className="btn apply-button" onClick={applyModelSelection} disabled={!selectedModelId}>Apply</button>
       </div>      
     </div>
   );

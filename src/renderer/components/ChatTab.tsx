@@ -586,7 +586,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         <button 
           id="model-button" 
           onClick={toggleModelPickerPanel}
-          className={showModelPickerPanel ? 'active' : ''}
+          className={`btn btn-subtab ${showModelPickerPanel ? 'active' : ''}`}
         >
           <span>Model</span>
         </button>
@@ -632,24 +632,24 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         
         <button 
           id="settings-button" 
-          onClick={toggleSettingsPanel} 
-          className={showSettingsPanel ? 'active' : ''}
+          className={`btn btn-subtab ${showSettingsPanel ? 'active' : ''}`}
+          onClick={toggleSettingsPanel}
         >
           Settings
         </button>
         
         <button 
           id="stats-button" 
-          onClick={toggleStatsPanel} 
-          className={showStatsPanel ? 'active' : ''}
+          className={`btn btn-subtab ${showStatsPanel ? 'active' : ''}`}
+          onClick={toggleStatsPanel}
         >
           Stats
         </button>
         
         <button 
           id="context-button" 
-          onClick={toggleContextPanel} 
-          className={showContextPanel ? 'active' : ''}
+          className={`btn btn-subtab ${showContextPanel ? 'active' : ''}`}
+          onClick={toggleContextPanel}
         >
           Context
         </button>
@@ -766,7 +766,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               {activeReferences.map(ref => (
                 <li key={ref} className="context-item">
                   <span>{ref}</span>
-                  <button className="remove-button" onClick={() => removeReference(ref)}>Remove</button>
+                  <button className="btn remove-button" onClick={() => removeReference(ref)}>Remove</button>
                 </li>
               ))}
             </ul>
@@ -779,7 +779,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               {activeRules.map(rule => (
                 <li key={rule} className="context-item">
                   <span>{rule}</span>
-                  <button className="remove-button" onClick={() => removeRule(rule)}>Remove</button>
+                  <button className="btn remove-button" onClick={() => removeRule(rule)}>Remove</button>
                 </li>
               ))}
             </ul>
@@ -792,7 +792,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               {availableReferences.filter(ref => !activeReferences.includes(ref.name)).map(ref => (
                 <li key={ref.name} className="context-item">
                   <span title={ref.description}>{ref.name}</span>
-                  <button className="add-button" onClick={() => addReference(ref.name)}>Add</button>
+                  <button className="btn add-button" onClick={() => addReference(ref.name)}>Add</button>
                 </li>
               ))}
             </ul>
@@ -805,7 +805,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               {availableRules.filter(rule => !activeRules.includes(rule.name)).map(rule => (
                 <li key={rule.name} className="context-item">
                   <span title={rule.description}>{rule.name}</span>
-                  <button className="add-button" onClick={() => addRule(rule.name)}>Add</button>
+                  <button className="btn add-button" onClick={() => addRule(rule.name)}>Add</button>
                 </li>
               ))}
             </ul>
@@ -934,10 +934,11 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         />
         <button 
           id="send-button" 
-          onClick={sendMessage} 
-          disabled={isLoading || !inputValue.trim() || !chatState.selectedModel}
+          className="btn btn-primary"
+          onClick={sendMessage}
+          disabled={isLoading || !inputValue.trim()}
         >
-          {isLoading ? 'Sending...' : 'Send'}
+          Send
         </button>
       </div>
     </div>

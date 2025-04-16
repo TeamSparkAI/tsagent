@@ -108,6 +108,13 @@
   line-height: 1.5;
   resize: vertical;
   margin-bottom: 20px;
+  min-height: 150px;
+}
+
+.system-prompt-settings textarea:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
 }
 
 .chat-settings {
@@ -121,28 +128,7 @@
 }
 
 .settings-container button {
-  padding: 8px 16px;
-  background-color: #1890ff;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s;
+  /* Remove button styles as they are now in common classes */
   width: fit-content;
   margin-top: 20px;
-}
-
-.settings-container button:hover {
-  background-color: #40a9ff;
-}
-
-.settings-container button:active {
-  background-color: #096dd9;
-}
-
-.settings-container button:disabled {
-  background-color: #ccc;
-  cursor: not-allowed;
-  opacity: 0.7;
 } 

@@ -151,20 +151,8 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                 justifyContent: 'flex-end',
                 gap: '8px'
             }}>
-                <button onClick={onCancel}>Cancel</button>
-                <button 
-                    onClick={handleSave}
-                    style={{ 
-                        padding: '6px 12px',
-                        backgroundColor: '#0066cc',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Save
-                </button>
+                <button className="btn cancel-button" onClick={onCancel}>Cancel</button>
+                <button className="btn apply-button" onClick={handleSave}>Save</button>
             </div>
         </div>
     );
@@ -286,8 +274,8 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                 <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ margin: 0 }}>{rule.name}</h2>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleEditRule(rule)}>Edit</button>
-                        <button onClick={() => handleDeleteRule(rule)}>Delete</button>
+                        <button className="btn configure-button" onClick={() => handleEditRule(rule)}>Edit</button>
+                        <button className="btn remove-button" onClick={() => handleDeleteRule(rule)}>Delete</button>
                     </div>
                 </div>
                 <div style={{ marginBottom: '20px' }}>
@@ -354,7 +342,7 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                     <div className="references-sidebar">
                         <div className="sidebar-header">
                             <h3>Rules</h3>
-                            <button onClick={handleAddRule}>Add</button>
+                            <button className="btn add-button" onClick={handleAddRule}>Add</button>
                         </div>
                         <div className="references-list">
                             <div 

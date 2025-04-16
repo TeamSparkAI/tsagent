@@ -370,17 +370,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         <div style={{ padding: '20px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h2 style={{ margin: 0 }}>{server ? 'Edit Server' : 'New Server'}</h2>
-                <button 
-                    onClick={toggleMode}
-                    style={{ 
-                        padding: '6px 12px',
-                        backgroundColor: '#666',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                >
+                <button className="btn configure-button" onClick={toggleMode}>
                     {isJsonMode ? 'Switch to Form Mode' : 'Switch to JSON Mode'}
                 </button>
             </div>
@@ -460,7 +450,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                             }}
                                             style={{ flex: 1, padding: '4px 8px' }}
                                         />
-                                        <button onClick={() => {
+                                        <button className="btn remove-button" onClick={() => {
                                             const newArgs = [...argsArray];
                                             newArgs.splice(index, 1);
                                             setArgsArray(newArgs);
@@ -469,7 +459,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                         </button>
                                     </div>
                                 ))}
-                                <button onClick={() => {
+                                <button className="btn add-button" onClick={() => {
                                     setArgsArray([...argsArray, '']); // Add an empty string arg
                                 }}>Add Argument</button>
                             </div>
@@ -499,7 +489,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                             }}
                                             style={{ flex: 1, padding: '4px 8px' }}
                                         />
-                                        <button onClick={() => {
+                                        <button className="btn remove-button" onClick={() => {
                                             const newEnv = { ...JSON.parse(env) };
                                             delete newEnv[key];
                                             setEnv(JSON.stringify(newEnv));
@@ -508,7 +498,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                         </button>
                                     </div>
                                 ))}
-                                <button onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
+                                <button className="btn add-button" onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
                             </div>
                         </>
                     )}
@@ -548,7 +538,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                             }}
                                             style={{ flex: 1, padding: '4px 8px' }}
                                         />
-                                        <button onClick={() => {
+                                        <button className="btn remove-button" onClick={() => {
                                             const newHeaders = { ...headers };
                                             delete newHeaders[key];
                                             setHeaders(newHeaders);
@@ -557,7 +547,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                         </button>
                                     </div>
                                 ))}
-                                <button onClick={() => setHeaders({ ...headers, '': '' })}>Add Header</button>
+                                <button className="btn configure-button" onClick={() => setHeaders({ ...headers, '': '' })}>Add Header</button>
                             </div>
                         </>
                     )}
@@ -583,18 +573,8 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 justifyContent: 'flex-end',
                 gap: '8px'
             }}>
-                <button onClick={onCancel}>Cancel</button>
-                <button 
-                    onClick={handleSave}
-                    style={{ 
-                        padding: '6px 12px',
-                        backgroundColor: '#0066cc',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                >
+                <button className="btn cancel-button" onClick={onCancel}>Cancel</button>
+                <button className="btn apply-button" onClick={handleSave}>
                     Save
                 </button>
             </div>
@@ -818,8 +798,8 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
                             <span style={{ fontWeight: 'bold' }}>Item {index + 1}</span>
                             <button 
+                                className="btn remove-button"
                                 onClick={() => handleRemoveArrayElement(name, index)}
-                                style={{ padding: '2px 6px' }}
                             >
                                 Remove
                             </button>
@@ -862,7 +842,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                         )}
                     </div>
                 ))}
-                <button 
+                <button className="btn add-button"
                     onClick={() => {
                         if (isObjectArray) {
                             // Create a new object with default values based on the schema
@@ -901,11 +881,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             <div style={{ width: '250px', borderRight: '1px solid #ccc', overflow: 'auto' }}>
                 <div style={{ padding: '16px', borderBottom: '1px solid #ccc', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ margin: 0 }}>Servers</h2>
-                    <button 
-                        onClick={handleAddServer}
-                    >
-                        Add Server
-                    </button>
+                    <button className="btn add-button" onClick={handleAddServer}>Add</button>
                 </div>
                 <div>
                     <div 
@@ -1075,9 +1051,9 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                             </div>
                                         ))}
                                         <button 
+                                            className="btn configure-button"
                                             onClick={handleTestTool}
                                             disabled={isTesting}
-                                            style={{ marginTop: '10px' }}
                                         >
                                             {isTesting ? 'Running...' : 'Run'}
                                         </button>
@@ -1127,19 +1103,11 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                             <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
-                                            <span style={{ 
-                                                padding: '4px 8px', 
-                                                backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
-                                                color: 'white',
-                                                borderRadius: '4px',
-                                                fontSize: '14px'
-                                            }}>
-                                                {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
-                                            </span>
                                         </div>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
+                                        <div style={{ display: 'flex', gap: '0px' }}>
                                             {serverInfo[selectedServer.name]?.isConnected && (
                                                 <button 
+                                                    className="btn configure-button"
                                                     onClick={async () => {
                                                         try {
                                                             const result = await window.api.pingServer(selectedServer.name);
@@ -1148,31 +1116,24 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                             alert('Ping failed: ' + (err instanceof Error ? err.message : 'Unknown error'));
                                                         }
                                                     }}
-                                                    style={{ padding: '4px 8px' }}
                                                 >
                                                     Ping
                                                 </button>
                                             )}
-                                            <button 
-                                                onClick={() => handleEditServer(selectedServer)}
-                                                style={{ padding: '4px 8px' }}
-                                            >
-                                                Edit
-                                            </button>
-                                            <button 
-                                                onClick={() => handleDeleteServer(selectedServer)}
-                                                style={{ 
-                                                    padding: '4px 8px', 
-                                                    backgroundColor: '#ff4444', 
-                                                    color: 'white',
-                                                    border: 'none',
-                                                    borderRadius: '4px',
-                                                    cursor: 'pointer'
-                                                }}
-                                            >
-                                                Delete
-                                            </button>
+                                            <button className="btn configure-button" onClick={() => handleEditServer(selectedServer)}>Edit</button>
+                                            <button className="btn remove-button" onClick={() => handleDeleteServer(selectedServer)}>Delete</button>
                                         </div>
+                                    </div>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <span style={{ 
+                                            padding: '4px 8px', 
+                                            backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
+                                            color: 'white',
+                                            borderRadius: '4px',
+                                            fontSize: '14px'
+                                        }}>
+                                            {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
+                                        </span>
                                     </div>
                                     <div style={{ marginBottom: '20px' }}>
                                         <h3 style={{ margin: '0 0 10px 0' }}>Configuration:</h3>

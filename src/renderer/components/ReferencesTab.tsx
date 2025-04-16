@@ -151,20 +151,8 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
                 justifyContent: 'flex-end',
                 gap: '8px'
             }}>
-                <button onClick={onCancel}>Cancel</button>
-                <button 
-                    onClick={handleSave}
-                    style={{ 
-                        padding: '6px 12px',
-                        backgroundColor: '#0066cc',
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: 'pointer'
-                    }}
-                >
-                    Save
-                </button>
+                <button className="btn cancel-button" onClick={onCancel}>Cancel</button>
+                <button className="btn apply-button" onClick={handleSave}>Save</button>
             </div>
         </div>
     );
@@ -287,8 +275,8 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                 <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <h2 style={{ margin: 0 }}>{reference.name}</h2>
                     <div style={{ display: 'flex', gap: '8px' }}>
-                        <button onClick={() => handleEditReference(reference)}>Edit</button>
-                        <button onClick={() => handleDeleteReference(reference)}>Delete</button>
+                        <button className="btn configure-button" onClick={() => handleEditReference(reference)}>Edit</button>
+                        <button className="btn remove-button" onClick={() => handleDeleteReference(reference)}>Delete</button>
                     </div>
                 </div>
                 <div style={{ marginBottom: '20px' }}>
@@ -355,7 +343,7 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                     <div className="references-sidebar">
                         <div className="sidebar-header">
                             <h3>References</h3>
-                            <button onClick={handleAddReference}>Add</button>
+                            <button className="btn add-button" onClick={handleAddReference}>Add</button>
                         </div>
                         <div className="references-list">
                             <div 

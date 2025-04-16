@@ -126,7 +126,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
           {isSelectingProvider ? 'Add Provider' : (provider ? 'Configure Provider' : 'Add Provider')}
         </h2>
         {isSelectingProvider && (
-          <button onClick={onCancel}>Cancel</button>
+          <button className="btn cancel-button" onClick={onCancel}>Cancel</button>
         )}
       </div>
       
@@ -259,16 +259,8 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                     />
                     {configValue.secret && (
                       <button
+                        className="btn configure-button"
                         onClick={() => toggleFieldVisibility(configValue.key)}
-                        style={{
-                          padding: '4px 8px',
-                          backgroundColor: 'transparent',
-                          border: '1px solid #ccc',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          whiteSpace: 'nowrap',
-                          flexShrink: 0
-                        }}
                       >
                         {visibleFields[configValue.key] ? 'Hide' : 'Show'}
                       </button>
@@ -289,17 +281,10 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
       }}>
         {!isSelectingProvider && (
           <>
-            <button onClick={onCancel}>Cancel</button>
+            <button className="btn cancel-button" onClick={onCancel}>Cancel</button>
             <button 
+              className="btn save-button"
               onClick={handleSave}
-              style={{ 
-                padding: '6px 12px',
-                backgroundColor: '#0066cc',
-                color: 'white',
-                border: 'none',
-                borderRadius: '4px',
-                cursor: 'pointer'
-              }}
             >
               {provider ? 'OK' : 'Add Provider'}
             </button>
@@ -427,7 +412,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
           <div className="references-sidebar">
             <div className="sidebar-header">
               <h3>Providers</h3>
-              <button onClick={handleAddProvider}>Add</button>
+              <button className="btn add-button" onClick={handleAddProvider}>Add</button>
             </div>
             <div className="references-list">
               {loading ? (
@@ -518,18 +503,8 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                           className="provider-logo-large"
                         />
                         <h3>{provider.info.name}</h3>
-                        <button 
-                          className="configure-button"
-                          onClick={() => handleConfigureProvider(provider)}
-                        >
-                          Configure
-                        </button>
-                        <button 
-                          className="remove-button"
-                          onClick={() => handleRemoveProvider(provider.id)}
-                        >
-                          Remove Provider
-                        </button>
+                        <button className="btn configure-button" onClick={() => handleConfigureProvider(provider)}>Configure</button>
+                        <button className="btn remove-button" onClick={() => handleRemoveProvider(provider.id)}>Remove Provider</button>
                       </div>
                       
                       <div className="provider-info">

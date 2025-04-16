@@ -322,34 +322,16 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
       </div>
       
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-        <div style={{ display: 'flex', gap: '24px', justifyContent: 'flex-start' }}>
+        <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-start' }}>
           <button
             onClick={handleOpenWorkspace}
-            style={{ 
-              width: '200px', 
-              padding: '12px 24px', 
-              backgroundColor: '#2563eb', 
-              color: 'white', 
-              fontWeight: '500', 
-              borderRadius: '6px', 
-              border: 'none',
-              cursor: 'pointer'
-            }}
+            className="btn configure-button"
           >
             Open Workspace
           </button>
           <button
             onClick={handleCreateWorkspace}
-            style={{ 
-              width: '200px', 
-              padding: '12px 24px', 
-              backgroundColor: '#059669', 
-              color: 'white', 
-              fontWeight: '500', 
-              borderRadius: '6px', 
-              border: 'none',
-              cursor: 'pointer'
-            }}
+            className="btn add-button"
           >
             Create Workspace
           </button>
@@ -435,33 +417,13 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
                     <div style={{ display: 'flex', gap: '8px' }}>
                       <button
                         onClick={() => handleSwitchToRecent(path)}
-                        style={{ 
-                          flex: 1,
-                          padding: '8px 12px', 
-                          backgroundColor: '#3b82f6', 
-                          color: 'white', 
-                          fontWeight: '500', 
-                          borderRadius: '4px', 
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '14px'
-                        }}
+                        className="btn configure-button"
                       >
                         Switch To This Workspace
                       </button>
                       <button
                         onClick={() => handleOpenRecentInNewWindow(path)}
-                        style={{ 
-                          flex: 1,
-                          padding: '8px 12px', 
-                          backgroundColor: '#10b981', 
-                          color: 'white', 
-                          fontWeight: '500', 
-                          borderRadius: '4px', 
-                          border: 'none',
-                          cursor: 'pointer',
-                          fontSize: '14px'
-                        }}
+                        className="btn add-button"
                       >
                         Open in New Window
                       </button>

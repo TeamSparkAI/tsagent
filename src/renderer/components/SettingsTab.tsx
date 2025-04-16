@@ -129,11 +129,13 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
               This prompt will be used for all chat sessions (existing and new).
             </p>
             <textarea
+              className="common-textarea"
               value={currentSystemPrompt}
               onChange={(e) => setCurrentSystemPrompt(e.target.value)}
               rows={10}
             />
             <button 
+              className="btn btn-primary"
               onClick={handleSaveSystemPrompt}
               disabled={!hasSystemPromptChanges}
             >
@@ -154,6 +156,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
               showTitle={false}
             />
             <button 
+              className="btn btn-primary"
               onClick={handleSaveChatSettings}
               disabled={!hasChatSettingsChanges}
             >

@@ -384,3 +384,159 @@ body {
   border-radius: 4px;
   color: #d32f2f;
 }
+
+/* Base button styles */
+.btn {
+  padding: 8px 16px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+/* Primary button */
+.btn-primary {
+  background-color: #0066cc;
+  color: white;
+  border-color: #0052a3;
+}
+
+.btn-primary:hover {
+  background-color: #0052a3;
+}
+
+.btn-primary:active {
+  background-color: #004080;
+}
+
+/* Secondary button */
+.btn-secondary {
+  background-color: #f0f0f0;
+  color: #333;
+  border-color: #ddd;
+}
+
+.btn-secondary:hover {
+  background-color: #e0e0e0;
+}
+
+.btn-secondary:active {
+  background-color: #d0d0d0;
+}
+
+/* Remove button */
+.remove-button {
+  background-color: #dc3545;
+  color: white;
+  border-color: #c82333;
+}
+
+.remove-button:hover {
+  background-color: #c82333;
+}
+
+.remove-button:active {
+  background-color: #bd2130;
+}
+
+/* Add button */
+.add-button {
+  background-color: #28a745;
+  color: white;
+  border-color: #218838;
+}
+
+.add-button:hover {
+  background-color: #218838;
+}
+
+.add-button:active {
+  background-color: #1e7e34;
+}
+
+/* Configure button */
+.configure-button {
+  background-color: #17a2b8;
+  color: white;
+  border-color: #138496;
+}
+
+.configure-button:hover {
+  background-color: #138496;
+}
+
+.configure-button:active {
+  background-color: #117a8b;
+}
+
+/* Close button */
+.close-button {
+  background-color: transparent;
+  color: #666;
+  border: none;
+  padding: 4px 8px;
+}
+
+.close-button:hover {
+  color: #333;
+}
+
+.close-button:active {
+  color: #000;
+}
+
+/* Cancel button */
+.cancel-button {
+  background-color: #6c757d;
+  color: white;
+  border-color: #5a6268;
+}
+
+.cancel-button:hover {
+  background-color: #5a6268;
+}
+
+.cancel-button:active {
+  background-color: #545b62;
+}
+
+/* Apply button */
+.apply-button {
+  background-color: #0066cc;
+  color: white;
+  border-color: #0052a3;
+}
+
+.apply-button:hover {
+  background-color: #0052a3;
+}
+
+.apply-button:active {
+  background-color: #004080;
+}
+
+/* Disabled state for all buttons */
+.btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Common textarea styles */
+.common-textarea {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+  margin-bottom: 20px;
+}
+
+.common-textarea:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
