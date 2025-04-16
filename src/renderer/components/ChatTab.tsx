@@ -571,6 +571,14 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
+  const handleSettingsChange = async (newSettings: typeof chatSettings) => {
+    setChatSettings(newSettings);
+    if (chatApiRef.current) {
+      await chatApiRef.current.updateSettings(newSettings);
+      log.info('Chat settings updated');
+    }
+  };
+
   return (
     <div className="chat-tab">
       <div id="model-container">
@@ -818,12 +826,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                   type="number"
                   id="maxChatTurns"
                   value={chatSettings.maxChatTurns}
-                  onChange={(e) => setChatSettings({ ...chatSettings, maxChatTurns: parseInt(e.target.value) })}
+                  onChange={(e) => handleSettingsChange({ ...chatSettings, maxChatTurns: parseInt(e.target.value) })}
                   min="1"
                   max="100"
                 />
                 <div className="setting-description">
-                  Maximum number of turns (typically tool calls) in a chat session before forcing a stop.
+                  Maximum number of turns (typically tool calls) allowed in response to a single message before forcing a stop.
                 </div>
               </div>
 
@@ -833,7 +841,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                   type="number"
                   id="maxOutputTokens"
                   value={chatSettings.maxOutputTokens}
-                  onChange={(e) => setChatSettings({ ...chatSettings, maxOutputTokens: parseInt(e.target.value) })}
+                  onChange={(e) => handleSettingsChange({ ...chatSettings, maxOutputTokens: parseInt(e.target.value) })}
                   min="100"
                   max="4000"
                 />
@@ -849,7 +857,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                     type="range"
                     id="temperature"
                     value={chatSettings.temperature}
-                    onChange={(e) => setChatSettings({ ...chatSettings, temperature: parseFloat(e.target.value) })}
+                    onChange={(e) => handleSettingsChange({ ...chatSettings, temperature: parseFloat(e.target.value) })}
                     min="0"
                     max="1"
                     step="0.05"
@@ -868,7 +876,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                     type="range"
                     id="topP"
                     value={chatSettings.topP}
-                    onChange={(e) => setChatSettings({ ...chatSettings, topP: parseFloat(e.target.value) })}
+                    onChange={(e) => handleSettingsChange({ ...chatSettings, topP: parseFloat(e.target.value) })}
                     min="0"
                     max="1"
                     step="0.05"
@@ -879,17 +887,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                   Controls diversity in the AI's responses. Lower values make responses more focused and deterministic.
                 </div>
               </div>
-
-              <button 
-                onClick={async () => {
-                  if (chatApiRef.current) {
-                    await chatApiRef.current.updateSettings(chatSettings);
-                    log.info('Chat settings updated successfully');
-                  }
-                }}
-              >
-                Save Settings
-              </button>
             </div>
           </div>
         </div>

@@ -159,7 +159,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
                   max="100"
                 />
                 <div className="setting-description">
-                  Maximum number of turns (typically tool calls) in a chat session before forcing a stop.
+                  Maximum number of turns (typically tool calls) allowed in response to a single message before forcing a stop.
                 </div>
               </div>
 
