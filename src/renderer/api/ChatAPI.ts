@@ -249,4 +249,20 @@ export class ChatAPI {
       return [];
     }
   }
+
+  async updateSettings(settings: {
+    maxChatTurns: number;
+    maxOutputTokens: number;
+    temperature: number;
+    topP: number;
+  }): Promise<boolean> {
+    try {
+      await window.api.updateChatSettings(this.tabId, settings);
+      log.info(`Updated chat settings for tab ${this.tabId}`);
+      return true;
+    } catch (error) {
+      log.error('Error updating chat settings:', error);
+      return false;
+    }
+  }
 } 

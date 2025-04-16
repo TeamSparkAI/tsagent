@@ -12,6 +12,12 @@ export interface API {
   getChatState: (tabId: string) => Promise<ChatState | null>;
   sendMessage: (tabId: string, message: string) => Promise<MessageUpdate>;
   switchModel: (tabId: string, modelType: string, modelId?: string) => Promise<ChatSessionResponse>;
+  updateChatSettings: (tabId: string, settings: {
+    maxChatTurns: number;
+    maxOutputTokens: number;
+    temperature: number;
+    topP: number;
+  }) => Promise<boolean>;
 
   // Chat context management
   addChatReference: (tabId: string, referenceName: string) => Promise<boolean>;

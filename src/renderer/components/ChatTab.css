@@ -124,7 +124,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  flex: 0 0 auto;    /* Don't grow or shrink */
+  flex: 0 0 auto;
 }
 
 #model-container label {
@@ -135,31 +135,21 @@
   margin-right: 10px;
   padding: 5px;
 }
-  
-#context-button {
-  margin-left: 10px;
+
+#context-button,
+#stats-button,
+#settings-button {
   padding: 5px 10px;
   background-color: #f0f0f0;
   border: 1px solid #ccc;
   border-radius: 4px;
   cursor: pointer;
-}
-  
-#context-button.active {
-  background-color: #e0e0e0;
-  border-color: #999;
+  margin-left: 8px;
 }
 
-#stats-button {
-  margin-left: auto;
-  padding: 5px 10px;
-  background-color: #f0f0f0;
-  border: 1px solid #ccc;
-  border-radius: 4px;
-  cursor: pointer;
-}
-
-#stats-button.active {
+#context-button.active,
+#stats-button.active,
+#settings-button.active {
   background-color: #e0e0e0;
   border-color: #999;
 }
@@ -294,13 +284,6 @@
   cursor: not-allowed;
 }
 
-#model-container {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  padding: 5px 0;
-}
-
 #model-button {
   padding: 5px 10px;
   background-color: #f0f0f0;
@@ -368,4 +351,101 @@
   margin-bottom: 8px;
   font-size: 14px;
   color: #333;
+}
+
+#settings-button {
+  margin-left: 10px;
+  padding: 5px 10px;
+  background-color: #f0f0f0;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+#settings-button.active {
+  background-color: #e0e0e0;
+  border-color: #999;
+}
+
+#settings-panel {
+  margin: 5px 0;
+  padding: 10px;
+  background-color: #f9f9f9;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-gap: 10px;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.settings-section {
+  padding: 5px;
+}
+
+.settings-section h3 {
+  margin-top: 0;
+  margin-bottom: 8px;
+  font-size: 14px;
+  color: #333;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.settings-section h3 .setting-description {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+  font-weight: normal;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: min-content auto;
+  row-gap: 2px;
+  column-gap: 20px;
+  align-items: center;
+}
+
+.setting-item {
+  display: contents;
+  margin-bottom: 15px;
+}
+
+.setting-item label {
+  font-weight: 500;
+  color: #666;
+}
+
+.setting-item input[type="number"] {
+  width: 80px;
+  padding: 4px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+}
+
+.setting-item input[type="range"] {
+  width: 150px;
+  margin-right: 10px;
+}
+
+.slider-container {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.setting-value {
+  min-width: 40px;
+  text-align: right;
+  font-family: monospace;
+}
+
+.setting-description {
+  font-size: 12px;
+  color: #666;
+  margin: 0;
+  display: inline;
 }

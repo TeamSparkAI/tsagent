@@ -36,7 +36,13 @@ const api: API = {
   closeChatTab: (tabId: string) => ipcRenderer.invoke('chat:close-tab', tabId),
   getChatState: (tabId: string) => ipcRenderer.invoke('chat:get-state', tabId),
   sendMessage: (tabId: string, message: string) => ipcRenderer.invoke('chat:send-message', tabId, message),
-  switchModel: (tabId: string, model: string, modelId?: string) => ipcRenderer.invoke('chat:switch-model', tabId, model, modelId),
+  switchModel: (tabId: string, modelType: string, modelId?: string) => ipcRenderer.invoke('chat:switch-model', tabId, modelType, modelId),
+  updateChatSettings: (tabId: string, settings: {
+    maxChatTurns: number;
+    maxOutputTokens: number;
+    temperature: number;
+    topP: number;
+  }) => ipcRenderer.invoke('chat:update-settings', tabId, settings),
   
   // Chat context management
   addChatReference: (tabId: string, referenceName: string) => ipcRenderer.invoke('chat:add-reference', tabId, referenceName),

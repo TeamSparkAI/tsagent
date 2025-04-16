@@ -9,6 +9,7 @@ import { ModelReply, Turn, ToolCall } from '../../shared/ModelReply';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import { ILLMModel } from '../../shared/llm';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT } from '../../shared/workspace';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -66,6 +67,13 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [showModelPickerPanel, setShowModelPickerPanel] = useState<boolean>(false);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [models, setModels] = useState<ILLMModel[]>([]);
+  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [chatSettings, setChatSettings] = useState({
+    maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
+    maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
+    temperature: TEMPERATURE_DEFAULT,
+    topP: TOP_P_DEFAULT
+  });
 
   useEffect(() => {
     // This happens when the tab is first selected
@@ -137,6 +145,14 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             const rules = await chatApiRef.current.getActiveRules();
             setActiveReferences(refs);
             setActiveRules(rules);
+
+            // Load chat settings
+            setChatSettings({
+              maxChatTurns: state.maxChatTurns || MAX_CHAT_TURNS_DEFAULT,
+              maxOutputTokens: state.maxOutputTokens || MAX_OUTPUT_TOKENS_DEFAULT,
+              temperature: state.temperature || TEMPERATURE_DEFAULT,
+              topP: state.topP || TOP_P_DEFAULT
+            });
             
             setIsInitialized(true);
           }
@@ -487,6 +503,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     setShowContextPanel(!showContextPanel);
     setShowStatsPanel(false);
     setShowModelPickerPanel(false);
+    setShowSettingsPanel(false);
     log.debug(`Context panel ${!showContextPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
 
@@ -494,6 +511,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     setShowStatsPanel(!showStatsPanel);
     setShowContextPanel(false);
     setShowModelPickerPanel(false);
+    setShowSettingsPanel(false);
     log.debug(`Stats panel ${!showStatsPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
 
@@ -501,7 +519,16 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     setShowModelPickerPanel(!showModelPickerPanel);
     setShowContextPanel(false);
     setShowStatsPanel(false);
+    setShowSettingsPanel(false);
     log.debug(`Model picker panel ${!showModelPickerPanel ? 'opened' : 'closed'} for chat tab ${id}`);
+  };
+
+  const toggleSettingsPanel = () => {
+    setShowSettingsPanel(!showSettingsPanel);
+    setShowContextPanel(false);
+    setShowStatsPanel(false);
+    setShowModelPickerPanel(false);
+    log.debug(`Settings panel ${!showSettingsPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
 
   const addReference = async (referenceName: string) => {
@@ -593,6 +620,14 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             </div>
           )}
         </div>
+        
+        <button 
+          id="settings-button" 
+          onClick={toggleSettingsPanel} 
+          className={showSettingsPanel ? 'active' : ''}
+        >
+          Settings
+        </button>
         
         <button 
           id="stats-button" 
@@ -765,6 +800,97 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                 </li>
               ))}
             </ul>
+          </div>
+        </div>
+      )}
+      
+      {showSettingsPanel && (
+        <div id="settings-panel">
+          <div className="settings-section">
+            <h3>
+              Chat Settings
+              <span className="setting-description">These settings apply only to this chat session.</span>
+            </h3>
+            <div className="settings-grid">
+              <div className="setting-item">
+                <label htmlFor="maxChatTurns">Maximum Chat Turns</label>
+                <input
+                  type="number"
+                  id="maxChatTurns"
+                  value={chatSettings.maxChatTurns}
+                  onChange={(e) => setChatSettings({ ...chatSettings, maxChatTurns: parseInt(e.target.value) })}
+                  min="1"
+                  max="100"
+                />
+                <div className="setting-description">
+                  Maximum number of turns (typically tool calls) in a chat session before forcing a stop.
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <label htmlFor="maxOutputTokens">Maximum Output Tokens</label>
+                <input
+                  type="number"
+                  id="maxOutputTokens"
+                  value={chatSettings.maxOutputTokens}
+                  onChange={(e) => setChatSettings({ ...chatSettings, maxOutputTokens: parseInt(e.target.value) })}
+                  min="100"
+                  max="4000"
+                />
+                <div className="setting-description">
+                  Maximum number of tokens the AI can generate in a single response.
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <label htmlFor="temperature">Temperature</label>
+                <div className="slider-container">
+                  <input
+                    type="range"
+                    id="temperature"
+                    value={chatSettings.temperature}
+                    onChange={(e) => setChatSettings({ ...chatSettings, temperature: parseFloat(e.target.value) })}
+                    min="0"
+                    max="1"
+                    step="0.05"
+                  />
+                  <div className="setting-value">{chatSettings.temperature.toFixed(2)}</div>
+                </div>
+                <div className="setting-description">
+                  Controls randomness in the AI's responses. Lower values make responses more focused and deterministic.
+                </div>
+              </div>
+
+              <div className="setting-item">
+                <label htmlFor="topP">Top P (Nucleus Sampling)</label>
+                <div className="slider-container">
+                  <input
+                    type="range"
+                    id="topP"
+                    value={chatSettings.topP}
+                    onChange={(e) => setChatSettings({ ...chatSettings, topP: parseFloat(e.target.value) })}
+                    min="0"
+                    max="1"
+                    step="0.05"
+                  />
+                  <div className="setting-value">{chatSettings.topP.toFixed(2)}</div>
+                </div>
+                <div className="setting-description">
+                  Controls diversity in the AI's responses. Lower values make responses more focused and deterministic.
+                </div>
+              </div>
+
+              <button 
+                onClick={async () => {
+                  if (chatApiRef.current) {
+                    await chatApiRef.current.updateSettings(chatSettings);
+                    log.info('Chat settings updated successfully');
+                  }
+                }}
+              >
+                Save Settings
+              </button>
+            </div>
           </div>
         </div>
       )}

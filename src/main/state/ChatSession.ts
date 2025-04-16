@@ -306,4 +306,19 @@ export class ChatSession {
     log.info(`Removed rule '${ruleName}' from chat session`);
     return true;
   }
+
+  updateSettings(settings: {
+    maxChatTurns: number;
+    maxOutputTokens: number;
+    temperature: number;
+    topP: number;
+  }): boolean {
+    this.maxChatTurns = settings.maxChatTurns;
+    this.maxOutputTokens = settings.maxOutputTokens;
+    this.temperature = settings.temperature;
+    this.topP = settings.topP;
+    
+    log.info(`Updated chat session settings:`, settings);
+    return true;
+  }
 } 

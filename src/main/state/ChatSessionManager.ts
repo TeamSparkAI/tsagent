@@ -106,4 +106,14 @@ export class ChatSessionManager {
     const session = this.getSession(tabId);
     return session.removeRule(ruleName);
   }
+
+  updateSettings(tabId: string, settings: {
+    maxChatTurns: number;
+    maxOutputTokens: number;
+    temperature: number;
+    topP: number;
+  }): boolean {
+    const session = this.getSession(tabId);
+    return session.updateSettings(settings);
+  }
 } 

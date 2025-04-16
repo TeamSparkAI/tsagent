@@ -361,7 +361,6 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  // Chat context (references and rules) IPC handlers
   ipcMain.handle('chat:add-reference', (event, tabId: string, referenceName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const workspace = getWorkspaceForWindow(windowId);
@@ -1106,6 +1105,27 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     } catch (error) {
       log.error(`Error setting setting ${key}:`, error);
       return false;
+    }
+  });
+
+  ipcMain.handle('chat:update-settings', (event, tabId: string, settings: {
+    maxChatTurns: number;
+    maxOutputTokens: number;
+    temperature: number;
+    topP: number;
+  }) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
+    try {
+      return workspace.chatSessionManager.updateSettings(tabId, settings);
+    } catch (error) {
+      log.error('Error updating chat settings:', error);
+      throw error;
     }
   });
 }
