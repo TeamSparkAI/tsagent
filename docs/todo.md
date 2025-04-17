@@ -125,8 +125,6 @@ Option to "register" command line app on first run (and from menu later)
 
 ## Providers tab and other stuff
 
-Fix styling of pw "view/hide" buttons
-
 How do we tell if a provider is properly configured and working?  Test/ping?
 
 Either show models or error

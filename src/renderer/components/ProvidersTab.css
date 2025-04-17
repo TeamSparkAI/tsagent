@@ -196,4 +196,30 @@
 
 .configure-button:hover {
   background-color: #0056b3;
+}
+
+.password-toggle-button {
+  height: 28px; /* Reduced from 32px */
+  width: 60px;
+  padding: 0 8px;
+  background-color: #f0f0f0;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 4px;
+  transition: all 0.2s ease;
+}
+
+.password-toggle-button:hover {
+  background-color: #e0e0e0;
+  border-color: #ccc;
+}
+
+.password-toggle-button:active {
+  background-color: #d0d0d0;
 } 

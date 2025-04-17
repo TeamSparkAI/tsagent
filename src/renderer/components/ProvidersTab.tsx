@@ -260,7 +260,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                     />
                     {configValue.secret && (
                       <button
-                        className="btn configure-button"
+                        className="password-toggle-button"
                         onClick={() => toggleFieldVisibility(configValue.key)}
                       >
                         {visibleFields[configValue.key] ? 'Hide' : 'Show'}
