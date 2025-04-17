@@ -1,30 +1,5 @@
 # TeamSpark AI Workbench
 
-https://docs.anthropic.com/en/docs/build-with-claude/tool-use/overview
-
-https://www.anthropic.com/news/model-context-protocol
-
-https://modelcontextprotocol.io/
-
-## Model abstraction
-
-This is a decent design/start, but isn't complete or up-to-date: https://github.com/fkesheh/any-llm
-
-It would be great to have it pluggable, but maybe later.
-
-## Tools
-
-mcp client can specify cwd to stdio transport (workspace implications)
-
-To run MCP test app: npx @modelcontextprotocol/inspector
-
-Resources
-Resource templates?
-Prompts?
-Tools
-
-"History" for each tool call that shows JSON request (tool name, params) and response
-
 ## Chat UX
 
 What happens in context UX when we have lots of refs/rules (scroll, search?)
@@ -50,27 +25,10 @@ Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 - Maybe this is better as a specific log category/file
 
-## Misc
-
-Would a hosted version of this be useful?
-- Refs and rules would work fine
-- Not clear what tools could be made to work on a hosted server
-
 ## References and Rules config
 
 Include: Always, Auto Attached, Agent Requested, Manual (these are the Cursor options)
 - Add tool to include/exclude ref/rule from current chat session (maybe see which refs/rules are attached/available)
-
-## Tool Permission
-
-Allow tool call from [server name]?
-
-  Run [toolname] from [server/server name] (maybe pop this open to see server/tool config)
-
-Malicious MCP Servers or conversation content could potentially trick xxxxx into attempting harmful actions through your installed tools.
-<bold>Review each action carefully before approving</bold>
-
-[Allow for this chat] [Allow once] [Deny]
 
 ## Keyword matching
 
@@ -86,16 +44,7 @@ Gather all bare keywords, stem them, stem the prompt, determine which keywords a
 Gather all quoted keywords and wildcard keywords, convert to regex, search text, determine which keywords were found
 - Quoted string is word boundary before and after
 
-## Tool matching
-
-Each rule and reference has a list of tools
-The tool list can include server or server.tool
-When a tool fires, it gets the list of references and rules that match the server/server.tool
-
 ## MCP / Tools Work
-
-Allow tool set to be enabled/disabled
-- Make sure LLMs gettings tools only get enabled tools
 
 Test support for SSE server
 - Local weather server in /mcp-sse
@@ -110,7 +59,7 @@ Clone Workspace would be nice.
 For find/open workspace, it currently replaces workspace (if any) in current window.
 - Should it set workspace if current window doesn't have one, else open in new window?
 
-How many previous workspaves, what happens in UX if they overflow
+How many previous workspaces, what happens in UX if they overflow
 
 If not workspace history, show explainer for workspaces?
 
@@ -133,28 +82,44 @@ Each model could have "Start Chat" that launches a chat with that model
 
 ## CLI
 
-Register CLI on first run (like Ollama) - tspark
-
 Make sure CLI supports no model selected
 - There was (is) a bug where it showed "Test" as selected, but messages just spun forever
 
+/clear (implement)
+- New chat session
+
 ### Providers
 
-See list of providers (available/installed)
+/providers or /providers list
+- Show list of providers (dash and star to show available/installed)
 
-Install provider (prompt for config values)
+/providers add <provider>
+- Prompts for config values
 
-Remove provider
+/providers remove <provider>
+- Confirms
 
-Select provider (default model)
-- Select provider+model, list models for provider
+/provider <provider> <modelId>
+- select provider (modelId optional, will use default model for provider if not specified)
+- Update most recent model
 
-Track most recently selected model in workspace settings
+/models
+- List models for current provider (active model has star)
+
+/model <modelId>
+- Select model
+- Update most recent model
 
 ### Session settings
 
-View / set workspace settings
+/settings
+- List settings (chat session and workspace if different)
+  - (overrides workspace default of: xx)
 
-View / set chat session settings
+/settings clear
+- Revert chat settings to workspace default
 
-Revert to default workspace settings
+/settings save
+- Save current chat settings as workspace default
+
+/setting <setting> <value>
