@@ -16,7 +16,7 @@ export class LLMFactory {
   }
 
   // Get provider information for all available LLM providers
-  getProviderInfo(): Record<LLMType, LLMProviderInfo> {
+  getProvidersInfo(): Record<LLMType, LLMProviderInfo> {
     return {
       [LLMType.Test]: TestLLM.getInfo(),
       [LLMType.Claude]: ClaudeLLM.getInfo(),
@@ -28,8 +28,8 @@ export class LLMFactory {
   }
 
   // Get provider information for a specific LLM type
-  getProviderInfoByType(type: LLMType): LLMProviderInfo {
-    return this.getProviderInfo()[type];
+  getProviderInfo(type: LLMType): LLMProviderInfo {
+    return this.getProvidersInfo()[type];
   }
 
   create(modelType: LLMType, modelId?: string): ILLM {

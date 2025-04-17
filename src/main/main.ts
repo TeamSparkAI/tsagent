@@ -1013,7 +1013,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.warn(`LLMFactory not initialized for window: ${windowId}`);
       return {};
     }
-    return workspace.llmFactory.getProviderInfo();
+    return workspace.llmFactory.getProvidersInfo();
   });
 
   ipcMain.handle('llm:get-provider-config', (event, provider: string, key: string) => {

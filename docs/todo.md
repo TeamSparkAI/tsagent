@@ -82,16 +82,14 @@ Each model could have "Start Chat" that launches a chat with that model
 
 ## CLI
 
-Make sure CLI supports no model selected
-- There was (is) a bug where it showed "Test" as selected, but messages just spun forever
-
 /clear (implement)
 - New chat session
 
 ### Providers
 
-/providers or /providers list
-- Show list of providers (dash and star to show available/installed)
+/providers
+- Currently lists all providers
+  - Need to show installed versus available
 
 /providers add <provider>
 - Prompts for config values
@@ -99,27 +97,6 @@ Make sure CLI supports no model selected
 /providers remove <provider>
 - Confirms
 
-/provider <provider> <modelId>
-- select provider (modelId optional, will use default model for provider if not specified)
-- Update most recent model
-
-/models
-- List models for current provider (active model has star)
-
-/model <modelId>
-- Select model
-- Update most recent model
-
-### Session settings
-
-/settings
-- List settings (chat session and workspace if different)
-  - (overrides workspace default of: xx)
-
-/settings clear
-- Revert chat settings to workspace default
-
-/settings save
-- Save current chat settings as workspace default
-
-/setting <setting> <value>
+Need better default model for switch to provider without specifying model
+- Maybe LLM provides it (if not first one)?
+- Currently uses first one, which isn't ideal for Gemini (2.5 has no non-metered quota and fails)
