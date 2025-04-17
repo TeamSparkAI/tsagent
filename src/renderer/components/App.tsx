@@ -10,6 +10,10 @@ import { SettingsTab } from './SettingsTab';
 import { v4 as uuidv4 } from 'uuid';
 import log from 'electron-log';
 
+// NOTE: Currently, all tabs are remounted (here in App.tsx) on workspace:switch
+// - This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch
+// - We could try to be more clever, because all tabs other than the Chat tabs don't actually need to detach/attach (they can update themselves on workspace:switch)
+
 interface TabInstance {
   id: string;
   type: string;

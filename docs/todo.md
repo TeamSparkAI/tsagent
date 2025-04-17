@@ -27,13 +27,13 @@ Tools
 
 ## Chat UX
 
+What happens in context UX when we have lots of refs/rules (scroll, search?)
+
 Allow user to @mention a rule or reference to add them to the chat context (interactively, as you type, maybe with lookup/matching)
 - @ref:[referenceName]
 - @rule:[ruleName]
 
-Allow user to @mention a toolset/tool to apply to the message
-- @tool:[toolset,toolset.tool,tool] 
-- Not clear if selective tool inclusion is the right idea, maybe configurable - use all tools, determine tools, explicit tool use only?)
+Selective tool inclusion (like context mgmt)?
 
 Allow user to pick any chat element and store it as a reference
 
@@ -50,17 +50,6 @@ Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 - Maybe this is better as a specific log category/file
 
-## Agents
-
-We have global rules, tools, and references.
-We create an agent which can have its own rules, tools, and references (in addition to the global ones)
-- Agent can disable/override global
-We create a chat which is associated with an agent
-- Chat can override agent settings
-- Chat can have its own rules, tools, and references (in addition to the agent's)?
-
-Maybe global tools list is very large, agent/workspace is a curated subset (pulled from main list)
-
 ## Misc
 
 Would a hosted version of this be useful?
@@ -71,21 +60,6 @@ Would a hosted version of this be useful?
 
 Include: Always, Auto Attached, Agent Requested, Manual (these are the Cursor options)
 - Add tool to include/exclude ref/rule from current chat session (maybe see which refs/rules are attached/available)
-
-Store config in YAML frontmatter
-
-References
-- Keywords - apply reference whenever these keywords appear in the user prompt (* is always)
-- Tools - when this tool is used, apply this reference
-- Rules - whem this rule is used, apply this reference (rule will be applied at the time of tool output processing)
-
-Rules
-- Keywords - apply rule whenever these keywords appear in the user prompt (* is always)
-- Tools - when this tool is used, apply this rule (rule will be applied at the time of tool output processing)
-- References - when this reference is used, apply this rule
-
-Examples:
-- ???
 
 ## Tool Permission
 
@@ -136,6 +110,8 @@ Clone Workspace would be nice.
 For find/open workspace, it currently replaces workspace (if any) in current window.
 - Should it set workspace if current window doesn't have one, else open in new window?
 
+How many previous workspaves, what happens in UX if they overflow
+
 If not workspace history, show explainer for workspaces?
 
 ## Before Release
@@ -145,16 +121,11 @@ Package for dist
 
 Top-level menus?
 
-CLI
-- Register CLI on first run (like Ollama) - tspark
-- Model selector (install/configure providers?  allow providers via env?)
-- Track most recently selected model in workspace settings.
+Option to "register" command line app on first run (and from menu later)
 
 ## Providers tab and other stuff
 
-Should all models have defaults (trickier to pick for Bedrock and Ollama)?  Probably only impacts CLI.
-
-CLI has bug - when no model selected, it shows Test as selected, messages fail (spin forever)
+Fix styling of pw "view/hide" buttons
 
 How do we tell if a provider is properly configured and working?  Test/ping?
 
@@ -162,12 +133,30 @@ Either show models or error
 
 Each model could have "Start Chat" that launches a chat with that model
 
-## Workspace issues
+## CLI
 
-Currently, all tabs are remounted (in App.tsx) on workspace:switch
-- This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch
-- We could try to be more clever, because all tabs other than the Chat tabs don't actually need to detach/attach (they can update themselves on workspace:switch)
+Register CLI on first run (like Ollama) - tspark
 
-## Settings
+Make sure CLI supports no model selected
+- There was (is) a bug where it showed "Test" as selected, but messages just spun forever
 
-What are the implications for the CLI (getting/setting workspace values, overriding for session, seeing session values)
+### Providers
+
+See list of providers (available/installed)
+
+Install provider (prompt for config values)
+
+Remove provider
+
+Select provider (default model)
+- Select provider+model, list models for provider
+
+Track most recently selected model in workspace settings
+
+### Session settings
+
+View / set workspace settings
+
+View / set chat session settings
+
+Revert to default workspace settings

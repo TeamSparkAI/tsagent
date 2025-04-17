@@ -64,6 +64,10 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     }
   };
 
+  const handleUndoSystemPromptChanges = () => {
+    setCurrentSystemPrompt(initialSystemPrompt);
+  };
+
   const handleSaveChatSettings = async () => {
     try {
       await window.api.setSettingsValue(MAX_CHAT_TURNS_KEY, currentChatSettings.maxChatTurns.toString());
@@ -75,6 +79,10 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     } catch (error) {
       log.error('Error saving chat settings:', error);
     }
+  };
+
+  const handleUndoChatSettingsChanges = () => {
+    setCurrentChatSettings(initialChatSettings);
   };
 
   const hasSystemPromptChanges = currentSystemPrompt !== initialSystemPrompt;
@@ -134,13 +142,23 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
               onChange={(e) => setCurrentSystemPrompt(e.target.value)}
               rows={10}
             />
-            <button 
-              className="btn btn-primary"
-              onClick={handleSaveSystemPrompt}
-              disabled={!hasSystemPromptChanges}
-            >
-              Save System Prompt
-            </button>
+            <div className="settings-actions">
+              <button 
+                className="btn btn-primary"
+                onClick={handleSaveSystemPrompt}
+                disabled={!hasSystemPromptChanges}
+              >
+                Save System Prompt
+              </button>
+              {hasSystemPromptChanges && (
+                <button 
+                  className="btn btn-secondary"
+                  onClick={handleUndoSystemPromptChanges}
+                >
+                  Undo Changes
+                </button>
+              )}
+            </div>
           </div>
         );
       case 'chat-settings':
@@ -155,13 +173,25 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
               onSettingsChange={setCurrentChatSettings}
               showTitle={false}
             />
-            <button 
-              className="btn btn-primary"
-              onClick={handleSaveChatSettings}
-              disabled={!hasChatSettingsChanges}
-            >
-              Save Chat Settings
-            </button>
+            <div style={{ marginTop: '20px' }}>
+              <div className="settings-actions">
+                <button 
+                  className="btn btn-primary"
+                  onClick={handleSaveChatSettings}
+                  disabled={!hasChatSettingsChanges}
+                >
+                  Save Chat Settings
+                </button>
+                {hasChatSettingsChanges && (
+                  <button 
+                    className="btn btn-secondary"
+                    onClick={handleUndoChatSettingsChanges}
+                  >
+                    Undo Changes
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
         );
       default:
