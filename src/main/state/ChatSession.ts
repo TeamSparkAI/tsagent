@@ -185,7 +185,27 @@ export class ChatSession {
     }
   }
 
-  switchModel(modelType: LLMType, modelId?: string): MessageUpdate {
+  clearModel(): MessageUpdate {
+    this.currentProvider = undefined;
+    this.currentModelId = undefined;
+    this.llm = undefined;
+
+    const systemMessage: ChatMessage = {
+      role: 'system',
+      content: 'Cleared model, no model currently active'
+    };
+    this.messages.push(systemMessage);
+    this.lastSyncId++;
+
+    return {
+      updates: [systemMessage],
+      lastSyncId: this.lastSyncId,
+      references: [...this.references],
+      rules: [...this.rules]
+    };
+  }
+
+  switchModel(modelType: LLMType, modelId: string): MessageUpdate {
     try {
       // Create new LLM instance
       const llm = this.workspace.llmFactory.create(modelType, modelId);

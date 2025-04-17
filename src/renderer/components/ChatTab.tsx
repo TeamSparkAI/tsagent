@@ -9,7 +9,7 @@ import { ModelReply, Turn, ToolCall } from '../../shared/ModelReply';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import { ILLMModel } from '../../shared/llm';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TOP_P_DEFAULT } from '../../shared/workspace';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -69,6 +69,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [models, setModels] = useState<ILLMModel[]>([]);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [isNewSession, setIsNewSession] = useState(true);
   const [chatSettings, setChatSettings] = useState({
     maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
     maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
@@ -77,16 +78,36 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   });
 
   useEffect(() => {
-    // This happens when the tab is first selected
-    if (id === activeTabId && !chatApiRef.current) {
-      log.info(`Tab ${id} is active, initializing chat API`);
+    // This happens when the tab is first mounted
+    if (!chatApiRef.current) {
+      log.info(`Tab ${id} is mounted, initializing chat API`);
             
       // Load the chat state
       const initModel = async () => {
         try {
-          // First create the chat session with initial welcome message
-          await window.api.createChatTab(id);
-      
+          let modelProvider: LLMType | undefined = undefined;
+          let modelId: string | undefined = undefined;
+
+          // Get installed providers to verify the current model is available
+          const installedProviders = await window.api.getInstalledProviders();
+
+          // Attempt to get the most recent model from settings
+          const mostRecentModel = await window.api.getSettingsValue(MOST_RECENT_MODEL_KEY);
+          if (mostRecentModel) {
+            const colonIndex = mostRecentModel.indexOf(':');
+            if (colonIndex !== -1) {
+              const provider = mostRecentModel.substring(0, colonIndex);
+              const id = mostRecentModel.substring(colonIndex + 1);
+
+              if (installedProviders.includes(provider)) {
+                modelProvider = provider as LLMType;
+                modelId = id;
+              }
+            }
+          }
+
+          await window.api.createChatTab(id, modelProvider, modelId);
+
           // Then initialize the ChatAPI
           chatApiRef.current = new ChatAPI(id);
           if (chatApiRef.current) {
@@ -96,35 +117,22 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               return;
             }
             
-            // Get installed providers to verify the current model is available
-            const installedProviders = await window.api.getInstalledProviders();
-            
-            // Get models to find model name if available
+            // If initial model, try to get actual model name
             let modelName: string | undefined = undefined;
-            let modelProvider: LLMType | undefined = undefined;
-            let modelId: string | undefined = undefined;
-            
-            // Only set model if it's installed
-            if (state.currentModelProvider && installedProviders.includes(state.currentModelProvider)) {
-              modelProvider = state.currentModelProvider;
-              modelId = state.currentModelId;
-              
-              // If model was previously selected with a specific ID, try to get actual model name
-              if (modelId) {
-                try {
-                  const models = await chatApiRef.current.getModels(modelProvider);
-                  const selectedModel = models.find((m: any) => m.id === modelId);
-                  if (selectedModel) {
-                    modelName = selectedModel.name;
-                  } else {
-                    // If we can't find the model, use the ID as the name (without modification)
-                    modelName = modelId;
-                  }
-                } catch (error) {
-                  log.error('Failed to get model information:', error);
-                  // If we can't get model info, use the ID as the name
+            if (modelId) {
+              try {
+                const models = await chatApiRef.current.getModels(modelProvider!);
+                const selectedModel = models.find((m: any) => m.id === modelId);
+                if (selectedModel) {
+                  modelName = selectedModel.name;
+                } else {
+                  // If we can't find the model, use the ID as the name (without modification)
                   modelName = modelId;
                 }
+              } catch (error) {
+                log.error('Failed to get model information:', error);
+                // If we can't get model info, use the ID as the name
+                modelName = modelId;
               }
             }
             
@@ -136,18 +144,19 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               })),
               selectedModel: modelProvider,
               selectedModelName: modelName,
-              currentModelId: modelId
+              currentModelId: modelId,
+              references: state.references,
+              rules: state.rules
             };
-            
-            setChatState(newChatState);
-            
-            // Load context data
-            const refs = await chatApiRef.current.getActiveReferences();
-            const rules = await chatApiRef.current.getActiveRules();
-            setActiveReferences(refs);
-            setActiveRules(rules);
 
-            // Load chat settings
+            // Update the chat state
+            setChatState(newChatState);
+                        
+            // Update the context data
+            setActiveReferences(state.references);
+            setActiveRules(state.rules);
+
+            // Update the chat settings
             setChatSettings({
               maxChatTurns: state.maxChatTurns || MAX_CHAT_TURNS_DEFAULT,
               maxOutputTokens: state.maxOutputTokens || MAX_OUTPUT_TOKENS_DEFAULT,
@@ -156,6 +165,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             });
             
             setIsInitialized(true);
+
+            // Only show model picker if no model was specified
+            setShowModelPickerPanel(!modelProvider);
+
           }
         } catch (error) {
           log.error('Error initializing chat tab:', error);
@@ -194,7 +207,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         chatApiRef.current = null;
       };
     }
-  }, [activeTabId, id]);
+  }, [id]); // Only depend on id, not activeTabId
 
   // Clean up the chat session when the component unmounts
   useEffect(() => {
@@ -302,19 +315,24 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         const installedProviders = await window.api.getInstalledProviders();
         
         // If current provider is no longer installed, clear the model selection
-        if (chatState.selectedModel && !installedProviders.includes(chatState.selectedModel)) {
-          // Update chat state
-          setChatState(prev => ({
-            ...prev,
-            selectedModel: undefined,
-            selectedModelName: undefined,
-            currentModelId: undefined
-          }));
-          
+        if (chatState.selectedModel && !installedProviders.includes(chatState.selectedModel)) {          
           // Clear the model in the chat session
           if (chatApiRef.current) {
-            await chatApiRef.current.changeModel(LLMType.Test, undefined);
-            await chatApiRef.current.switchModel(LLMType.Test);
+            log.info('[ChatTab] Clearing model');
+            const success = await chatApiRef.current.clearModel();
+            if (success) {
+              // Get updated messages that include the system message about model change
+              const updatedMessages = chatApiRef.current.getMessages();
+              
+              setChatState(prev => ({
+                ...prev,
+                selectedModel: undefined,
+                selectedModelName: undefined,
+                currentModelId: undefined,
+                messages: updatedMessages // Update messages to include system message
+              }));
+              log.info('[ChatTab] Model cleared');
+            }
           }
         }
       } catch (error) {
@@ -328,40 +346,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     };
   }, [chatState.selectedModel]);
 
-  // Add effect to handle references changes
-  useEffect(() => {
-    const handleReferencesChanged = async () => {
-      log.info('[ChatTab] handleReferencesChanged');
-      try {
-        const installedProviders = await window.api.getInstalledProviders();
-        
-        // If current provider is no longer installed, clear the model selection
-        if (chatState.selectedModel && !installedProviders.includes(chatState.selectedModel)) {
-          // Update chat state
-          setChatState(prev => ({
-            ...prev,
-            selectedModel: undefined,
-            selectedModelName: undefined,
-            currentModelId: undefined
-          }));
-          
-          // Clear the model in the chat session
-          if (chatApiRef.current) {
-            await chatApiRef.current.changeModel(LLMType.Test, undefined);
-            await chatApiRef.current.switchModel(LLMType.Test);
-          }
-        }
-      } catch (error) {
-        log.error('Error handling references changes:', error);
-      }
-    };
-
-    const listener = window.api.onReferencesChanged(handleReferencesChanged);
-    return () => {
-      window.api.offReferencesChanged(listener);
-    };
-  }, [chatState.selectedModel]);
-
   // Add effect to show model picker when no model is selected
   useEffect(() => {
     if (!chatState.selectedModel) {
@@ -372,7 +356,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   }, [chatState.selectedModel]);
 
   if (!isInitialized) return null;
-  if (id !== activeTabId) return null;
 
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
@@ -414,10 +397,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
-  const handleModelChange = async (model: LLMType, modelId?: string, modelName?: string) => {
+  const handleModelChange = async (model: LLMType, modelId: string, modelName?: string) => {
     try {
       if (chatApiRef.current) {
-        const success = await chatApiRef.current.changeModel(model, modelId);
+        const success = await chatApiRef.current.switchModel(model, modelId);
         
         if (success) {
           // Get updated messages that include the system message about model change
@@ -430,6 +413,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             currentModelId: modelId || prev.currentModelId,
             messages: updatedMessages // Update messages to include system message
           }));
+          
+          // Save the most recent model selection to workspace settings
+          const modelValue = modelId ? `${model}:${modelId}` : model;
+          await window.api.setSettingsValue(MOST_RECENT_MODEL_KEY, modelValue);
           
           log.info(`Changed model to ${model} (${modelName || modelId || 'default'})`);
         } else {
@@ -661,6 +648,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             selectedModel={chatState.selectedModel}
             onModelSelect={handleModelChange}
             onClose={() => setShowModelPickerPanel(false)}
+            id={id}
           />
         </div>
       )}

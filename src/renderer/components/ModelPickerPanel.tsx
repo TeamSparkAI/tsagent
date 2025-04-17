@@ -26,12 +26,14 @@ interface ModelPickerPanelProps {
   selectedModel?: LLMType;
   onModelSelect: (model: LLMType, modelId: string, modelName: string) => void;
   onClose: () => void;
+  id: string;
 }
 
 export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({ 
   selectedModel = LLMType.Test,
   onModelSelect,
-  onClose
+  onClose,
+  id
 }) => {
   const getProviderInfo = useCallback(async () => {
     return await window.api.getProviderInfo();
@@ -57,6 +59,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     
     const initialize = async () => {
       try {
+        log.info('[ModelPickerPanel] Starting initialization');
         setLoading(true);
         
         // First fetch the provider info and installed providers
@@ -64,6 +67,11 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
           getProviderInfo(),
           window.api.getInstalledProviders()
         ]);
+        
+        log.info('[ModelPickerPanel] Got provider info and installed providers:', { 
+          providers: installedProviders,
+          info: Object.keys(info)
+        });
         
         // Only update state if component is still mounted
         if (isMounted) {
@@ -74,13 +82,68 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
           
           setProviderInfo(filteredInfo);
           
-          // If the selected model is not installed, switch to first available
-          if (!installedProviders.includes(selectedModel)) {
+          // Get the current chat state before setting any initial provider
+          const chatState = await window.api.getChatState(id);
+          log.info('[ModelPickerPanel] Initial chat state:', chatState);
+          
+          const currentProvider = chatState?.currentModelProvider;
+          const currentModelId = chatState?.currentModelId;
+          
+          if (currentProvider && currentModelId) {
+            log.info('[ModelPickerPanel] Found current provider and model in chat state:', {
+              provider: currentProvider,
+              modelId: currentModelId
+            });
+          }
+
+          if (currentProvider) {
+            log.info('[ModelPickerPanel] Found current provider:', currentProvider);
+            
+            setSelectedProvider(currentProvider);
+            try {
+              const availableModels = await getModelsForProvider(currentProvider);
+              log.info('[ModelPickerPanel] Loaded models for current provider:', {
+                provider: currentProvider,
+                models: availableModels.map(m => m.name)
+              });
+              
+              if (isMounted) {
+                setModels(availableModels);
+                const currentModel = availableModels.find(m => m.id === currentModelId);
+                if (currentModel) {
+                  log.info('[ModelPickerPanel] Selecting current model:', {
+                    modelId: currentModel.id,
+                    modelName: currentModel.name
+                  });
+                  setSelectedModelId(currentModel.id);
+                  setSelectedModelName(currentModel.name);
+                } else {
+                  log.warn('[ModelPickerPanel] Current model not found in available models:', {
+                    modelId: currentModelId,
+                    availableModels: availableModels.map(m => m.id)
+                  });
+                }
+              }
+            } catch (error) {
+              log.error(`Failed to load models for provider ${currentProvider}:`, error);
+              if (isMounted) {
+                setModels([]);
+              }
+            }
+          } else {
+            // If no current provider or it's not installed, use the first available
             const firstAvailable = installedProviders[0] as LLMType;
+            log.info('[ModelPickerPanel] No current provider found, using first available:', firstAvailable);
+            
             if (firstAvailable) {
               setSelectedProvider(firstAvailable);
               try {
                 const availableModels = await getModelsForProvider(firstAvailable);
+                log.info('[ModelPickerPanel] Loaded initial models:', {
+                  provider: firstAvailable,
+                  models: availableModels.map(m => m.name)
+                });
+                
                 if (isMounted) {
                   setModels(availableModels);
                   if (availableModels.length > 0) {
@@ -93,23 +156,6 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
                 if (isMounted) {
                   setModels([]);
                 }
-              }
-            }
-          } else {
-            setSelectedProvider(selectedModel);
-            try {
-              const availableModels = await getModelsForProvider(selectedModel);
-              if (isMounted) {
-                setModels(availableModels);
-                if (availableModels.length > 0) {
-                  setSelectedModelId(availableModels[0].id);
-                  setSelectedModelName(availableModels[0].name);
-                }
-              }
-            } catch (error) {
-              log.error(`Failed to load models for provider ${selectedModel}:`, error);
-              if (isMounted) {
-                setModels([]);
               }
             }
           }
@@ -267,6 +313,17 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     onClose();
   };
 
+  const handleProviderRemove = async (provider: LLMType) => {
+    if (confirm(`Are you sure you want to remove the ${providerInfo[provider].name} provider? This will also remove all associated models.`)) {
+      try {
+        await window.api.removeProvider(provider);
+        log.info(`Provider ${provider} removed successfully`);
+      } catch (error) {
+        log.error(`Failed to remove provider ${provider}:`, error);
+      }
+    }
+  };
+
   return (
     <div className="model-picker-panel">
       <div className="model-picker-header">
@@ -279,7 +336,9 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         <div className="providers-list">
           <h3>Providers</h3>
           <ul>
-            {Object.entries(providerInfo).map(([key, info]) => (
+            {Object.entries(providerInfo)
+              .sort(([a], [b]) => providerInfo[a as LLMType].name.localeCompare(providerInfo[b as LLMType].name))
+              .map(([key, info]) => (
               <li 
                 key={key} 
                 className={selectedProvider === key as LLMType ? 'selected' : ''}

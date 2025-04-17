@@ -60,7 +60,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
       {React.Children.map(children, child => {
         if (React.isValidElement<TabChildProps>(child)) {
           return (
-            <div className={`tab-content ${activeTabId === child.props.id ? 'active' : ''}`}>
+            <div className={`tab-content ${activeTabId === child.props.id ? 'active' : ''}`} style={{ display: activeTabId === child.props.id ? 'block' : 'none' }}>
               {React.cloneElement(child, {
                 ...child.props,
                 activeTabId

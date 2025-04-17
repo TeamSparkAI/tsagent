@@ -169,6 +169,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             }}>
               {Object.entries(providerInfo)
                 .filter(([type]) => !installedProviders.includes(type))
+                .sort(([a], [b]) => a.localeCompare(b))
                 .map(([type, info]) => (
                   <div
                     key={type}
@@ -275,7 +276,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
 
       <div style={{ 
         display: 'flex',
-        justifyContent: 'flex-end',
+        justifyContent: 'flex-start',
         gap: '8px',
         width: '100%'
       }}>
@@ -283,7 +284,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
           <>
             <button className="btn cancel-button" onClick={onCancel}>Cancel</button>
             <button 
-              className="btn save-button"
+              className="btn apply-button"
               onClick={handleSave}
             >
               {provider ? 'OK' : 'Add Provider'}
@@ -309,16 +310,18 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
         const installedProviders = await window.api.getInstalledProviders();
         const allProviderInfo = await window.api.getProviderInfo();
         const providersWithModels = await Promise.all(
-          installedProviders.map(async (provider: string) => {
-            const models = await window.api.getModelsForProvider(provider);
-            const info = allProviderInfo[provider as LLMType];
-            return {
-              id: provider,
-              name: provider,
-              models,
-              info
-            };
-          })
+          installedProviders
+            .sort((a, b) => a.localeCompare(b))
+            .map(async (provider: string) => {
+              const models = await window.api.getModelsForProvider(provider);
+              const info = allProviderInfo[provider as LLMType];
+              return {
+                id: provider,
+                name: provider,
+                models,
+                info
+              };
+            })
         );
         setProviders(providersWithModels);
       } catch (error) {
@@ -353,16 +356,18 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
       const installedProviders = await window.api.getInstalledProviders();
       const allProviderInfo = await window.api.getProviderInfo();
       const providersWithModels = await Promise.all(
-        installedProviders.map(async (provider: string) => {
-          const models = await window.api.getModelsForProvider(provider);
-          const info = allProviderInfo[provider as LLMType];
-          return {
-            id: provider,
-            name: provider,
-            models,
-            info
-          };
-        })
+        installedProviders
+          .sort((a, b) => a.localeCompare(b))
+          .map(async (provider: string) => {
+            const models = await window.api.getModelsForProvider(provider);
+            const info = allProviderInfo[provider as LLMType];
+            return {
+              id: provider,
+              name: provider,
+              models,
+              info
+            };
+          })
       );
       setProviders(providersWithModels);
       setIsEditing(false);
@@ -374,15 +379,19 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
   };
 
   const handleRemoveProvider = async (providerId: string) => {
-    try {
-      await window.api.removeProvider(providerId);
-      setProviders(providers.filter(p => p.id !== providerId));
-      if (selectedProvider === providerId) {
-        setSelectedProvider(null);
-        setTabState({ mode: 'about' });
+    const provider = providers.find(p => p.id === providerId);
+    if (confirm(`Are you sure you want to remove the ${provider?.info.name} provider? This will also remove all associated models.`)) {
+      try {
+        await window.api.removeProvider(providerId);
+        log.info(`Provider ${provider?.info.name} removed successfully`);
+        setProviders(providers.filter(p => p.id !== providerId));
+        if (selectedProvider === providerId) {
+          setSelectedProvider(null);
+          setTabState({ mode: 'about' });
+        }
+      } catch (error) {
+        log.error(`Failed to remove provider ${provider?.info.name}:`, error);
       }
-    } catch (error) {
-      log.error('Error removing provider:', error);
     }
   };
 

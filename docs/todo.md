@@ -136,6 +136,8 @@ Clone Workspace would be nice.
 For find/open workspace, it currently replaces workspace (if any) in current window.
 - Should it set workspace if current window doesn't have one, else open in new window?
 
+If not workspace history, show explainer for workspaces?
+
 ## Before Release
 
 Package for dist
@@ -146,6 +148,7 @@ Top-level menus?
 CLI
 - Register CLI on first run (like Ollama) - tspark
 - Model selector (install/configure providers?  allow providers via env?)
+- Track most recently selected model in workspace settings.
 
 ## Providers tab and other stuff
 
@@ -161,14 +164,10 @@ Each model could have "Start Chat" that launches a chat with that model
 
 ## Workspace issues
 
-Track (and persist) last selected model, select it when creating new chat tab
-
 Currently, all tabs are remounted (in App.tsx) on workspace:switch
 - This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch
 - We could try to be more clever, because all tabs other than the Chat tabs don't actually need to detach/attach (they can update themselves on workspace:switch)
 
 ## Settings
-
-Add "Settings" tab to chat settings where it can see / edit settings for the session
 
 What are the implications for the CLI (getting/setting workspace values, overriding for session, seeing session values)

@@ -33,16 +33,6 @@ export const AppLayout: React.FC = () => {
       content: <SettingsTab id="settings" activeTabId={activeTabId} name="Settings" type="settings" />
     },
     {
-      id: 'rules',
-      label: 'Rules',
-      content: <RulesTab 
-        id="rules"
-        activeTabId={activeTabId}
-        name="Rules"
-        type="rules"
-      />
-    },
-    {
       id: 'references',
       label: 'References',
       content: <ReferencesTab 
@@ -50,6 +40,16 @@ export const AppLayout: React.FC = () => {
         activeTabId={activeTabId}
         name="References"
         type="references"
+      />
+    },
+    {
+      id: 'rules',
+      label: 'Rules',
+      content: <RulesTab 
+        id="rules"
+        activeTabId={activeTabId}
+        name="Rules"
+        type="rules"
       />
     },
     {

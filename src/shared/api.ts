@@ -3,14 +3,15 @@ import { Reference } from './Reference';
 import { McpConfig, McpConfigFileServerConfig, CallToolResultWithElapsedTime } from '../main/mcp/types';
 import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
 import { WorkspaceWindow } from './workspace';
-import { LLMProviderInfo, ILLMModel } from './llm';
+import { LLMProviderInfo, ILLMModel, LLMType } from './llm';
 
 export interface API {
   // Chat session management
-  createChatTab: (tabId: string) => Promise<ChatSessionResponse>;
+  createChatTab: (tabId: string, modelProvider?: LLMType, modelId?: string) => Promise<ChatSessionResponse>;
   closeChatTab: (tabId: string) => Promise<ChatSessionResponse>;
   getChatState: (tabId: string) => Promise<ChatState | null>;
   sendMessage: (tabId: string, message: string) => Promise<MessageUpdate>;
+  clearModel: (tabId: string) => Promise<ChatSessionResponse>;
   switchModel: (tabId: string, modelType: string, modelId?: string) => Promise<ChatSessionResponse>;
   updateChatSettings: (tabId: string, settings: {
     maxChatTurns: number;

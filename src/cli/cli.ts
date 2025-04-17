@@ -260,8 +260,12 @@ export function setupCLI(workspace: WorkspaceManager) {
             const modelName = findModelName(inputModelName);
             
             if (modelName) {
+              // Get default model id for the model type
               try {
-                chatSession.switchModel(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS]);
+                // Get models for provider and select the first one (later we can be smart about the default model, and we'll let the user pick)
+                const models = await window.api.getModelsForProvider(modelName);
+                const modelId = models[0].id;
+                chatSession.switchModel(AVAILABLE_MODELS[modelName as keyof typeof AVAILABLE_MODELS], modelId);
                 currentModel = modelName;
                 const displayName = MODEL_DISPLAY_NAMES[modelName] || modelName;
                 console.log(chalk.green(`Switched to ${displayName} model`));

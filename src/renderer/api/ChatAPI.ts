@@ -110,11 +110,32 @@ export class ChatAPI {
     }
   }
 
-  public async switchModel(model: LLMType): Promise<boolean> {
+  public async clearModel(): Promise<boolean> {
     try {
-      const result = await window.api.switchModel(this.tabId, model);
+      const result = await window.api.clearModel(this.tabId);
       if (result.success) {
-        this.currentProvider = model;
+        this.currentProvider = undefined;
+        this.currentModelId = undefined;
+        this.currentModelName = undefined;
+
+        // Update messages with the new updates
+        this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
+      }
+      return result.success;
+    } catch (error) {
+      log.error('Error clearing model:', error);
+      return false;
+    }
+  }
+
+  public async switchModel(provider: LLMType, modelId: string): Promise<boolean> {
+    try {
+      const result = await window.api.switchModel(this.tabId, provider, modelId);
+      if (result.success) {
+        this.currentProvider = provider;
+        this.currentModelId = modelId;
+        await this.updateModelNameFromState(provider, modelId);
+
         // Update messages with the new updates
         this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
         return true;
@@ -124,38 +145,6 @@ export class ChatAPI {
       }
     } catch (error) {
       log.error('ChatAPI: Error in switchModel:', error);
-      return false;
-    }
-  }
-
-  // Extended version of switchModel that supports specifying a modelId
-  public async changeModel(model: LLMType, modelId?: string, modelName?: string): Promise<boolean> {
-    try {
-      // Pass the modelId to the backend
-      const result = await window.api.switchModel(this.tabId, model, modelId);
-      
-      if (result.success) {
-        this.currentProvider = model;
-        this.currentModelId = modelId; // Store the exact modelId without modification
-        
-        // Update the model name when provided or calculate it
-        if (modelName) {
-          this.currentModelName = modelName;
-        } else {
-          await this.updateModelNameFromState(model, modelId);
-        }
-        
-        // Update messages with any new updates
-        this.messages.push(...result.updates.map(this.convertMessageToChatMessage));
-        
-        log.info(`Changed to model provider: ${model}, modelId: ${modelId}, modelName: ${this.currentModelName}`);
-        return true;
-      } else {
-        log.info('ChatAPI: Model switch failed:', result.error);
-        return false;
-      }
-    } catch (error) {
-      log.error('ChatAPI: Error in changeModel:', error);
       return false;
     }
   }

@@ -1,6 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { API } from '../shared/api';
 import log from 'electron-log';
+import { LLMType } from '../shared/llm';
 
 const api: API = {
   // Rules management
@@ -32,10 +33,11 @@ const api: API = {
   },
 
   // Chat session management
-  createChatTab: (tabId: string) => ipcRenderer.invoke('chat:create-tab', tabId),
+  createChatTab: (tabId: string, modelProvider?: LLMType, modelId?: string) => ipcRenderer.invoke('chat:create-tab', tabId, modelProvider, modelId),
   closeChatTab: (tabId: string) => ipcRenderer.invoke('chat:close-tab', tabId),
   getChatState: (tabId: string) => ipcRenderer.invoke('chat:get-state', tabId),
   sendMessage: (tabId: string, message: string) => ipcRenderer.invoke('chat:send-message', tabId, message),
+  clearModel: (tabId: string) => ipcRenderer.invoke('chat:clear-model', tabId),
   switchModel: (tabId: string, modelType: string, modelId?: string) => ipcRenderer.invoke('chat:switch-model', tabId, modelType, modelId),
   updateChatSettings: (tabId: string, settings: {
     maxChatTurns: number;

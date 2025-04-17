@@ -72,7 +72,17 @@ export class ChatSessionManager {
     }
   }
 
-  switchModel(tabId: string, modelType: LLMType, modelId?: string): MessageUpdate {
+  clearModel(tabId: string): MessageUpdate {
+    const session = this.getSession(tabId);
+    try {
+      return session.clearModel();
+    } catch (error) {
+      log.error(`Error clearing model for tab ${tabId}:`, error);
+      throw error;
+    }
+  }
+
+  switchModel(tabId: string, modelType: LLMType, modelId: string): MessageUpdate {
     const session = this.getSession(tabId);
     try {
       return session.switchModel(modelType, modelId);

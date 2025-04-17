@@ -285,7 +285,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // Chat session IPC handlers
-  ipcMain.handle('chat:create-tab', (event, tabId: string) => {
+  ipcMain.handle('chat:create-tab', (event, tabId: string, modelProvider?: LLMType, modelId?: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const workspace = getWorkspaceForWindow(windowId);
     
@@ -294,7 +294,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       throw new Error('ChatSessionManager not initialized');
     }
     try {
-      workspace.chatSessionManager.createSession(tabId);
+      workspace.chatSessionManager.createSession(tabId, {
+        modelProvider: modelProvider,
+        modelId: modelId
+      });
       return { success: true };
     } catch (error) {
       log.error('Error creating chat tab:', error);
@@ -425,7 +428,31 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType, modelId?: string) => {
+
+  ipcMain.handle('chat:clear-model', (event, tabId: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace?.chatSessionManager) {
+      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
+      throw new Error('ChatSessionManager not initialized');
+    }
+    try {
+      const result = workspace.chatSessionManager.clearModel(tabId);
+      return { 
+        success: true,
+        updates: result.updates,
+        lastSyncId: result.lastSyncId,
+        references: result.references,
+        rules: result.rules
+      };
+    } catch (error) {
+      log.error('Error clearing model:', error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType, modelId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const workspace = getWorkspaceForWindow(windowId);
     

@@ -60,13 +60,13 @@ export const App: React.FC = () => {
           },
           {
             id: uuidv4(),
-            type: 'rules',
-            title: 'Rules'
+            type: 'references',
+            title: 'References'
           },
           {
             id: uuidv4(),
-            type: 'references',
-            title: 'References'
+            type: 'rules',
+            title: 'Rules'
           },
           {
             id: uuidv4(),

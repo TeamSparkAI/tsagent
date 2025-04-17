@@ -187,7 +187,7 @@ export class GeminiLLM implements ILLM {
 
     var modelTools: GeminiTool | undefined = undefined;
     const tools = this.workspace.mcpManager.getAllTools();
-    log.info('tools', JSON.stringify(tools, null, 2));
+    //log.info('tools', JSON.stringify(tools, null, 2));
     if (tools.length > 0) {
       modelTools = this.convertMCPToolsToGeminiTool(tools);
     }

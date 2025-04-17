@@ -4,6 +4,7 @@ export const MAX_CHAT_TURNS_KEY = 'maxTurns';
 export const MAX_OUTPUT_TOKENS_KEY = 'maxOutputTokens';
 export const TEMPERATURE_KEY = 'temperature';
 export const TOP_P_KEY = 'topP';
+export const MOST_RECENT_MODEL_KEY = 'mostRecentModel';
 
 export const MAX_CHAT_TURNS_DEFAULT = 20;
 export const MAX_OUTPUT_TOKENS_DEFAULT = 1000;
