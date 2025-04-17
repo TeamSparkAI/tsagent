@@ -1,6 +1,6 @@
 {
   "name": "teamspark-workbench",
-  "productName": "TeamSpark Workbench",
+  "productName": "TeamSpark AI Workbench",
   "version": "1.0.0",
   "description": "Multi-LLM Chat Application",
   "main": "dist/main.js",
@@ -50,7 +50,7 @@
   },
   "build": {
     "appId": "com.teamspark.workbench",
-    "productName": "TeamSpark Workbench",
+    "productName": "TeamSpark AI Workbench",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

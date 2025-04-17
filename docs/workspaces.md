@@ -1,4 +1,4 @@
-# Teamspark Workbenc Workspaces
+# Teamspark AI Workbench Workspaces
 
 ## Workdpaces
 

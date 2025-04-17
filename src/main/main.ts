@@ -129,9 +129,9 @@ async function startApp() {
 
     setupCLI(workspaceManager);
   } else {
-        // Set app name before anything else
-    process.env.ELECTRON_APP_NAME = 'TeamSpark Workbench';
-    app.setName('TeamSpark Workbench');
+    // Set app name before anything else
+    process.env.ELECTRON_APP_NAME = PRODUCT_NAME;
+    app.setName(PRODUCT_NAME);
 
     intializeLogging(true);
 
