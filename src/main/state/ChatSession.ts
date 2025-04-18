@@ -45,7 +45,7 @@ export class ChatSession {
         throw new Error(`Failed to create LLM instance for model ${this.currentProvider}`);
       }
       this.llm = llm;
-      modelDescription = `You are using the ${this.currentProvider} model${this.currentModelId ? ` (${this.currentModelId})` : ''}`;
+      modelDescription = `You are using the ${this.currentProvider} provider${this.currentModelId ? ` and the ${this.currentModelId} model` : ''}`;
     } else {
       modelDescription = 'No model selected';
     }
@@ -224,7 +224,7 @@ export class ChatSession {
       // Add a system message about the model switch
       const systemMessage: ChatMessage = {
         role: 'system',
-        content: `Switched to ${modelType} model${modelId ? ` (${displayName})` : ''}`
+        content: `Switched to the ${modelType} provider${modelId ? ` and the ${displayName} model` : ''}`
       };
       this.messages.push(systemMessage);
       this.lastSyncId++;

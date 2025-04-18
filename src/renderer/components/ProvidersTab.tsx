@@ -46,6 +46,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
   const [providerInfo, setProviderInfo] = useState<Record<string, LLMProviderInfo>>({});
   const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
   const [isSelectingProvider, setIsSelectingProvider] = useState(!provider);
+  const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
     const loadProviderInfo = async () => {
@@ -249,23 +250,24 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                     {configValue.caption || configValue.key}:
                     {configValue.required && <span style={{ color: '#dc3545', marginLeft: '4px' }}>*</span>}
                   </label>
-                  <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
-                    <input 
-                      type={configValue.secret && !visibleFields[configValue.key] ? 'password' : 'text'} 
+                  <div className="input-group">
+                    <input
+                      type={showPassword ? "text" : "password"}
                       value={config[configValue.key] || ''}
                       onChange={(e) => setConfig({ ...config, [configValue.key]: e.target.value })}
-                      style={{ width: '100%', padding: '4px 8px' }}
+                      className="form-control"
                       placeholder={configValue.hint || `Enter ${configValue.caption || configValue.key}`}
-                      required={configValue.required}
+                      aria-label={configValue.hint || `Enter ${configValue.caption || configValue.key}`}
                     />
-                    {configValue.secret && (
-                      <button
-                        className="password-toggle-button"
-                        onClick={() => toggleFieldVisibility(configValue.key)}
-                      >
-                        {visibleFields[configValue.key] ? 'Hide' : 'Show'}
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      className="password-toggle-button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                      title={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? "Hide" : "Show"}
+                    </button>
                   </div>
                 </React.Fragment>
               ))}

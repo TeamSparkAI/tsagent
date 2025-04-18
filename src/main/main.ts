@@ -74,20 +74,18 @@ function getWorkspaceForWindow(windowId?: string): WorkspaceManager | null {
 function intializeLogging(isElectron: boolean) {
   if (isElectron) {
     log.initialize({ preload: true }); // Required to wire up the renderer (will crash the CLI)
-    
-    // Use timestamp in filename to create a new log file each time the app starts
     const userDataPath = app.getPath('userData');
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    log.transports.file.resolvePathFn = () => path.join(userDataPath, `app-${timestamp}.log`);
+    log.transports.file.resolvePathFn = () => path.join(userDataPath, `tspark.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
+    log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
     log.transports.file.level = 'info';
     log.transports.console.level = 'info';
   } else {
-    // In CLI mode, only show error and above to the console, no file logging
     log.transports.file.resolvePathFn = () => path.join(process.cwd(), `tspark-console.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
+    log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
     log.transports.file.level = 'info';
-    log.transports.console.level = 'error';
+    log.transports.console.level = 'error'; // In CLI mode, only show error and above to the console
   }
   log.info('App starting...');
 }

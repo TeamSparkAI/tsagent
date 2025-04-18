@@ -2,20 +2,19 @@
 
 ## Chat UX
 
-What happens in context UX when we have lots of refs/rules (scroll, search?)
-
 Allow user to @mention a rule or reference to add them to the chat context (interactively, as you type, maybe with lookup/matching)
 - @ref:[referenceName]
 - @rule:[ruleName]
-
-Selective tool inclusion (like context mgmt)?
 
 Allow user to pick any chat element and store it as a reference
 
 Clone chat tab
 
 Chat import/export
-- JSON file of messages/replies/references/rules
+- JSON file
+  - Messages/replies
+  - Context (references and rules)
+  - Settings (if any override workspace defaults)
 
 Edit chat
 - Truncate makes sense
@@ -24,25 +23,6 @@ Edit chat
 Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 - Maybe this is better as a specific log category/file
-
-## References and Rules config
-
-Include: Always, Auto Attached, Agent Requested, Manual (these are the Cursor options)
-- Add tool to include/exclude ref/rule from current chat session (maybe see which refs/rules are attached/available)
-
-## Keyword matching
-
-We have references and rules with keywords (comma separated, quoted strings?, wildcards?)
-- Separate by any combination of commas/spaces
-We have prompt text
-We want to see which reference or rules have keywords that are found in the prompt text
-Ideally we want to match regardless of plurality or tense of word (Stemming via natural.js or stemmer)
-We could do fuzzy matches with wildcards (Fuse.js) - only use Fuse for wildcarded keywords?  Just *?
-We could also support literal quoted exact match keywords
-
-Gather all bare keywords, stem them, stem the prompt, determine which keywords are found
-Gather all quoted keywords and wildcard keywords, convert to regex, search text, determine which keywords were found
-- Quoted string is word boundary before and after
 
 ## MCP / Tools Work
 
@@ -80,10 +60,18 @@ Either show models or error
 
 Each model could have "Start Chat" that launches a chat with that model
 
-## CLI
+## Context
 
-No way to install/uninstall tools
+Update session context UX to handle larger lists of rules/references, maybe filter?
 
-Need better default model for switch to provider without specifying model
-- Maybe LLM provides it (if not first one)?
-- Currently uses first one, which isn't ideal for Gemini (2.5 has no non-metered quota and fails)
+Add "include" field to rules/references
+- "always" (on new session)
+- "manual" (default, can only be added/remove by user)
+- "agent" (future) - Agent is allowed to add/remove in context (in addition to user)
+
+Beef up internal tools metadata for rules/refs (allowed chars in name, defaults, etc)
+
+---
+
+Add agent mode option to UX
+Update tools to be able to add/remove ref/rule from context (and see what rules/refs are in context)
