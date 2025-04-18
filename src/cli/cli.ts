@@ -1,10 +1,11 @@
-import readlinePromise from 'readline/promises';
-import { LLMProviderInfo, LLMType } from '../shared/llm';
-import log from 'electron-log';
-import { Tool } from '@modelcontextprotocol/sdk/types';
-import { ChatSession, ChatSessionOptionsWithRequiredSettings } from '../main/state/ChatSession';
 import chalk from 'chalk';
 import ora from 'ora';
+import { read } from 'read';
+import log from 'electron-log';
+
+import { LLMProviderInfo, LLMType } from '../shared/llm';
+import { Tool } from '@modelcontextprotocol/sdk/types';
+import { ChatSession, ChatSessionOptionsWithRequiredSettings } from '../main/state/ChatSession';
 import { MessageUpdate } from '../shared/ChatSession';
 import { WorkspaceManager } from '../main/state/WorkspaceManager';
 import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../shared/workspace';
@@ -85,11 +86,11 @@ async function toolsCommand(workspace: WorkspaceManager) {
 function showHelp() {
   console.log(chalk.cyan('\nAvailable commands:'));
   console.log(chalk.yellow('  /help') + ' - Show this help menu');
-  console.log(chalk.yellow('  /providers') + ' - List available providers');
+  console.log(chalk.yellow('  /providers') + ' - List available providers (* active)');
   console.log(chalk.yellow('  /providers add <provider>') + ' - Add a provider');
   console.log(chalk.yellow('  /providers remove <provider>') + ' - Remove a provider');
   console.log(chalk.yellow('  /provider <provider> <model>') + ' - Switch to specified provider, model is optional');
-  console.log(chalk.yellow('  /models') + ' - List available models');
+  console.log(chalk.yellow('  /models') + ' - List available models (* active)');
   console.log(chalk.yellow('  /model <model>') + ' - Switch to specified model');
   console.log(chalk.yellow('  /settings') + ' - List available settings');
   console.log(chalk.yellow('  /setting <setting> <value>') + ' - Update setting');
@@ -119,13 +120,16 @@ function getWorkspaceSettings(workspace: WorkspaceManager): ChatSessionOptionsWi
   };
 }
 
+function isProviderInstalled(workspace: WorkspaceManager, providerName: string): boolean {
+  return workspace.getInstalledProviders().includes(providerName);
+}
+
 export function setupCLI(workspace: WorkspaceManager) {
   console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
   showHelp();
   
   const llmFactory = new LLMFactory(workspace);
   const providersInfo = llmFactory.getProvidersInfo();
-  console.log(providersInfo);
 
   const getProviderByName = (name: string, providersInfo: Record<LLMType, LLMProviderInfo>): LLMType | undefined => {
     for (const [type, info] of Object.entries(providersInfo)) {
@@ -166,6 +170,13 @@ export function setupCLI(workspace: WorkspaceManager) {
 
   const chatSession = new ChatSession(workspace, chatSessionOptions);
 
+  const commandHistory: string[] = [];
+  async function addToCommandHistory(command: string) {
+    commandHistory.unshift(command);
+    if (commandHistory.length > 10) {
+      commandHistory.shift();
+    }
+  }
 
   // Process input and return true to continue, false to exit
   async function processInput(input: string): Promise<boolean> {
@@ -183,6 +194,8 @@ export function setupCLI(workspace: WorkspaceManager) {
       const commandName = commandParts[0].toLowerCase();
       const args = commandParts.slice(1);
 
+      addToCommandHistory(command);
+
       switch (commandName) {
         case COMMANDS.HELP:
           showHelp();
@@ -195,11 +208,24 @@ export function setupCLI(workspace: WorkspaceManager) {
 
         case COMMANDS.PROVIDERS:
           if (args.length === 0) {
-            console.log(chalk.cyan('\nAvailable providers:'));
-            for (const [type, info] of Object.entries(providersInfo)) {
-              // type is LLMType, info is LLMProviderInfo
-              const indicator = type === currentProvider ? chalk.green('* ') : '  ';
-              console.log(`${indicator}${type}: ${info.name}`);
+            const installedProviders = workspace.getInstalledProviders();
+            const nonInstalledProviders = Object.entries(providersInfo).filter(([type, info]) => !installedProviders.includes(type));
+            if (installedProviders.length === 0) {
+              console.log(chalk.cyan('No providers installed'));
+            } else {
+              console.log(chalk.cyan(`Providers installed and available:`));
+              installedProviders.forEach(provider => {
+                const indicator = provider === currentProvider ? chalk.green('* ') : '  ';
+                console.log(chalk.yellow(`${indicator}${provider}: ${providersInfo[provider as LLMType].name}`));
+              });
+            }
+            if (nonInstalledProviders.length === 0) {
+              console.log(chalk.cyan('No providers available to install'));
+            } else {
+              console.log(chalk.cyan(`Providers available to install:`));
+              nonInstalledProviders.forEach(([type, info]) => {
+                console.log(chalk.yellow(`  ${type}: ${info.name}`));
+              });
             }
             console.log('');
           } else if (args[0] == 'add') {
@@ -207,14 +233,29 @@ export function setupCLI(workspace: WorkspaceManager) {
             if (providerName) {
               const provider = getProviderByName(providerName, providersInfo);
               if (provider) {
+                if (isProviderInstalled(workspace, providerName)) {
+                  console.log(chalk.red('Provider already installed:'), chalk.yellow(providerName));
+                  break;
+                }
                 console.log(chalk.cyan('\nAdd provider:'), chalk.yellow(providerName));
                 const providerInfo = providersInfo[provider];
                 console.log(chalk.yellow(`  ${providerInfo.name}`));
                 console.log(chalk.yellow(`  ${providerInfo.description}`));
-                providerInfo.configValues?.forEach((configValue) => {
-                  // configValue is ILLMConfigValue
+                const configValues: Record<string, string> = {};
+                for (const configValue of providerInfo.configValues || []) {
                   console.log(chalk.yellow(`    ${configValue.key}: ${configValue.caption}`));
-                });
+                  const value = await collectInput(chalk.green(`    ${configValue.key}:`), { isCommand: false, isPassword: configValue.secret, defaultValue: configValue.default });
+                  if (configValue.required && !value) {
+                    console.log(chalk.red('Required value not supplied, provider not added'));
+                    return true;
+                  }
+                  configValues[configValue.key] = value;
+                }
+                await workspace.addProvider(providerName);
+                for (const [key, value] of Object.entries(configValues)) {
+                  await workspace.setProviderSettingsValue(providerName, key, value);
+                }
+                console.log(chalk.green('Provider added:'), chalk.yellow(providerName));
               } else {
                 console.log(chalk.red('Provider not found by name:'), chalk.yellow(providerName));
               }
@@ -222,7 +263,25 @@ export function setupCLI(workspace: WorkspaceManager) {
               console.log(chalk.red('No provider name given'));
             }
           } else if (args[0] == 'remove') {
-            console.log(chalk.cyan('\nRemove provider:'), chalk.yellow(args[1]));
+            const providerName = args[1];
+            if (providerName) {
+              if (isProviderInstalled(workspace, providerName)) {
+                console.log(chalk.cyan('\nRemove provider:'), chalk.yellow(providerName));
+                await workspace.removeProvider(providerName);
+                if (currentProvider === providerName) {
+                  currentProvider = undefined;
+                  currentModelId = undefined;
+                  chatSession.clearModel();
+                  console.log(chalk.green('Active provider removed:'), chalk.yellow(providerName));
+                } else {
+                  console.log(chalk.green('Provider removed:'), chalk.yellow(providerName));
+                }
+              } else {
+                console.log(chalk.red('Provider not installed:'), chalk.yellow(providerName));
+              }
+            } else {
+              console.log(chalk.red('No provider name given'));
+            }
           } else {
             console.log(chalk.cyan('\nUnknown providers command: '), chalk.yellow(args[1]));
           }
@@ -571,36 +630,41 @@ export function setupCLI(workspace: WorkspaceManager) {
     return true; // Continue the loop
   }
 
-  // Use a loop instead of recursion
+  async function collectInput(prompt: string, options: { isCommand?: boolean; isPassword?: boolean; defaultValue?: string } = {}): Promise<string> {
+    const { isCommand = true, isPassword = false, defaultValue = '' } = options;
+    // We track command history and we want "read" to show those commands, but we don't want "read" to add to them (including collected params, passwords, etc)
+    // And we don't want to show the command history in the prompt if we're not collecting a command
+    const disposableHistory = isCommand ? [...commandHistory] : []; 
+    const result = await read({
+      prompt,
+      silent: isPassword,
+      replace: isPassword ? '*' : '',
+      terminal: true,
+      default: defaultValue,
+      edit: defaultValue !== undefined,
+      history: disposableHistory
+    });
+    return result.toString();
+  }
+
   async function runCLI() {
     let running = true;
-    
-    // Add signal handlers for graceful exit
-    process.on('SIGINT', () => {
-      console.log(chalk.yellow('\nInterrupted. Exiting...'));
-      process.exit(0);
-    });
-    
+        
     try {
       while (running) {
         const displayName = currentProvider ? currentProvider : "No Provider";
         try {
-          // Creating and closing the readline interface for each prompt is not pretty, but it's the only way I found to prevent
-          // the ora spinner from causing a subsequent prompt to hang.
-          //
-          const rl = readlinePromise.createInterface({
-            input: process.stdin,
-            output: process.stdout
-          });
-          const input = await rl.question(chalk.cyan(`${displayName}> `));
-          rl.close();
+          const input = await collectInput(chalk.cyan(`${displayName}> `));
           running = await processInput(input);
         } catch (error) {
-          console.error(chalk.red('Error in CLI loop:'), error);
+          if (error instanceof Error && error.message.includes('canceled')) {
+            console.log(chalk.yellow('Input cancelled via Ctrl+C'));
+            running = false;
+          } else {
+            console.error(chalk.red('Error in CLI loop:'), error);
+          }
         }
       }
-      
-      // Add this: Clean exit when loop finishes
       console.log(chalk.green('Exiting application.'));
       process.exit(0);
     } catch (error) {
@@ -609,7 +673,6 @@ export function setupCLI(workspace: WorkspaceManager) {
     }
   }
 
-  // Replace this with direct call
   runCLI();
   return;
 } 
