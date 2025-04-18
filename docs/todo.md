@@ -82,20 +82,7 @@ Each model could have "Start Chat" that launches a chat with that model
 
 ## CLI
 
-/clear (implement)
-- New chat session
-
-### Providers
-
-/providers
-- Currently lists all providers
-  - Need to show installed versus available
-
-/providers add <provider>
-- Prompts for config values
-
-/providers remove <provider>
-- Confirms
+No way to install/uninstall tools
 
 Need better default model for switch to provider without specifying model
 - Maybe LLM provides it (if not first one)?

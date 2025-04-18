@@ -150,25 +150,29 @@ export function setupCLI(workspace: WorkspaceManager) {
   let currentProvider: LLMType | undefined;
   let currentModelId: string | undefined;
 
-  const chatSessionOptions = getWorkspaceSettings(workspace);
+  function createChatSession(): ChatSession {
+    const chatSessionOptions = getWorkspaceSettings(workspace);
  
-  const mostRecentModel = workspace.getSettingsValue(MOST_RECENT_MODEL_KEY);
-  if (mostRecentModel) {
-    const colonIndex = mostRecentModel.indexOf(':');
-    if (colonIndex !== -1) {
-      const providerId = mostRecentModel.substring(0, colonIndex);
-      const modelId = mostRecentModel.substring(colonIndex + 1);
-      const provider = getProviderByName(providerId, providersInfo);
-      if (provider) { // !!! Need to verify provider is installed
-        currentProvider = provider;
-        currentModelId = modelId;
-        chatSessionOptions.modelProvider = provider;
-        chatSessionOptions.modelId = modelId;
+    const mostRecentModel = workspace.getSettingsValue(MOST_RECENT_MODEL_KEY);
+    if (mostRecentModel) {
+      const colonIndex = mostRecentModel.indexOf(':');
+      if (colonIndex !== -1) {
+        const providerId = mostRecentModel.substring(0, colonIndex);
+        const modelId = mostRecentModel.substring(colonIndex + 1);
+        const provider = getProviderByName(providerId, providersInfo);
+        if (provider) { // !!! Need to verify provider is installed
+          chatSessionOptions.modelProvider = provider;
+          chatSessionOptions.modelId = modelId;
+        }
       }
     }
-  }
+  
+    return new ChatSession(workspace, chatSessionOptions);
+  }  
 
-  const chatSession = new ChatSession(workspace, chatSessionOptions);
+  let chatSession = createChatSession();
+  currentProvider = chatSession.getState().currentModelProvider;
+  currentModelId = chatSession.getState().currentModelId;
 
   const commandHistory: string[] = [];
   async function addToCommandHistory(command: string) {
@@ -566,8 +570,10 @@ export function setupCLI(workspace: WorkspaceManager) {
           break;
 
         case COMMANDS.CLEAR:
-          // !!! This doesn't actually clear the chat history but that could be cool.
           console.clear();
+          chatSession = createChatSession();
+          currentProvider = chatSession.getState().currentModelProvider;
+          currentModelId = chatSession.getState().currentModelId;
           console.log(chalk.green('Chat history cleared'));
           console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
           break;
@@ -649,7 +655,6 @@ export function setupCLI(workspace: WorkspaceManager) {
 
   async function runCLI() {
     let running = true;
-        
     try {
       while (running) {
         const displayName = currentProvider ? currentProvider : "No Provider";
