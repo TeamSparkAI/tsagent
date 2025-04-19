@@ -62,8 +62,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [expandedToolCalls, setExpandedToolCalls] = useState<Set<string>>(new Set());
   const [activeReferences, setActiveReferences] = useState<string[]>([]);
   const [activeRules, setActiveRules] = useState<string[]>([]);
-  const [availableReferences, setAvailableReferences] = useState<{name: string, description: string}[]>([]);
-  const [availableRules, setAvailableRules] = useState<{name: string, description: string}[]>([]);
+  const [availableReferences, setAvailableReferences] = useState<{name: string, description: string, priorityLevel: number}[]>([]);
+  const [availableRules, setAvailableRules] = useState<{name: string, description: string, priorityLevel: number}[]>([]);
   const [showContextPanel, setShowContextPanel] = useState(false);
   const [showModelPickerPanel, setShowModelPickerPanel] = useState<boolean>(false);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
@@ -182,8 +182,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         try {
           const refs = await window.api.getReferences();
           const rules = await window.api.getRules();
-          setAvailableReferences(refs.map(ref => ({ name: ref.name, description: ref.description })));
-          setAvailableRules(rules.map(rule => ({ name: rule.name, description: rule.description })));
+          setAvailableReferences(refs.map(ref => ({ name: ref.name, description: ref.description, priorityLevel: ref.priorityLevel })));
+          setAvailableRules(rules.map(rule => ({ name: rule.name, description: rule.description, priorityLevel: rule.priorityLevel })));
         } catch (error) {
           log.error('Error loading available context:', error);
         }
@@ -747,56 +747,104 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       
       {showContextPanel && (
         <div id="context-panel">
-          <div className="context-section">
-            <h3>Active References</h3>
-            {activeReferences.length === 0 && <p>No active references</p>}
-            <ul className="context-list">
-              {activeReferences.map(ref => (
-                <li key={ref} className="context-item">
-                  <span>{ref}</span>
-                  <button className="btn remove-button" onClick={() => removeReference(ref)}>Remove</button>
-                </li>
-              ))}
-            </ul>
+          <div className="context-column">
+            <div className="context-section">
+              <h3>Active References</h3>
+              {activeReferences.length === 0 && <p>No active references</p>}
+              <ul className="context-list">
+                {availableReferences
+                  .filter(ref => activeReferences.includes(ref.name))
+                  .sort((a, b) => {
+                    if (a.priorityLevel !== b.priorityLevel) {
+                      return a.priorityLevel - b.priorityLevel;
+                    }
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map(ref => (
+                    <li key={ref.name} className="context-item">
+                      <span className="priority">{ref.priorityLevel.toString().padStart(3, '0')}</span>
+                      <span className="name" title={ref.description}>{ref.name}</span>
+                      <div className="actions">
+                        <button className="btn remove-button" onClick={() => removeReference(ref.name)}>Remove</button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+            
+            <div className="context-section">
+              <h3>Available References</h3>
+              {availableReferences.filter(ref => !activeReferences.includes(ref.name)).length === 0 && <p>No references available</p>}
+              <ul className="context-list">
+                {availableReferences
+                  .filter(ref => !activeReferences.includes(ref.name))
+                  .sort((a, b) => {
+                    if (a.priorityLevel !== b.priorityLevel) {
+                      return a.priorityLevel - b.priorityLevel;
+                    }
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map(ref => (
+                    <li key={ref.name} className="context-item">
+                      <span className="priority">{ref.priorityLevel.toString().padStart(3, '0')}</span>
+                      <span className="name" title={ref.description}>{ref.name}</span>
+                      <div className="actions">
+                        <button className="btn add-button" onClick={() => addReference(ref.name)}>Add</button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </div>
           </div>
           
-          <div className="context-section">
-            <h3>Active Rules</h3>
-            {activeRules.length === 0 && <p>No active rules</p>}
-            <ul className="context-list">
-              {activeRules.map(rule => (
-                <li key={rule} className="context-item">
-                  <span>{rule}</span>
-                  <button className="btn remove-button" onClick={() => removeRule(rule)}>Remove</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          <div className="context-section">
-            <h3>Available References</h3>
-            {availableReferences.filter(ref => !activeReferences.includes(ref.name)).length === 0 && <p>No references available</p>}
-            <ul className="context-list">
-              {availableReferences.filter(ref => !activeReferences.includes(ref.name)).map(ref => (
-                <li key={ref.name} className="context-item">
-                  <span title={ref.description}>{ref.name}</span>
-                  <button className="btn add-button" onClick={() => addReference(ref.name)}>Add</button>
-                </li>
-              ))}
-            </ul>
-          </div>
-          
-          <div className="context-section">
-            <h3>Available Rules</h3>
-            {availableRules.filter(rule => !activeRules.includes(rule.name)).length === 0 && <p>No rules available</p>}
-            <ul className="context-list">
-              {availableRules.filter(rule => !activeRules.includes(rule.name)).map(rule => (
-                <li key={rule.name} className="context-item">
-                  <span title={rule.description}>{rule.name}</span>
-                  <button className="btn add-button" onClick={() => addRule(rule.name)}>Add</button>
-                </li>
-              ))}
-            </ul>
+          <div className="context-column">
+            <div className="context-section">
+              <h3>Active Rules</h3>
+              {activeRules.length === 0 && <p>No active rules</p>}
+              <ul className="context-list">
+                {availableRules
+                  .filter(rule => activeRules.includes(rule.name))
+                  .sort((a, b) => {
+                    if (a.priorityLevel !== b.priorityLevel) {
+                      return a.priorityLevel - b.priorityLevel;
+                    }
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map(rule => (
+                    <li key={rule.name} className="context-item">
+                      <span className="priority">{rule.priorityLevel.toString().padStart(3, '0')}</span>
+                      <span className="name" title={rule.description}>{rule.name}</span>
+                      <div className="actions">
+                        <button className="btn remove-button" onClick={() => removeRule(rule.name)}>Remove</button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </div>
+            
+            <div className="context-section">
+              <h3>Available Rules</h3>
+              {availableRules.filter(rule => !activeRules.includes(rule.name)).length === 0 && <p>No rules available</p>}
+              <ul className="context-list">
+                {availableRules
+                  .filter(rule => !activeRules.includes(rule.name))
+                  .sort((a, b) => {
+                    if (a.priorityLevel !== b.priorityLevel) {
+                      return a.priorityLevel - b.priorityLevel;
+                    }
+                    return a.name.localeCompare(b.name);
+                  })
+                  .map(rule => (
+                    <li key={rule.name} className="context-item">
+                      <span className="priority">{rule.priorityLevel.toString().padStart(3, '0')}</span>
+                      <span className="name" title={rule.description}>{rule.name}</span>
+                      <div className="actions">
+                        <button className="btn add-button" onClick={() => addRule(rule.name)}>Add</button>
+                      </div>
+                    </li>
+                  ))}
+              </ul>
+            </div>
           </div>
         </div>
       )}

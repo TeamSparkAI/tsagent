@@ -168,15 +168,40 @@
   background-color: #f9f9f9;
   border: 1px solid #ccc;
   border-radius: 4px;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  grid-gap: 10px;
+  display: flex;
+  gap: 20px;
   max-height: 300px;
+}
+
+.context-column {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
+  padding-right: 10px;
+}
+
+.context-column::-webkit-scrollbar {
+  width: 8px;
+}
+
+.context-column::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 4px;
+}
+
+.context-column::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.context-column::-webkit-scrollbar-thumb:hover {
+  background: #555;
 }
 
 .context-section {
   padding: 5px;
+  margin-bottom: 15px;
 }
 
 .context-section h3 {
@@ -184,14 +209,16 @@
   margin-bottom: 8px;
   font-size: 14px;
   color: #333;
+  position: sticky;
+  top: 0;
+  background-color: #f9f9f9;
+  padding: 5px 0;
 }
 
 .context-list {
   list-style: none;
   padding: 0;
   margin: 0;
-  max-height: 200px;
-  overflow-y: auto;
 }
 
 .context-item {
@@ -202,10 +229,23 @@
   border-bottom: 1px solid #eee;
 }
 
-.context-item span {
+.context-item .priority {
+  font-family: monospace;
+  color: #666;
+  margin-right: 8px;
+  min-width: 32px;
+}
+
+.context-item .name {
+  flex-grow: 1;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.context-item .actions {
+  display: flex;
+  gap: 4px;
 }
 
 .input-container {
