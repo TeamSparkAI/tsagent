@@ -62,8 +62,6 @@ Each model could have "Start Chat" that launches a chat with that model
 
 ## Context
 
-Update session context UX to handle larger lists of rules/references, maybe filter?
-
 Add "include" field to rules/references
 - "always" (on new session)
 - "manual" (default, can only be added/remove by user)
@@ -75,15 +73,3 @@ Beef up internal tools metadata for rules/refs (allowed chars in name, defaults,
 
 Add agent mode option to UX
 Update tools to be able to add/remove ref/rule from context (and see what rules/refs are in context)
-
-
-inputSchema {
-  type: "object"
-  properties: {
-    propName: { 
-      type: "string"
-      enum: ["foo", "bar"],
-      description: "xxxxxx"
-    }
-  }
-}

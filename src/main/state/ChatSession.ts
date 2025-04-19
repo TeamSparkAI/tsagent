@@ -58,6 +58,20 @@ export class ChatSession {
         content: `Welcome to TeamSpark AI Workbench! ${modelDescription}`
       }
     ];
+
+    // Add "always" include references to the session
+    for (const reference of this.workspace.referencesManager.getReferences()) {
+      if (reference.include === 'always') {
+        this.addReference(reference.name);
+      }
+    }
+
+    // Add "always" include rules to the session
+    for (const rule of this.workspace.rulesManager.getRules()) {
+      if (rule.include === 'always') {
+        this.addRule(rule.name);
+      }
+    } 
     
     log.info(`Created new chat session with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
   }
