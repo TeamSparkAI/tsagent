@@ -1,14 +1,4 @@
-## Model metadata
-
-API provider is top level (Anthropic Claude, OpenAI, Google Gemini, Amazon Bedrock, Ollama)
-
-Common fields
-  ModelId (what we use to select model internally)
-  ModelName (what we show in the UX)
-  Provider Name
-  - For Bedrock we might want to select by this?
-  - For OpenAI, Claude, Gemini, provider is implied
-  - Ollama we could use details.family?
+## Providers
 
 ## Model metadata from provider APIs
 
@@ -17,7 +7,8 @@ Bedrock
     modelName: 'Pixtral Large (25.02)',
     outputModalities: [ 'TEXT' ], // some add 'IMAGE', 'VIDEO'
     providerName: 'Mistral AI',
-    modelLifecycle: { status: 'LEGACY' }, // or 'ACTIVE'
+    modelLifecycle: { status: 'ACTIVE' }, // or 'LEGACY'
+    inferenceTypesSupported: [ 'ON_DEMAND' ], // and/or 'PROVISIONED', 'INFERENCE_PROFILE'
     
 Ollama
     name: 'llama3.2:latest',
@@ -46,11 +37,5 @@ Claude
     display_name: 'Claude 3 Opus',
     created_at: '2024-02-29T00:00:00Z'
 
-Gemini (no API currently, but it is imminent)
+Gemini (no API currently, but it is imminent?)
     ???
-
-## Model config
-
-What does each provider (model) support?
-
-API method to get/set?
