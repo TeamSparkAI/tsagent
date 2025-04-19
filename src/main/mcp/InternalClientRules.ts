@@ -13,6 +13,7 @@ interface RuleArgs {
     priorityLevel?: number;
     enabled?: boolean;
     text?: string;
+    include?: 'always' | 'manual' | 'agent';
 }
 
 export class McpClientInternalRules implements McpClient {
@@ -44,6 +45,12 @@ export class McpClientInternalRules implements McpClient {
                     text: {
                         type: "string",
                         description: "The actual rule text"
+                    },
+                    include: {
+                        type: "string",
+                        description: "How the rule should be included in sessions",
+                        enum: ["always", "manual", "agent"],
+                        default: "manual"
                     }
                 },
                 required: ["name", "text"]
@@ -88,6 +95,11 @@ export class McpClientInternalRules implements McpClient {
                     text: {
                         type: "string",
                         description: "New rule text"
+                    },
+                    include: {
+                        type: "string",
+                        description: "How the rule should be included in sessions",
+                        enum: ["always", "manual", "agent"]
                     }
                 },
                 required: ["name"]
@@ -181,6 +193,13 @@ export class McpClientInternalRules implements McpClient {
             validated.text = args.text;
         }
 
+        if ('include' in args) {
+            if (typeof args.include !== 'string' || !['always', 'manual', 'agent'].includes(args.include)) {
+                throw new Error('Rule include must be one of: always, manual, agent');
+            }
+            validated.include = args.include as 'always' | 'manual' | 'agent';
+        }
+
         return validated;
     }
 
@@ -218,7 +237,8 @@ export class McpClientInternalRules implements McpClient {
                         description: validatedArgs.description || "",
                         priorityLevel: validatedArgs.priorityLevel ?? 500,
                         enabled: validatedArgs.enabled ?? true,
-                        text: validatedArgs.text!
+                        text: validatedArgs.text!,
+                        include: validatedArgs.include || 'manual'
                     };
                     
                     this.rulesManager.saveRule(newRule);
@@ -261,7 +281,8 @@ export class McpClientInternalRules implements McpClient {
                         description: validatedArgs.description ?? existingRule.description,
                         priorityLevel: validatedArgs.priorityLevel ?? existingRule.priorityLevel,
                         enabled: validatedArgs.enabled ?? existingRule.enabled,
-                        text: validatedArgs.text ?? existingRule.text
+                        text: validatedArgs.text ?? existingRule.text,
+                        include: validatedArgs.include ?? existingRule.include
                     };
                     
                     this.rulesManager.saveRule(updatedRule);

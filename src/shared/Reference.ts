@@ -4,4 +4,5 @@ export interface Reference {
     priorityLevel: number;
     enabled: boolean;
     text: string;
+    include: 'always' | 'manual' | 'agent';
 } 

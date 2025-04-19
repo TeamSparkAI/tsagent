@@ -13,6 +13,7 @@ interface ReferenceArgs {
     priorityLevel?: number;
     enabled?: boolean;
     text?: string;
+    include?: 'always' | 'manual' | 'agent';
 }
 
 export class McpClientInternalReferences implements McpClient {
@@ -44,6 +45,12 @@ export class McpClientInternalReferences implements McpClient {
                     text: {
                         type: "string",
                         description: "The actual reference text"
+                    },
+                    include: {
+                        type: "string",
+                        description: "How the reference should be included in sessions",
+                        enum: ["always", "manual", "agent"],
+                        default: "manual"
                     }
                 },
                 required: ["name", "text"]
@@ -88,6 +95,11 @@ export class McpClientInternalReferences implements McpClient {
                     text: {
                         type: "string",
                         description: "New reference text"
+                    },
+                    include: {
+                        type: "string",
+                        description: "How the reference should be included in sessions",
+                        enum: ["always", "manual", "agent"]
                     }
                 },
                 required: ["name"]
@@ -181,6 +193,13 @@ export class McpClientInternalReferences implements McpClient {
             validated.text = args.text;
         }
 
+        if ('include' in args) {
+            if (typeof args.include !== 'string' || !['always', 'manual', 'agent'].includes(args.include)) {
+                throw new Error('Reference include must be one of: always, manual, agent');
+            }
+            validated.include = args.include as 'always' | 'manual' | 'agent';
+        }
+
         return validated;
     }
 
@@ -218,7 +237,8 @@ export class McpClientInternalReferences implements McpClient {
                         description: validatedArgs.description || "",
                         priorityLevel: validatedArgs.priorityLevel ?? 500,
                         enabled: validatedArgs.enabled ?? true,
-                        text: validatedArgs.text!
+                        text: validatedArgs.text!,
+                        include: validatedArgs.include || 'manual'
                     };
                     
                     this.referencesManager.saveReference(newReference);
@@ -261,7 +281,8 @@ export class McpClientInternalReferences implements McpClient {
                         description: validatedArgs.description ?? existingReference.description,
                         priorityLevel: validatedArgs.priorityLevel ?? existingReference.priorityLevel,
                         enabled: validatedArgs.enabled ?? existingReference.enabled,
-                        text: validatedArgs.text ?? existingReference.text
+                        text: validatedArgs.text ?? existingReference.text,
+                        include: validatedArgs.include ?? existingReference.include
                     };
                     
                     this.referencesManager.saveReference(updatedReference);

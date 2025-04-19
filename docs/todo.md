@@ -75,3 +75,15 @@ Beef up internal tools metadata for rules/refs (allowed chars in name, defaults,
 
 Add agent mode option to UX
 Update tools to be able to add/remove ref/rule from context (and see what rules/refs are in context)
+
+
+inputSchema {
+  type: "object"
+  properties: {
+    propName: { 
+      type: "string"
+      enum: ["foo", "bar"],
+      description: "xxxxxx"
+    }
+  }
+}

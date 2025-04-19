@@ -38,7 +38,8 @@ export class ReferencesManager extends EventEmitter {
                         description: metadata.description || '',
                         priorityLevel: metadata.priorityLevel || 500,
                         enabled: metadata.enabled ?? true,
-                        text: text
+                        text: text,
+                        include: metadata.include || 'manual'
                     };
                     this.references.push(reference);
                 }
@@ -96,7 +97,8 @@ export class ReferencesManager extends EventEmitter {
             name: reference.name,
             description: reference.description,
             priorityLevel: reference.priorityLevel,
-            enabled: reference.enabled
+            enabled: reference.enabled,
+            include: reference.include
         };
 
         const content = `---\n${yaml.dump(metadata)}---\n${reference.text}`;

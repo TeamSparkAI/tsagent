@@ -4,4 +4,5 @@ export interface Rule {
     priorityLevel: number;
     enabled: boolean;
     text: string;
+    include: 'always' | 'manual' | 'agent';
 } 

@@ -43,7 +43,8 @@ export class RulesManager extends EventEmitter {
             description: metadata.description || '',
             priorityLevel: metadata.priorityLevel || 500,
             enabled: metadata.enabled ?? true,
-            text: text
+            text: text,
+            include: metadata.include || 'manual'
           };
           this.rules.push(rule);
           log.info(`[RULES MANAGER] Successfully loaded rule: ${rule.name}`);
@@ -104,7 +105,8 @@ export class RulesManager extends EventEmitter {
       name: rule.name,
       description: rule.description,
       priorityLevel: rule.priorityLevel,
-      enabled: rule.enabled
+      enabled: rule.enabled,
+      include: rule.include
     };
 
     const content = `---\n${yaml.dump(metadata)}---\n${rule.text}`;

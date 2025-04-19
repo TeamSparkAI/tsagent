@@ -19,6 +19,7 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
     const [priorityLevel, setPriorityLevel] = useState(reference?.priorityLevel || 500);
     const [enabled, setEnabled] = useState(reference?.enabled ?? true);
     const [text, setText] = useState(reference?.text || '');
+    const [include, setInclude] = useState<'always' | 'manual' | 'agent'>(reference?.include || 'manual');
     const [error, setError] = useState<string | null>(null);
 
     const handleSave = async () => {
@@ -40,7 +41,8 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
                 description,
                 priorityLevel,
                 enabled,
-                text
+                text,
+                include
             });
         } catch (err) {
             setError(err instanceof Error ? err.message : 'Failed to save reference');
@@ -123,6 +125,17 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
                         style={{ margin: '0' }}
                     />
                 </div>
+
+                <label style={{ fontWeight: 'bold' }}>Include:</label>
+                <select 
+                    value={include}
+                    onChange={(e) => setInclude(e.target.value as 'always' | 'manual' | 'agent')}
+                    style={{ width: 'fit-content', padding: '4px 8px' }}
+                >
+                    <option value="always">Always (included in new sessions)</option>
+                    <option value="manual">Manual (user can add/remove)</option>
+                    <option value="agent">Agent (agent can add/remove)</option>
+                </select>
             </div>
 
             <div style={{ marginBottom: '20px' }}>
@@ -292,6 +305,14 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                 <div style={{ marginBottom: '20px' }}>
                     <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Status</h3>
                     <p style={{ margin: 0 }}>{reference.enabled ? 'Enabled' : 'Disabled'}</p>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Include</h3>
+                    <p style={{ margin: 0 }}>
+                        {reference.include === 'always' ? 'Always (included in new sessions)' :
+                         reference.include === 'manual' ? 'Manual (user can add/remove)' :
+                         'Agent (agent can add/remove)'}
+                    </p>
                 </div>
                 <div>
                     <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Content</h3>
