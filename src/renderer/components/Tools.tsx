@@ -939,7 +939,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
                         >
                             <span>{server.name}</span>
-                            <span style={{ color: '#666', fontSize: '0.9em' }}>({server.config.type ?? "stdio"})</span>
+                            <span style={{ color: '#666', fontSize: '0.9em' }}> ({server.config.type ?? "stdio"})</span>
                         </div>
                     ))}
                 </div>
