@@ -93,6 +93,7 @@ const api: API = {
 
   // LLM Providers (new methods for model picker)
   getProviderInfo: () => ipcRenderer.invoke('llm:get-provider-info'),
+  validateProviderConfig: (provider: string) => ipcRenderer.invoke('llm:validate-provider-config', provider),
   getModelsForProvider: (provider: string) => ipcRenderer.invoke('llm:getModels', provider),
   getInstalledProviders: () => ipcRenderer.invoke('llm:get-installed-providers'),
   addProvider: (provider: string) => ipcRenderer.invoke('llm:add-provider', provider),

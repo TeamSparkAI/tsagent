@@ -34,7 +34,7 @@ interface Provider {
 
 interface EditProviderModalProps {
   provider?: Provider;
-  onSave: (config: Record<string, string>) => void;
+  onSave: (config: Record<string, string>, providerId?: string) => void;
   onCancel: () => void;
   installedProviders: string[];
 }
@@ -44,7 +44,6 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
   const [error, setError] = useState<string | null>(null);
   const [selectedProviderType, setSelectedProviderType] = useState<LLMType | null>(null);
   const [providerInfo, setProviderInfo] = useState<Record<string, LLMProviderInfo>>({});
-  const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
   const [isSelectingProvider, setIsSelectingProvider] = useState(!provider);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -81,7 +80,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
           await window.api.setProviderConfig(selectedProviderType, key, value);
         }
         // Close the modal after successful addition
-        onSave(config);
+        onSave(config, selectedProviderType);
       } else if (provider) {
         // Updating existing provider
         for (const [key, value] of Object.entries(config)) {
@@ -106,13 +105,6 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
       });
       setConfig(initialConfig);
     }
-  };
-
-  const toggleFieldVisibility = (key: string) => {
-    setVisibleFields(prev => ({
-      ...prev,
-      [key]: !prev[key]
-    }));
   };
 
   return (
@@ -252,22 +244,25 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                   </label>
                   <div className="input-group">
                     <input
-                      type={showPassword ? "text" : "password"}
+                      type={configValue.secret ? (showPassword ? "text" : "password") : "text"}
                       value={config[configValue.key] || ''}
                       onChange={(e) => setConfig({ ...config, [configValue.key]: e.target.value })}
                       className="form-control"
                       placeholder={configValue.hint || `Enter ${configValue.caption || configValue.key}`}
+                      required={configValue.required}
                       aria-label={configValue.hint || `Enter ${configValue.caption || configValue.key}`}
                     />
-                    <button
-                      type="button"
-                      className="password-toggle-button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                      title={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? "Hide" : "Show"}
-                    </button>
+                    {configValue.secret && (
+                      <button
+                        type="button"
+                        className="password-toggle-button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        title={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    )}
                   </div>
                 </React.Fragment>
               ))}
@@ -295,6 +290,54 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
         )}
       </div>
     </div>
+  );
+};
+
+interface ModelListProps {
+  provider: Provider;
+}
+
+const ModelList: React.FC<ModelListProps> = ({ provider }) => {
+  const [isValid, setIsValid] = useState<boolean | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const validateConfig = async () => {
+      try {
+        const result = await window.api.validateProviderConfig(provider.id);
+        setIsValid(result.isValid);
+        setError(result.error || null);
+      } catch (err) {
+        setIsValid(false);
+        setError('Failed to validate configuration');
+      }
+    };
+    validateConfig();
+  }, [provider.id]);
+
+  if (isValid === null) {
+    return <div className="loading">Validating configuration...</div>;
+  }
+
+  if (!isValid) {
+    return (
+      <div className="config-error">
+        <p style={{ color: '#dc3545' }}>Configuration Error: {error}</p>
+        <p>Please configure the provider settings before viewing available models.</p>
+      </div>
+    );
+  }
+
+  return (
+    <ul>
+      {provider.models.map((model) => (
+        <li key={model.id} className="model-item">
+          <div className="model-name">{model.name}</div>
+          {model.id !== model.name && <div className="model-id">{model.id}</div>}
+          {model.description && <div className="model-description">{model.description}</div>}
+        </li>
+      ))}
+    </ul>
   );
 };
 
@@ -346,7 +389,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
     setIsEditing(true);
   };
 
-  const handleSaveProvider = async (config: Record<string, string>) => {
+  const handleSaveProvider = async (config: Record<string, string>, newProviderId?: string) => {
     try {
       if (editingProvider) {
         // Save each config key for existing provider
@@ -374,6 +417,11 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
       setProviders(providersWithModels);
       setIsEditing(false);
       setEditingProvider(undefined);
+      
+      // If this was a new provider, select it
+      if (newProviderId) {
+        handleProviderSelect(newProviderId);
+      }
     } catch (error) {
       log.error('Error saving provider:', error);
       throw error;
@@ -537,15 +585,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
 
                       <div className="provider-models">
                         <h4>Available Models</h4>
-                        <ul>
-                          {provider.models.map((model) => (
-                            <li key={model.id} className="model-item">
-                              <div className="model-name">{model.name}</div>
-                              {model.id !== model.name && <div className="model-id">{model.id}</div>}
-                              {model.description && <div className="model-description">{model.description}</div>}
-                            </li>
-                          ))}
-                        </ul>
+                        <ModelList provider={provider} />
                       </div>
                     </>
                   );

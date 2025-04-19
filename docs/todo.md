@@ -52,10 +52,6 @@ Top-level menus?
 
 Option to "register" command line app on first run (and from menu later)
 
-## Providers tab and other stuff
+## Implement new Gemini API
 
-How do we tell if a provider is properly configured and working?  Test/ping?
-
-Either show models or error
-
-Each model could have "Start Chat" that launches a chat with that model
+Porting info here: https://github.com/google-gemini/deprecated-generative-ai-js?tab=readme-ov-file

@@ -1014,6 +1014,22 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return workspace.llmFactory.getProvidersInfo();
   });
 
+  ipcMain.handle('llm:validate-provider-config', async (event, provider: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const workspace = getWorkspaceForWindow(windowId);
+    
+    if (!workspace) {
+      log.warn(`Workspace not found for window: ${windowId}`);
+      return { isValid: false, error: 'Workspace not found' };
+    }
+
+    const llmType = workspace.llmFactory.getLLMTypeByName(provider);
+    if (!llmType) {
+      return { isValid: false, error: `Provider with name ${provider} not found` };
+    }
+    return workspace.llmFactory.validateConfiguration(llmType);
+  });
+
   ipcMain.handle('llm:get-provider-config', (event, provider: string, key: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const workspace = getWorkspaceForWindow(windowId);

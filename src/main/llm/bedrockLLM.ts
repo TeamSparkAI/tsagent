@@ -36,6 +36,28 @@ export class BedrockLLM implements ILLM {
     };
   }
 
+  static async validateConfiguration(workspace: WorkspaceManager): Promise<{ isValid: boolean, error?: string }> {
+    const accessKey = workspace.getProviderSettingsValue(LLMType.Bedrock, 'BEDROCK_SECRET_ACCESS_KEY');
+    const accessKeyId = workspace.getProviderSettingsValue(LLMType.Bedrock, 'BEDROCK_ACCESS_KEY_ID');
+    if (!accessKey || !accessKeyId) {
+      return { isValid: false, error: 'BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your workspace configuration.' };
+    }
+    try {
+      const bedrockClient = new BedrockClient({
+        region: 'us-east-1',
+        credentials: {
+				  secretAccessKey: accessKey,
+				  accessKeyId: accessKeyId
+			  }
+      });
+      await bedrockClient.send(new ListFoundationModelsCommand({}));
+      return { isValid: true };
+    } catch (error) {
+      log.error('Failed to validate Bedrock configuration:', error);
+      return { isValid: false, error: 'Failed to validate Bedrock configuration' + (error instanceof Error && error.message ? ': ' + error.message : '') };
+    }
+  }
+
   constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
     this.workspace = workspace;

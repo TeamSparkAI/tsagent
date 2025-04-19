@@ -2,6 +2,7 @@ import { ChatMessage } from '../../shared/ChatSession';
 import { LLMProviderInfo } from '../../shared/llm';
 import { ModelReply } from '../../shared/ModelReply';
 import { ChatSession } from '../state/ChatSession';
+import { WorkspaceManager } from '../state/WorkspaceManager';
 export enum LLMType {
   Test = 'test',
   Claude = 'claude',
@@ -14,6 +15,7 @@ export enum LLMType {
 // Interface for static methods
 export interface ILLMStatic {
   getInfo(): LLMProviderInfo;
+  validateConfiguration(workspace: WorkspaceManager): Promise<{ isValid: boolean, error?: string }>;
 }
 
 // Interface for instance methods

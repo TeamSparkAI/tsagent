@@ -222,4 +222,16 @@
 
 .password-toggle-button:active {
   background-color: #d0d0d0;
+}
+
+.input-group {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  width: 100%;
+}
+
+.form-control {
+  width: 100%;
+  padding: 4px 8px;
 } 

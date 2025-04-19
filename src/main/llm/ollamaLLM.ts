@@ -28,6 +28,17 @@ export class OllamaLLM implements ILLM {
     };
   }
 
+  static async validateConfiguration(workspace: WorkspaceManager): Promise<{ isValid: boolean, error?: string }> {
+    const host = workspace.getProviderSettingsValue(LLMType.Ollama, 'OLLAMA_HOST') ?? 'http://127.0.0.1:11434';
+    try {
+      const client = new Ollama({ host: host });
+      await client.list();
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: 'Failed to validate Ollama configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
+    }
+  }
+
   constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
     this.workspace = workspace;

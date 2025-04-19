@@ -28,6 +28,20 @@ export class ClaudeLLM implements ILLM {
     };
   }
   
+  static async validateConfiguration(workspace: WorkspaceManager): Promise<{ isValid: boolean, error?: string }> {
+    const apiKey = workspace.getProviderSettingsValue(LLMType.Claude, 'ANTHROPIC_API_KEY');
+    if (!apiKey) {
+      return { isValid: false, error: 'ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.' };
+    }
+    try {
+      const client = new Anthropic({ apiKey });
+      await client.models.list();
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: 'Failed to validate Claude configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
+    }
+  }
+
   constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
     this.workspace = workspace;

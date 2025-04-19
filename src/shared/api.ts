@@ -28,6 +28,7 @@ export interface API {
 
   // LLM Provider methods for model picker
   getProviderInfo: () => Promise<Record<string, LLMProviderInfo>>;
+  validateProviderConfig: (provider: string) => Promise<{ isValid: boolean, error?: string }>;
   getModelsForProvider: (provider: string) => Promise<ILLMModel[]>;
   getInstalledProviders: () => Promise<string[]>;
   addProvider: (provider: string) => Promise<boolean>;

@@ -26,6 +26,10 @@ export class TestLLM implements ILLM {
     }];
   }
 
+  static async validateConfiguration(workspace: WorkspaceManager): Promise<{ isValid: boolean, error?: string }> {
+    return { isValid: true };
+  }
+
   async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     return {
       timestamp: Date.now(),

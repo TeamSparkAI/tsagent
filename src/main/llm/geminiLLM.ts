@@ -102,6 +102,24 @@ export class GeminiLLM implements ILLM {
     };
   }
 
+  static async validateConfiguration(workspace: WorkspaceManager): Promise<{ isValid: boolean, error?: string }> {
+    const apiKey = workspace.getProviderSettingsValue(LLMType.Gemini, 'GOOGLE_API_KEY');
+    if (!apiKey) {
+      return { isValid: false, error: 'GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.' };
+    }
+    try {
+      const genAI = new GoogleGenerativeAI(apiKey);
+      // !!! It's BAD to hardcode a model name here (as it may become obsolete and unavailable in the future), but Google provides no other method
+      //     that calls the back end and would validate the configuration.
+      const modelOptions: ModelParams = { model: 'gemini-2.0-flash' }; 
+      const model = genAI.getGenerativeModel(modelOptions);
+      await model.generateContent('Ping');
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: 'Failed to validate Gemini configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
+    }
+  }
+
   constructor(modelName: string, workspace: WorkspaceManager) {
     this.modelName = modelName;
     this.workspace = workspace;
