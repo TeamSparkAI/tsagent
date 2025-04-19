@@ -1,7 +1,8 @@
-import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
-import { GoogleGenerativeAI, Tool as GeminiTool, SchemaType, ModelParams, GenerativeModel, Content, Part } from '@google/generative-ai';
-import { Tool } from "@modelcontextprotocol/sdk/types";
+import { GoogleGenAI, Tool as GeminiTool, Content, Part, Type as SchemaType } from '@google/genai';
 import log from 'electron-log';
+
+import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
+import { Tool } from "@modelcontextprotocol/sdk/types";
 import { ChatMessage } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { WorkspaceManager } from '../state/WorkspaceManager';
@@ -10,12 +11,10 @@ import { ChatSession } from '../state/ChatSession';
 export class GeminiLLM implements ILLM {
   private readonly workspace: WorkspaceManager;
   private readonly modelName: string;
-  private genAI: GoogleGenerativeAI;
-  private model: GenerativeModel;
+  private genAI: GoogleGenAI;
 
   private convertPropertyType(prop: any): { type: SchemaType; items?: { type: SchemaType; properties?: Record<string, any>; required?: string[] }; description?: string } {
-    const baseType = (prop.type || "string").toLowerCase() as SchemaType;
-    
+    const baseType = (prop.type || "string").toUpperCase() as SchemaType;
     if (baseType === SchemaType.ARRAY) {
       const itemSchema = prop.items;
       if (itemSchema.type === 'object') {
@@ -43,7 +42,7 @@ export class GeminiLLM implements ILLM {
         return {
           type: SchemaType.ARRAY,
           items: {
-            type: (itemSchema.type || "string").toLowerCase() as SchemaType
+            type: (itemSchema.type || "string").toUpperCase() as SchemaType
           }
         };
       }
@@ -108,12 +107,11 @@ export class GeminiLLM implements ILLM {
       return { isValid: false, error: 'GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.' };
     }
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      // !!! It's BAD to hardcode a model name here (as it may become obsolete and unavailable in the future), but Google provides no other method
-      //     that calls the back end and would validate the configuration.
-      const modelOptions: ModelParams = { model: 'gemini-2.0-flash' }; 
-      const model = genAI.getGenerativeModel(modelOptions);
-      await model.generateContent('Ping');
+      const genAI = new GoogleGenAI({ apiKey });
+      await genAI.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: 'ping'
+      });
       return { isValid: true };
     } catch (error) {
       return { isValid: false, error: 'Failed to validate Gemini configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
@@ -129,9 +127,7 @@ export class GeminiLLM implements ILLM {
       if (!apiKey) {
         throw new Error('GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
-      this.genAI = new GoogleGenerativeAI(apiKey);
-      const modelOptions: ModelParams = { model: this.modelName };
-      this.model = this.genAI.getGenerativeModel(modelOptions);
+      this.genAI = new GoogleGenAI({ apiKey });
       log.info('Gemini LLM initialized successfully');
     } catch (error) {
       log.error('Failed to initialize Gemini LLM:', error);
@@ -205,11 +201,9 @@ export class GeminiLLM implements ILLM {
 
     var modelTools: GeminiTool | undefined = undefined;
     const tools = this.workspace.mcpManager.getAllTools();
-    //log.info('tools', JSON.stringify(tools, null, 2));
     if (tools.length > 0) {
       modelTools = this.convertMCPToolsToGeminiTool(tools);
     }
-    this.model.tools = modelTools ? [modelTools] : [];
 
     try {
       // Turn our ChatMessage[] into a VertexAI Content[]
@@ -225,13 +219,13 @@ export class GeminiLLM implements ILLM {
             };
 
             if (turn.message) {
-              replyContent.parts.push({ text: turn.message ?? turn.error });
+              replyContent.parts!.push({ text: turn.message ?? turn.error });
             }
             // Add the tool calls, if any
             if (turn.toolCalls && turn.toolCalls.length > 0) {
               for (const toolCall of turn.toolCalls) {
                 // Push the tool call
-                replyContent.parts.push({
+                replyContent.parts!.push({
                   functionCall: {
                     name: toolCall.serverName + '_' + toolCall.toolName,
                     args: toolCall.args ?? {}
@@ -244,12 +238,12 @@ export class GeminiLLM implements ILLM {
             // Add the tool call results, if any
             if (turn.toolCalls && turn.toolCalls.length > 0) {
               const toolResultsContent: Content = {
-                role: 'function',
+                role: 'user', // New API doesn't accept 'function' role
                 parts: []
               };
 
               for (const toolCall of turn.toolCalls) {
-                toolResultsContent.parts.push({
+                toolResultsContent.parts!.push({
                   functionResponse: {
                     name: toolCall.serverName + '_' + toolCall.toolName,
                     response: {
@@ -273,17 +267,19 @@ export class GeminiLLM implements ILLM {
       // log.info('Gemini message history', JSON.stringify(history, null, 2));
 
       const lastMessage = history.pop()!;
-      var currentPrompt: Part[] = lastMessage.parts;
+      var currentPrompt: Part[] = lastMessage.parts!;
 
-      log.info('history', JSON.stringify(history, null, 2));
-      log.info('currentPrompt', currentPrompt);
+      // log.info('history', JSON.stringify(history, null, 2));
+      // log.info('currentPrompt', currentPrompt);
 
-      const chat = this.model.startChat({
+      const chat = this.genAI.chats.create({
+        model: this.modelName,
         history,
-        generationConfig: {
+        config: {
           maxOutputTokens: session.maxOutputTokens,
           temperature: session.temperature,
-          topP: session.topP
+          topP: session.topP,
+          tools: modelTools ? [modelTools] : []
         }
       });
 
@@ -292,8 +288,7 @@ export class GeminiLLM implements ILLM {
         const turn: Turn = {};
         turnCount++;
         log.info(`Sending message prompt "${currentPrompt}", turn count: ${turnCount}`);
-        const result = await chat.sendMessage(currentPrompt);
-        const response = result.response;
+        const response = await chat.sendMessage({ message: currentPrompt });
 
         log.info('response', JSON.stringify(response, null, 2));
 
