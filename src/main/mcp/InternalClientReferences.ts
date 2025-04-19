@@ -36,21 +36,23 @@ export class McpClientInternalReferences implements McpClient {
                     },
                     priorityLevel: {
                         type: "number",
-                        description: "Priority level of the reference (000-999, higher numbers = higher priority)"
+                        description: "Priority level of the reference (000-999, higher numbers = higher priority)",
+                        default: 500
                     },
                     enabled: {
                         type: "boolean",
-                        description: "Whether the reference is enabled"
-                    },
-                    text: {
-                        type: "string",
-                        description: "The actual reference text"
+                        description: "Whether the reference is enabled",
+                        default: true
                     },
                     include: {
                         type: "string",
                         description: "How the reference should be included in sessions",
                         enum: ["always", "manual", "agent"],
                         default: "manual"
+                    },
+                    text: {
+                        type: "string",
+                        description: "The actual reference text"
                     }
                 },
                 required: ["name", "text"]

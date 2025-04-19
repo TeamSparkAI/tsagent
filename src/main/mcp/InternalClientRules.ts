@@ -36,21 +36,23 @@ export class McpClientInternalRules implements McpClient {
                     },
                     priorityLevel: {
                         type: "number",
-                        description: "Priority level of the rule (000-999, higher numbers = higher priority)"
+                        description: "Priority level of the rule (000-999, higher numbers = higher priority)",
+                        default: 500
                     },
                     enabled: {
                         type: "boolean",
-                        description: "Whether the rule is enabled"
-                    },
-                    text: {
-                        type: "string",
-                        description: "The actual rule text"
+                        description: "Whether the rule is enabled",
+                        default: true
                     },
                     include: {
                         type: "string",
                         description: "How the rule should be included in sessions",
                         enum: ["always", "manual", "agent"],
                         default: "manual"
+                    },
+                    text: {
+                        type: "string",
+                        description: "The actual rule text"
                     }
                 },
                 required: ["name", "text"]

@@ -635,7 +635,20 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     // Clear test results when server or tool selection changes
     useEffect(() => {
         setTestResults(null);
-        setTestParams({});
+        if (selectedTool) {
+            // Initialize testParams with default values from the schema
+            const initialParams: Record<string, unknown> = {};
+            if (selectedTool.inputSchema?.properties) {
+                Object.entries(selectedTool.inputSchema.properties).forEach(([name, param]: [string, any]) => {
+                    if (param.default !== undefined) {
+                        initialParams[name] = param.default;
+                    }
+                });
+            }
+            setTestParams(initialParams);
+        } else {
+            setTestParams({});
+        }
     }, [selectedServer, selectedTool]);
 
     const loadServers = async () => {
@@ -754,7 +767,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         }
     };
 
-    const handleParamChange = (name: string, value: string | boolean | Record<string, unknown>, isArray: boolean = false, index?: number, fieldName?: string) => {
+    const handleParamChange = (name: string, value: string | boolean | number | Record<string, unknown>, isArray: boolean = false, index?: number, fieldName?: string) => {
         setTestParams(prev => {
             if (isArray) {
                 const currentArray = Array.isArray(prev[name]) ? prev[name] as any[] : [];
@@ -1040,6 +1053,29 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                         />
                                                         <span style={{ color: '#666' }}>{param.description || 'Enable this option'}</span>
                                                     </div>
+                                                ) : param.enum ? (
+                                                    <select
+                                                        value={testParams[name] as string || ''}
+                                                        onChange={(e) => handleParamChange(name, e.target.value)}
+                                                        style={{ width: '100%', padding: '4px 8px' }}
+                                                    >
+                                                        <option value="">Select an option</option>
+                                                        {param.enum.map((value: string) => (
+                                                            <option key={value} value={value}>{value}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : param.type === 'number' ? (
+                                                    <input
+                                                        type="number"
+                                                        value={testParams[name] as number || ''}
+                                                        onChange={(e) => {
+                                                            const value = e.target.value === '' ? '' : Number(e.target.value);
+                                                            if (value === '' || !isNaN(value)) {
+                                                                handleParamChange(name, value);
+                                                            }
+                                                        }}
+                                                        style={{ width: '100%', padding: '4px 8px' }}
+                                                    />
                                                 ) : (
                                                     <input
                                                         type="text"
