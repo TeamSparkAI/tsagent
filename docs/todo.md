@@ -24,12 +24,6 @@ Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 - Maybe this is better as a specific log category/file
 
-## MCP / Tools Work
-
-Test support for SSE server
-- Local weather server in /mcp-sse
-  - uv run weather.py
-
 ## Workspaces Issues
 
 Workspace metadata (name/desc) would be nice in UX
@@ -51,7 +45,3 @@ Package for dist
 Top-level menus?
 
 Option to "register" command line app on first run (and from menu later)
-
-## Implement new Gemini API
-
-Porting info here: https://github.com/google-gemini/deprecated-generative-ai-js?tab=readme-ov-file
