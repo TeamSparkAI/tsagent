@@ -9,6 +9,7 @@ import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
 import { McpClientInternalRules } from './InternalClientRules';
 import { McpClientInternalReferences } from './InternalClientReferences';
 import { WorkspaceManager } from '../state/WorkspaceManager';
+import { ChatSession } from '../state/ChatSession';
 
 export abstract class McpClientBase {
     protected mcp: Client;
@@ -97,7 +98,7 @@ export abstract class McpClientBase {
         return this.connected;
     }
 
-    async callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime> {
+    async callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {
         const startTime = performance.now();
         const result = await this.mcp.callTool({name: tool.name, arguments: args}) as CallToolResult;
         const elapsedTimeMs = performance.now() - startTime;

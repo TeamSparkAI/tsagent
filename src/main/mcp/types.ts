@@ -1,4 +1,5 @@
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
+import { ChatSession } from "../state/ChatSession";
 
 export interface CallToolResultWithElapsedTime extends CallToolResult {
     elapsedTimeMs: number;
@@ -38,7 +39,7 @@ export interface McpClient {
   serverTools: Tool[];
   connect(): Promise<boolean>;
   disconnect(): Promise<void>;
-  callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime>;
+  callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime>;
   cleanup(): Promise<void>;
   getErrorLog(): string[];
   isConnected(): boolean;

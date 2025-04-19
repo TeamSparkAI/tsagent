@@ -3,6 +3,7 @@ import { Rule } from "../../shared/Rule";
 import { CallToolResultWithElapsedTime, McpClient } from "./types";
 import log from 'electron-log';
 import { RulesManager } from '../state/RulesManager';
+import { ChatSession } from "../state/ChatSession";
 
 /**
  * Interface for rule arguments with all fields optional
@@ -28,7 +29,7 @@ export class McpClientInternalRules implements McpClient {
                 properties: {
                     name: {
                         type: "string",
-                        description: "Unique name for the rule"
+                        description: "Unique name for the rule (allowed characters: a-z, A-Z, 0-9, _, -)"
                     },
                     description: {
                         type: "string",
@@ -116,6 +117,34 @@ export class McpClientInternalRules implements McpClient {
                     name: {
                         type: "string",
                         description: "Name of the rule to delete"
+                    }
+                },
+                required: ["name"]
+            }
+        },
+        {
+            name: "includeRule",
+            description: "Include (add) a rule in the current chat session context",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    name: {
+                        type: "string",
+                        description: "Name of the rule to include / add"
+                    }
+                },
+                required: ["name"]
+            }
+        },
+        {
+            name: "excludeRule",
+            description: "Exclude (remove) a rule from the current chat session context",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    name: {
+                        type: "string",
+                        description: "Name of the rule to exclude / remove"
                     }
                 },
                 required: ["name"]
@@ -225,7 +254,7 @@ export class McpClientInternalRules implements McpClient {
         return true;
     }
 
-    async callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime> {
+    async callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {
         const startTime = performance.now();
         
         try {
@@ -322,6 +351,37 @@ export class McpClientInternalRules implements McpClient {
                     };
                 }
 
+                case "includeRule": {
+                    const validatedArgs = this.validateRuleArgs(args, ["name"]);
+
+                    if (!session) {
+                        throw new Error(`Chat session not found`);
+                    }
+                    
+                    session.addRule(validatedArgs.name!);
+                    
+                    return {
+                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" successfully included in chat session` }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+
+                case "excludeRule": {
+                    const validatedArgs = this.validateRuleArgs(args, ["name"]);
+
+                    if (!session) {
+                        throw new Error(`Chat session not found`);
+                    }
+                    
+                    session.removeRule(validatedArgs.name!);
+                    
+                    return {
+                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" successfully excluded from chat session` }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+                
+                
                 default:
                     throw new Error(`Unknown tool: ${tool.name}`);
             }

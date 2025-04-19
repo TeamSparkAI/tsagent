@@ -1,6 +1,6 @@
 import { Rule } from './Rule';
 import { Reference } from './Reference';
-import { McpConfig, McpConfigFileServerConfig, CallToolResultWithElapsedTime } from '../main/mcp/types';
+import { McpConfig, CallToolResultWithElapsedTime } from '../main/mcp/types';
 import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
 import { WorkspaceWindow } from './workspace';
 import { LLMProviderInfo, ILLMModel, LLMType } from './llm';

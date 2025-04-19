@@ -59,17 +59,3 @@ How do we tell if a provider is properly configured and working?  Test/ping?
 Either show models or error
 
 Each model could have "Start Chat" that launches a chat with that model
-
-## Context
-
-Add "include" field to rules/references
-- "always" (on new session)
-- "manual" (default, can only be added/remove by user)
-- "agent" (future) - Agent is allowed to add/remove in context (in addition to user)
-
-Beef up internal tools metadata for rules/refs (allowed chars in name, defaults, etc)
-
----
-
-Add agent mode option to UX
-Update tools to be able to add/remove ref/rule from context (and see what rules/refs are in context)

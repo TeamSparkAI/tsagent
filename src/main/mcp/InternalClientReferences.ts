@@ -3,6 +3,7 @@ import { Reference } from "../../shared/Reference";
 import { CallToolResultWithElapsedTime, McpClient } from "./types";
 import log from 'electron-log';
 import { ReferencesManager } from '../state/ReferencesManager';
+import { ChatSession } from "../state/ChatSession";
 
 /**
  * Interface for reference arguments with all fields optional
@@ -28,7 +29,7 @@ export class McpClientInternalReferences implements McpClient {
                 properties: {
                     name: {
                         type: "string",
-                        description: "Unique name for the reference"
+                        description: "Unique name for the reference (allowed characters: a-z, A-Z, 0-9, _, -)"
                     },
                     description: {
                         type: "string",
@@ -129,7 +130,35 @@ export class McpClientInternalReferences implements McpClient {
                 properties: {},
                 required: []
             }
-        }
+        },
+        {
+            name: "includeReference",
+            description: "Include (add) a reference in the current chat session context",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    name: {
+                        type: "string",
+                        description: "Name of the reference to include / add"
+                    }
+                },
+                required: ["name"]
+            }
+        },
+        {
+            name: "excludeReference",
+            description: "Exclude (remove) a reference from the current chat session context",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    name: {
+                        type: "string",
+                        description: "Name of the reference to exclude / remove"
+                    }
+                },
+                required: ["name"]
+            }
+        },
     ];
 
     constructor(referencesManager: ReferencesManager) {
@@ -225,7 +254,7 @@ export class McpClientInternalReferences implements McpClient {
         return true;
     }
 
-    async callTool(tool: Tool, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime> {
+    async callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {
         const startTime = performance.now();
         
         try {
@@ -318,6 +347,36 @@ export class McpClientInternalReferences implements McpClient {
                     
                     return {
                         content: [{ type: "text", text: JSON.stringify(referencesWithoutText, null, 2) }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+
+                case "includeReference": {
+                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
+
+                    if (!session) {
+                        throw new Error(`Chat session not found`);
+                    }
+                    
+                    session.addReference(validatedArgs.name!);
+                    
+                    return {
+                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" successfully included in chat session` }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+
+                case "excludeReference": {
+                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
+
+                    if (!session) {
+                        throw new Error(`Chat session not found`);
+                    }
+                    
+                    session.removeReference(validatedArgs.name!);
+                    
+                    return {
+                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" successfully excluded from chat session` }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }

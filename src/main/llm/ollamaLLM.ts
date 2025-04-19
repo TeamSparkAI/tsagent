@@ -202,7 +202,7 @@ export class OllamaLLM implements ILLM {
             });
             
             // Call the tool  
-            const result = await this.workspace.mcpManager.callTool(toolName, toolArgs);
+            const result = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
             log.info('Tool result:', result);
   
             const toolResultContent = result.content[0];

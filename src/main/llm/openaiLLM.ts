@@ -187,7 +187,8 @@ export class OpenAILLM implements ILLM {
               // Call the tool
               const toolResult = await this.workspace.mcpManager.callTool(
                 toolCall.function.name,
-                JSON.parse(toolCall.function.arguments)
+                JSON.parse(toolCall.function.arguments),
+                session
               );
               log.info('Tool result:', toolResult);
 

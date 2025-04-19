@@ -4,6 +4,7 @@ import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
 import { WorkspaceManager } from '../state/WorkspaceManager';
+import { ChatSession } from '../state/ChatSession';
 
 function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig {
     return obj && typeof obj === 'object' && 'type' in obj;
@@ -54,7 +55,7 @@ export class MCPClientManager {
         return allTools;
     }
 
-    async callTool(name: string, args?: Record<string, unknown>): Promise<CallToolResultWithElapsedTime> {
+    async callTool(name: string, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {
         const clientName = this.getToolServerName(name);
         const toolName = this.getToolName(name);
         const client = this.clients.get(clientName);
@@ -65,7 +66,7 @@ export class MCPClientManager {
         if (!tool) {
             throw new Error(`Tool not found: ${toolName}`);
         }
-        return client.callTool(tool, args);
+        return client.callTool(tool, args, session);
     }
 
     isReady(): boolean {

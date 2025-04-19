@@ -304,7 +304,7 @@ export class GeminiLLM implements ILLM {
               log.info('Function call detected:', part.functionCall);
 
               // Call the tool
-              const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs);
+              const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
               log.info('Tool result:', toolResult);
 
               // Record the function call and result

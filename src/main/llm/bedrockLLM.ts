@@ -251,7 +251,7 @@ export class BedrockLLM implements ILLM {
 							const toolUseId = toolCall.toolUseId;
 							const toolArgs = toolCall.input as Record<string, any>;
 
-							const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs);
+							const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
 
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
