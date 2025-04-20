@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      version_commit: ${{ steps.version.outputs.commit }}
     steps:
       - uses: actions/checkout@v4
 
@@ -22,6 +24,7 @@ jobs:
           node-version: '20'
 
       - name: Update version
+        id: version
         run: |
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
           git config --global user.email "github-actions@github.com"
@@ -29,12 +32,15 @@ jobs:
           git add package.json
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push
+          echo "commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
   build-mac:
     needs: update-version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update-version.outputs.version_commit }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -84,6 +90,8 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update-version.outputs.version_commit }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -113,6 +121,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.update-version.outputs.version_commit }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

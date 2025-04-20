@@ -45,3 +45,21 @@ Package for dist
 Top-level menus?
 
 Option to "register" command line app on first run (and from menu later)
+
+## Dist
+
+Why do package names have previous version?
+
+In install/run, wants access to Documents?
+
+Post downloads to Google storage bucket
+
+Update website to point to downloads
+
+Verify download / install of Mac/Linux
+
+Make real website
+- Branding (icon, etc)
+- Screen shots
+- Video (Youtube demo?)
+
