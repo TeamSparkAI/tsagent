@@ -71,18 +71,6 @@ jobs:
           APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
 
-      - name: Notarize app
-        run: |
-          xcrun notarytool submit "release/TeamSpark AI Workbench-${{ github.event.inputs.version }}.dmg" \
-            --apple-id "$APPLE_ID" \
-            --password "${{ secrets.APPLE_ID_PASSWORD }}" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-
-      - name: Staple ticket
-        run: |
-          xcrun stapler staple "release/TeamSpark AI Workbench-${{ github.event.inputs.version }}.dmg"
-
       - name: Upload Mac artifacts
         uses: actions/upload-artifact@v4
         with:
