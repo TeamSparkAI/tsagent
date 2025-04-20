@@ -9,7 +9,27 @@ on:
         type: string
 
 jobs:
+  update-version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Update version
+        run: |
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git add package.json
+          git commit -m "Update version to ${{ github.event.inputs.version }}"
+          git push
+
   build-mac:
+    needs: update-version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,8 +46,40 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Import certificates
+        env:
+          MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+        run: |
+          echo -n "$MAC_CERTIFICATE" | base64 --decode > certificate.p12
+          security create-keychain -p "$MAC_CERTIFICATE_PASSWORD" build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p "$MAC_CERTIFICATE_PASSWORD" build.keychain
+          security import certificate.p12 -k build.keychain -P "$MAC_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MAC_CERTIFICATE_PASSWORD" build.keychain
+          rm certificate.p12
+
       - name: Build Electron app for Mac
         run: npm run dist -- --mac --publish never
+        env:
+          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          CSC_NAME: "Developer ID Application: Your Name (Team ID)"
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+      - name: Notarize app
+        run: |
+          xcrun notarytool submit "release/TeamSpark AI Workbench-${{ github.event.inputs.version }}.dmg" \
+            --apple-id "$APPLE_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" \
+            --wait
+
+      - name: Staple ticket
+        run: |
+          xcrun stapler staple "release/TeamSpark AI Workbench-${{ github.event.inputs.version }}.dmg"
 
       - name: Upload Mac artifacts
         uses: actions/upload-artifact@v4
@@ -38,6 +90,7 @@ jobs:
             release/*.zip
 
   build-windows:
+    needs: update-version
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,6 +119,7 @@ jobs:
             release/*.zip
 
   build-linux:
+    needs: update-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -144,7 +144,6 @@ test_files/
 # Build output
 dist/
 release/
-build/
 
 # Electron builder output
 *.dmg
