@@ -68,14 +68,14 @@ jobs:
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
           CSC_NAME: "Apple Distribution: TeamSpark LLC (YB487TSKXW)"
           APPLE_ID: ${{ vars.APPLE_ID }}
-          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID }}
 
       - name: Notarize app
         run: |
           xcrun notarytool submit "release/TeamSpark AI Workbench-${{ github.event.inputs.version }}.dmg" \
             --apple-id "$APPLE_ID" \
-            --password "$APPLE_ID_PASSWORD" \
+            --password "${{ secrets.APPLE_ID_PASSWORD }}" \
             --team-id "$APPLE_TEAM_ID" \
             --wait
 
