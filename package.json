@@ -3,6 +3,10 @@
   "productName": "TeamSpark AI Workbench",
   "version": "1.0.0",
   "description": "Multi-LLM Chat Application",
+  "author": {
+    "name": "TeamSpark",
+    "email": "support@teamspark.ai"
+  },
   "main": "dist/main.js",
   "scripts": {
     "start": "npm run build && electron . --ignore-certificate-errors",
