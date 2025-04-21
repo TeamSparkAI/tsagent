@@ -12,20 +12,6 @@
   overflow: hidden;
 }
 
-.sidebar-header {
-  padding: 15px;
-  border-bottom: 1px solid #ddd;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.sidebar-header h3 {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 500;
-}
-
 .settings-list {
   flex: 1;
   overflow-y: auto;

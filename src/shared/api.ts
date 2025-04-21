@@ -88,7 +88,8 @@ export interface API {
   getRecentWorkspaces: () => Promise<string[]>;
   openWorkspace: (path: string) => Promise<void>;
   openInNewWindow: (path: string) => Promise<void>;
-  createWorkspace: (path: string) => Promise<void>;
+  createWorkspace: (windowId: string, path: string) => Promise<void>;
+  createWorkspaceInNewWindow: (path: string) => Promise<void>;
   switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
   focusWindow: (windowId: string) => Promise<boolean>;
   getCurrentWindowId: () => Promise<string>;

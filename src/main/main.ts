@@ -952,16 +952,30 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return window.id;
   });
 
-  // Create NEW workspace
+  // Create NEW workspace in the specified window
   //
-  ipcMain.handle('workspace:createWorkspace', async (_, workspacePath: string) => {
-    log.info(`[WORKSPACE CREATE] IPC handler called for workspace:createWorkspace ${workspacePath}`);
+  ipcMain.handle('workspace:createWorkspace', async (_, windowId: string, workspacePath: string) => {
+    log.info(`[WORKSPACE CREATE] IPC handler called for window ${windowId} to workspace ${workspacePath}`);
+    // Convert windowId to string to ensure consistent handling
+    const windowIdStr = windowId.toString();
+
+    const workspace = await WorkspaceManager.create(workspacePath, true) as WorkspaceManager; // Cannot be null when populateNewWorkspace is true    
+
+    log.info(`[WORKSPACE SWITCH] Workspace found: ${workspace.workspaceDir}`);
+    await workspacesManager.switchWorkspace(windowIdStr, workspace);
+    return true;
+  });
+
+  // Create NEW workspace in a new window
+  //
+  ipcMain.handle('workspace:createWorkspaceInNewWindow', async (_, workspacePath: string) => {
+    log.info(`[WORKSPACE CREATE] IPC handler called for workspace:createWorkspaceInNewWindow ${workspacePath}`);
     const workspace = await WorkspaceManager.create(workspacePath, true) as WorkspaceManager; // Cannot be null when populateNewWorkspace is true    
     const window = await createWindow(workspace);
     return window.id;
   });
 
-  // Switch to the workspace at workspacePath in the window with id windowId (typically the current window)
+  // Switch to the workspace at workspacePath in the specified window
   //
   ipcMain.handle('workspace:switchWorkspace', async (_, windowId: string, workspacePath: string) => {
     try {

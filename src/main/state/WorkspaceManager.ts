@@ -43,6 +43,36 @@ export class WorkspaceManager {
 
     log.info(`[WORKSPACE MANAGER] Initialized with workspacePath=${workspaceDir}`);
   }
+
+  private getInitialConfig() {
+    const initialConfig = {
+      metadata: {
+        name: path.basename(this._workspaceDir),
+        created: new Date().toISOString(),
+        lastAccessed: new Date().toISOString(),
+        version: '1.0.0'
+      },
+      settings: {
+        [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT,
+        [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT,
+        [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT,
+        [TOP_P_KEY]: TOP_P_DEFAULT
+      },
+      providers: {},
+      mcpServers: {
+        "references": {
+          "type": "internal",
+          "tool": "references"
+        },
+        "rules": {
+          "type": "internal",
+          "tool": "rules"
+        }
+      }
+    };
+    
+    return initialConfig;
+  }
  
   // Static factory constructor (for async construction)
   //
@@ -88,32 +118,8 @@ export class WorkspaceManager {
     if (populateNewWorkspace) {
       // Create initial workspace file if it doesn't exist
       if (!fs.existsSync(workspaceManager._workspaceFile)) {
-        const initialConfig = {
-          metadata: {
-            name: path.basename(workspaceManager._workspaceDir),
-            created: new Date().toISOString(),
-            lastAccessed: new Date().toISOString(),
-            version: '1.0.0'
-          },
-          settings: {
-            [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT,
-            [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT,
-            [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT,
-            [TOP_P_KEY]: TOP_P_DEFAULT
-          },
-          providers: {},
-          mcpServers: {
-            "references": {
-              "type": "internal",
-              "tool": "references"
-            },
-            "rules": {
-              "type": "internal",
-              "tool": "rules"
-            }
-          }
-        };
-        await fs.promises.writeFile(workspaceManager._workspaceFile, JSON.stringify({ initialConfig }, null, 2));
+        const initialConfig = workspaceManager.getInitialConfig();
+        await fs.promises.writeFile(workspaceManager._workspaceFile, JSON.stringify(initialConfig, null, 2));
         workspaceManager._workspaceData = initialConfig;
         workspaceManager._configLoaded = true;
         if (!fs.existsSync(workspaceManager._promptFile!)) {
@@ -224,7 +230,7 @@ export class WorkspaceManager {
     }
     
     if (!this._workspaceData) {
-      this._workspaceData = { settings: {} };
+      this._workspaceData = this.getInitialConfig();
     } else if (!this._workspaceData.settings) {
       this._workspaceData.settings = {};
     }
@@ -240,7 +246,7 @@ export class WorkspaceManager {
 
   public async addProvider(provider: string): Promise<void> {
     if (!this._workspaceData) {
-      this._workspaceData = { providers: {} };
+      this._workspaceData = this.getInitialConfig();
     }
     this._workspaceData.providers[provider] = {};
     await this.saveConfig();
@@ -253,9 +259,10 @@ export class WorkspaceManager {
   }
 
   public async removeProvider(provider: string): Promise<void> {
-    if (!this._workspaceData) {
-      this._workspaceData = { providers: {} };
+    if (!this._workspaceData || !this._workspaceData.providers || !this._workspaceData.providers[provider]) {
+      return;
     }
+
     delete this._workspaceData.providers[provider];
     await this.saveConfig();
     
@@ -291,7 +298,7 @@ export class WorkspaceManager {
     }
     
     if (!this._workspaceData) {
-      this._workspaceData = { providers: {} };
+      this._workspaceData = this.getInitialConfig();
     } else if (!this._workspaceData.providers) {
       this._workspaceData.providers = {};
     }
@@ -308,7 +315,7 @@ export class WorkspaceManager {
   // Returns a dictionary of all configured MCP servers with their names as keys and MCP config objects as values
   //
   async getMcpConfig(): Promise<Record<string, McpConfig>> {
-    if (this._workspaceData == null) {
+    if (!this._workspaceData || !this._workspaceData.mcpServers) {
       return {};
     }
     
@@ -335,7 +342,9 @@ export class WorkspaceManager {
   async saveMcpConfig(server: McpConfig): Promise<void> {    
     // Read the existing config file to preserve other properties
     if (this._workspaceData == null) {
-      this._workspaceData = { mcpServers: { } };
+      this._workspaceData = this.getInitialConfig();
+    } else if (!this._workspaceData.mcpServers) {
+      this._workspaceData.mcpServers = {};
     }
 
     // Add or update the server in the mcpServers object

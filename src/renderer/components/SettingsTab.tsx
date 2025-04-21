@@ -200,27 +200,32 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   };
 
   return (
-    <div className="settings-container">
-      <div className="settings-sidebar">
+    <div className="tab-items-container">
+      <div className="sidebar">
         <div className="sidebar-header">
-          <h3>Settings</h3>
+          <h2>Settings</h2>
         </div>
-        <div className="settings-list">
+        <div className="tab-items-list">
           <div 
-            className={`settings-item ${activeSection === 'about' ? 'selected' : ''}`}
+            className={`tab-items-item ${activeSection === 'about' ? 'selected' : ''}`}
             onClick={() => setActiveSection('about')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+            }}
           >
             <span>ℹ️</span>
             <span>About Settings</span>
           </div>
           <div 
-            className={`settings-item ${activeSection === 'system-prompt' ? 'selected' : ''}`}
+            className={`tab-items-item ${activeSection === 'system-prompt' ? 'selected' : ''}`}
             onClick={() => setActiveSection('system-prompt')}
           >
             <span>System Prompt</span>
           </div>
           <div 
-            className={`settings-item ${activeSection === 'chat-settings' ? 'selected' : ''}`}
+            className={`tab-items-item ${activeSection === 'chat-settings' ? 'selected' : ''}`}
             onClick={() => setActiveSection('chat-settings')}
           >
             <span>Chat Settings</span>

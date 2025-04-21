@@ -455,7 +455,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
   }
 
   return (
-    <div className="references-container">
+    <div className="tab-items-container">
       {isEditing ? (
         <EditProviderModal
           provider={editingProvider}
@@ -468,18 +468,18 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
         />
       ) : (
         <>
-          <div className="references-sidebar">
+          <div className="sidebar">
             <div className="sidebar-header">
-              <h3>Providers</h3>
+              <h2>Providers</h2>
               <button className="btn add-button" onClick={handleAddProvider}>Add</button>
             </div>
-            <div className="references-list">
+            <div className="tab-items-list">
               {loading ? (
                 <div className="loading">Loading providers...</div>
               ) : (
                 <>
                   <div 
-                    className={`reference-item ${tabState.mode === 'about' ? 'selected' : ''}`}
+                    className={`tab-items-item ${tabState.mode === 'about' ? 'selected' : ''}`}
                     onClick={() => {
                       setTabState({ mode: 'about' });
                       setSelectedProvider(null);
@@ -502,7 +502,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                   {providers.map((provider) => (
                     <div
                       key={provider.id}
-                      className={`reference-item ${selectedProvider === provider.id ? 'selected' : ''}`}
+                      className={`tab-items-item ${selectedProvider === provider.id ? 'selected' : ''}`}
                       onClick={() => handleProviderSelect(provider.id)}
                       style={{
                         padding: '10px',

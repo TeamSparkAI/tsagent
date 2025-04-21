@@ -263,14 +263,14 @@ body {
   margin-bottom: 15px;
 }
 /* References tab styles */
-.references-container {
+.tab-items-container {
   display: flex;
   height: 100%;
   overflow: hidden;
   padding-bottom: 20px; /* Add bottom padding */
   box-sizing: border-box;
 }
-.references-sidebar {
+.sidebar {
   width: 250px;
   border-right: 1px solid #ccc;
   display: flex;
@@ -284,14 +284,14 @@ body {
   justify-content: space-between;
   align-items: center;
 }
-.sidebar-header h3 {
+.sidebar-header h2 {
   margin: 0;
 }
-.references-list {
+.tab-items-list {
   flex: 1;
   overflow-y: auto;
 }
-.reference-item {
+.tab-items-item {
   border-bottom: 1px solid #eee;
   transition: background-color 0.2s ease;
   padding: 10px;
@@ -299,10 +299,10 @@ body {
   cursor: pointer;
   margin-bottom: 5px;
 }
-.reference-item:hover {
+.tab-items-item:hover {
   background-color: #f5f5f5;
 }
-.reference-item.selected {
+.tab-items-item.selected {
   background-color: #e6f7ff;
   border-left: 3px solid #1890ff;
 }

@@ -242,6 +242,8 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
             setIsEditing(false);
             await loadRules();
             setSelectedRule(rule);
+            // Update tabState to show the new rule in the details panel
+            setTabState({ mode: 'item', selectedItemId: rule.name });
         } catch (error) {
             // Re-throw the error to be handled by the EditRuleModal
             throw error;
@@ -252,6 +254,7 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
         if (confirm(`Are you sure you want to delete the rule "${rule.name}"?`)) {
             await window.api.deleteRule(rule.name);
             setSelectedRule(null);
+            setTabState({ mode: 'about' });
             loadRules();
         }
     };
@@ -365,15 +368,15 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                     }}
                 />
             ) : (
-                <div className="references-container">
-                    <div className="references-sidebar">
+                <div className="tab-items-container">
+                    <div className="sidebar">
                         <div className="sidebar-header">
-                            <h3>Rules</h3>
+                            <h2>Rules</h2>
                             <button className="btn add-button" onClick={handleAddRule}>Add</button>
                         </div>
-                        <div className="references-list">
+                        <div className="tab-items-list">
                             <div 
-                                className={`reference-item ${tabState.mode === 'about' ? 'selected' : ''}`}
+                                className={`tab-items-item ${tabState.mode === 'about' ? 'selected' : ''}`}
                                 onClick={() => {
                                     setTabState({ mode: 'about' });
                                     setSelectedRule(null);
@@ -396,7 +399,7 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                             {rules.map(rule => (
                                 <div
                                     key={rule.name}
-                                    className={`reference-item ${selectedRule?.name === rule.name ? 'selected' : ''}`}
+                                    className={`tab-items-item ${selectedRule?.name === rule.name ? 'selected' : ''}`}
                                     onClick={() => {
                                         if (!isEditing) {
                                             setSelectedRule(rule);

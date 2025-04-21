@@ -235,6 +235,8 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
             setIsEditing(false);
             await loadReferences();
             setSelectedReference(reference);
+            // Update tabState to show the new reference in the details panel
+            setTabState({ mode: 'item', selectedItemId: reference.name });
         } catch (error) {
             // Re-throw the error to be handled by the EditReferenceModal
             throw error;
@@ -245,6 +247,7 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
         if (confirm(`Are you sure you want to delete the reference "${reference.name}"?`)) {
             await window.api.deleteReference(reference.name);
             setSelectedReference(null);
+            setTabState({ mode: 'about' });
             loadReferences();
         }
     };
@@ -366,15 +369,15 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                     }}
                 />
             ) : (
-                <div className="references-container">
-                    <div className="references-sidebar">
+                <div className="tab-items-container">
+                    <div className="sidebar">
                         <div className="sidebar-header">
-                            <h3>References</h3>
+                            <h2>References</h2>
                             <button className="btn add-button" onClick={handleAddReference}>Add</button>
                         </div>
-                        <div className="references-list">
+                        <div className="tab-items-list">
                             <div 
-                                className={`reference-item ${tabState.mode === 'about' ? 'selected' : ''}`}
+                                className={`tab-items-item ${tabState.mode === 'about' ? 'selected' : ''}`}
                                 onClick={() => {
                                     setTabState({ mode: 'about' });
                                     setSelectedReference(null);
@@ -397,7 +400,7 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                             {references.map(reference => (
                                 <div
                                     key={reference.name}
-                                    className={`reference-item ${selectedReference?.name === reference.name ? 'selected' : ''}`}
+                                    className={`tab-items-item ${selectedReference?.name === reference.name ? 'selected' : ''}`}
                                     onClick={() => {
                                         if (!isEditing) {
                                             setSelectedReference(reference);
