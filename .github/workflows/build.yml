@@ -120,10 +120,23 @@ jobs:
     needs: [build-mac, build-linux]
     runs-on: ubuntu-latest
     steps:
+      - name: Download Mac artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: mac-build
+          path: release
+
+      - name: Download Linux artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-build
+          path: release
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCS_CREDENTIALS }}
+
       - name: Upload /release files
         uses: google-github-actions/upload-cloud-storage@v2
         with:
