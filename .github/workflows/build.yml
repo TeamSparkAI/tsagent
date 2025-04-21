@@ -156,22 +156,22 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCS_CREDENTIALS }}
       - name: Upload DMG files
-        uses: google-github-actions/upload-gcs@v1
+        uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: release/*.dmg
-          bucket: teamspark-workbench
+          destination: teamspark-workbench
       - name: Upload AppImage files
-        uses: google-github-actions/upload-gcs@v1
+        uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: release/*.AppImage
-          bucket: teamspark-workbench
+          destination: teamspark-workbench
       - name: Upload DEB files
-        uses: google-github-actions/upload-gcs@v1
+        uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: release/*.deb
-          bucket: teamspark-workbench
+          destination: teamspark-workbench
       - name: Upload ZIP files
-        uses: google-github-actions/upload-gcs@v1
+        uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: release/*.zip
-          bucket: teamspark-workbench 
+          destination: teamspark-workbench 
