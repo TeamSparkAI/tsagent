@@ -265,13 +265,19 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                         <div>
                             <p>
                                 Rules are guidelines or constraints that help shape the AI's behavior and responses. 
-                                They can be used to enforce specific policies, maintain consistency, or provide 
-                                additional context for how the AI should interact.
+                                They can be used to enforce specific policies, maintain consistency, guide problem solving,
+                                or provide additional context for how the AI should interact.
                             </p>
                             <p>
-                                Rules are automatically included in the AI's context when processing messages. 
-                                They help ensure that the AI's responses align with your requirements and preferences.
+                                You can set rules to be inclued automatically in chat sessions, or you can add (or remove) 
+                                them manually with the Context panel.  You can also add a rule by mentioning it using 
+                                @rule:ruleName in your message. 
                             </p>
+                            <p>
+                                If you have the internal Rules tool installed, the AI can create and modify rules, and 
+                                include them as needed, all based on your instructions in the chat session.
+                            </p>
+
                         </div>
                     }
                 />

@@ -267,11 +267,17 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                             <p>
                                 References are documents or pieces of information that can be included in your chat context. 
                                 They help provide background information, guidelines, or specific details that the AI can 
-                                reference when responding to your questions.
+                                reference when responding to your questions.  The can serve as the "memory" of a workspace
+                                or chat session.
                             </p>
                             <p>
-                                To use a reference in your chat, simply mention it using @ref:referenceName in your message. 
-                                The AI will automatically include the reference's content in its context when formulating a response.
+                                You can set references to be inclued automatically in chat sessions, or you can add (or remove) 
+                                them manually with the Context panel.  You can also add a reference by mentioning it using 
+                                @ref:referenceName in your message. 
+                            </p>
+                            <p>
+                                If you have the internal References tool installed, the AI can create and modify references, and 
+                                include them as needed, all based on your instructions in the chat session.
                             </p>
                         </div>
                     }
