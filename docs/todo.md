@@ -39,6 +39,13 @@ If not workspace history, show explainer for workspaces?
 
 ## Before Release
 
+Workspace "Help"
+- Show when no workspace history, also from help button
+
+Review about on all tabs
+
+Auto-intall internal tools
+
 Top-level menus?
 
 Option to "register" command line app on first run (and from menu later)
@@ -47,8 +54,6 @@ Hide dev tools in release mode
 Turn console logging to error in release mode
 
 ## Dist
-
-Why do package names have previous version? (test fix)
 
 In install/run, wants access to Documents?
 

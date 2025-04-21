@@ -102,7 +102,16 @@ export class WorkspaceManager {
             [TOP_P_KEY]: TOP_P_DEFAULT
           },
           providers: {},
-          mcpServers: {}
+          mcpServers: {
+            "references": {
+              "type": "internal",
+              "tool": "references"
+            },
+            "rules": {
+              "type": "internal",
+              "tool": "rules"
+            }
+          }
         };
         await fs.promises.writeFile(workspaceManager._workspaceFile, JSON.stringify({ initialConfig }, null, 2));
         workspaceManager._workspaceData = initialConfig;
