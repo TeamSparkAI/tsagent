@@ -117,7 +117,8 @@
     },
     "files": [
       "dist/**/*",
-      "package.json"
+      "package.json",
+      "LICENSE.md"
     ],
     "directories": {
       "output": "release"

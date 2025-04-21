@@ -10,10 +10,13 @@ import { MessageUpdate } from '../shared/ChatSession';
 import { WorkspaceManager } from '../main/state/WorkspaceManager';
 import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../shared/workspace';
 import { LLMFactory } from '../main/llm/llmFactory';
+import path from 'path';
+import * as fs from 'fs';
 
 // Define commands
 const COMMANDS = {
   HELP: '/help',
+  LICENSE: '/license',
   PROVIDERS: '/providers',
   PROVIDER: '/provider',
   MODELS: '/models',
@@ -86,6 +89,7 @@ async function toolsCommand(workspace: WorkspaceManager) {
 function showHelp() {
   console.log(chalk.cyan('\nAvailable commands:'));
   console.log(chalk.yellow('  /help') + ' - Show this help menu');
+  console.log(chalk.yellow('  /license') + ' - Show the license agreement');
   console.log(chalk.yellow('  /providers') + ' - List available providers (* active)');
   console.log(chalk.yellow('  /providers add <provider>') + ' - Add a provider');
   console.log(chalk.yellow('  /providers remove <provider>') + ' - Remove a provider');
@@ -203,6 +207,13 @@ export function setupCLI(workspace: WorkspaceManager) {
       switch (commandName) {
         case COMMANDS.HELP:
           showHelp();
+          break;
+
+        case COMMANDS.LICENSE:
+          // Load license agreeement from license.md and display it
+          const licensePath = path.join(__dirname, '..', 'LICENSE.md');
+          const licenseText = await fs.promises.readFile(licensePath, 'utf-8');
+          console.log(chalk.yellow(licenseText));
           break;
 
         case COMMANDS.QUIT:

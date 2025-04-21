@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions } from 'electron';
 import * as path from 'path';
 import { LLMType } from '../shared/llm';
 import { createMcpClientFromConfig } from './mcp/client';
@@ -84,14 +84,15 @@ function intializeLogging(isElectron: boolean) {
     } else {
       log.transports.console.level = 'info';
     }
+    log.info(`App starting v${app.getVersion()} (${process.argv[0]})...`);
   } else {
     log.transports.file.resolvePathFn = () => path.join(process.cwd(), `tspark-console.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
     log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
     log.transports.file.level = 'info';
     log.transports.console.level = 'error'; // In CLI mode, only show error and above to the console
+    log.info(`App starting (${process.argv[0]})...`);
   }
-  log.info(`App starting v${app.getVersion()} (${process.argv[0]})...`);
 }
 
 // Initialize paths and managers
@@ -101,6 +102,69 @@ async function initializeWorkspaceManager() {
   // Create and initialize WorkspaceManager
   workspacesManager = new WorkspacesManager();
   await workspacesManager.initialize();
+}
+
+async function showLicenseAgreement() {
+  try {
+    const licensePath = path.join(__dirname, '..', 'LICENSE.md');
+    const licenseText = await fs.promises.readFile(licensePath, 'utf-8');
+    
+    // Format the text for the dialog:
+    // 1. Split by double newlines to preserve paragraphs
+    // 2. For each paragraph, remove single newlines and trim
+    // 3. Join paragraphs with double newlines
+    const formattedText = licenseText
+      .split(/\n\s*\n/)  // Split by double newlines (with optional whitespace)
+      .map(paragraph => 
+        paragraph
+          .split('\n')    // Split by single newlines
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+          .join(' ')      // Join lines within paragraph with spaces
+      )
+      .filter(paragraph => paragraph.length > 0)
+      .join('\n\n');      // Join paragraphs with double newlines
+    
+    await dialog.showMessageBox({
+      type: 'info',
+      buttons: ['OK'],
+      title: 'License Agreement',
+      message: 'TeamSpark AI Workbench License Agreement',
+      detail: formattedText,
+      noLink: true
+    });
+  } catch (error) {
+    log.error('Error reading license file:', error);
+    dialog.showErrorBox('Error', 'Could not read license file');
+  }
+}
+
+function createApplicationMenu() {
+  const template: MenuItemConstructorOptions[] = [
+    {
+      label: 'TeamSpark AI Workbench',
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        {
+          label: 'License Agreement',
+          click: async () => {
+            await showLicenseAgreement();
+          }
+        },
+        { type: 'separator' },
+        { role: 'quit' }
+      ]
+    },
+    { role: 'fileMenu' },
+    { role: 'editMenu' },
+    { role: 'viewMenu' },
+    { role: 'windowMenu' },
+    { role: 'help' }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
 }
 
 async function startApp() {
@@ -136,6 +200,9 @@ async function startApp() {
     app.setName(PRODUCT_NAME);
 
     intializeLogging(true);
+
+    // Create application menu
+    createApplicationMenu();
 
     // Implement single instance lock
     const gotTheLock = app.requestSingleInstanceLock();
