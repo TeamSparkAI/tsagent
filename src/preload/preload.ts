@@ -18,6 +18,9 @@ const api: API = {
     ipcRenderer.removeListener('rules-changed', listener);
   },
 
+  // App details
+  getAppDetails: () => ipcRenderer.invoke('get-app-details'),
+
   // References management
   getReferences: () => ipcRenderer.invoke('references:get-references'),
   saveReference: (reference) => ipcRenderer.invoke('references:save-reference', reference),

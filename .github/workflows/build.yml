@@ -145,4 +145,33 @@ jobs:
           name: linux-build
           path: |
             release/*.AppImage
-            release/*.deb 
+            release/*.deb
+
+  upload-artifacts:
+    needs: [build-mac, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCS_CREDENTIALS }}
+      - name: Upload DMG files
+        uses: google-github-actions/upload-gcs@v1
+        with:
+          path: release/*.dmg
+          bucket: teamspark-workbench
+      - name: Upload AppImage files
+        uses: google-github-actions/upload-gcs@v1
+        with:
+          path: release/*.AppImage
+          bucket: teamspark-workbench
+      - name: Upload DEB files
+        uses: google-github-actions/upload-gcs@v1
+        with:
+          path: release/*.deb
+          bucket: teamspark-workbench
+      - name: Upload ZIP files
+        uses: google-github-actions/upload-gcs@v1
+        with:
+          path: release/*.zip
+          bucket: teamspark-workbench 

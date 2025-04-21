@@ -39,12 +39,12 @@ If not workspace history, show explainer for workspaces?
 
 ## Before Release
 
-Package for dist
-- Verify app icon (including in app)
-
 Top-level menus?
 
 Option to "register" command line app on first run (and from menu later)
+
+Hide dev tools in release mode
+Turn console logging to error in release mode
 
 ## Dist
 

@@ -79,7 +79,11 @@ function intializeLogging(isElectron: boolean) {
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
     log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
     log.transports.file.level = 'info';
-    log.transports.console.level = 'info';
+    if (app.isPackaged) {
+      log.transports.console.level = 'error';
+    } else {
+      log.transports.console.level = 'info';
+    }
   } else {
     log.transports.file.resolvePathFn = () => path.join(process.cwd(), `tspark-console.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
@@ -1169,6 +1173,13 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.error('Error updating chat settings:', error);
       throw error;
     }
+  });
+
+  // App details handler
+  ipcMain.handle('get-app-details', () => {
+    return {
+      isPackaged: app.isPackaged
+    };
   });
 }
 

@@ -94,4 +94,7 @@ export interface API {
   getCurrentWindowId: () => Promise<string>;
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
   offWorkspaceSwitched: (listener: (event: any, data: any) => void) => void;
+
+  // App details
+  getAppDetails: () => Promise<{ isPackaged: boolean }>;
 }

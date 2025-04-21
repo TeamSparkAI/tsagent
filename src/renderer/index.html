@@ -2,14 +2,24 @@
 <html>
   <head>
     <title>TeamSpark AI Workbench</title>
+    <style>
+      #debug-container[data-is-packaged="true"] {
+        display: none;
+      }
+    </style>
   </head>
   <body>
     <div class="tab-container"></div>
-    <div id="debug-container">
+    <div id="debug-container" data-is-packaged>
       <button id="debug-button" title="Open DevTools">🛠️</button>
     </div>
     <script type="module" src="renderer.js"></script>
     <script>
+      // Set the isPackaged attribute based on app details
+      window.api.getAppDetails().then(details => {
+        document.getElementById('debug-container').setAttribute('data-is-packaged', details.isPackaged.toString());
+      });
+      
       // Global context menu handler for editable elements
       document.addEventListener('contextmenu', (e) => {
         // Check if the target is an editable element
