@@ -91,7 +91,7 @@ function intializeLogging(isElectron: boolean) {
     log.transports.file.level = 'info';
     log.transports.console.level = 'error'; // In CLI mode, only show error and above to the console
   }
-  log.info('App starting...');
+  log.info(`App starting v${app.getVersion()} (${process.argv[0]})...`);
 }
 
 // Initialize paths and managers
@@ -104,8 +104,7 @@ async function initializeWorkspaceManager() {
 }
 
 async function startApp() {
-  // If we're launched from a tspark symlink, or --cli is present, we're in CLI mode...
-  if (process.argv[0].includes('tspark') || process.argv.includes('--cli')) {
+  if (process.argv.includes('--cli')) {
     intializeLogging(false);
 
     // -- workspace (path) the workspace directory or file (tspark.json), defaults to cwd

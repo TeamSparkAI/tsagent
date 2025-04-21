@@ -92,20 +92,6 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     currentChatSettings.temperature !== initialChatSettings.temperature ||
     currentChatSettings.topP !== initialChatSettings.topP;
 
-  // Debug logging
-  useEffect(() => {
-    log.info('System Prompt Changes:', {
-      current: currentSystemPrompt,
-      initial: initialSystemPrompt,
-      hasChanges: hasSystemPromptChanges
-    });
-    log.info('Chat Settings Changes:', {
-      current: currentChatSettings,
-      initial: initialChatSettings,
-      hasChanges: hasChatSettingsChanges
-    });
-  }, [currentSystemPrompt, initialSystemPrompt, currentChatSettings, initialChatSettings]);
-
   const renderContent = () => {
     switch (activeSection) {
       case 'about':

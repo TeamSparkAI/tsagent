@@ -200,7 +200,6 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
     }, []);
 
     const loadRules = async () => {
-        log.info('[RULES TAB] loadRules called');
         try {
             const loadedRules = await window.api.getRules();
             log.info(`[RULES TAB] Rules loaded successfully: ${loadedRules.length} rules found`);

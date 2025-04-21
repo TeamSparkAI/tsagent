@@ -44,7 +44,7 @@ export class ReferencesManager extends EventEmitter {
                     this.references.push(reference);
                 }
             } catch (error) {
-                log.error(`Error loading reference from ${file}:`, error);
+                log.error(`[REFERENCES MANAGER] Error loading reference from ${file}:`, error);
             }
         }
         

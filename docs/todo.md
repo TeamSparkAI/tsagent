@@ -39,13 +39,6 @@ If not workspace history, show explainer for workspaces?
 
 ## Before Release
 
-Workspace "Help"
-- Show when no workspace history, also from help button
-
-Review about on all tabs
-
-Auto-intall internal tools
-
 Top-level menus?
 
 Option to "register" command line app on first run (and from menu later)
@@ -53,11 +46,19 @@ Option to "register" command line app on first run (and from menu later)
 Hide dev tools in release mode
 Turn console logging to error in release mode
 
+## Symlink
+
+MacOS:
+
+sudo ln -s "/Applications/TeamSpark AI Workbench.app/Contents/MacOS/TeamSpark AI Workbench" /usr/local/bin/tspark
+
+Then:
+
+tspark --cli
+
 ## Dist
 
 In install/run, wants access to Documents?
-
-Post downloads to Google storage bucket
 
 Update website to point to downloads
 

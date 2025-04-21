@@ -171,7 +171,7 @@ export class ChatSession {
         throw new Error(`Failed to generate response from ${this.currentProvider}`);
       }
 
-      log.info('All turns', JSON.stringify(response.turns, null, 2));
+      log.debug('All turns', JSON.stringify(response.turns, null, 2));
 
       const updates: ChatMessage[] = [
         {

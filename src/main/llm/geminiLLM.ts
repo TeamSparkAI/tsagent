@@ -287,10 +287,10 @@ export class GeminiLLM implements ILLM {
       while (turnCount < session.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
-        log.info(`Sending message prompt "${currentPrompt}", turn count: ${turnCount}`);
+        log.debug(`Sending message prompt "${JSON.stringify(currentPrompt, null, 2)}", turn count: ${turnCount}`);
         const response = await chat.sendMessage({ message: currentPrompt });
 
-        log.info('response', JSON.stringify(response, null, 2));
+        log.debug('response', JSON.stringify(response, null, 2));
 
         turn.inputTokens = response.usageMetadata?.promptTokenCount ?? 0;
         turn.outputTokens = response.usageMetadata?.candidatesTokenCount ?? 0;
