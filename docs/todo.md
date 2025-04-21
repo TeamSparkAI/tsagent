@@ -48,7 +48,7 @@ Option to "register" command line app on first run (and from menu later)
 
 ## Dist
 
-Why do package names have previous version?
+Why do package names have previous version? (test fix)
 
 In install/run, wants access to Documents?
 
@@ -62,4 +62,3 @@ Make real website
 - Branding (icon, etc)
 - Screen shots
 - Video (Youtube demo?)
-
