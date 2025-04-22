@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { McpConfig, McpConfigFileServerConfig } from '../../main/mcp/types';
+import { McpConfig } from '../../main/mcp/types';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
-import { CallToolResultWithElapsedTime } from '../../main/mcp/types';
 import log from 'electron-log';
 
 interface ServerInfo {
@@ -12,6 +11,12 @@ interface ServerInfo {
     serverTools: any[];
     errorLog: string[];
     isConnected: boolean;
+}
+
+interface ErrorAnalysis {
+    type: 'ENOENT' | 'EACCES' | 'ECONNREFUSED' | 'OTHER';
+    message: string;
+    recommendations: string[];
 }
 
 interface ToolTestResult {
@@ -592,6 +597,148 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
     }
 };
 
+const analyzeError = (errorLog: string[]): ErrorAnalysis | null => {
+    const combinedLog = errorLog.join('\n');
+    
+    if (combinedLog.includes('ENOENT')) {
+        return {
+            type: 'ENOENT',
+            message: 'File or directory not found',
+            recommendations: [
+                'Verify that the file or directory exists',
+                'Ensure the PATH environment variable includes the correct directories for the command itself and any other tools it may require (this app does not have access to the system PATH)',
+                'You may specificy the PATH environment variable in the tool configuration or set the default under Settings > Tools > Default PATH'
+            ]
+        };
+    }
+    
+    if (combinedLog.includes('EACCES')) {
+        return {
+            type: 'EACCES',
+            message: 'Permission denied',
+            recommendations: [
+                'Check file permissions',
+                'Ensure the user has execute permissions for the command',
+                'Try running with elevated permissions if necessary'
+            ]
+        };
+    }
+    
+    if (combinedLog.includes('ECONNREFUSED')) {
+        return {
+            type: 'ECONNREFUSED',
+            message: 'Connection refused',
+            recommendations: [
+                'Verify that the server is running on the specified port',
+                'Verify that the url is correct, and that it includes the /sse suffix',
+                'Ensure no firewall is blocking the connection'
+            ]
+        };
+    }
+
+    return {
+        type: 'OTHER',
+        message: 'Unknown error',
+        recommendations: [
+            'Please check the error log below more details',
+            'Address any general configuration issues with the tool',
+            'If the error persists, it is likely related to the PATH not being set correctly (this app does not have access to the system PATH)',
+            'You may specificy the PATH environment variable in the tool configuration or set the default under Settings > Tools > Default PATH'
+        ]
+    }
+};
+
+const ErrorInfoDialog: React.FC<{ 
+    errorAnalysis: ErrorAnalysis;
+    errorLog: string[];
+    onClose: () => void;
+}> = ({ errorAnalysis, errorLog, onClose }) => {
+    return (
+        <div style={{ 
+            position: 'fixed', 
+            top: '50%', 
+            left: '50%', 
+            transform: 'translate(-50%, -50%)',
+            backgroundColor: 'white',
+            padding: '20px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            border: '1px solid #d9d9d9',
+            zIndex: 1000,
+            maxWidth: '600px',
+            width: '90%'
+        }}>
+            <h2 style={{ marginTop: 0, borderBottom: '1px solid #f0f0f0', paddingBottom: '10px' }}>Error Details</h2>
+            <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ marginBottom: '10px', color: '#1890ff' }}>Error Type: {errorAnalysis.type}</h3>
+                <p style={{ color: '#666' }}>{errorAnalysis.message}</p>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ marginBottom: '10px', color: '#1890ff' }}>Recommendations:</h3>
+                <ul style={{ margin: 0, paddingLeft: '20px', color: '#666' }}>
+                    {errorAnalysis.recommendations.map((rec, i) => (
+                        <li key={i}>{rec}</li>
+                    ))}
+                </ul>
+            </div>
+            
+            <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ marginBottom: '10px', color: '#1890ff' }}>Full Error Log:</h3>
+                <pre style={{ 
+                    margin: 0,
+                    padding: '8px',
+                    backgroundColor: '#1e1e1e',
+                    color: '#ff4444',
+                    borderRadius: '4px',
+                    overflow: 'auto',
+                    fontFamily: 'monospace',
+                    whiteSpace: 'pre-wrap',
+                    maxHeight: '200px'
+                }}>
+                    {errorLog.join('\n')}
+                </pre>
+            </div>
+            
+            <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f0f0f0', paddingTop: '10px' }}>
+                <button 
+                    className="btn configure-button"
+                    onClick={onClose}
+                >
+                    Close
+                </button>
+            </div>
+        </div>
+    );
+};
+
+const ErrorInfoBanner: React.FC<{ 
+    errorAnalysis: ErrorAnalysis;
+    onClick: () => void;
+}> = ({ errorAnalysis, onClick }) => {
+    return (
+        <div 
+            style={{ 
+                backgroundColor: '#e6f7ff',
+                border: '1px solid #91d5ff',
+                borderRadius: '4px',
+                padding: '10px',
+                marginTop: '10px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+            }}
+            onClick={onClick}
+        >
+            <span style={{ color: '#1890ff' }}>ℹ️</span>
+            <span>
+                {errorAnalysis.message} - Click for details and recommendations
+            </span>
+        </div>
+    );
+};
+
 export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [servers, setServers] = useState<McpConfig[]>([]);
     const [selectedServer, setSelectedServer] = useState<McpConfig | null>(null);
@@ -605,6 +752,9 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [testResults, setTestResults] = useState<ToolTestResult | null>(null);
     const [testParams, setTestParams] = useState<Record<string, unknown>>({});
     const [isTesting, setIsTesting] = useState(false);
+    const [showErrorDialog, setShowErrorDialog] = useState(false);
+    const [currentErrorAnalysis, setCurrentErrorAnalysis] = useState<ErrorAnalysis | null>(null);
+    const [currentErrorLog, setCurrentErrorLog] = useState<string[]>([]);
 
     useEffect(() => {
         loadServers();
@@ -680,6 +830,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             }));
         } catch (err) {
             log.error(`Failed to connect to server ${serverName}:`, err);
+            // Just log the error, don't show any dialogs
         }
     };
 
@@ -1197,15 +1348,39 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                 borderRadius: '4px',
                                                 overflow: 'auto',
                                                 fontFamily: 'monospace',
-                                                whiteSpace: 'pre-wrap'
+                                                whiteSpace: 'pre-wrap',
+                                                maxHeight: '200px'
                                             }}>
                                                 {serverInfo[selectedServer.name].errorLog.join('\n')}
                                             </pre>
+                                            
+                                            {!serverInfo[selectedServer.name].isConnected && (
+                                                <>
+                                                    {(() => {
+                                                        const errorAnalysis = analyzeError(serverInfo[selectedServer.name].errorLog);
+                                                        if (errorAnalysis) {
+                                                            return (
+                                                                <ErrorInfoBanner
+                                                                    errorAnalysis={errorAnalysis}
+                                                                    onClick={() => {
+                                                                        setCurrentErrorAnalysis(errorAnalysis);
+                                                                        setCurrentErrorLog(serverInfo[selectedServer.name].errorLog);
+                                                                        setShowErrorDialog(true);
+                                                                    }}
+                                                                />
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </>
+                                            )}
                                         </div>
                                     )}
-                                    <div style={{ color: '#666', textAlign: 'center', padding: '40px' }}>
-                                        Select a tool from the list on the left to view its details and test it.
-                                    </div>
+                                    {serverInfo[selectedServer.name]?.isConnected && (
+                                        <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
+                                            Select a tool from the list on the left to view its details and test it.
+                                        </div>
+                                    )}
                                 </div>
                             ) : (
                                 <div style={{ padding: '20px', color: '#666' }}>
@@ -1220,6 +1395,18 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                     </div>
                 )}
             </div>
+            
+            {showErrorDialog && currentErrorAnalysis && (
+                <ErrorInfoDialog
+                    errorAnalysis={currentErrorAnalysis}
+                    errorLog={currentErrorLog}
+                    onClose={() => {
+                        setShowErrorDialog(false);
+                        setCurrentErrorAnalysis(null);
+                        setCurrentErrorLog([]);
+                    }}
+                />
+            )}
         </div>
     );
 }; 

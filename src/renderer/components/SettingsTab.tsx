@@ -210,10 +210,11 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           <div className="tools-settings">
             <h2>Tools Settings</h2>
             <p className="setting-description">
-              Configure the default PATH environment variable used for tool executions. This will be used when no PATH is provided in the tool environment.
+              Configure the default PATH environment variable used for tool executions. This will be used when no PATH environment variable is provided in the tool configuration.
             </p>
             <p className="setting-description">
-              This value, when specified, should usually contain the path to the Node executable, as well as to any systems tools that <b>node</b>, <b>npx</b>, or other commands may required.
+              This value, when specified, should contain the paths to the executables of your commands, such as <b>node</b>, <b>npx</b>, <b>python</b>, <b>uv</b>,
+              <b>uvx</b>, etc. as well as to any systems tools that they require.
             </p>
             <div className="setting-input">
               <label htmlFor="systemPath">Default PATH:</label>
