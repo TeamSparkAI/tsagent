@@ -931,6 +931,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             setShowEditModal(false);
             await loadServers();
             setSelectedServer(server);
+            setTabState({ mode: 'item', selectedItemId: server.name });
             
             // Explicitly reload the server information to ensure connection is refreshed
             await window.api.reloadServerInfo(server.name);
@@ -944,6 +945,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         if (confirm(`Are you sure you want to delete the server "${server.name}"?`)) {
             await window.api.deleteServerConfig(server.name);
             setSelectedServer(null);
+            setTabState({ mode: 'about' });
             loadServers();
         }
     };
