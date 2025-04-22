@@ -1,5 +1,5 @@
 import { McpClient, McpConfig } from './types';
-import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
+import { getDefaultEnvironment, StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
 import { Client } from '@modelcontextprotocol/sdk/client/index';
 import { CallToolResult, ClientResultSchema, Tool } from "@modelcontextprotocol/sdk/types";
@@ -10,6 +10,8 @@ import { McpClientInternalRules } from './InternalClientRules';
 import { McpClientInternalReferences } from './InternalClientReferences';
 import { WorkspaceManager } from '../state/WorkspaceManager';
 import { ChatSession } from '../state/ChatSession';
+import { app } from 'electron';
+import { SYSTEM_PATH_KEY } from '../../shared/workspace';
 
 export abstract class McpClientBase {
     protected mcp: Client;
@@ -153,22 +155,11 @@ export class McpClientStdio extends McpClientBase implements McpClient {
     }
 
     protected createTransport(): Transport {
-        // Only modify environment if it's explicitly provided but missing PATH
-        let env = this.serverParams.env;
-        
-        // If you specify an env, it will be the ENTIRE environment, so you need PATH in order to find you command
-        // https://github.com/modelcontextprotocol/typescript-sdk/issues/196
-        //
-        // Only add PATH if env is provided (not undefined/null) AND has at least one key AND doesn't have PATH already
-        if (env && Object.keys(env).length > 0 && !env.PATH && process.env.PATH) {
-            // Make a copy before modifying
-            env = { ...env, PATH: process.env.PATH };
-        }
-        
+        log.info(`[MCP CLIENT] createTransport - serverParams: ${JSON.stringify(this.serverParams.env)}`);
         return new StdioClientTransport({
             command: this.serverParams.command,
             args: this.serverParams.args,
-            env: env,
+            env: this.serverParams.env,
             stderr: 'pipe'
         });
     }
@@ -176,14 +167,14 @@ export class McpClientStdio extends McpClientBase implements McpClient {
 
 // This was pieced together from: https://github.com/modelcontextprotocol/typescript-sdk/blob/main/src/client/sse.test.ts
 //
-// !!! Not tested yet - should be able to pass Authorization header in headers
+// It has been tested with the reference weather server and verified to work.  Note the /sse suffix in the url.
 //
 // mcpConfig looks like this:
 //
 // mcpServers: {
 //   "Your MCP server name": {
 //     "type": "sse",
-//     "url": "http://localhost:8080",
+//     "url": "http://localhost:8080/sse",
 //     "headers": {
 //         "Authorization": "Bearer <your-api-key>"
 //     }
@@ -229,10 +220,37 @@ export function createMcpClientFromConfig(workspace: WorkspaceManager, clientCon
     const serverType = config.type;
     
     if (!serverType || serverType === 'stdio') {
+        // If you specify an env, it will be the ENTIRE environment, so you need PATH in order to find your command
+        // https://github.com/modelcontextprotocol/typescript-sdk/issues/196
+        //
+        // Action: If the user provides an env, but doesn't provide a PATH as part of it, we need to provide one. 
+        //
+        // Also, on MacOS, when "bundled", the PATH is set to: /usr/bin:/bin:/usr/sbin:/sbin
+        // There is no way to access the actual system PATH, which can present a couple of problems:
+        // 1) If the command doesn't have a full path, it won't be found
+        // 2) If the command launches a shell, or spawns other commands, that require a valid PATH (esp "npx"), those will fail unless we pass a valid PATH envinronment variable
+        //
+        // To make npx work out of the box, we need to pass the node bin path and "/bin" (for "sh" and other shell commands required by npx)
+        //
+        // Action: If the user didn't provide a PATH in the env, and there is a system default path for tool use, we'll send that in the env whether any other env was specified or not.
+        //
+        let env = config.env; // If we modify this we'll shallow copy into a new object so we don't modify the original
+        if (!config.env?.PATH) {
+            const defaultPath = workspace.getSettingsValue(SYSTEM_PATH_KEY);
+            if (defaultPath) {
+                // If the user didn't provide a path and there is a default path, use that (whether or not any other env was provided)
+                env = { ...(env ?? {}), PATH: defaultPath };
+            } else if (config.env && Object.keys(config.env).length > 0) {
+                // If the user provided an env, but no PATH, and there's not a default path, we'll use the system PATH
+                const processPath = process.env.PATH;
+                env = { ...env, PATH: processPath! };
+            }
+        }
+
         client = new McpClientStdio({
             command: config.command,
             args: config.args || [],
-            env: config.env
+            env: env
         });
     } else if (serverType === 'sse') {
         client = new McpClientSse(

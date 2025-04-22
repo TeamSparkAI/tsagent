@@ -36,7 +36,7 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                 return;
             }
 
-            await onSave({
+            onSave({
                 name,
                 description,
                 priorityLevel,

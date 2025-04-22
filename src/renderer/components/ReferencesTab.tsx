@@ -36,7 +36,7 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
                 return;
             }
 
-            await onSave({
+            onSave({
                 name,
                 description,
                 priorityLevel,

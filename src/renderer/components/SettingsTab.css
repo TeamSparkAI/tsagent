@@ -113,6 +113,48 @@
   margin-bottom: 20px;
 }
 
+.tools-settings {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.tools-settings h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.tools-settings .setting-description {
+  line-height: 1.5;
+  color: #666;
+  margin-bottom: 20px;
+}
+
+.tools-settings .setting-input {
+  margin-bottom: 30px;
+}
+
+.tools-settings .setting-input label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.tools-settings .setting-input input {
+  width: 100%;
+  padding: 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-family: monospace;
+  font-size: 14px;
+}
+
+.tools-settings .setting-input input:focus {
+  outline: none;
+  border-color: #1890ff;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
 /* Override the disabled state for primary buttons in settings */
 .btn-primary:disabled {
   background-color: #f5f5f5;

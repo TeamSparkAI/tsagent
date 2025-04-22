@@ -68,3 +68,37 @@ Make real website
 - Branding (icon, etc)
 - Screen shots
 - Video (Youtube demo?)
+
+====
+
+## MCP Servers using npx in the bundled app
+
+For many common commands (node, ucx, uvx), using a full path is required and sufficient
+
+For npx, you must path a PATH that points to node bin, and /bin (for "sh" and other shell commands)
+- this works: /Users/bob/.nvm/versions/node/v20.10.0/bin:/bin
+
+NVM_BIN is a good hint for the node bin
+
+If no path to command:
+
+  "spawn xxx ENOENT"
+
+If npx can't run Node (needs Node bin on path):
+
+  "env: node: No such file or directory"
+
+If npx can't run some other command:
+
+  "npm ERR! enoent spawn sh ENOENT"
+  "This is related to npm not being able to find a file."
+
+### Solution
+
+Settings/Tools
+- Default path (defaults to empty?)
+
+When installing tool, if fails, parse output and suggest fix (based on list above)
+
+"Commands typically need to either have a fully specified path, or have a PATH environment variable that refers to their location."
+"For some more complex commands, including npx, a PATH to both the Node bin and system bin directories must be provided."

@@ -4,7 +4,7 @@ import { TabProps } from '../types/TabProps';
 import { AboutView } from './AboutView';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import './SettingsTab.css';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY, SYSTEM_PATH_KEY } from '../../shared/workspace';
 
 export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
   const [activeSection, setActiveSection] = useState<string>('about');
@@ -22,6 +22,8 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     temperature: TEMPERATURE_DEFAULT,
     topP: TOP_P_DEFAULT
   });
+  const [currentSystemPath, setCurrentSystemPath] = useState<string>('');
+  const [initialSystemPath, setInitialSystemPath] = useState<string>('');
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -46,6 +48,11 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
         setCurrentChatSettings(loadedChatSettings);
         setInitialChatSettings(loadedChatSettings);
+
+        // Load system path
+        const systemPath = await window.api.getSettingsValue(SYSTEM_PATH_KEY);
+        setCurrentSystemPath(systemPath || '');
+        setInitialSystemPath(systemPath || '');
       } catch (error) {
         log.error('Error loading settings:', error);
       }
@@ -85,12 +92,27 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     setCurrentChatSettings(initialChatSettings);
   };
 
+  const handleSaveSystemPath = async () => {
+    try {
+      await window.api.setSettingsValue(SYSTEM_PATH_KEY, currentSystemPath);
+      setInitialSystemPath(currentSystemPath);
+      log.info('System path saved successfully');
+    } catch (error) {
+      log.error('Error saving system path:', error);
+    }
+  };
+
+  const handleUndoSystemPathChanges = () => {
+    setCurrentSystemPath(initialSystemPath);
+  };
+
   const hasSystemPromptChanges = currentSystemPrompt !== initialSystemPrompt;
   const hasChatSettingsChanges = 
     currentChatSettings.maxChatTurns !== initialChatSettings.maxChatTurns ||
     currentChatSettings.maxOutputTokens !== initialChatSettings.maxOutputTokens ||
     currentChatSettings.temperature !== initialChatSettings.temperature ||
     currentChatSettings.topP !== initialChatSettings.topP;
+  const hasSystemPathChanges = currentSystemPath !== initialSystemPath;
 
   const renderContent = () => {
     switch (activeSection) {
@@ -109,6 +131,9 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
                 </p>
                 <p>
                   <strong>Chat Settings:</strong> Adjust parameters like maximum chat turns, output tokens, temperature, and top-p values.
+                </p>
+                <p>
+                  <strong>Tools Settings:</strong> Configure the default PATH environment variable used for tool executions.
                 </p>
               </div>
             }
@@ -180,6 +205,46 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             </div>
           </div>
         );
+      case 'tools-settings':
+        return (
+          <div className="tools-settings">
+            <h2>Tools Settings</h2>
+            <p className="setting-description">
+              Configure the default PATH environment variable used for tool executions. This will be used when no PATH is provided in the tool environment.
+            </p>
+            <p className="setting-description">
+              This value, when specified, should usually contain the path to the Node executable, as well as to any systems tools that <b>node</b>, <b>npx</b>, or other commands may required.
+            </p>
+            <div className="setting-input">
+              <label htmlFor="systemPath">Default PATH:</label>
+              <input
+                type="text"
+                id="systemPath"
+                value={currentSystemPath}
+                onChange={(e) => setCurrentSystemPath(e.target.value)}
+                placeholder="e.g. /usr/local/bin:/usr/bin:/bin"
+                className="common-input"
+              />
+            </div>
+            <div className="settings-actions">
+              <button 
+                className="btn btn-primary"
+                onClick={handleSaveSystemPath}
+                disabled={!hasSystemPathChanges}
+              >
+                Save Tools Settings
+              </button>
+              {hasSystemPathChanges && (
+                <button 
+                  className="btn btn-secondary"
+                  onClick={handleUndoSystemPathChanges}
+                >
+                  Undo Changes
+                </button>
+              )}
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -215,6 +280,12 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             onClick={() => setActiveSection('chat-settings')}
           >
             <span>Chat Settings</span>
+          </div>
+          <div 
+            className={`tab-items-item ${activeSection === 'tools-settings' ? 'selected' : ''}`}
+            onClick={() => setActiveSection('tools-settings')}
+          >
+            <span>Tools Settings</span>
           </div>
         </div>
       </div>
