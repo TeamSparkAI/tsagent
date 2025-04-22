@@ -36,6 +36,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     console.log("EditServerModal received server:", server);
     
     const [name, setName] = useState(server?.name || '');
+    const [error, setError] = useState<string | null>(null);
     
     // Check if the server type is specified, default to 'stdio' if not
     const effectiveType = server?.config?.type || 'stdio';
@@ -251,7 +252,10 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         }
     }, [isJsonMode, name, serverType, command, argsArray, env, url, headers, internalTool]);
 
-    const handleSave = () => {
+    const handleSave = async () => {
+        setError(null);
+        setJsonError(null);
+        
         if (isJsonMode) {
             try {
                 const parsedJson = JSON.parse(jsonText);
@@ -267,6 +271,18 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         // Basic validation
                         if (!serverName) {
                             setJsonError('Server name is required');
+                            return;
+                        }
+
+                        // Check for name conflicts
+                        const existingServers = await window.api.getServerConfigs();
+                        const nameConflict = existingServers.some(s => 
+                            s.name === serverName && 
+                            (!server || s.name !== server.name)
+                        );
+                        
+                        if (nameConflict) {
+                            setJsonError(`A server with the name "${serverName}" already exists`);
                             return;
                         }
                         
@@ -303,6 +319,18 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     setJsonError('Server name is required');
                     return;
                 }
+
+                // Check for name conflicts
+                const existingServers = await window.api.getServerConfigs();
+                const nameConflict = existingServers.some(s => 
+                    s.name === serverName && 
+                    (!server || s.name !== server.name)
+                );
+                
+                if (nameConflict) {
+                    setJsonError(`A server with the name "${serverName}" already exists`);
+                    return;
+                }
                 
                 if (!configObj) {
                     setJsonError('Server config is required');
@@ -325,37 +353,58 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 setJsonError(`Invalid JSON: ${e instanceof Error ? e.message : String(e)}`);
             }
         } else {
-            // Parse the environment JSON
-            let envObject = JSON.parse(env);
-            
-            // Create the base server config object
-            let stdioConfig: any = {
-                type: 'stdio',
-                command,
-                args: argsArray.filter(arg => arg.trim() !== ''), // Only filter out empty args when saving
-            };
-            
-            // Only include the env property if there are environment variables
-            if (Object.keys(envObject).length > 0) {
-                stdioConfig.env = envObject;
+            try {
+                if (!name.trim()) {
+                    setError('Name is required');
+                    return;
+                }
+
+                // Check if the new name is already in use by another server
+                const existingServers = await window.api.getServerConfigs();
+                const nameConflict = existingServers.some(s => 
+                    s.name === name && 
+                    (!server || s.name !== server.name)
+                );
+                
+                if (nameConflict) {
+                    setError(`A server with the name "${name}" already exists`);
+                    return;
+                }
+
+                // Parse the environment JSON
+                let envObject = JSON.parse(env);
+                
+                // Create the base server config object
+                let stdioConfig: any = {
+                    type: 'stdio',
+                    command,
+                    args: argsArray.filter(arg => arg.trim() !== ''), // Only filter out empty args when saving
+                };
+                
+                // Only include the env property if there are environment variables
+                if (Object.keys(envObject).length > 0) {
+                    stdioConfig.env = envObject;
+                }
+                
+                const serverConfig: McpConfig = {
+                    name,
+                    config: serverType === 'stdio'
+                        ? stdioConfig
+                        : serverType === 'sse'
+                        ? {
+                            type: 'sse',
+                            url,
+                            headers
+                        }
+                        : {
+                            type: 'internal',
+                            tool: internalTool
+                        }
+                };
+                onSave(serverConfig);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to save server');
             }
-            
-            const serverConfig: McpConfig = {
-                name,
-                config: serverType === 'stdio'
-                    ? stdioConfig
-                    : serverType === 'sse'
-                    ? {
-                        type: 'sse',
-                        url,
-                        headers
-                    }
-                    : {
-                        type: 'internal',
-                        tool: internalTool
-                    }
-            };
-            onSave(serverConfig);
         }
     };
 
@@ -379,6 +428,22 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     {isJsonMode ? 'Switch to Form Mode' : 'Switch to JSON Mode'}
                 </button>
             </div>
+            
+            {error && (
+                <div style={{ 
+                    color: '#dc3545',
+                    backgroundColor: '#f8d7da',
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    marginBottom: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                }}>
+                    <span style={{ fontSize: '1.2em' }}>⚠️</span>
+                    <span>{error}</span>
+                </div>
+            )}
             
             {isJsonMode ? (
                 <div style={{ marginBottom: '20px' }}>
@@ -411,12 +476,14 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     marginBottom: '20px'
                 }}>
                     <label style={{ fontWeight: 'bold' }}>Name:</label>
-                    <input 
-                        type="text" 
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        style={{ width: '100%', padding: '4px 8px' }}
-                    />
+                    <div>
+                        <input 
+                            type="text" 
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            style={{ width: '100%', padding: '4px 8px' }}
+                        />
+                    </div>
 
                     <label style={{ fontWeight: 'bold' }}>Type:</label>
                     <div style={{ display: 'flex', alignItems: 'center' }}>
@@ -855,6 +922,11 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     const handleSaveServer = async (server: McpConfig) => {
         try {
+            // If this is an edit and the name has changed, delete the old server first
+            if (editingServer && editingServer.name !== server.name) {
+                await window.api.deleteServerConfig(editingServer.name);
+            }
+            
             await window.api.saveServerConfig(server);
             setShowEditModal(false);
             await loadServers();
