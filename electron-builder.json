@@ -1,0 +1,3 @@
+{
+  "afterPack": "electron-builder-sandbox-fix"
+} 
