@@ -148,6 +148,13 @@ export class GeminiLLM implements ILLM {
     },
     {
       provider: LLMType.Gemini,
+      id: "gemini-2.5-flash-preview-04-17",
+      name: "Gemini 2.5 Flash Preview",
+      description: "Our best model in terms of price-performance, offering well-rounded capabilities.",
+      modelSource: "Google"
+    },
+    {
+      provider: LLMType.Gemini,
       id: "gemini-2.0-flash",
       name: "Gemini 2.0 Flash",
       description: "Next generation features, speed, thinking, realtime streaming, and multimodal generation",
@@ -208,6 +215,17 @@ export class GeminiLLM implements ILLM {
     try {
       // Turn our ChatMessage[] into a VertexAI Content[]
       const history: Content[] = [];
+      function addMessageToHistory(message: Content) {
+        // The new Google API is SUPER strict about the history format, in that it needs to be interleaved user/model messages.
+        // If you provide a series of user messages in a row (like prompts, refs, rules, etc), it appears to just ignore the whole thing.
+        // So we ensure this interleaving with the code below...
+        if (history.length > 0 && history[history.length - 1].role === message.role) {
+          history[history.length - 1].parts!.push(...message.parts!);
+        } else {
+          history.push(message);
+        }
+      }
+
       for (const message of messages) {
         if ('modelReply' in message) {
           // Process each turn in the LLM reply
@@ -233,7 +251,7 @@ export class GeminiLLM implements ILLM {
                 });
               }
             }
-            history.push(replyContent);
+            addMessageToHistory(replyContent);
 
             // Add the tool call results, if any
             if (turn.toolCalls && turn.toolCalls.length > 0) {
@@ -252,15 +270,16 @@ export class GeminiLLM implements ILLM {
                   }
                 });
               }
-              history.push(toolResultsContent);
+              addMessageToHistory(toolResultsContent);
             }
           }
-        } else {
-          // Handle regular messages
-          history.push({
-            role: message.role === 'system' ? 'user' : message.role === 'error' ? 'model' : message.role,
+        } else { 
+          // Handle user messages
+          const messageContent: Content = {
+            role: 'user',
             parts: [{ text: message.content }]
-          });
+          };
+          addMessageToHistory(messageContent);
         }
       } 
       
