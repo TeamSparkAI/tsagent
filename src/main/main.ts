@@ -1081,16 +1081,8 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { success: false, error: 'Failed to clone workspace' };
     }
 
-    // Get the current window
-    const currentWindow = BrowserWindow.getFocusedWindow();
-    if (currentWindow) {
-      log.info(`[WORKSPACE CLONE] Opening cloned workspace ${workspace.workspaceDir} in current window ${currentWindow.id}`);
-      workspacesManager.registerWindow(currentWindow.id.toString(), workspace);
-      return { success: true, windowId: currentWindow.id };
-    }
-    
-    // If no current window exists, create a new one
-    log.info(`[WORKSPACE CLONE] No current window, creating new window for workspace ${workspace.workspaceDir}`);
+    // Always create a new window for the cloned workspace
+    log.info(`[WORKSPACE CLONE] Creating new window for cloned workspace ${workspace.workspaceDir}`);
     const window = await createWindow(workspace);
     return { success: true, windowId: window.id };
   });

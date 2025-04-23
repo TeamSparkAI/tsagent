@@ -240,10 +240,6 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
         });
         return;
       }
-
-      // Open the cloned workspace in a new window
-      log.info(`[WORKSPACE CLONE] Opening cloned workspace in new window: ${targetPath}`);
-      await window.api.openInNewWindow(targetPath);
     } catch (error) {
       log.error(`[WORKSPACE CLONE] Error in handleCloneWorkspace:`, error);
       // Show error dialog to user
