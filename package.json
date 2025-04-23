@@ -57,6 +57,7 @@
   "build": {
     "appId": "ai.teamspark.workbench",
     "productName": "TeamSpark AI Workbench",
+    "afterPack": "electron-builder-sandbox-fix",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

@@ -61,6 +61,15 @@ Make real website
 
 ====
 
+## Output size
+
+Currently if the output tokens is too small, we get a couple of bad behaviors:
+- Output just stops in the middle
+- No output at all
+
+We should detect this and warn at very least.  Or something.
+
+
 ## MCP Servers using npx in the bundled app
 
 For many common commands (node, ucx, uvx), using a full path is required and sufficient

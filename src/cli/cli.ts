@@ -129,6 +129,7 @@ function isProviderInstalled(workspace: WorkspaceManager, providerName: string):
 }
 
 export function setupCLI(workspace: WorkspaceManager) {
+  // Get version from package.json
   console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
   showHelp();
   
