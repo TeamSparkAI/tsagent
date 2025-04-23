@@ -130,7 +130,7 @@ function isProviderInstalled(workspace: WorkspaceManager, providerName: string):
 
 export function setupCLI(workspace: WorkspaceManager) {
   // Get version from package.json
-  console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
+  console.log(chalk.green(`Welcome to TeamSpark AI Workbench v${process.env.npm_package_version}!`));
   showHelp();
   
   const llmFactory = new LLMFactory(workspace);
