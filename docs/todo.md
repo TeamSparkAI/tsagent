@@ -92,3 +92,124 @@ When installing tool, if fails, parse output and suggest fix (based on list abov
 
 "Commands typically need to either have a fully specified path, or have a PATH environment variable that refers to their location."
 "For some more complex commands, including npx, a PATH to both the Node bin and system bin directories must be provided."
+
+### MCP
+
+mcp-grep-server publishes schema using anyOf:
+
+Note: We should probably treat "oneOf" the same way?
+
+Implications:
+
+Tool test form needs to support
+LLMs that support JSON Schema should work (or they get what they get)
+We need to look at Gemini (where we convert JSON Schema to OpenAPI-ish schema for them)
+
+For the UX of any anyof, dropdown containing choices per anyOf:
+- Description (optional)
+- Type: Get type description (primitive or array, maybe object)
+  - Pray to god if it's an object type it has a description
+
+User picks one, we give them the correct controls (say string versus array of strings, or number versus null)
+
+{
+  "name": "grep",
+  "description": "xxxxx",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "pattern": {
+        "title": "Pattern",
+        "type": "string"
+      },
+      "paths": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          }
+        ],
+        "title": "Paths"
+      },
+      "ignore_case": {
+        "default": false,
+        "title": "Ignore Case",
+        "type": "boolean"
+      },
+      "before_context": {
+        "default": 0,
+        "title": "Before Context",
+        "type": "integer"
+      },
+      "after_context": {
+        "default": 0,
+        "title": "After Context",
+        "type": "integer"
+      },
+      "context": {
+        "anyOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "Context"
+      },
+      "max_count": {
+        "default": 0,
+        "title": "Max Count",
+        "type": "integer"
+      },
+      "fixed_strings": {
+        "default": false,
+        "title": "Fixed Strings",
+        "type": "boolean"
+      },
+      "recursive": {
+        "default": false,
+        "title": "Recursive",
+        "type": "boolean"
+      },
+      "regexp": {
+        "default": true,
+        "title": "Regexp",
+        "type": "boolean"
+      },
+      "invert_match": {
+        "default": false,
+        "title": "Invert Match",
+        "type": "boolean"
+      },
+      "line_number": {
+        "default": true,
+        "title": "Line Number",
+        "type": "boolean"
+      },
+      "file_pattern": {
+        "anyOf": [
+          {
+            "type": "string"
+          },
+          {
+            "type": "null"
+          }
+        ],
+        "default": null,
+        "title": "File Pattern"
+      }
+    },
+    "required": [
+      "pattern",
+      "paths"
+    ],
+    "title": "grepArguments"
+  }
+}
