@@ -138,6 +138,7 @@ export class GeminiLLM implements ILLM {
   async getModels(): Promise<ILLMModel[]> {
     // Currently no support for listModels in the Node SDK - may be coming: https://github.com/google-gemini/generative-ai-js/issues/54
     // For now we're going to make a hardcoded list of current models.
+    // This seems like the best source for models and description: https://ai.google.dev/gemini-api/docs/
     const models: ILLMModel[] = [
     {
       provider: LLMType.Gemini,
