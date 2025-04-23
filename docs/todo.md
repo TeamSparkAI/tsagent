@@ -28,23 +28,13 @@ Chat Debug
 
 Workspace metadata (name/desc) would be nice in UX
 
-Clone Workspace would be nice.
-
-For find/open workspace, it currently replaces workspace (if any) in current window.
-- Should it set workspace if current window doesn't have one, else open in new window?
-
 How many previous workspaces, what happens in UX if they overflow
-
-If not workspace history, show explainer for workspaces?
 
 ## Before Release
 
 Top-level menus?
 
 Option to "register" command line app on first run (and from menu later)
-
-Hide dev tools in release mode
-Turn console logging to error in release mode
 
 ## Symlink
 

@@ -150,6 +150,20 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
       
       const workspacePath = result.filePaths[0];
       log.info(`[WORKSPACE CREATE] Selected workspace path: ${workspacePath}`);
+
+      // Check if workspace already exists at the target location
+      const workspaceExists = await window.api.workspaceExists(workspacePath);
+      if (workspaceExists) {
+        log.error(`[WORKSPACE CREATE] Workspace already exists at: ${workspacePath}`);
+        await window.api.showMessageBox({
+          type: 'error',
+          title: 'Create Failed',
+          message: 'Failed to create workspace',
+          detail: 'A workspace already exists at the selected location',
+          buttons: ['OK']
+        });
+        return;
+      }
       
       // Get the current window ID
       const currentId = await window.api.getCurrentWindowId();
@@ -179,6 +193,67 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
       log.info(`[WORKSPACE CREATE] loadData completed`);
     } catch (error) {
       log.error(`[WORKSPACE CREATE] Error in handleCreateWorkspace:`, error);
+      // Show error dialog to user
+      await window.api.showMessageBox({
+        type: 'error',
+        title: 'Create Failed',
+        message: 'Failed to create workspace',
+        detail: error instanceof Error ? error.message : 'An unexpected error occurred',
+        buttons: ['OK']
+      });
+    }
+  };
+
+  const handleCloneWorkspace = async () => {
+    try {
+      log.info(`[WORKSPACE CLONE] handleCloneWorkspace called`);
+      
+      if (!currentWorkspace) {
+        log.error(`[WORKSPACE CLONE] No current workspace to clone`);
+        return;
+      }
+
+      // Show the open dialog
+      const dialogResult = await window.api.showOpenDialog({
+        properties: ['openDirectory', 'createDirectory'],
+        title: 'Select Directory for Cloned Workspace'
+      });
+      
+      if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
+        log.info(`[WORKSPACE CLONE] Dialog canceled or no directory selected`);
+        return;
+      }
+      
+      const targetPath = dialogResult.filePaths[0];
+      log.info(`[WORKSPACE CLONE] Selected target path: ${targetPath}`);
+      
+      // Clone the workspace
+      const cloneResult = await window.api.cloneWorkspace(currentWorkspace.workspacePath, targetPath);
+      if (!cloneResult.success) {
+        log.error(`[WORKSPACE CLONE] Failed to clone workspace: ${cloneResult.error}`);
+        await window.api.showMessageBox({
+          type: 'error',
+          title: 'Clone Failed',
+          message: 'Failed to clone workspace',
+          detail: cloneResult.error || 'A workspace already exists at the target location',
+          buttons: ['OK']
+        });
+        return;
+      }
+
+      // Open the cloned workspace in a new window
+      log.info(`[WORKSPACE CLONE] Opening cloned workspace in new window: ${targetPath}`);
+      await window.api.openInNewWindow(targetPath);
+    } catch (error) {
+      log.error(`[WORKSPACE CLONE] Error in handleCloneWorkspace:`, error);
+      // Show error dialog to user
+      await window.api.showMessageBox({
+        type: 'error',
+        title: 'Clone Failed',
+        message: 'Failed to clone workspace',
+        detail: error instanceof Error ? error.message : 'An unexpected error occurred',
+        buttons: ['OK']
+      });
     }
   };
 
@@ -378,9 +453,27 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
             <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
               {/* Current Workspace */}
               {currentWorkspace ? (
-                <div className="workspace-info">
-                  <h3>Current Workspace</h3>
-                  <p>Path: {currentWorkspace.workspacePath}</p>
+                <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
+                  <div className="section-header">
+                    <h2>Current Workspace</h2>
+                  </div>
+                  <div style={{ 
+                    display: 'flex', 
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '12px', 
+                    backgroundColor: '#f9fafb', 
+                    border: '1px solid #e5e7eb', 
+                    borderRadius: '6px'
+                  }}>
+                    <div style={{ fontWeight: '500', color: '#111' }}>{currentWorkspace.workspacePath}</div>
+                    <button
+                      onClick={handleCloneWorkspace}
+                      className="btn add-button"
+                    >
+                      Clone Workspace
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <div className="no-workspace">

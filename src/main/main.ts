@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import * as path from 'path';
 import { LLMType } from '../shared/llm';
 import { createMcpClientFromConfig } from './mcp/client';
@@ -18,9 +18,23 @@ const PRODUCT_NAME = 'TeamSpark AI Workbench';
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
 async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow> {
+  // Get the current window's position if it exists
+  const currentWindow = BrowserWindow.getFocusedWindow();
+  let x = undefined;
+  let y = undefined;
+  
+  if (currentWindow) {
+    const [currentX, currentY] = currentWindow.getPosition();
+    // Offset by 50 pixels down and right
+    x = currentX + 50;
+    y = currentY + 50;
+  }
+
   const window = new BrowserWindow({
     width: 1200,
     height: 800,
+    x,
+    y,
     title: PRODUCT_NAME,
     webPreferences: {
       nodeIntegration: false,
@@ -948,8 +962,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // Workspace IPC handlers
-  ipcMain.handle('dialog:showOpenDialog', (_, options) => {
+  ipcMain.handle('dialog:showOpenDialog', (_, options: OpenDialogOptions) => {
     return dialog.showOpenDialog(options);
+  });
+
+  ipcMain.handle('dialog:showMessageBox', (_, options: MessageBoxOptions) => {
+    return dialog.showMessageBox(options);
   });
 
   ipcMain.handle('workspace:getActiveWindows', () => {
@@ -969,6 +987,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
     
     return currentWindow.id.toString();
+  });
+
+  ipcMain.handle('workspace:workspaceExists', async (_, path: string) => {
+    return await WorkspaceManager.workspaceExists(path);
   });
 
   // Open the workspace at filePath in the current window, or if no current window, create a new one
@@ -1039,6 +1061,38 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const workspace = await WorkspaceManager.create(workspacePath, true) as WorkspaceManager; // Cannot be null when populateNewWorkspace is true    
     const window = await createWindow(workspace);
     return window.id;
+  });
+
+  // Clone workspace to a new location
+  //
+  ipcMain.handle('workspace:cloneWorkspace', async (_, sourcePath: string, targetPath: string) => {
+    log.info(`[WORKSPACE CLONE] IPC handler called for workspace:cloneWorkspace from ${sourcePath} to ${targetPath}`);
+    
+    // Check if target workspace already exists
+    if (await WorkspaceManager.workspaceExists(targetPath)) {
+      log.error(`[WORKSPACE CLONE] Target workspace already exists: ${targetPath}`);
+      return { success: false, error: 'A workspace already exists at the target location' };
+    }
+
+    // Clone the workspace
+    const workspace = await WorkspaceManager.cloneWorkspace(sourcePath, targetPath);
+    if (!workspace) {
+      log.error(`[WORKSPACE CLONE] Failed to clone workspace from ${sourcePath} to ${targetPath}`);
+      return { success: false, error: 'Failed to clone workspace' };
+    }
+
+    // Get the current window
+    const currentWindow = BrowserWindow.getFocusedWindow();
+    if (currentWindow) {
+      log.info(`[WORKSPACE CLONE] Opening cloned workspace ${workspace.workspaceDir} in current window ${currentWindow.id}`);
+      workspacesManager.registerWindow(currentWindow.id.toString(), workspace);
+      return { success: true, windowId: currentWindow.id };
+    }
+    
+    // If no current window exists, create a new one
+    log.info(`[WORKSPACE CLONE] No current window, creating new window for workspace ${workspace.workspaceDir}`);
+    const window = await createWindow(workspace);
+    return { success: true, windowId: window.id };
   });
 
   // Switch to the workspace at workspacePath in the specified window

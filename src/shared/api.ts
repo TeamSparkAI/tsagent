@@ -4,6 +4,7 @@ import { McpConfig, CallToolResultWithElapsedTime } from '../main/mcp/types';
 import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
 import { WorkspaceWindow } from './workspace';
 import { LLMProviderInfo, ILLMModel, LLMType } from './llm';
+import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 
 export interface API {
   // Chat session management
@@ -83,7 +84,8 @@ export interface API {
   offProvidersChanged: (listener: () => void) => void;
 
   // Workspace methods
-  showOpenDialog: (options: any) => Promise<{ canceled: boolean; filePaths: string[] }>;
+  showOpenDialog: (options: OpenDialogOptions) => Promise<{ canceled: boolean; filePaths: string[] }>;
+  showMessageBox: (options: MessageBoxOptions) => Promise<{ response: number }>;
   getActiveWindows: () => Promise<WorkspaceWindow[]>;
   getRecentWorkspaces: () => Promise<string[]>;
   openWorkspace: (path: string) => Promise<void>;
@@ -93,6 +95,8 @@ export interface API {
   switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
   focusWindow: (windowId: string) => Promise<boolean>;
   getCurrentWindowId: () => Promise<string>;
+  cloneWorkspace: (sourcePath: string, targetPath: string) => Promise<{ success: boolean; error?: string; windowId?: string }>;
+  workspaceExists: (path: string) => Promise<boolean>;
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
   offWorkspaceSwitched: (listener: (event: any, data: any) => void) => void;
 

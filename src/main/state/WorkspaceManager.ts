@@ -384,4 +384,68 @@ export class WorkspaceManager {
   async saveSystemPrompt(prompt: string): Promise<void> {
     await fs.promises.writeFile(this._promptFile!, prompt);
   }
+
+  public static async workspaceExists(workspacePath: string): Promise<boolean> {
+    const normalizedWorkspacePath = path.normalize(workspacePath);
+    const possibleFilename = path.basename(normalizedWorkspacePath);
+    let workspaceDir: string;
+    
+    if (possibleFilename.endsWith('.json')) {
+      if (possibleFilename != WorkspaceManager.WORKSPACE_FILE_NAME) {
+        return false;
+      }
+      workspaceDir = path.dirname(normalizedWorkspacePath);
+    } else {
+      workspaceDir = normalizedWorkspacePath;
+    }
+
+    const workspaceFile = path.join(workspaceDir, WorkspaceManager.WORKSPACE_FILE_NAME);
+    return fs.existsSync(workspaceFile);
+  }
+
+  public static async cloneWorkspace(sourcePath: string, targetPath: string): Promise<WorkspaceManager | null> {
+    // Check if source workspace exists
+    if (!await WorkspaceManager.workspaceExists(sourcePath)) {
+      log.error(`Source workspace does not exist: ${sourcePath}`);
+      return null;
+    }
+
+    // Check if target workspace already exists
+    if (await WorkspaceManager.workspaceExists(targetPath)) {
+      log.error(`Target workspace already exists: ${targetPath}`);
+      return null;
+    }
+
+    // Create target directory if it doesn't exist
+    if (!fs.existsSync(targetPath)) {
+      fs.mkdirSync(targetPath, { recursive: true });
+    }
+
+    // Copy all workspace files
+    const sourceDir = path.dirname(path.join(sourcePath, WorkspaceManager.WORKSPACE_FILE_NAME));
+    const filesToCopy = [
+      WorkspaceManager.WORKSPACE_FILE_NAME,
+      WorkspaceManager.SYSTEM_PROMPT_FILE_NAME,
+      'refs',
+      'rules'
+    ];
+
+    for (const file of filesToCopy) {
+      const sourceFile = path.join(sourceDir, file);
+      const targetFile = path.join(targetPath, file);
+      
+      if (fs.existsSync(sourceFile)) {
+        if (fs.lstatSync(sourceFile).isDirectory()) {
+          // Copy directory recursively
+          await fs.promises.cp(sourceFile, targetFile, { recursive: true });
+        } else {
+          // Copy file
+          await fs.promises.copyFile(sourceFile, targetFile);
+        }
+      }
+    }
+
+    // Create and return the new workspace manager
+    return await WorkspaceManager.create(targetPath);
+  }
 } 

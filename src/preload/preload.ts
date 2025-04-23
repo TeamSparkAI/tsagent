@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { API } from '../shared/api';
 import log from 'electron-log';
 import { LLMType } from '../shared/llm';
+import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 
 const api: API = {
   // Rules management
@@ -76,7 +77,8 @@ const api: API = {
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
 
   // Workspace handlers
-  showOpenDialog: (options: any) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  showOpenDialog: (options: OpenDialogOptions) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  showMessageBox: (options: MessageBoxOptions) => ipcRenderer.invoke('dialog:showMessageBox', options),
   getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
   getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecentWorkspaces'),
   getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
@@ -86,6 +88,8 @@ const api: API = {
   createWorkspaceInNewWindow: (path: string) => ipcRenderer.invoke('workspace:createWorkspaceInNewWindow', path),
   switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
   focusWindow: (windowId: string) => ipcRenderer.invoke('workspace:focusWindow', windowId),
+  cloneWorkspace: (sourcePath: string, targetPath: string) => ipcRenderer.invoke('workspace:cloneWorkspace', sourcePath, targetPath),
+  workspaceExists: (path: string) => ipcRenderer.invoke('workspace:workspaceExists', path),
   onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => {
     const wrappedCallback = (_event: any, data: any) => callback(data);
     ipcRenderer.on('workspace:switched', wrappedCallback);
