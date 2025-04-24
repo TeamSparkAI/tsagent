@@ -173,6 +173,11 @@ export class ClaudeLLM implements ILLM {
         turn.inputTokens = currentResponse.usage?.input_tokens ?? 0;
         turn.outputTokens = currentResponse.usage?.output_tokens ?? 0;
 
+        if (currentResponse.stop_reason === 'max_tokens') {
+          log.warn('Maximum number of tokens reached for this response');
+          turn.error = 'Maximum number of tokens reached for this response.  Increase the Maximum Output Tokens setting if desired.';
+        }
+
         for (const content of currentResponse.content) {
           if (content.type === 'text') {
             // Need to keep all of the text responses in the messages collection for context

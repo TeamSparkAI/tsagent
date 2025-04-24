@@ -253,6 +253,11 @@ export class BedrockLLM implements ILLM {
 				turn.inputTokens = currentResponse.usage?.inputTokens ?? 0;
 				turn.outputTokens = currentResponse.usage?.outputTokens ?? 0;
 
+        if (currentResponse.stopReason === 'max_tokens') {
+          log.warn('Maximum number of tokens reached for this response');
+          turn.error = 'Maximum number of tokens reached for this response.  Increase the Maximum Output Tokens setting if desired.';
+        }
+
 				// We're going to push the response message here so that any tool results added in the processing of this call are added after this message
 				turnMessages.push(currentResponse.output?.message!);
     

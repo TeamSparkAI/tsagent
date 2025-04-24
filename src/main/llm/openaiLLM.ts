@@ -182,6 +182,11 @@ export class OpenAILLM implements ILLM {
         turn.inputTokens = completion.usage?.prompt_tokens ?? 0;
         turn.outputTokens = completion.usage?.completion_tokens ?? 0;
 
+        if (completion.choices[0]?.finish_reason === 'length') {
+          log.warn('Maximum number of tokens reached for this response');
+          turn.error = 'Maximum number of tokens reached for this response.  Increase the Maximum Output Tokens setting if desired.';
+        }
+
         if (response.content) {
           turn.message = (turn.message || '') + response.content;
         }

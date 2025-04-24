@@ -324,6 +324,12 @@ export class GeminiLLM implements ILLM {
         const candidates = response.candidates?.[0];
         if (candidates?.content?.parts) {
           for (const part of candidates.content.parts) {
+
+            if (candidates.finishReason === 'MAX_TOKENS') {
+              log.warn('Maximum number of tokens reached for this response');
+              turn.error = 'Maximum number of tokens reached for this response.  Increase the Maximum Output Tokens setting if desired.';
+            }
+
             // Handle text parts
             if (part.text) {
               turn.message = (turn.message || '') + part.text.replace(/\\n/g, '\n');

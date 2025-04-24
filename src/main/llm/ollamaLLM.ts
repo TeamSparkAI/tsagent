@@ -163,6 +163,8 @@ export class OllamaLLM implements ILLM {
         turnCount++;
         let hasToolUse = false;
 
+        // log.info('Ollama turn messages:', turnMessages);
+
         currentResponse = await this.client.chat({
           model: this.modelName,
           messages: turnMessages,
@@ -178,6 +180,11 @@ export class OllamaLLM implements ILLM {
 
         turn.inputTokens = currentResponse.prompt_eval_count ?? 0;
         turn.outputTokens = currentResponse.eval_count ?? 0;
+
+        if (currentResponse.done_reason === 'length') {
+          log.warn('Maximum number of tokens reached for this response');
+          turn.error = 'Maximum number of tokens reached for this response.  Increase the Maximum Output Tokens setting if desired.';
+        }
 
         // process the current response
         const content = currentResponse.message.content;
