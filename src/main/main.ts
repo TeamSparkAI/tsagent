@@ -952,8 +952,8 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Disconnect and remove the client
       const client = workspace.mcpManager.getClient(serverName);
       if (client) {
-        client.disconnect();
-        // workspace.mcpManager.deleteClient(serverName); // !!!
+        await client.disconnect();
+        workspace.mcpManager.deleteClient(serverName);
       }
     } catch (err) {
       log.error('Error deleting server config:', err);

@@ -101,6 +101,10 @@ export class MCPClientManager {
         this.clients.set(name, client);
     }
 
+    deleteClient(name: string): void {
+        this.clients.delete(name);
+    }
+
     getAllClients(): McpClient[] {
         return Array.from(this.clients.values());
     }
