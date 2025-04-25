@@ -8,7 +8,12 @@ application providing a graphical interface and a command-line (terminal) interf
 ## Features
 
 TeamSpark AI Workbench supports:
-- Many LLM providers and their models (including Anthropic/Claude, OpenAI/ChatGPT, Google/Gemini, AWS Bedrock, and Ollama)
+- Many LLM providers and their models, including:
+  - Anthropic/Claude
+  - OpenAI/ChatGPT
+  - Google/Gemini
+  - AWS Bedrock
+  - Ollama
 - References (memory)
 - Rules (prompt guidance)
 - Usage of tools via MCP (supporing thousands of available tools)
