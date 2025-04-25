@@ -61,6 +61,17 @@ Make real website
 
 ====
 
+## Context Overflow
+
+Generally speaking, the LLM APIs don't give solid feedback when you overflow the context window.
+
+The failure mode can be that it just truncates the input (which can result in odd failures).
+
+In order to address this (assuming the libraries don't help out):
+- We need to understand how large the context window is for the model being used (whole can of worms)
+- We need to be able measure (via token counting APIs) or estimate (via our own algos) the size of the context
+  - Do we warn, summarize, trim, etc?
+
 ### MCP
 
 mcp-grep-server publishes schema using anyOf:
