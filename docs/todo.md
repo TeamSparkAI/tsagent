@@ -50,9 +50,9 @@ tspark --cli
 
 In install/run, wants access to Documents?
 
-Update website to point to downloads
+Update GHA to name dist files "latests"
 
-Verify download / install of Mac/Linux
+Fix linux install (Sandbox issue)
 
 Make real website
 - Branding (icon, etc)

@@ -24,7 +24,6 @@
     "css-loader": "^7.1.2",
     "electron": "^28.0.0",
     "electron-builder": "^25.1.8",
-    "electron-builder-sandbox-fix": "^1.0.0",
     "style-loader": "^4.0.0",
     "ts-loader": "^9.5.2",
     "typescript": "^5.3.0",
@@ -57,7 +56,7 @@
   "build": {
     "appId": "ai.teamspark.workbench",
     "productName": "TeamSpark AI Workbench",
-    "afterPack": "electron-builder-sandbox-fix",
+    "afterPack": "./build/afterPack.js",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

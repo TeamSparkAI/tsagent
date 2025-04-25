@@ -1,0 +1,46 @@
+const path = require('path');
+const fs = require('fs').promises;
+const log = require('electron-log');
+
+const afterPackHook = async params => {
+    if (params.electronPlatformName !== 'linux') {
+        return;
+    }
+
+    log.info('Creating launcher script for linux target');
+
+    const executable = path.join(
+        params.appOutDir,
+        params.packager.executableName
+    );
+
+    // Read the launcher script content
+    const launcherScriptPath = path.join(__dirname, 'teamspark-launcher.sh');
+    let launcherScript;
+    try {
+        launcherScript = await fs.readFile(launcherScriptPath, 'utf8');
+        // Replace the placeholders with actual values
+        launcherScript = launcherScript
+            .replace('${params.packager.appInfo.productName}', params.packager.appInfo.productName)
+            .replace('${params.packager.executableName}', params.packager.executableName);
+    } catch (e) {
+        log.error('Failed to read launcher script: ' + e.message);
+        throw new Error('Failed to read launcher script');
+    }
+
+    try {
+        // Rename the original executable
+        await fs.rename(executable, executable + '.bin');
+        
+        // Write the launcher script as the new executable
+        await fs.writeFile(executable, launcherScript);
+        await fs.chmod(executable, 0o755);
+    } catch (e) {
+        log.error('failed to create launcher script: ' + e.message);
+        throw new Error('Failed to create launcher script');
+    }
+
+    log.info('Launcher script created successfully');
+};
+
+module.exports = afterPackHook;

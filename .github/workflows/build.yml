@@ -132,6 +132,17 @@ jobs:
           name: linux-build
           path: release
 
+      - name: Create current versions
+        run: |
+          # Create current versions of all files
+          for f in release/*; do
+            if [[ $f =~ [0-9]+\.[0-9]+\.[0-9]+ ]]; then
+              # Create a copy with 'latest' instead of version number
+              new_name=$(echo $f | sed 's/[0-9]\+\.[0-9]\+\.[0-9]\+/latest/')
+              cp "$f" "$new_name"
+            fi
+          done
+
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:

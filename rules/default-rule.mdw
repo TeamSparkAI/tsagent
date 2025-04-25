@@ -1,7 +1,0 @@
----
-name: default-rule
-description: Default rule for new workspace
-priorityLevel: 500
-enabled: true
----
-This is a default rule that was created when initializing the workspace. You can edit or delete this rule as needed.
