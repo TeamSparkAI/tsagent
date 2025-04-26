@@ -75,16 +75,16 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                 display: 'grid', 
                 gridTemplateColumns: '120px 1fr',
                 gap: '12px',
-                alignItems: 'center',
+                alignItems: 'baseline',
                 marginBottom: '20px'
             }}>
-                <label style={{ fontWeight: 'bold' }}>Name:</label>
+                <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Name:</label>
                 <div>
                     <input 
                         type="text" 
                         value={name}
                         onChange={(e) => setName(e.target.value)}
-                        style={{ width: '100%', padding: '4px 8px' }}
+                        style={{ width: '100%', padding: '8px' }}
                     />
                     <div style={{ 
                         fontSize: '0.8em', 
@@ -95,42 +95,42 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                     </div>
                 </div>
 
-                <label style={{ fontWeight: 'bold' }}>Description:</label>
+                <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Description:</label>
                 <input 
                     type="text" 
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    style={{ width: '100%', padding: '4px 8px' }}
+                    style={{ width: '100%', padding: '8px' }}
                 />
 
-                <label style={{ fontWeight: 'bold' }}>Priority Level:</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Priority Level:</label>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
                     <input 
                         type="number" 
                         min="0"
                         max="999"
                         value={priorityLevel}
                         onChange={(e) => setPriorityLevel(parseInt(e.target.value))}
-                        style={{ width: '80px', padding: '4px 8px' }}
+                        style={{ width: '80px', padding: '8px' }}
                     />
                     <span style={{ color: '#666' }}>(000-999)</span>
                 </div>
 
-                <label style={{ fontWeight: 'bold' }}>Enabled:</label>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
+                <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Enabled:</label>
+                <div style={{ display: 'flex', alignItems: 'baseline' }}>
                     <input 
                         type="checkbox" 
                         checked={enabled}
                         onChange={(e) => setEnabled(e.target.checked)}
-                        style={{ margin: '0' }}
+                        style={{ margin: '0', transform: 'scale(1.2)' }}
                     />
                 </div>
 
-                <label style={{ fontWeight: 'bold' }}>Include:</label>
+                <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Include:</label>
                 <select 
                     value={include}
                     onChange={(e) => setInclude(e.target.value as 'always' | 'manual' | 'agent')}
-                    style={{ width: 'fit-content', padding: '4px 8px' }}
+                    style={{ width: 'fit-content', padding: '8px' }}
                 >
                     <option value="always">Always (included in new sessions)</option>
                     <option value="manual">Manual (user can add/remove)</option>
