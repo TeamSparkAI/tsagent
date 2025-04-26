@@ -90,12 +90,9 @@
 .model-item {
   margin-bottom: 15px;
   padding: 10px;
-  border: 1px solid #eee;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
-}
-
-.model-item:last-child {
-  border-bottom: none;
+  background-color: var(--bg-secondary);
 }
 
 .model-name {

@@ -157,6 +157,9 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
                 <p>
                   <strong>Tools Settings:</strong> Configure the default PATH environment variable used for tool executions.
                 </p>
+                <p>
+                  <strong>Appearance:</strong> Toggle between light and dark mode to customize the visual theme of the application.
+                </p>
               </div>
             }
           />
@@ -235,7 +238,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
               Configure the default PATH environment variable used for tool executions. This will be used when no PATH environment variable is provided in the tool configuration.
             </p>
             <p className="setting-description">
-              This value, when specified, should contain the paths to the executables of your commands, such as <b>node</b>, <b>npx</b>, <b>python</b>, <b>uv</b>,
+              This value, when specified, should contain the paths to the executables of your tool commands, such as <b>node</b>, <b>npx</b>, <b>python</b>, <b>uv</b>,
               <b>uvx</b>, etc. as well as to any systems tools that they require.
             </p>
             <div className="setting-input">
@@ -271,7 +274,10 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
       case 'appearance':
         return (
           <div className="appearance-settings">
-            <h3>Appearance</h3>
+            <h2>Appearance</h2>
+            <p className="setting-description">
+              Customize the visual theme of the application to match your preferences.
+            </p>
             <div className="theme-toggle">
               <label htmlFor="theme-toggle">Dark Mode</label>
               <button

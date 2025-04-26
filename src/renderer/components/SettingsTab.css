@@ -76,19 +76,33 @@
   color: var(--text-secondary);
 }
 
-.system-prompt-settings {
+.system-prompt-settings,
+.chat-settings,
+.tools-settings {
   max-width: 800px;
-  margin: 0 auto;
+  margin: 0;
+  padding: 0 20px;
 }
 
-.system-prompt-settings h2 {
+.appearance-settings {
+  margin: 0;
+  padding: 0 20px;
+}
+
+.system-prompt-settings h2,
+.chat-settings h2,
+.tools-settings h2,
+.appearance-settings h2 {
   margin-top: 0;
   margin-bottom: 20px;
 }
 
-.system-prompt-settings p {
+.system-prompt-settings p,
+.chat-settings p,
+.tools-settings p,
+.appearance-settings p {
   line-height: 1.5;
-  color: #666;
+  color: var(--text-secondary);
   margin-bottom: 20px;
 }
 
@@ -109,26 +123,6 @@
   outline: none;
   border-color: #1890ff;
   box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
-}
-
-.chat-settings {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.chat-settings h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
-}
-
-.tools-settings {
-  max-width: 800px;
-  margin: 0 auto;
-}
-
-.tools-settings h2 {
-  margin-top: 0;
-  margin-bottom: 20px;
 }
 
 .tools-settings .setting-description {
@@ -177,13 +171,8 @@
 }
 
 .appearance-settings {
-  padding: 20px;
+  margin: 0 auto;
   color: var(--text-primary);
-}
-
-.appearance-settings h3 {
-  color: var(--text-primary);
-  margin-bottom: 20px;
 }
 
 .theme-toggle {
