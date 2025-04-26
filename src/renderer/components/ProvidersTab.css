@@ -175,6 +175,12 @@
   height: 40px;
   margin-right: 8px;
   object-fit: contain;
+  background-color: var(--logo-bg);
+  padding: 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .provider-logo-large {
@@ -182,6 +188,12 @@
   height: 80px;
   margin-right: 12px;
   object-fit: contain;
+  background-color: var(--logo-bg);
+  padding: 8px;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .configure-button {

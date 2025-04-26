@@ -3,11 +3,13 @@
   flex-direction: column;
   height: 100%;
   padding: 16px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
 }
 
 .help-panel {
-  background-color: var(--vscode-editor-background);
-  border: 1px solid var(--vscode-panel-border);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   margin-bottom: 4px;
   padding: 12px;
@@ -29,6 +31,22 @@
   margin-bottom: 0;
   padding-bottom: 0;
   border-bottom: none;
+  color: var(--text-primary);
+}
+
+.about-content {
+  color: var(--text-primary);
+}
+
+.about-content p {
+  margin-bottom: 12px;
+  line-height: 1.5;
+  color: var(--text-primary);
+}
+
+.about-content strong {
+  color: var(--text-primary);
+  font-weight: 600;
 }
 
 .section-header {
@@ -42,17 +60,19 @@
   margin: 0;
   padding: 0;
   border: none;
+  color: var(--text-primary);
+  font-size: 18px;
 }
 
 .section-header .subtitle {
-  color: var(--vscode-descriptionForeground);
+  color: var(--text-secondary);
   font-size: 14px;
 }
 
 .about-button {
   background: none;
   border: none;
-  color: var(--vscode-textLink-foreground);
+  color: var(--button-bg);
   cursor: pointer;
   padding: 4px 8px;
   font-size: 13px;
@@ -60,11 +80,145 @@
 }
 
 .about-button:hover {
-  color: var(--vscode-textLink-activeForeground);
+  color: var(--button-hover);
   text-decoration: underline;
 }
 
 .workspace-content {
   flex: 1;
   overflow-y: auto;
+  padding: 24px;
+}
+
+.workspace-section {
+  margin-bottom: 24px;
+}
+
+.workspace-section h1 {
+  font-size: 20px;
+  font-weight: bold;
+  color: var(--text-primary);
+  margin-bottom: 24px;
+}
+
+.workspace-actions {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 24px;
+}
+
+.workspace-container {
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 24px;
+  background-color: var(--bg-secondary);
+}
+
+.workspace-item {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 12px;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.workspace-item .path {
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  min-width: 200px;
+}
+
+.workspace-item .workspace-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.no-workspace {
+  color: var(--text-secondary);
+  font-style: italic;
+  padding: 12px;
+  text-align: center;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+}
+
+.window-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.window-item .path {
+  color: var(--text-primary);
+}
+
+.window-item .window-id {
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+/* Workspace instance styles */
+.workspace-instance {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 12px;
+  margin-bottom: 8px;
+  transition: all 0.2s ease;
+}
+
+.workspace-instance:hover {
+  background-color: var(--hover-bg);
+}
+
+.workspace-instance.selected {
+  background-color: var(--selected-bg);
+  border-left: 3px solid var(--selected-border);
+}
+
+.workspace-instance h3 {
+  color: var(--text-primary);
+  margin: 0 0 8px 0;
+}
+
+.workspace-instance p {
+  color: var(--text-secondary);
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.workspace-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  transition: all 0.2s ease;
+}
+
+.workspace-button.primary {
+  background-color: var(--button-bg);
+  color: var(--button-text);
+}
+
+.workspace-button.primary:hover {
+  background-color: var(--button-hover);
+}
+
+.workspace-button.secondary {
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.workspace-button.secondary:hover {
+  background-color: var(--hover-bg);
 } 

@@ -425,135 +425,105 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
         </div>
       </div>
       <div className="workspace-content">
-        <div style={{ padding: '24px' }}>
-          <div style={{ marginBottom: '24px' }}>
-            <h1 style={{ fontSize: '20px', fontWeight: 'bold', color: '#333' }}>Workspace Management</h1>
+        <div className="workspace-section">          
+          <div className="workspace-actions">
+            <button
+              onClick={handleOpenWorkspace}
+              className="btn configure-button"
+            >
+              Open Workspace
+            </button>
+            <button
+              onClick={handleCreateWorkspace}
+              className="btn add-button"
+            >
+              Create Workspace
+            </button>
           </div>
           
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-start' }}>
-              <button
-                onClick={handleOpenWorkspace}
-                className="btn configure-button"
-              >
-                Open Workspace
-              </button>
-              <button
-                onClick={handleCreateWorkspace}
-                className="btn add-button"
-              >
-                Create Workspace
-              </button>
-            </div>
+          <div className="workspace-grid">
+            {/* Current Workspace */}
+            {currentWorkspace ? (
+              <div className="workspace-container">
+                <div className="section-header">
+                  <h2>Current Workspace</h2>
+                </div>
+                <div className="workspace-item">
+                  <div className="path">{currentWorkspace.workspacePath}</div>
+                  <button
+                    onClick={handleCloneWorkspace}
+                    className="btn add-button"
+                  >
+                    Clone Workspace
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="no-workspace">
+                <p>No workspace selected</p>
+              </div>
+            )}
             
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '24px' }}>
-              {/* Current Workspace */}
-              {currentWorkspace ? (
-                <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
-                  <div className="section-header">
-                    <h2>Current Workspace</h2>
-                  </div>
-                  <div style={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    padding: '12px', 
-                    backgroundColor: '#f9fafb', 
-                    border: '1px solid #e5e7eb', 
-                    borderRadius: '6px'
-                  }}>
-                    <div style={{ fontWeight: '500', color: '#111' }}>{currentWorkspace.workspacePath}</div>
-                    <button
-                      onClick={handleCloneWorkspace}
-                      className="btn add-button"
+            {/* Other Active Workspaces */}
+            {otherActiveWorkspaces.length > 0 && (
+              <div className="workspace-container">
+                <div className="section-header">
+                  <h2>Other Active Workspaces</h2>
+                </div>
+                <div className="workspace-list">
+                  {otherActiveWorkspaces.map(window => (
+                    <div
+                      key={window.windowId}
+                      className="workspace-item"
                     >
-                      Clone Workspace
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="no-workspace">
-                  <p>No workspace selected</p>
-                </div>
-              )}
-              
-              {/* Other Active Workspaces */}
-              {otherActiveWorkspaces.length > 0 && (
-                <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
-                  <div className="section-header">
-                    <h2>Other Active Workspaces</h2>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {otherActiveWorkspaces.map(window => (
-                      <div
-                        key={window.windowId}
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'space-between', 
-                          padding: '12px', 
-                          backgroundColor: '#f9fafb', 
-                          border: '1px solid #e5e7eb', 
-                          borderRadius: '6px'
-                        }}
+                      <div className="window-item">
+                        <div className="path">{window.workspacePath}</div>
+                        <div className="window-id">Window {window.windowId}</div>
+                      </div>
+                      <button
+                        onClick={() => handleFocusWindow(window.windowId)}
+                        className="btn configure-button"
                       >
-                        <div className="window-item">
-                          <span className="workspace-path">{window.workspacePath}</span>
-                        </div>
+                        Focus Window
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Recent Workspaces */}
+            {filteredRecentWorkspaces.length > 0 && (
+              <div className="workspace-container">
+                <div className="section-header">
+                  <h2>Recent Workspaces</h2>
+                </div>
+                <div className="workspace-list">
+                  {filteredRecentWorkspaces.map(path => (
+                    <div
+                      key={path}
+                      className="workspace-item"
+                    >
+                      <div className="path">{path}</div>
+                      <div className="workspace-actions">
                         <button
-                          onClick={() => handleFocusWindow(window.windowId)}
+                          onClick={() => handleSwitchToRecent(path)}
                           className="btn configure-button"
                         >
-                          Switch to Window
+                          Switch to Workspace
+                        </button>
+                        <button
+                          onClick={() => handleOpenRecentInNewWindow(path)}
+                          className="btn add-button"
+                        >
+                          Open in New Window
                         </button>
                       </div>
-                    ))}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              )}
-              
-              {/* Recent Workspaces */}
-              {filteredRecentWorkspaces.length > 0 && (
-                <div style={{ border: '1px solid #e5e7eb', borderRadius: '6px', padding: '16px' }}>
-                  <div className="section-header">
-                    <h2>Recent Workspaces</h2>
-                    <span className="subtitle">(Not currently open)</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {filteredRecentWorkspaces.map(path => (
-                      <div
-                        key={path}
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          padding: '12px', 
-                          backgroundColor: '#f9fafb', 
-                          border: '1px solid #e5e7eb', 
-                          borderRadius: '6px'
-                        }}
-                      >
-                        <div style={{ fontWeight: '500', color: '#111' }}>{path}</div>
-                        <div style={{ display: 'flex', gap: '8px' }}>
-                          <button
-                            onClick={() => handleSwitchToRecent(path)}
-                            className="btn configure-button"
-                          >
-                            Switch To This Workspace
-                          </button>
-                          <button
-                            onClick={() => handleOpenRecentInNewWindow(path)}
-                            className="btn add-button"
-                          >
-                            Open in New Window
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
         </div>
       </div>

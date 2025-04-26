@@ -4,12 +4,13 @@ import { TabProps } from '../types/TabProps';
 import { AboutView } from './AboutView';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import './SettingsTab.css';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY, SYSTEM_PATH_KEY } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY, SYSTEM_PATH_KEY, THEME_KEY } from '../../shared/workspace';
 
 export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
   const [activeSection, setActiveSection] = useState<string>('about');
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('');
   const [initialSystemPrompt, setInitialSystemPrompt] = useState<string>('');
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [currentChatSettings, setCurrentChatSettings] = useState<ChatSettings>({
     maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
     maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
@@ -28,6 +29,20 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   useEffect(() => {
     const loadSettings = async () => {
       try {
+        // Load theme
+        const savedTheme = await window.api.getSettingsValue(THEME_KEY);
+        if (savedTheme) {
+          setTheme(savedTheme as 'light' | 'dark');
+          document.documentElement.setAttribute('data-theme', savedTheme);
+        } else {
+          // Check system preference
+          const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+          const defaultTheme = prefersDark ? 'dark' : 'light';
+          setTheme(defaultTheme);
+          document.documentElement.setAttribute('data-theme', defaultTheme);
+          await window.api.setSettingsValue(THEME_KEY, defaultTheme);
+        }
+
         // Load system prompt
         const systemPrompt = await window.api.getSystemPrompt();
         setCurrentSystemPrompt(systemPrompt || '');
@@ -60,6 +75,13 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
     loadSettings();
   }, []);
+
+  const handleThemeToggle = async () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    setTheme(newTheme);
+    document.documentElement.setAttribute('data-theme', newTheme);
+    await window.api.setSettingsValue(THEME_KEY, newTheme);
+  };
 
   const handleSaveSystemPrompt = async () => {
     try {
@@ -246,6 +268,23 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             </div>
           </div>
         );
+      case 'appearance':
+        return (
+          <div className="appearance-settings">
+            <h3>Appearance</h3>
+            <div className="theme-toggle">
+              <label htmlFor="theme-toggle">Dark Mode</label>
+              <button
+                id="theme-toggle"
+                className={`theme-toggle-button ${theme === 'dark' ? 'active' : ''}`}
+                onClick={handleThemeToggle}
+                aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
+              >
+                <span className="theme-toggle-slider"></span>
+              </button>
+            </div>
+          </div>
+        );
       default:
         return null;
     }
@@ -261,13 +300,8 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           <div 
             className={`tab-items-item ${activeSection === 'about' ? 'selected' : ''}`}
             onClick={() => setActiveSection('about')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-            }}
           >
-            <span>ℹ️</span>
+            <span className="info-icon">ℹ️</span>
             <span>About Settings</span>
           </div>
           <div 
@@ -287,6 +321,12 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             onClick={() => setActiveSection('tools-settings')}
           >
             <span>Tools Settings</span>
+          </div>
+          <div 
+            className={`tab-items-item ${activeSection === 'appearance' ? 'selected' : ''}`}
+            onClick={() => setActiveSection('appearance')}
+          >
+            <span>Appearance</span>
           </div>
         </div>
       </div>

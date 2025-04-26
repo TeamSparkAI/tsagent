@@ -9,6 +9,7 @@ import { McpConfig } from './mcp/types';
 import { WorkspacesManager } from './state/WorkspacesManager';
 import { WorkspaceManager } from './state/WorkspaceManager';
 import chalk from 'chalk';
+import { THEME_KEY } from '../shared/workspace';
 
 const __dirname = path.dirname(__filename);
 
@@ -50,6 +51,11 @@ async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow
 
   if (workspace) {
     workspacesManager.registerWindow(window.id.toString(), workspace);
+    // Set initial theme from workspace
+    const theme = workspace.getSettingsValue(THEME_KEY);
+    if (theme) {
+      window.webContents.executeJavaScript(`document.documentElement.setAttribute('data-theme', '${theme}')`);
+    }
   }
 
   // Load the index.html file

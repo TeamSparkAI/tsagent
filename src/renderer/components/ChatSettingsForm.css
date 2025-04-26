@@ -1,6 +1,6 @@
 .settings-section {
   padding: 5px;
-  background-color: #f9f9f9;
+  background-color: var(--bg-secondary);
   border-radius: 8px;
 }
 
@@ -13,7 +13,7 @@
 .settings-header h3 {
   margin: 0;
   font-size: 18px;
-  color: #333;
+  color: var(--text-primary);
 }
 
 .settings-actions {
@@ -24,9 +24,9 @@
 
 .btn-restore-defaults {
   padding: 6px 12px;
-  background-color: #f0f0f0;
-  color: #333;
-  border: 1px solid #ddd;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   cursor: pointer;
   font-size: 14px;
@@ -34,15 +34,15 @@
 }
 
 .btn-restore-defaults:hover {
-  background-color: #e0e0e0;
-  border-color: #ccc;
+  background-color: var(--hover-bg);
+  border-color: var(--selected-border);
 }
 
 .default-indicator {
   padding: 6px 12px;
-  background-color: #e6f7ff;
-  color: #1890ff;
-  border: 1px solid #91d5ff;
+  background-color: var(--selected-bg);
+  color: var(--selected-border);
+  border: 1px solid var(--selected-border);
   border-radius: 4px;
   font-size: 14px;
 }
@@ -50,7 +50,7 @@
 .setting-description {
   display: block;
   font-size: 12px;
-  color: #666;
+  color: var(--text-secondary);
   margin-top: 4px;
 }
 
@@ -71,20 +71,24 @@
   grid-column: 1;
   white-space: nowrap;
   padding-right: 20px;
+  color: var(--text-primary);
 }
 
 .setting-item input[type="number"] {
   width: 80px;
   padding: 5px;
-  border: 1px solid #ddd;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   grid-column: 2;
   margin-bottom: 0;
+  background-color: var(--bg-tertiary);
+  color: var(--text-primary);
 }
 
 .setting-item input[type="range"] {
   width: 250px;
   margin: 0;
+  background-color: var(--bg-tertiary);
 }
 
 .slider-container {
@@ -98,6 +102,7 @@
   min-width: 40px;
   text-align: right;
   font-family: monospace;
+  color: var(--text-primary);
 }
 
 .setting-item:not(:last-child) .setting-description {
@@ -106,7 +111,7 @@
 
 .setting-description {
   font-size: 14px;
-  color: #666;
+  color: var(--text-secondary);
   line-height: 1.5;
   grid-column: 1 / -1;
   margin-top: 0;

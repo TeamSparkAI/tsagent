@@ -1123,29 +1123,20 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                 </div>
                 <div>
                     <div 
+                        className={`tab-items-item ${tabState.mode === 'about' ? 'selected' : ''}`}
                         onClick={() => {
                             setTabState({ mode: 'about' });
                             setSelectedServer(null);
                             setSelectedTool(null);
                         }}
-                        style={{
-                            padding: '10px',
-                            cursor: 'pointer',
-                            backgroundColor: tabState.mode === 'about' && !selectedServer ? '#e6f7ff' : 'transparent',
-                            borderLeft: tabState.mode === 'about' && !selectedServer ? '3px solid #1890ff' : 'none',
-                            borderRadius: '4px',
-                            marginBottom: '5px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '8px'
-                        }}
                     >
-                        <span style={{ color: '#666' }}>ℹ️</span>
+                        <span className="info-icon">ℹ️</span>
                         <span>About Tools</span>
                     </div>
                     {servers.map(server => (
                         <div
                             key={server.name}
+                            className={`tab-items-item ${selectedServer?.name === server.name ? 'selected' : ''}`}
                             onClick={() => {
                                 if (!showEditModal) {
                                     setSelectedServer(server);
@@ -1153,18 +1144,9 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     setSelectedTool(null);
                                 }
                             }}
-                            style={{
-                                padding: '10px',
-                                cursor: 'pointer',
-                                backgroundColor: selectedServer?.name === server.name ? '#e6f7ff' : 'transparent',
-                                borderLeft: selectedServer?.name === server.name ? '3px solid #1890ff' : 'none',
-                                borderRadius: '4px',
-                                marginBottom: '5px'
-                            }}
-
                         >
-                            <span>{server.name}</span>
-                            <span style={{ color: '#666', fontSize: '0.9em' }}> ({server.config.type ?? "stdio"})</span>
+                            <span style={{ color: 'var(--text-primary)' }}>{server.name}</span>
+                            <span style={{ color: 'var(--text-secondary)' }}> ({server.config.type ?? "stdio"})</span>
                         </div>
                     ))}
                 </div>
@@ -1219,15 +1201,9 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                         <div style={{ width: '50%', borderRight: '1px solid #ccc', overflow: 'auto' }}>
                             <div style={{ padding: '20px', paddingBottom: '40px' }}>
                                 <div 
-                                    style={{
-                                        padding: '10px',
-                                        cursor: 'pointer',
-                                        backgroundColor: selectedServer && !selectedTool ? '#e6f7ff' : 'transparent',
-                                        borderLeft: selectedServer && !selectedTool ? '3px solid #1890ff' : 'none',
-                                        borderRadius: '4px',
-                                        marginBottom: '5px'
-                                    }}
+                                    className={`tab-items-item ${selectedServer && !selectedTool ? 'selected' : ''}`}
                                     onClick={() => setSelectedTool(null)}
+                                    style={{ marginBottom: '16px' }}
                                 >
                                     <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
                                 </div>
@@ -1235,18 +1211,12 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => (
                                         <div 
                                             key={tool.name}
+                                            className={`tab-items-item ${selectedTool?.name === tool.name ? 'selected' : ''}`}
                                             onClick={() => setSelectedTool(tool)}
-                                            style={{
-                                                padding: '10px',
-                                                cursor: 'pointer',
-                                                backgroundColor: selectedTool?.name === tool.name ? '#e6f7ff' : 'transparent',
-                                                borderLeft: selectedTool?.name === tool.name ? '3px solid #1890ff' : 'none',
-                                                borderRadius: '4px',
-                                                marginBottom: '5px'
-                                            }}
+                                            style={{ display: 'block' }}
                                         >
-                                            <h3 style={{ margin: 0 }}>{tool.name}</h3>
-                                            <p style={{ margin: '5px 0 0 0', color: '#666' }}>{tool.description || 'No description'}</p>
+                                            <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{tool.name}</h3>
+                                            <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>{tool.description || 'No description'}</p>
                                         </div>
                                     ))}
                                 </div>

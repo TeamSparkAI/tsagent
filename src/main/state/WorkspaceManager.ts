@@ -7,7 +7,7 @@ import { ReferencesManager } from './ReferencesManager';
 import { ChatSessionManager } from './ChatSessionManager';
 import { LLMFactory } from '../llm/llmFactory';
 import { MCPClientManager } from '../mcp/manager';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY, THEME_KEY } from '../../shared/workspace';
 import { MAX_CHAT_TURNS_KEY } from '../../shared/workspace';
 
 export class WorkspaceManager {
@@ -56,7 +56,8 @@ export class WorkspaceManager {
         [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT,
         [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT,
         [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT,
-        [TOP_P_KEY]: TOP_P_DEFAULT
+        [TOP_P_KEY]: TOP_P_DEFAULT,
+        [THEME_KEY]: 'light'
       },
       providers: {},
       mcpServers: {

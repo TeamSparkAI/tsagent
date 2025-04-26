@@ -325,23 +325,25 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                     <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Content</h3>
                     <div style={{ 
                         padding: '16px',
-                        backgroundColor: '#f8f9fa',
+                        backgroundColor: 'var(--bg-secondary)',
                         borderRadius: '4px',
-                        border: '1px solid #dee2e6'
+                        border: '1px solid var(--border-color)'
                     }}>
                         <ReactMarkdown 
                             remarkPlugins={[remarkGfm]}
                             components={{
                                 p: ({node, ...props}) => <p style={{ 
                                     margin: '0 0 1em 0',
-                                    whiteSpace: 'pre-line'
+                                    whiteSpace: 'pre-line',
+                                    color: 'var(--text-primary)'
                                 }} {...props} />,
                                 pre: ({node, ...props}) => <pre style={{ 
                                     whiteSpace: 'pre-wrap',
                                     margin: '0 0 1em 0',
                                     padding: '1em',
-                                    backgroundColor: '#f1f1f1',
-                                    borderRadius: '4px'
+                                    backgroundColor: 'var(--bg-tertiary)',
+                                    borderRadius: '4px',
+                                    color: 'var(--text-primary)'
                                 }} {...props} />
                             }}
                         >
@@ -380,25 +382,14 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                                     setTabState({ mode: 'about' });
                                     setSelectedRule(null);
                                 }}
-                                style={{
-                                    padding: '10px',
-                                    cursor: 'pointer',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '8px',
-                                    backgroundColor: tabState.mode === 'about' ? '#e6f7ff' : 'transparent',
-                                    borderLeft: tabState.mode === 'about' ? '3px solid #1890ff' : 'none',
-                                    borderRadius: '4px',
-                                    marginBottom: '5px'
-                                }}
                             >
-                                <span style={{ color: '#666' }}>ℹ️</span>
+                                <span className="info-icon">ℹ️</span>
                                 <span>About Rules</span>
                             </div>
                             {rules.map(rule => (
                                 <div
                                     key={rule.name}
-                                    className={`tab-items-item ${selectedRule?.name === rule.name ? 'selected' : ''}`}
+                                    className={`tab-items-item ${selectedRule?.name === rule.name ? 'selected' : ''} ${isEditing ? 'disabled' : ''}`}
                                     onClick={() => {
                                         if (!isEditing) {
                                             setSelectedRule(rule);
@@ -406,20 +397,13 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                                         }
                                     }}
                                     style={{
-                                        padding: '8px 16px',
-                                        cursor: isEditing ? 'not-allowed' : 'pointer',
-                                        backgroundColor: selectedRule?.name === rule.name ? '#e6f7ff' : 'transparent',
-                                        borderLeft: selectedRule?.name === rule.name ? '3px solid #1890ff' : 'none',
-                                        borderRadius: '4px',
                                         opacity: rule.enabled ? 1 : 0.5,
                                         display: 'flex',
                                         alignItems: 'center',
-                                        gap: '8px',
-                                        filter: isEditing ? 'grayscale(0.5)' : 'none',
-                                        pointerEvents: isEditing ? 'none' : 'auto'
+                                        gap: '8px'
                                     }}
                                 >
-                                    <span style={{ fontFamily: 'monospace', color: '#666' }}>
+                                    <span className="reference-priority">
                                         {rule.priorityLevel.toString().padStart(3, '0')}
                                     </span>
                                     <span>{rule.name}</span>

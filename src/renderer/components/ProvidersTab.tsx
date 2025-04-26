@@ -484,19 +484,8 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                       setTabState({ mode: 'about' });
                       setSelectedProvider(null);
                     }}
-                    style={{
-                      padding: '10px',
-                      cursor: 'pointer',
-                      backgroundColor: tabState.mode === 'about' && !selectedProvider ? '#e6f7ff' : 'transparent',
-                      borderLeft: tabState.mode === 'about' && !selectedProvider ? '3px solid #1890ff' : 'none',
-                      borderRadius: '4px',
-                      marginBottom: '5px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '8px'
-                    }}
                   >
-                    <span style={{ color: '#666' }}>ℹ️</span>
+                    <span className="info-icon">ℹ️</span>
                     <span>About Providers</span>
                   </div>
                   {providers.map((provider) => (
@@ -504,17 +493,6 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                       key={provider.id}
                       className={`tab-items-item ${selectedProvider === provider.id ? 'selected' : ''}`}
                       onClick={() => handleProviderSelect(provider.id)}
-                      style={{
-                        padding: '10px',
-                        cursor: 'pointer',
-                        backgroundColor: selectedProvider === provider.id ? '#e6f7ff' : 'transparent',
-                        borderLeft: selectedProvider === provider.id ? '3px solid #1890ff' : 'none',
-                        borderRadius: '4px',
-                        marginBottom: '5px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}
                     >
                       <img 
                         src={providerLogos[provider.id as LLMType]} 
