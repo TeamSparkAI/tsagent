@@ -425,7 +425,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
         </div>
       </div>
       <div className="workspace-content">
-        <div className="workspace-section">          
+        <div className="workspace-section">    
           <div className="workspace-actions">
             <button
               onClick={handleOpenWorkspace}
@@ -450,12 +450,14 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
                 </div>
                 <div className="workspace-item">
                   <div className="path">{currentWorkspace.workspacePath}</div>
-                  <button
-                    onClick={handleCloneWorkspace}
-                    className="btn add-button"
-                  >
-                    Clone Workspace
-                  </button>
+                  <div className="workspace-buttons">
+                    <button
+                      onClick={handleCloneWorkspace}
+                      className="btn add-button"
+                    >
+                      Clone Workspace
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (
@@ -478,14 +480,15 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
                     >
                       <div className="window-item">
                         <div className="path">{window.workspacePath}</div>
-                        <div className="window-id">Window {window.windowId}</div>
                       </div>
-                      <button
-                        onClick={() => handleFocusWindow(window.windowId)}
-                        className="btn configure-button"
-                      >
-                        Focus Window
-                      </button>
+                      <div className="workspace-buttons">
+                        <button
+                          onClick={() => handleFocusWindow(window.windowId)}
+                          className="btn configure-button"
+                        >
+                          Focus Window
+                        </button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -505,7 +508,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
                       className="workspace-item"
                     >
                       <div className="path">{path}</div>
-                      <div className="workspace-actions">
+                      <div className="workspace-buttons">
                         <button
                           onClick={() => handleSwitchToRecent(path)}
                           className="btn configure-button"

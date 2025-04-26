@@ -90,10 +90,6 @@
   padding: 24px;
 }
 
-.workspace-section {
-  margin-bottom: 24px;
-}
-
 .workspace-section h1 {
   font-size: 20px;
   font-weight: bold;
@@ -107,6 +103,11 @@
   margin-bottom: 24px;
 }
 
+.workspace-buttons {
+  display: flex;
+  gap: 8px;
+}
+
 .workspace-container {
   border: 1px solid var(--border-color);
   border-radius: 6px;
@@ -117,7 +118,7 @@
 
 .workspace-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   padding: 12px;
   background-color: var(--bg-tertiary);
@@ -132,7 +133,7 @@
   font-weight: 500;
   color: var(--text-primary);
   flex: 1;
-  min-width: 200px;
+  /* min-width: 200px; */
 }
 
 .workspace-item .workspace-actions {
