@@ -128,9 +128,9 @@ function isProviderInstalled(workspace: WorkspaceManager, providerName: string):
   return workspace.getInstalledProviders().includes(providerName);
 }
 
-export function setupCLI(workspace: WorkspaceManager) {
+export function setupCLI(workspace: WorkspaceManager, version: string) {
   // Get version from package.json
-  console.log(chalk.green(`Welcome to TeamSpark AI Workbench v${process.env.npm_package_version}!`));
+  console.log(chalk.green(`Welcome to TeamSpark AI Workbench v${version}!`));
   showHelp();
   
   const llmFactory = new LLMFactory(workspace);
@@ -671,7 +671,7 @@ export function setupCLI(workspace: WorkspaceManager) {
       while (running) {
         const displayName = currentProvider ? currentProvider : "No Provider";
         try {
-          const input = await collectInput(chalk.cyan(`${displayName}> `));
+          const input = await collectInput(chalk.cyan(`${displayName}>`));
           running = await processInput(input);
         } catch (error) {
           if (error instanceof Error && error.message.includes('canceled')) {
