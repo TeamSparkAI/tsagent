@@ -38,7 +38,7 @@
     padding: 15px;
     overflow-y: auto;
     flex: 1;
-    background-color: var(--bg-secondary);
+    background-color: var(--bg-primary);
   }
   
   .providers-list, .provider-details, .models-list {
@@ -57,7 +57,7 @@
     border-radius: 4px;
     cursor: pointer;
     margin-bottom: 5px;
-    background-color: var(--bg-primary);
+    background-color: var(--bg-secondary);
     color: var(--text-primary);
   }
   
