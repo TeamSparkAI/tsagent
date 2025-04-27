@@ -158,10 +158,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
 
             // Update the chat settings
             setChatSettings({
-              maxChatTurns: state.maxChatTurns || MAX_CHAT_TURNS_DEFAULT,
-              maxOutputTokens: state.maxOutputTokens || MAX_OUTPUT_TOKENS_DEFAULT,
-              temperature: state.temperature || TEMPERATURE_DEFAULT,
-              topP: state.topP || TOP_P_DEFAULT
+              maxChatTurns: state.maxChatTurns ?? MAX_CHAT_TURNS_DEFAULT,
+              maxOutputTokens: state.maxOutputTokens ?? MAX_OUTPUT_TOKENS_DEFAULT,
+              temperature: state.temperature ?? TEMPERATURE_DEFAULT,
+              topP: state.topP ?? TOP_P_DEFAULT
             });
             
             setIsInitialized(true);

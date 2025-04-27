@@ -13,7 +13,7 @@ export class ChatSessionManager {
   }
   
   getSettingsValue(value: number | undefined, key: string, defaultValue: number): number {
-    if (value) {
+    if (value != undefined) {
       return value;
     }
     const settingsValue = this.workspace.getSettingsValue(key);
