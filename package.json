@@ -15,7 +15,7 @@
     "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.js",
     "test": "jest",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "npm run build && electron-builder"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
