@@ -486,7 +486,7 @@ export const WorkspaceTab: React.FC<WorkspaceTabProps> = ({ id, name, activeTabI
                           onClick={() => handleFocusWindow(window.windowId)}
                           className="btn configure-button"
                         >
-                          Focus Window
+                          Switch to Window
                         </button>
                       </div>
                     </div>
