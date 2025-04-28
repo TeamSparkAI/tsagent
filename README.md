@@ -33,33 +33,46 @@ When running installed builds, see below...
 On **MacOS** installed releases, there is a shell script provided to launch the CLI called `tspark.sh`.  You may run this directly,
 or create a symlink to it for conveninence:
 
-  `/Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh`
+```bash
+/Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh
+```
 
-    or 
+or 
 
-  `ln -s /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh ~/.local/bin/tspark`
+```bash
+ln -s /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh ~/.local/bin/tspark
+```
 
-    then just
+then just
 
-  `tspark`
+```bash
+tspark
+```
 
 ### Linux
 
 On **Linux** installed releases, TeamSpark AI Workbench is launched via `teamspark-workbench`.  You may run in CLI mode by appending `--cli`.  
 
-  `teamspark-workbench --cli`
+```bash
+teamspark-workbench --cli
+```
 
 There is also a CLI launcher called `tspark.sh`.  You may run this directly, or create a symlink to it for convenience:
 
-  `/opt/TeamSpark\ AI\ Workbench.app/tspark.sh`
+```bash
+/opt/TeamSpark\ AI\ Workbench.app/tspark.sh
+```
+or 
 
-    or 
+```bash
+sudo ln -s /opt/TeamSpark\ AI\ Workbench.app/tspark.sh /usr/bin/tspark
+```
 
-  `sudo ln -s /opt/TeamSpark\ AI\ Workbench.app/tspark.sh /usr/bin/tspark`
+then just
 
-    then just
-
-  `tspark`
+```bash
+tspark
+```
 
 ### CLI Workspace
 
