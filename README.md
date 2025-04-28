@@ -22,12 +22,50 @@ TeamSpark AI Workbench supports:
 TeamSpark AI Workbench also includes internal tools that allow models to directly interact with references and tools, meaning
 the models can build and update their own references and rules (allowing them to "remember" and "learn").
 
-## CLI
+## CLI Mode
 
-To run the command-line interface, use the `--cli` argument. You should either run the command line app in a directory
-containing a workspace, or pass it a workspace location via the `--workspace` argument. To create a new workspace in 
-current (or provided) workspace directory, use the `--create` argument. Running the cli without a workspace will provide
-the above workspace guidance.
+When building and running locally, you can launch the CLI with `npm run cli`
+
+When running installed builds, see below...
+
+### MacOS
+
+On **MacOS** installed releases, there is a shell script provided to launch the CLI called `tspark.sh`.  You may run this directly,
+or create a symlink to it for conveninence:
+
+  `/Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh`
+
+    or 
+
+  `ln -s /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh ~/.local/bin/tspark`
+
+    then just
+
+  `tspark`
+
+### Linux
+
+On **Linux** installed releases, TeamSpark AI Workbench is launched via `teamspark-workbench`.  You may run in CLI mode by appending `--cli`.  
+
+  `teamspark-workbench --cli`
+
+There is also a CLI launcher called `tspark.sh`.  You may run this directly, or create a symlink to it for convenience:
+
+  `/opt/TeamSpark\ AI\ Workbench.app/tspark.sh`
+
+    or 
+
+  `sudo ln -s /opt/TeamSpark\ AI\ Workbench.app/tspark.sh /usr/bin/tspark`
+
+    then just
+
+  `tspark`
+
+### CLI Workspace
+
+You should either run the command line app in a directory containing a workspace, or pass it a workspace location via 
+the `--workspace` argument. To create a new workspace in current (or provided) workspace directory, use the `--create` 
+argument. Running the cli without a workspace will provide the above workspace guidance and exit.
 
 ## Website
 
