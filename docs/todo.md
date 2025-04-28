@@ -192,3 +192,31 @@ User picks one, we give them the correct controls (say string versus array of st
     "title": "grepArguments"
   }
 }
+
+## CLI Mode
+
+On Linux install, TeamSpark AI Workbench is launched via `teamspark-workbench`.  You may run in CLI mode by appending `--cli`, or you may use the CLI launcher called `tspark`.
+
+  teamspark-workbench --cli
+   
+    or
+
+  tspark
+
+On MacOS, there is a shell script provided to launch the CLI called tspark.sh.  You may run this directly, or create a symlink to it for conveninence:
+
+   
+  /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh
+
+    or 
+
+  ln -s /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh ~/.local/bin/tspark
+
+    then just
+
+  tspark
+
+
+
+
+
