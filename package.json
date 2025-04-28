@@ -114,7 +114,14 @@
         }
       ],
       "icon": "build/icon.png",
-      "category": "Development"
+      "category": "Development",
+      "desktop": {
+        "Exec": "teamspark-workbench"
+      },
+      "bin": [
+        "teamspark-workbench",
+        "tspark"
+      ]
     },
     "files": [
       "dist/**/*",
