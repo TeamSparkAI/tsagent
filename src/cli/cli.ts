@@ -612,7 +612,12 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
     }
 
     try {
-      const spinner = ora({text: 'Thinking...'}).start();
+      const spinner = ora({
+        text: 'Thinking...',
+        stream: process.platform === 'darwin' ? process.stdout : process.stderr // We are blocking stderr on MacOS (to hide warnings)
+      })
+      
+      spinner.start();
       
       // Add timeout to prevent infinite hanging
       const messageUpdate = await Promise.race<MessageUpdate>([

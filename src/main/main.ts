@@ -213,7 +213,14 @@ async function startApp() {
       process.exit(1);
     }
 
-    setupCLI(workspaceManager, app.getVersion());
+    let version = "unknown";
+    if (app) {
+      version = app.getVersion();
+    } else if (process.env.npm_package_version) {
+      version = process.env.npm_package_version;
+    }
+
+    setupCLI(workspaceManager, version);
   } else {
     // Set app name before anything else
     process.env.ELECTRON_APP_NAME = PRODUCT_NAME;
