@@ -35,7 +35,7 @@ const afterPackHook = async params => {
 
             // Make a tspark shell script file in the same directory as the executable (adding --cli)
             const tsparkScriptPath = path.join(params.appOutDir, 'tspark.sh');
-            const tsparkScript = launcherScript.replace('--no-sandbox', '--no-sandbox --cli');
+            const tsparkScript = launcherScript.replace(/--no-sandbox/g, '--no-sandbox --cli');
             await fs.writeFile(tsparkScriptPath, tsparkScript);
             await fs.chmod(tsparkScriptPath, 0o755);
                         
