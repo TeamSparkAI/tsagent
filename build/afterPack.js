@@ -32,14 +32,8 @@ const afterPackHook = async params => {
             // Write the GUI launcher script
             await fs.writeFile(executable, launcherScript);
             await fs.chmod(executable, 0o755);
-            
-            // Create CLI launcher script
-            const cliLauncherPath = path.join(path.dirname(executable), 'tspark');
-            const cliLauncherScript = launcherScript.replace('--no-sandbox', '--no-sandbox --cli');
-            await fs.writeFile(cliLauncherPath, cliLauncherScript);
-            await fs.chmod(cliLauncherPath, 0o755);
-            
-            log.info('Linux launcher scripts created successfully');
+                        
+            log.info('Linux launcher script created successfully');
         } catch (e) {
             log.error('failed to create launcher scripts: ' + e.message);
             throw new Error('Failed to create launcher scripts');
