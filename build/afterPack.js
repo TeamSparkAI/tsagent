@@ -12,7 +12,7 @@ const afterPackHook = async params => {
         );
 
         // Read the launcher script content
-        const launcherScriptPath = path.join(__dirname, 'teamspark-launcher.sh');
+        const launcherScriptPath = path.join(__dirname, 'linux/teamspark-launcher.sh');
         let launcherScript;
         try {
             launcherScript = await fs.readFile(launcherScriptPath, 'utf8');
@@ -43,7 +43,7 @@ const afterPackHook = async params => {
         
         // Copy CLI script to Resources directory
         const cliScriptPath = path.join(params.appOutDir, 'TeamSpark AI Workbench.app/Contents/Resources/tspark.sh');
-        const cliScriptSource = path.join(__dirname, 'tspark_darwin.sh');
+        const cliScriptSource = path.join(__dirname, 'darwin/tspark.sh');
         
         try {
             // Copy the script and make it executable

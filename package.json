@@ -118,10 +118,11 @@
       "executableName": "teamspark-workbench",
       "extraFiles": [
         {
-          "from": "build/tspark_linux.sh",
-          "to": "/usr/bin/tspark"
+          "from": "build/linux/tspark.sh",
+          "to": "usr/bin/tspark"
         }
-      ]
+      ],
+      "afterInstall": "build/linux/after-install.sh"
     },
     "files": [
       "dist/**/*",
