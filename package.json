@@ -119,7 +119,7 @@
       "extraFiles": [
         {
           "from": "build/tspark_linux.sh",
-          "to": "usr/bin/tspark"
+          "to": "/usr/bin/tspark"
         }
       ]
     },
