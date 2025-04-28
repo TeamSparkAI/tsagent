@@ -115,13 +115,10 @@
       ],
       "icon": "build/icon.png",
       "category": "Development",
-      "desktop": {
-        "Exec": "teamspark-workbench"
-      },
       "executableName": "teamspark-workbench",
       "extraFiles": [
         {
-          "from": "release/linux-unpacked/tspark",
+          "from": "build/tspark_linux.sh",
           "to": "usr/bin/tspark"
         }
       ]
