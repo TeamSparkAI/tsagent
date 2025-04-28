@@ -37,13 +37,13 @@ or create a symlink to it for conveninence:
 /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh
 ```
 
-or 
+or creare symlink:
 
 ```bash
 ln -s /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh ~/.local/bin/tspark
 ```
 
-then just
+then just:
 
 ```bash
 tspark
@@ -62,13 +62,14 @@ There is also a CLI launcher called `tspark.sh`.  You may run this directly, or 
 ```bash
 /opt/TeamSpark\ AI\ Workbench.app/tspark.sh
 ```
-or 
+
+or create symlink:
 
 ```bash
 sudo ln -s /opt/TeamSpark\ AI\ Workbench.app/tspark.sh /usr/bin/tspark
 ```
 
-then just
+then just:
 
 ```bash
 tspark
