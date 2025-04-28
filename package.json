@@ -121,7 +121,7 @@
       "executableName": "teamspark-workbench",
       "extraFiles": [
         {
-          "from": "linux-unpacked/tspark",
+          "from": "release/linux-unpacked/tspark",
           "to": "usr/bin/tspark"
         }
       ]
