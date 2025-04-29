@@ -30,36 +30,24 @@ Workspace metadata (name/desc) would be nice in UX
 
 How many previous workspaces, what happens in UX if they overflow
 
-## Before Release
-
-Top-level menus?
-
-Option to "register" command line app on first run (and from menu later)
-
-## Symlink
-
-MacOS:
-
-sudo ln -s "/Applications/TeamSpark AI Workbench.app/Contents/MacOS/TeamSpark AI Workbench" /usr/local/bin/tspark
-
-Then:
-
-tspark --cli
-
 ## Dist
 
 In install/run, wants access to Documents?
 
-Update GHA to name dist files "latests"
-
-Fix linux install (Sandbox issue)
-
-Make real website
-- Branding (icon, etc)
-- Screen shots
-- Video (Youtube demo?)
-
 ====
+
+## Tool library
+
+Build metadata catalog of tools (name, overview, default config)
+
+On Tool "Add" - show list of tools (like list of providers) with a "Custom..." option, maybe search edit control to filter (if there are more than ~20)
+
+On selection of tool to add, take to tool add form page (should see mostly configured tool, with any required args/env having placeholder values)
+
+In a more sophisticated version
+- The metadata would contain indications of required config values (desc/type/etc)
+- We'd collect those via a more friendly form
+- Maybe re-use (generalize) the provider metadata implementation (which does something similar)
 
 ## Context Overflow
 

@@ -37,5 +37,5 @@ Claude
     display_name: 'Claude 3 Opus',
     created_at: '2024-02-29T00:00:00Z'
 
-Gemini (no API currently, but it is imminent?)
-    ???
+Gemini (no API currently - model data is hardcoded)
+- Issue for exposing API: https://github.com/googleapis/js-genai/issues/473

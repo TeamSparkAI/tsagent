@@ -4,11 +4,6 @@
 
 Support non-text message types (mainly images?)
 
-## Hosted Version
-
-Refs and rules would work fine
-Hosted server tools catalog (installed per account)
-
 ## Model abstraction
 
 It would be great to have it pluggable, maybe later.
@@ -64,7 +59,7 @@ Add support for inference profile and provisioned models
 
 ## CLI
 
-No way to install/uninstall tools
+No way to install/uninstall providers or tools
 
 ## References / Rules include by keyword
 
