@@ -17,4 +17,3 @@ Tools
   - Local agent (configured locally) exposes tools (same client code as now)
   - Expose SSE server endpoint (easy, but means local machine must be internet locatable)
   - PubSub might be better (client registration, tool calling, tool call response, etc)
-
