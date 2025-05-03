@@ -9,7 +9,7 @@ import { ModelReply, Turn, ToolCall } from '../../shared/ModelReply';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import { ILLMModel } from '../../shared/llm';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TOP_P_DEFAULT } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '../../shared/workspace';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -18,13 +18,15 @@ import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
+import { ChatState } from '../../shared/ChatSession';
 
-// Add ChatState interface back
-interface ChatState {
+interface ClientChatState {
   messages: (RendererChatMessage & { modelReply?: ModelReply })[];
-  selectedModel?: LLMType;  // Make this optional
-  selectedModelName?: string;  // Make this optional
+  selectedModel?: LLMType;
+  selectedModelName?: string;
   currentModelId?: string;
+  references?: string[];
+  rules?: string[];
 }
 
 // Handle external links safely
@@ -55,7 +57,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [scrollPosition, setScrollPosition] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [chatState, setChatState] = useState<ChatState>({
+  const [chatState, setChatState] = useState<ClientChatState>({
     messages: []
   });
   const [inputValue, setInputValue] = useState('');
@@ -70,11 +72,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [models, setModels] = useState<ILLMModel[]>([]);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isNewSession, setIsNewSession] = useState(true);
-  const [chatSettings, setChatSettings] = useState({
+  const [chatSettings, setChatSettings] = useState<ChatSettings>({
     maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
     maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
     temperature: TEMPERATURE_DEFAULT,
-    topP: TOP_P_DEFAULT
+    topP: TOP_P_DEFAULT,
+    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
 
   useEffect(() => {
@@ -111,7 +114,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           // Then initialize the ChatAPI
           chatApiRef.current = new ChatAPI(id);
           if (chatApiRef.current) {
-            const state = await window.api.getChatState(id);
+            const state = await window.api.getChatState(id) as ChatState;
             if (!state) {
               log.error(`[CHAT TAB] No chat state found for tab ${id}`);
               return;
@@ -136,7 +139,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               }
             }
             
-            const newChatState = {
+            const newChatState: ClientChatState = {
               messages: state.messages.map((msg: any) => ({
                 type: msg.role === 'assistant' ? 'ai' : msg.role,
                 content: msg.role === 'assistant' ? '' : msg.content,
@@ -145,30 +148,32 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               selectedModel: modelProvider,
               selectedModelName: modelName,
               currentModelId: modelId,
-              references: state.references,
-              rules: state.rules
+              references: state.references || [],
+              rules: state.rules || [],
             };
 
             // Update the chat state
             setChatState(newChatState);
-                        
+            
             // Update the context data
-            setActiveReferences(state.references);
-            setActiveRules(state.rules);
+            setActiveReferences(state.references || []);
+            setActiveRules(state.rules || []);
 
             // Update the chat settings
             setChatSettings({
               maxChatTurns: state.maxChatTurns ?? MAX_CHAT_TURNS_DEFAULT,
               maxOutputTokens: state.maxOutputTokens ?? MAX_OUTPUT_TOKENS_DEFAULT,
               temperature: state.temperature ?? TEMPERATURE_DEFAULT,
-              topP: state.topP ?? TOP_P_DEFAULT
+              topP: state.topP ?? TOP_P_DEFAULT,
+              toolPermission: (state.toolPermission === SESSION_TOOL_PERMISSION_TOOL || state.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || state.toolPermission === SESSION_TOOL_PERMISSION_NEVER)
+                ? state.toolPermission as SessionToolPermission
+                : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
             });
             
             setIsInitialized(true);
 
             // Only show model picker if no model was specified
             setShowModelPickerPanel(!modelProvider);
-
           }
         } catch (error) {
           log.error('Error initializing chat tab:', error);
@@ -372,7 +377,9 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         messages: chatApiRef.current!.getMessages(),
         selectedModel: chatApiRef.current!.getCurrentModel(),
         selectedModelName: chatApiRef.current!.getCurrentModelName(),
-        currentModelId: prev.currentModelId
+        currentModelId: prev.currentModelId,
+        references: prev.references,
+        rules: prev.rules
       }));
       
       // Refresh the context to show any changes made during message processing
@@ -406,13 +413,17 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           // Get updated messages that include the system message about model change
           const updatedMessages = chatApiRef.current.getMessages();
           
-          setChatState(prev => ({
-            ...prev,
-            selectedModel: model,
-            selectedModelName: modelName || prev.selectedModelName,
-            currentModelId: modelId || prev.currentModelId,
-            messages: updatedMessages // Update messages to include system message
-          }));
+          setChatState(prev => {
+            const newState: ClientChatState = {
+              messages: updatedMessages,
+              selectedModel: model,
+              selectedModelName: modelName || prev.selectedModelName,
+              currentModelId: modelId || prev.currentModelId,
+              references: prev.references,
+              rules: prev.rules
+            };
+            return newState;
+          });
           
           // Save the most recent model selection to workspace settings
           const modelValue = modelId ? `${model}:${modelId}` : model;
@@ -425,12 +436,17 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       }
     } catch (error) {
       log.error('Error changing model:', error);
-      setChatState(prev => ({
-        ...prev,
-        selectedModel: prev.selectedModel,
-        selectedModelName: prev.selectedModelName,
-        currentModelId: prev.currentModelId
-      }));
+      setChatState(prev => {
+        const newState: ClientChatState = {
+          messages: prev.messages,
+          selectedModel: prev.selectedModel,
+          selectedModelName: prev.selectedModelName,
+          currentModelId: prev.currentModelId,
+          references: prev.references,
+          rules: prev.rules,
+        };
+        return newState;
+      });
     }
   };
 

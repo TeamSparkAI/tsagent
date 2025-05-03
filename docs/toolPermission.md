@@ -14,18 +14,19 @@ It would be ideal if the chat interface presented the tool call permission inlin
 
 ## Permission Configuration and Application
 
-We need to add a chat setting for Tool Call Permission: [Ask if tool not pre-approved, Never ask (dangerous)] - this setting should be at the workspace and chat session (override) level
+We have a session level setting for tool permission with values Always, Never, and Tool (use tool's permission required value)
 
-For each server, we should have a setting for Tool Use Approval [Approval Required, Approval Not Required] (may be override on by individual tools)
+We have a server level setting for default tool permissions for tools from that server with values of Always and Never
 
-For each tool, there should be a setting for Tool Use Approval [Server Default (Approval Required/Not Required), Approval Required, Approval Not Required]
+We have a tool level setting that is Default (user default value from that tool's server), Always, or Never
 
 To determined whether tool use permission is required for a given tool call in a chat session:
-- If Chat Session setting for tool usage permission is Never Ask, permission is not required
-- If Chat Session indicates a tool has been approved for the session, permission is not required
-- If the tool configuration indicates that permission is not required, permission is not required
-- If the tool configuration indicates that permission is required, permission is required
-- If the tool configuration indicates to use the server default permission value, permission required is the server default permission value
+- If Chat Session setting for tool usage permission is always or never, that is the tool permission
+- Else if Chat Session setting for tool usage permission is tool:
+  - If the tool permission setting indicates that permission is always or never, then that is the tool permission
+  - Else the server default tool permission for the server of the tool in question is the tool permission
+
+We have implemented the user interface and serialization of the above settings, but we do not yet enforce them.
 
 ## Permission Prompt
 

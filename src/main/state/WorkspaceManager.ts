@@ -7,8 +7,14 @@ import { ReferencesManager } from './ReferencesManager';
 import { ChatSessionManager } from './ChatSessionManager';
 import { LLMFactory } from '../llm/llmFactory';
 import { MCPClientManager } from '../mcp/manager';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY, THEME_KEY } from '../../shared/workspace';
-import { MAX_CHAT_TURNS_KEY } from '../../shared/workspace';
+import { 
+    MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, 
+    MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, 
+    TEMPERATURE_DEFAULT, TEMPERATURE_KEY, 
+    TOP_P_DEFAULT, TOP_P_KEY, 
+    THEME_KEY,
+    SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL
+} from '../../shared/workspace';
 
 export class WorkspaceManager {
   private static readonly WORKSPACE_FILE_NAME = 'tspark.json';
@@ -53,11 +59,12 @@ export class WorkspaceManager {
         version: '1.0.0'
       },
       settings: {
-        [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT,
-        [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT,
-        [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT,
-        [TOP_P_KEY]: TOP_P_DEFAULT,
-        [THEME_KEY]: 'light'
+        [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT.toString(),
+        [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT.toString(),
+        [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT.toString(),
+        [TOP_P_KEY]: TOP_P_DEFAULT.toString(),
+        [THEME_KEY]: 'light',
+        [SESSION_TOOL_PERMISSION_KEY]: SESSION_TOOL_PERMISSION_TOOL
       },
       providers: {},
       mcpServers: {

@@ -8,7 +8,7 @@ import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatSession, ChatSessionOptionsWithRequiredSettings } from '../main/state/ChatSession';
 import { MessageUpdate } from '../shared/ChatSession';
 import { WorkspaceManager } from '../main/state/WorkspaceManager';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MOST_RECENT_MODEL_KEY, SessionToolPermission, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, SESSION_TOOL_PERMISSION_DEFAULT, SESSION_TOOL_PERMISSION_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../shared/workspace';
 import { LLMFactory } from '../main/llm/llmFactory';
 import path from 'path';
 import * as fs from 'fs';
@@ -115,12 +115,18 @@ function getSettingsValue(workspace: WorkspaceManager, key: string, defaultValue
   return settingsValue ? parseFloat(settingsValue) : defaultValue;
 }
 
+function getToolPermissionValue(workspace: WorkspaceManager, key: string, defaultValue: SessionToolPermission): SessionToolPermission {
+  const settingsValue = workspace.getSettingsValue(key);
+  return settingsValue ? settingsValue as SessionToolPermission : defaultValue;
+}
+
 function getWorkspaceSettings(workspace: WorkspaceManager): ChatSessionOptionsWithRequiredSettings {
   return {
     maxChatTurns: getSettingsValue(workspace, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT),
     maxOutputTokens: getSettingsValue(workspace, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT),
     temperature: getSettingsValue(workspace, TEMPERATURE_KEY, TEMPERATURE_DEFAULT),
-    topP: getSettingsValue(workspace, TOP_P_KEY, TOP_P_DEFAULT)
+    topP: getSettingsValue(workspace, TOP_P_KEY, TOP_P_DEFAULT),
+    toolPermission: getToolPermissionValue(workspace, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT)
   };
 }
 

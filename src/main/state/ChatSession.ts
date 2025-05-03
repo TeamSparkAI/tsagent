@@ -3,8 +3,9 @@ import { LLMType } from '../../shared/llm';
 import { ILLM } from '../../shared/llm';
 import log from 'electron-log';
 import { WorkspaceManager } from './WorkspaceManager';
+import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../../shared/workspace';
 
-type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP'>>;
+type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission'>>;
 export type ChatSessionOptionsWithRequiredSettings = Omit<ChatSessionOptions, keyof RequiredSettings> & RequiredSettings;
 
 export class ChatSession {
@@ -20,6 +21,7 @@ export class ChatSession {
   maxOutputTokens: number;
   temperature: number;
   topP: number;
+  toolPermission: SessionToolPermission;
 
   constructor(workspace: WorkspaceManager, options: ChatSessionOptionsWithRequiredSettings) {
     this.workspace = workspace;
@@ -35,7 +37,9 @@ export class ChatSession {
     this.maxOutputTokens = options.maxOutputTokens;
     this.temperature = options.temperature;
     this.topP = options.topP;
-    
+    this.toolPermission = (options.toolPermission === SESSION_TOOL_PERMISSION_TOOL || options.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || options.toolPermission === SESSION_TOOL_PERMISSION_NEVER)
+      ? options.toolPermission
+      : SESSION_TOOL_PERMISSION_TOOL;
     let modelDescription = '';
 
     // Create the LLM instance
@@ -277,7 +281,8 @@ export class ChatSession {
       maxChatTurns: this.maxChatTurns,
       maxOutputTokens: this.maxOutputTokens,
       temperature: this.temperature,
-      topP: this.topP
+      topP: this.topP,
+      toolPermission: this.toolPermission,
     };
   }
 

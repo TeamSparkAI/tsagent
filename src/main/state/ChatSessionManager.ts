@@ -3,7 +3,7 @@ import { LLMType } from '../../shared/llm';
 import log from 'electron-log';
 import { ChatSession, ChatSessionOptionsWithRequiredSettings } from './ChatSession';
 import { WorkspaceManager } from './WorkspaceManager';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, SessionToolPermission, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SESSION_TOOL_PERMISSION_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../../shared/workspace';
 
 export class ChatSessionManager {
   private sessions = new Map<string, ChatSession>();
@@ -20,6 +20,16 @@ export class ChatSessionManager {
     return settingsValue ? parseFloat(settingsValue) : defaultValue;
   }
 
+  getToolPermissionValue(value: SessionToolPermission | undefined, key: string, defaultValue: SessionToolPermission): SessionToolPermission {
+    if (value != undefined) {
+      return value;
+    }
+    const settingsValue = this.workspace.getSettingsValue(key);
+    return (settingsValue === SESSION_TOOL_PERMISSION_TOOL || settingsValue === SESSION_TOOL_PERMISSION_ALWAYS || settingsValue === SESSION_TOOL_PERMISSION_NEVER)
+      ? settingsValue as SessionToolPermission
+      : defaultValue;
+  }
+
   createSession(tabId: string, options: ChatSessionOptions = {}): ChatSession {
     // Don't create if already exists
     if (this.sessions.has(tabId)) {
@@ -31,7 +41,8 @@ export class ChatSessionManager {
       maxChatTurns: this.getSettingsValue(options.maxChatTurns, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT),
       maxOutputTokens: this.getSettingsValue(options.maxOutputTokens, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT),
       temperature: this.getSettingsValue(options.temperature, TEMPERATURE_KEY, TEMPERATURE_DEFAULT),
-      topP: this.getSettingsValue(options.topP, TOP_P_KEY, TOP_P_DEFAULT)
+      topP: this.getSettingsValue(options.topP, TOP_P_KEY, TOP_P_DEFAULT),
+      toolPermission: this.getToolPermissionValue(options.toolPermission, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL)
     }
 
     // Create new ChatSession instance

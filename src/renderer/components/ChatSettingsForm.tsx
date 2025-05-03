@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import log from 'electron-log';
 import './ChatSettingsForm.css';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY } from '../../shared/workspace';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '../../shared/workspace';
 
 export interface ChatSettings {
   maxChatTurns: number;
   maxOutputTokens: number;
   temperature: number;
   topP: number;
+  toolPermission: SessionToolPermission;
 }
 
 interface ChatSettingsFormProps {
@@ -25,7 +26,8 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
     maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
     maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
     temperature: TEMPERATURE_DEFAULT,
-    topP: TOP_P_DEFAULT
+    topP: TOP_P_DEFAULT,
+    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
 
   useEffect(() => {
@@ -35,12 +37,16 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
         const maxTokens = await window.api.getSettingsValue(MAX_OUTPUT_TOKENS_KEY);
         const temperature = await window.api.getSettingsValue(TEMPERATURE_KEY);
         const topP = await window.api.getSettingsValue(TOP_P_KEY);
+        const toolPermission = await window.api.getSettingsValue('toolPermission');
 
         setWorkspaceSettings({
           maxChatTurns: maxTurns ? parseInt(maxTurns) : MAX_CHAT_TURNS_DEFAULT,
           maxOutputTokens: maxTokens ? parseInt(maxTokens) : MAX_OUTPUT_TOKENS_DEFAULT,
           temperature: temperature ? parseFloat(temperature) : TEMPERATURE_DEFAULT,
-          topP: topP ? parseFloat(topP) : TOP_P_DEFAULT
+          topP: topP ? parseFloat(topP) : TOP_P_DEFAULT,
+          toolPermission: (toolPermission === SESSION_TOOL_PERMISSION_TOOL || toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || toolPermission === SESSION_TOOL_PERMISSION_NEVER) 
+            ? toolPermission as SessionToolPermission 
+            : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
         });
       } catch (error) {
         log.error('Error loading workspace settings:', error);
@@ -55,12 +61,29 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
       settings.maxChatTurns === workspaceSettings.maxChatTurns &&
       settings.maxOutputTokens === workspaceSettings.maxOutputTokens &&
       settings.temperature === workspaceSettings.temperature &&
-      settings.topP === workspaceSettings.topP
+      settings.topP === workspaceSettings.topP &&
+      settings.toolPermission === workspaceSettings.toolPermission
     );
   };
 
   const handleRestoreDefaults = () => {
     onSettingsChange(workspaceSettings);
+  };
+
+  const handleChange = (key: keyof ChatSettings, value: string | number) => {
+    const newSettings = { ...settings };
+    if (key === 'toolPermission') {
+      if (value === SESSION_TOOL_PERMISSION_TOOL || value === SESSION_TOOL_PERMISSION_ALWAYS || value === SESSION_TOOL_PERMISSION_NEVER) {
+        newSettings[key] = value as SessionToolPermission;
+      } else {
+        newSettings[key] = SESSION_TOOL_PERMISSION_TOOL;
+      }
+    } else if (typeof value === 'string') {
+      newSettings[key] = parseFloat(value) as any;
+    } else {
+      newSettings[key] = value as any;
+    }
+    onSettingsChange(newSettings);
   };
 
   return (
@@ -96,7 +119,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             type="number"
             id="maxChatTurns"
             value={settings.maxChatTurns}
-            onChange={(e) => onSettingsChange({ ...settings, maxChatTurns: parseInt(e.target.value) })}
+            onChange={(e) => handleChange('maxChatTurns', parseInt(e.target.value))}
             min="1"
             max="100"
           />
@@ -111,7 +134,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             type="number"
             id="maxOutputTokens"
             value={settings.maxOutputTokens}
-            onChange={(e) => onSettingsChange({ ...settings, maxOutputTokens: parseInt(e.target.value) })}
+            onChange={(e) => handleChange('maxOutputTokens', parseInt(e.target.value))}
             min="100"
             max="4000"
           />
@@ -127,7 +150,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
               type="range"
               id="temperature"
               value={settings.temperature}
-              onChange={(e) => onSettingsChange({ ...settings, temperature: parseFloat(e.target.value) })}
+              onChange={(e) => handleChange('temperature', parseFloat(e.target.value))}
               min="0"
               max="1"
               step="0.05"
@@ -146,7 +169,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
               type="range"
               id="topP"
               value={settings.topP}
-              onChange={(e) => onSettingsChange({ ...settings, topP: parseFloat(e.target.value) })}
+              onChange={(e) => handleChange('topP', parseFloat(e.target.value))}
               min="0"
               max="1"
               step="0.05"
@@ -156,6 +179,19 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
           <div className="setting-description">
             Controls diversity in the AI's responses. Lower values make responses more focused and deterministic.
           </div>
+        </div>
+
+        <div className="setting-item">
+          <label htmlFor="toolPermission">Tool Usage Permission</label>
+          <select
+            value={settings.toolPermission}
+            onChange={(e) => handleChange('toolPermission', e.target.value as SessionToolPermission)}
+            style={{ width: 'fit-content' }}
+          >
+            <option value={SESSION_TOOL_PERMISSION_TOOL}>Request permission based on tool setting</option>
+            <option value={SESSION_TOOL_PERMISSION_ALWAYS}>Always request permission</option>
+            <option value={SESSION_TOOL_PERMISSION_NEVER}>Never request permission</option>
+          </select>
         </div>
       </div>
     </div>

@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { McpConfig } from '../../main/mcp/types';
+import { 
+    McpConfig, 
+    ServerDefaultPermission, 
+    ToolPermissionSetting,
+    SERVER_PERMISSION_REQUIRED,
+    SERVER_PERMISSION_NOT_REQUIRED,
+    TOOL_PERMISSION_SERVER_DEFAULT,
+    TOOL_PERMISSION_REQUIRED,
+    TOOL_PERMISSION_NOT_REQUIRED
+} from '../../main/mcp/types';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
@@ -113,6 +122,19 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     
     // Add state for JSON validation errors
     const [jsonError, setJsonError] = useState<string | null>(null);
+
+    // Add permission state
+    const [defaultPermission, setDefaultPermission] = useState<ServerDefaultPermission>(
+        server?.config.permissions?.defaultPermission || SERVER_PERMISSION_REQUIRED
+    );
+    const [toolPermissions, setToolPermissions] = useState<Record<string, ToolPermissionSetting>>(
+        server?.config.permissions?.toolPermissions ? 
+            Object.entries(server.config.permissions.toolPermissions).reduce((acc, [toolName, config]) => {
+                acc[toolName] = config.permission;
+                return acc;
+            }, {} as Record<string, ToolPermissionSetting>)
+        : {}
+    );
 
     // Log initial state values
     useEffect(() => {
@@ -296,6 +318,17 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             configObj.type = 'stdio';
                         }
                         
+                        // Add permissions to the config
+                        if (configObj) {
+                            configObj.permissions = {
+                                defaultPermission,
+                                toolPermissions: Object.entries(toolPermissions).reduce((acc, [toolName, permission]) => {
+                                    acc[toolName] = { permission };
+                                    return acc;
+                                }, {} as Record<string, { permission: ToolPermissionSetting }>)
+                            };
+                        }
+                        
                         // Convert to internal format
                         const mcpConfig: McpConfig = {
                             name: serverName,
@@ -342,6 +375,17 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     configObj.type = 'stdio';
                 }
                 
+                // Add permissions to the config
+                if (configObj) {
+                    configObj.permissions = {
+                        defaultPermission,
+                        toolPermissions: Object.entries(toolPermissions).reduce((acc, [toolName, permission]) => {
+                            acc[toolName] = { permission };
+                            return acc;
+                        }, {} as Record<string, { permission: ToolPermissionSetting }>)
+                    };
+                }
+                
                 // Convert to internal format
                 const mcpConfig: McpConfig = {
                     name: serverName,
@@ -374,31 +418,36 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 // Parse the environment JSON
                 let envObject = JSON.parse(env);
                 
-                // Create the base server config object
-                let stdioConfig: any = {
-                    type: 'stdio',
-                    command,
-                    args: argsArray.filter(arg => arg.trim() !== ''), // Only filter out empty args when saving
+                // Create the base server config object with permissions
+                const permissions = {
+                    defaultPermission,
+                    toolPermissions: Object.entries(toolPermissions).reduce((acc, [toolName, permission]) => {
+                        acc[toolName] = { permission };
+                        return acc;
+                    }, {} as Record<string, { permission: ToolPermissionSetting }>)
                 };
-                
-                // Only include the env property if there are environment variables
-                if (Object.keys(envObject).length > 0) {
-                    stdioConfig.env = envObject;
-                }
-                
+
                 const serverConfig: McpConfig = {
                     name,
                     config: serverType === 'stdio'
-                        ? stdioConfig
+                        ? {
+                            type: 'stdio',
+                            command,
+                            args: argsArray.filter(arg => arg.trim() !== ''),
+                            env: Object.keys(JSON.parse(env)).length > 0 ? JSON.parse(env) : undefined,
+                            permissions
+                        }
                         : serverType === 'sse'
                         ? {
                             type: 'sse',
                             url,
-                            headers
+                            headers: Object.keys(headers).length > 0 ? headers : undefined,
+                            permissions
                         }
                         : {
                             type: 'internal',
-                            tool: internalTool
+                            tool: internalTool,
+                            permissions
                         }
                 };
                 onSave(serverConfig);
@@ -421,7 +470,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     };
 
     return (
-        <div style={{ padding: '20px' }}>
+        <div style={{ padding: '20px', overflow: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h2 style={{ margin: 0 }}>{server ? 'Edit Server' : 'New Server'}</h2>
                 <button className="btn configure-button" onClick={toggleMode}>
@@ -473,7 +522,8 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     gridTemplateColumns: '120px 1fr',
                     gap: '12px',
                     alignItems: 'center',
-                    marginBottom: '20px'
+                    marginBottom: '20px',
+                    marginRight: '20px'
                 }}>
                     <label style={{ fontWeight: 'bold' }}>Name:</label>
                     <div>
@@ -639,6 +689,35 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     )}
                 </div>
             )}
+
+            <div className="form-group">
+                <h3>Tool Permission Required</h3>
+
+                <div style={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: '120px 1fr',
+                    gap: '12px',
+                    alignItems: 'center',
+                    marginBottom: '20px',
+                    marginRight: '20px'
+                }}>
+
+                    <>
+                        <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Server Default:</label>
+                        <div>
+                            <select
+                                value={defaultPermission}
+                                onChange={(e) => setDefaultPermission(e.target.value as ServerDefaultPermission)}
+                            >
+                                <option value={SERVER_PERMISSION_REQUIRED}>Approval Required</option>
+                                <option value={SERVER_PERMISSION_NOT_REQUIRED}>Approval Not Required</option>
+                            </select>
+                            <p><i>Individual tools may override the default tool permission for this server</i></p>
+                        </div>
+                    </>
+
+                </div>
+            </div>
 
             <div style={{ 
                 display: 'flex',
@@ -822,6 +901,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [showErrorDialog, setShowErrorDialog] = useState(false);
     const [currentErrorAnalysis, setCurrentErrorAnalysis] = useState<ErrorAnalysis | null>(null);
     const [currentErrorLog, setCurrentErrorLog] = useState<string[]>([]);
+    const [selectedToolPermission, setSelectedToolPermission] = useState<ToolPermissionSetting>(TOOL_PERMISSION_SERVER_DEFAULT);
 
     useEffect(() => {
         loadServers();
@@ -1101,15 +1181,55 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         );
     };
 
+    const handleToolPermissionChange = async (permission: ToolPermissionSetting) => {
+        if (!selectedTool || !selectedServer) return;
+        
+        setSelectedToolPermission(permission);
+        
+        // Update the server config
+        const updatedServer = {
+            ...selectedServer,
+            config: {
+                ...selectedServer.config,
+                permissions: {
+                    defaultPermission: selectedServer.config.permissions?.defaultPermission || SERVER_PERMISSION_REQUIRED,
+                    toolPermissions: {
+                        ...selectedServer.config.permissions?.toolPermissions,
+                        [selectedTool.name]: { permission }
+                    }
+                }
+            }
+        };
+        
+        await handleSaveServer(updatedServer);
+        // Update the selected server in local state
+        setSelectedServer(updatedServer);
+    };
+
+    // Load tool permission when tool is selected
+    useEffect(() => {
+        if (selectedTool && selectedServer) {
+            const permission = selectedServer.config.permissions?.toolPermissions?.[selectedTool.name]?.permission || TOOL_PERMISSION_SERVER_DEFAULT;
+            setSelectedToolPermission(permission);
+        }
+    }, [selectedTool, selectedServer]);
+
     if (id !== activeTabId) return null;
 
     if (showEditModal) {
         return (
-            <EditServerModal
-                server={editingServer}
-                onSave={handleSaveServer}
-                onCancel={() => setShowEditModal(false)}
-            />
+            <div style={{ 
+                display: 'flex',
+                flexDirection: 'column',
+                height: '100%',
+                overflow: 'auto'
+            }}>
+                <EditServerModal
+                    server={editingServer}
+                    onSave={handleSaveServer}
+                    onCancel={() => setShowEditModal(false)}
+                />
+            </div>
         );
     }
 
@@ -1229,6 +1349,22 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                 <div style={{ padding: '20px', paddingBottom: '40px' }}>
                                     <h2 style={{ margin: 0, marginBottom: '20px' }}>{selectedTool.name}</h2>
                                     <p style={{ color: '#666', marginBottom: '20px' }}>{selectedTool.description || 'No description'}</p>
+                                    
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <h3 style={{ marginBottom: '10px' }}>Tool Permission:</h3>
+                                        <select
+                                            value={selectedToolPermission}
+                                            onChange={(e) => handleToolPermissionChange(e.target.value as ToolPermissionSetting)}
+                                            style={{ width: '100%', padding: '4px 8px' }}
+                                        >
+                                            <option value={TOOL_PERMISSION_SERVER_DEFAULT}>
+                                                Use Server Default ({selectedServer.config.permissions?.defaultPermission === SERVER_PERMISSION_REQUIRED ? 'Approval Required' : 'Approval Not Required'})
+                                            </option>
+                                            <option value={TOOL_PERMISSION_REQUIRED}>Always Required</option>
+                                            <option value={TOOL_PERMISSION_NOT_REQUIRED}>Never Required</option>
+                                        </select>
+                                    </div>
+
                                     <div style={{ marginTop: '20px' }}>
                                         <h3 style={{ marginBottom: '10px' }}>Run Tool:</h3>
                                         {selectedTool.inputSchema?.properties && Object.entries(selectedTool.inputSchema.properties).map(([name, param]: [string, any]) => (

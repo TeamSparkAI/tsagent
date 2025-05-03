@@ -1,5 +1,6 @@
 import { LLMType } from './llm';
 import { ModelReply } from './ModelReply';
+import { SessionToolPermission } from './workspace';
 
 // These represent the Electron-side chat history (requests and responses)
 export type ChatMessage = {
@@ -21,6 +22,7 @@ export interface ChatState {
   maxOutputTokens: number;
   temperature: number;
   topP: number;
+  toolPermission: SessionToolPermission;
 }
 
 export interface MessageUpdate {
@@ -38,6 +40,7 @@ export interface ChatSessionOptions {
   maxOutputTokens?: number;
   temperature?: number;
   topP?: number;
+  toolPermission?: SessionToolPermission;
 }
 
 export interface ChatSessionResponse {

@@ -216,4 +216,38 @@
 
 .theme-toggle-button.active .theme-toggle-slider {
   transform: translateX(26px);
+}
+
+.tool-permission-settings {
+  padding: 20px;
+  background-color: var(--bg-secondary);
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.tool-permission-settings h2 {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.tool-permission-settings .setting-description {
+  margin-bottom: 16px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.tool-permission-settings select {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.tool-permission-settings select:focus {
+  outline: none;
+  border-color: var(--accent-color);
 } 
