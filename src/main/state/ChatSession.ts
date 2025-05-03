@@ -4,6 +4,7 @@ import { ILLM } from '../../shared/llm';
 import log from 'electron-log';
 import { WorkspaceManager } from './WorkspaceManager';
 import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../../shared/workspace';
+import { TOOL_PERMISSION_NOT_REQUIRED, TOOL_PERMISSION_REQUIRED } from '../mcp/types';
 
 type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission'>>;
 export type ChatSessionOptionsWithRequiredSettings = Omit<ChatSessionOptions, keyof RequiredSettings> & RequiredSettings;
@@ -22,6 +23,7 @@ export class ChatSession {
   temperature: number;
   topP: number;
   toolPermission: SessionToolPermission;
+  private approvedTools: Map<string, Set<string>> = new Map();
 
   constructor(workspace: WorkspaceManager, options: ChatSessionOptionsWithRequiredSettings) {
     this.workspace = workspace;
@@ -343,6 +345,55 @@ export class ChatSession {
     this.rules.splice(index, 1);
     this.lastSyncId++;
     log.info(`Removed rule '${ruleName}' from chat session`);
+    return true;
+  }
+
+  public toolIsApprovedForSession(serverId: string, toolId: string) {
+    let serverApprovedTools = this.approvedTools.get(serverId);
+    if (!serverApprovedTools) {
+      serverApprovedTools = new Set();
+      this.approvedTools.set(serverId, serverApprovedTools);
+    }
+    serverApprovedTools.add(toolId);
+  }
+
+  public async isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean> {
+    // First check if the tool has already been approved for this session
+    const serverApprovedTools = this.approvedTools.get(serverId);
+    if (serverApprovedTools?.has(toolId)) {
+      return false;
+    }
+
+    // If the tool is not approved for this session, then we need to check the tool permission
+    if (this.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS) {
+      return true;
+    } else if (this.toolPermission === SESSION_TOOL_PERMISSION_NEVER) {
+      return false;
+    } else { // SESSION_TOOL_PERMISSION_TOOL
+      // Check the permission required for the tool
+      const serverConfig = (await this.workspace.getMcpConfig())[serverId];
+      if (!serverConfig) {
+        throw new Error(`Attempted to check permission for non-existent server: ${serverId}`);
+      }
+
+      if (serverConfig.config.permissions?.toolPermissions) {
+        const toolConfig = serverConfig.config.permissions.toolPermissions[toolId];
+        if (toolConfig) {
+          if (toolConfig.permission === TOOL_PERMISSION_REQUIRED) {
+            return true;
+          } else if (toolConfig.permission === TOOL_PERMISSION_NOT_REQUIRED) {
+            return false;
+          }
+        }
+
+        // If tool config either didn't exist, or was not one of the non-default values, we fall through to here and get the server default
+        if (serverConfig.config.permissions.defaultPermission === TOOL_PERMISSION_REQUIRED) {
+          return true;
+        }
+      }
+    }
+
+    // If the above logic fails to deliver a defintive result, then we default to always requiring tool approval
     return true;
   }
 

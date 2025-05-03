@@ -8,7 +8,6 @@ export interface CallToolResultWithElapsedTime extends CallToolResult {
 export interface McpConfig {
   name: string;
   config: McpConfigFileServerConfig;
-  toolPermissions?: Record<string, ToolPermissionSetting>;
 }
 
 // Constants for server-level permissions

@@ -12,21 +12,13 @@ There is the possibility that an LLM could have multiple tool calls in a single 
 
 It would be ideal if the chat interface presented the tool call permission inline as it does with tool call details, and that as tool calls are made or other chat responses are received, that they are integrated into the same chat message visually (so it doesn't look like the approved tool execution is a "separate" step in the final output - if approved, the tool calls in the final chat message display look just as they do now).
 
+The CLI implementation will need to handle the approval UX differently (where there will be an approval prompt, then another response after that if approved and we continue)
+
 ## Permission Configuration and Application
 
-We have a session level setting for tool permission with values Always, Never, and Tool (use tool's permission required value)
-
-We have a server level setting for default tool permissions for tools from that server with values of Always and Never
-
-We have a tool level setting that is Default (user default value from that tool's server), Always, or Never
-
-To determined whether tool use permission is required for a given tool call in a chat session:
-- If Chat Session setting for tool usage permission is always or never, that is the tool permission
-- Else if Chat Session setting for tool usage permission is tool:
-  - If the tool permission setting indicates that permission is always or never, then that is the tool permission
-  - Else the server default tool permission for the server of the tool in question is the tool permission
-
-We have implemented the user interface and serialization of the above settings, but we do not yet enforce them.
+We have implemenented the following methods in the chat session to handle tool call approval checks and flows:
+- public toolIsApprovedForSession(serverId: string, toolId: string)
+- public async isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean>
 
 ## Permission Prompt
 
@@ -44,8 +36,6 @@ Malicious MCP Servers or conversation content could potentially trick TeamSpark 
 [Allow for this chat] [Allow once] [Deny]
 
 ----
-
-The chat session will track which tools (server and tool) have been approved for the session (when the permission response is "Allow for this chat").
 
 ## Instructions
 
