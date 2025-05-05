@@ -2,7 +2,7 @@ import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import OpenAI from 'openai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import log from 'electron-log';
-import { ChatMessage } from '../../shared/ChatSession';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 import { WorkspaceManager } from '../state/WorkspaceManager';
@@ -101,7 +101,7 @@ export class OpenAILLM implements ILLM {
       log.info('Generating response with OpenAI');
 
       // Turn our ChatMessage[] into a OpenAPI API ChatCompletionMessageParam[]
-      let currentMessages: OpenAI.ChatCompletionMessageParam[] = [];
+      let turnMessages: OpenAI.ChatCompletionMessageParam[] = [];
       for (const message of messages) {
         if ('modelReply' in message) {
           // Process each turn in the LLM reply
@@ -126,13 +126,13 @@ export class OpenAILLM implements ILLM {
                 });
               }
             }
-            currentMessages.push(reply);
+            turnMessages.push(reply);
 
             // Add the tool call results, if any
             if (turn.toolCalls && turn.toolCalls.length > 0) {
               for (const toolCall of turn.toolCalls) {
                 // Push the tool call result
-                currentMessages.push({
+                turnMessages.push({
                   role: 'tool',
                   tool_call_id: toolCall.toolCallId!,
                   content: toolCall.output
@@ -140,14 +140,91 @@ export class OpenAILLM implements ILLM {
               }
             }
           }
-        } else {
+        } else if (message.role != 'approval') {
           // Handle regular messages
-          currentMessages.push({
+          turnMessages.push({
             // Convert to a role that OpenAI API accepts (user or assistant)
             role: message.role === 'error' ? 'assistant' : message.role,
             content: message.content,
           });
+        }
       }
+
+      // In processing tool call approvals, we need to do the following:
+      // - Add the tool call result to the model reply, as a turn (generic)
+      // - Add the tool call and result to the context history (LLM specific)
+
+      // We're only going to process tool call approvals if it's the last message in the chat history
+      const lastChatMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
+      if (lastChatMessage && 'toolCallApprovals' in lastChatMessage) {
+        // Handle tool call approvals        
+        const toolCallsContent: ChatCompletionMessageParam = {
+          role: "assistant" as const,
+          tool_calls: []
+        };
+        const toolCallsResults: ChatCompletionMessageParam[] = [];
+        const turn: Turn = { toolCalls: [] };
+        for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
+          log.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
+          const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
+
+          // Add the tool call to the context history
+          toolCallsContent.tool_calls!.push({
+            type: 'function',
+            id: toolCallApproval.toolCallId!,
+            function: {
+              name: functionName,
+              arguments: JSON.stringify(toolCallApproval.args ?? {}),
+            },
+          });
+
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
+            session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
+          }
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
+            // Run the tool
+            const toolResult = await this.workspace.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            if (toolResult.content[0]?.type === 'text') {
+              const resultText = toolResult.content[0].text;
+              turn.toolCalls!.push({
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: resultText,
+                elapsedTimeMs: toolResult.elapsedTimeMs,
+                error: undefined
+              });
+              // Add the tool call (executed) result to the context history
+              toolCallsResults.push({
+                role: "tool" as const,
+                tool_call_id: toolCallApproval.toolCallId!,
+                content: resultText
+              });
+            }
+          } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+            // Record the tool call and "denied" result
+            turn.toolCalls!.push({
+              serverName: toolCallApproval.serverName,
+              toolName: toolCallApproval.toolName,
+              args: toolCallApproval.args,
+              toolCallId: toolCallApproval.toolCallId,
+              output: 'Tool call denied',
+              elapsedTimeMs: 0,
+              error: 'Tool call denied'
+            });
+            // Add the tool call (denied) result to the context history
+            toolCallsResults.push({
+              role: "tool" as const,
+              tool_call_id: toolCallApproval.toolCallId!,
+              content: 'Tool call denied'
+            });
+          }
+        }
+        modelReply.turns.push(turn);    
+        // Add the final resolved tool call approvals to the context history and the current prompt
+        turnMessages.push(toolCallsContent);
+        turnMessages.push(...toolCallsResults);
       }
 
       // log.info('Starting OpenAI LLM with messages:', JSON.stringify(currentMessages, null, 2));
@@ -164,7 +241,7 @@ export class OpenAILLM implements ILLM {
 
         const completion = await this.client.chat.completions.create({
           model: this.modelName,
-          messages: currentMessages,
+          messages: turnMessages,
           tools: functions.length > 0 ? functions.map(fn => ({ type: 'function', function: fn })) : undefined,
           tool_choice: functions.length > 0 ? 'auto' : undefined,
           max_tokens: session.maxOutputTokens,
@@ -196,51 +273,61 @@ export class OpenAILLM implements ILLM {
           hasToolUse = true;
           // Add the assistant's message with the tool calls (we add it here because we only need it in the state if we're calling
           // a tool and then doing another turn that relies on that state).
-          currentMessages.push(response);
+          turnMessages.push(response);
 
           // Process all tool calls
           for (const toolCall of response.tool_calls) {
             if (toolCall.type === 'function') {
               log.info('Processing function call:', toolCall.function);
 
-              // Call the tool
-              const toolResult = await this.workspace.mcpManager.callTool(
-                toolCall.function.name,
-                JSON.parse(toolCall.function.arguments),
-                session
-              );
-              log.info('Tool result:', toolResult);
-
-              if (toolResult.content[0]?.type === 'text') {
-                const resultText = toolResult.content[0].text;
-                if (!turn.toolCalls) {
-                  turn.toolCalls = [];
+              const toolServerName = this.workspace.mcpManager.getToolServerName(toolCall.function.name);
+              const toolToolName = this.workspace.mcpManager.getToolName(toolCall.function.name);
+  
+              if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
+                // Process tool approval
+                if (!modelReply.pendingToolCalls) {
+                  modelReply.pendingToolCalls = [];
                 }
-  
-                // Record the function call and result
-                turn.toolCalls.push({
-                  serverName: this.workspace.mcpManager.getToolServerName(toolCall.function.name),
-                  toolName: this.workspace.mcpManager.getToolName(toolCall.function.name),
+                modelReply.pendingToolCalls.push({
+                  serverName: toolServerName,
+                  toolName: toolToolName,
                   args: JSON.parse(toolCall.function.arguments),
-                  output: resultText,
-                  toolCallId: toolCall.id,
-                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  toolCallId: toolCall.id
                 });
-  
-                // Add the tool result to messages
-                currentMessages.push({
-                  role: 'tool',
-                  tool_call_id: toolCall.id,
-                  content: resultText
-                });
+              } else {
+                // Call the tool
+                const toolResult = await this.workspace.mcpManager.callTool(toolCall.function.name, JSON.parse(toolCall.function.arguments), session);
+                if (toolResult.content[0]?.type === 'text') {
+                  const resultText = toolResult.content[0].text;
+                  if (!turn.toolCalls) {
+                    turn.toolCalls = [];
+                  }
+    
+                  // Record the tool result in the message context
+                  turnMessages.push({
+                    role: 'tool',
+                    tool_call_id: toolCall.id,
+                    content: resultText
+                  });
+                  
+                  // Record the function call and result
+                  turn.toolCalls.push({
+                    serverName: this.workspace.mcpManager.getToolServerName(toolCall.function.name),
+                    toolName: this.workspace.mcpManager.getToolName(toolCall.function.name),
+                    args: JSON.parse(toolCall.function.arguments),
+                    output: resultText,
+                    toolCallId: toolCall.id,
+                    elapsedTimeMs: toolResult.elapsedTimeMs,
+                  });    
+                }
               }
             }
           }
         }
         modelReply.turns.push(turn);
           
-        // Break if no tool uses in this turn
-        if (!hasToolUse) break;
+        // Break if no tool uses in this turn, or if there are pending tool calls (requiring approval)
+        if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
 
       if (turnCount >= session.maxChatTurns) {

@@ -6,7 +6,7 @@ TeamSpark AI Workbench supports tool usage via installed MCP servers, where each
 
 Currently the LLM implementations runs these tools without asking permission.
 
-We will implement a solution that allows the LLM to assess wether permission is required for a given tool call, and if so, return a reply that indicates a tool call request (server, tool, args) such that the chat client can present the permission request to the user, and upon granting permission, the chat session updates the LLM (perhaps by submitting a new message) such that the LLM can pick up with the tool call and processing of the response.
+We will implement a solution that allows the LLM to assess wether permission is required for a given tool call, and if so, return a reply that indicates a tool call request (server, tool, args) such that the chat client can present the permission request to the user, and upon granting (or denying) permission, the chat session updates the LLM by submitting a new message with tool call approvals such that the LLM can pick up with the tool call and processing.
 
 There is the possibility that an LLM could have multiple tool calls in a single turn, including tools calls that have been completed and others that require approval.
 
@@ -17,8 +17,8 @@ The CLI implementation will need to handle the approval UX differently (where th
 ## Permission Configuration and Application
 
 We have implemenented the following methods in the chat session to handle tool call approval checks and flows:
-- public toolIsApprovedForSession(serverId: string, toolId: string)
-- public async isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean>
+- public toolIsApprovedForSession(serverId: string, toolId: string) - whitelists given tool for remainder of session
+- public async isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean> - determines if tool call approval is required for current invocation
 
 ## Permission Prompt
 
@@ -36,6 +36,30 @@ Malicious MCP Servers or conversation content could potentially trick TeamSpark 
 [Allow for this chat] [Allow once] [Deny]
 
 ----
+
+## Message flow for tool call approval
+
+When the LLM encounters a tool call, it checks to see if approval is needed using isToolApprovalRequired()
+
+If there are tool calls that do not require approval, it calls them as normal and populates the turn with the calls and results (as current)
+
+If approval is required for any tool calls, it adds a ToolCallRequest object for each to the ModelReply.pendingToolCalls and ends processing
+
+When the chat tab gets a ModelReply, it inspects "pendingToolCalls" and presents permission prompts for any found
+
+When all tool requests have been responded to, the chat tab submits a message back to the chat session:
+- message.role is "approval" 
+- message.toolCallApprovals is an array of ToolCallApproval
+  - Each ToolCallApproval has a "decision" value of:
+    - TOOL_CALL_DECISION_ALLOW_SESSION
+    - TOOL_CALL_DECISION_ALLOW_ONCE
+    - TOOL_CALL_DECISION_DENY
+
+LLM processes "approval" messages (along with other messages in the list)
+- For each tool call, if "decision" is TOOL_CALL_DECISION_ALLOW_SESSION call toolIsApprovedForSession with tool detail to whitelist it
+- If "decision" is TOOL_CALL_DECISION_ALLOW_SESSION or TOOL_CALL_DECISION_ALLOW_ONCE, run tool, populate tool call and tool call result in message history
+- If "decision" is TOOL_CALL_DECSION_DENY, populate tool call and a tool call result with "User denied tool invocation"
+- LLM calls its generate with message history that includes tool calls / results
 
 ## Instructions
 

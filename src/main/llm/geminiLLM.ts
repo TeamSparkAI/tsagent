@@ -3,7 +3,7 @@ import log from 'electron-log';
 
 import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import { Tool } from "@modelcontextprotocol/sdk/types";
-import { ChatMessage } from '../../shared/ChatSession';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { WorkspaceManager } from '../state/WorkspaceManager';
 import { ChatSession } from '../state/ChatSession';
@@ -274,7 +274,7 @@ export class GeminiLLM implements ILLM {
               addMessageToHistory(toolResultsContent);
             }
           }
-        } else { 
+        } else if (message.role != 'approval') {
           // Handle user messages
           const messageContent: Content = {
             role: 'user',
@@ -282,7 +282,73 @@ export class GeminiLLM implements ILLM {
           };
           addMessageToHistory(messageContent);
         }
-      } 
+      }
+
+      // In processing tool call approvals, we need to do the following:
+      // - Add the tool call result to the model reply, as a turn (generic)
+      // - Add the tool call and result to the context history (LLM specific)
+
+      // We're only going to process tool call approvals if it's the last message in the chat history
+      const lastChatMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
+      if (lastChatMessage && 'toolCallApprovals' in lastChatMessage) {
+        // Handle tool call approvals  
+        const toolCallsContent: Content = {
+          role: 'model',
+          parts: []
+        };
+        const toolCallsResults: Content = {
+          role: 'user',
+          parts: []
+        };
+
+        const turn: Turn = { toolCalls: [] };
+        for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
+          log.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
+          const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
+
+          // Add tool call to the context history
+          toolCallsContent.parts!.push({ functionCall: { name: functionName, args: toolCallApproval.args } });
+
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
+            session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
+          }
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
+            // Run the tool
+            const toolResult = await this.workspace.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            if (toolResult.content[0]?.type === 'text') {
+              const resultText = toolResult.content[0].text;
+              turn.toolCalls!.push({
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: resultText,
+                elapsedTimeMs: toolResult.elapsedTimeMs,
+                error: undefined
+              });
+              // Add the tool call (executed) result to the context history
+              toolCallsResults.parts!.push({ functionResponse: { name: functionName, response: { text: resultText } } });
+            }
+          } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+            // Record the tool call and "denied" result
+            turn.toolCalls!.push({
+              serverName: toolCallApproval.serverName,
+              toolName: toolCallApproval.toolName,
+              args: toolCallApproval.args,
+              toolCallId: toolCallApproval.toolCallId,
+              output: 'Tool call denied',
+              elapsedTimeMs: 0,
+              error: 'Tool call denied'
+            });
+            // Add the tool call (denied) result to the context history
+            toolCallsResults.parts!.push({ functionResponse: { name: functionName, response: { text: 'Tool call denied' } } });
+          }
+        }
+        
+        addMessageToHistory(toolCallsContent);
+        addMessageToHistory(toolCallsResults); // This will also add the tool call results to the current prompt (as it will be the last message)
+        modelReply.turns.push(turn);    
+      }
       
       // log.info('Gemini message history', JSON.stringify(history, null, 2));
 
@@ -317,7 +383,6 @@ export class GeminiLLM implements ILLM {
 
         // Process all parts of the response
         let hasToolUse = false;
-        const toolResults: string[] = [];
 
         currentPrompt = [];
         
@@ -342,35 +407,51 @@ export class GeminiLLM implements ILLM {
               const toolArgs = args ? (args as Record<string, unknown>) : undefined;
               log.info('Function call detected:', part.functionCall);
 
-              // Call the tool
-              const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
-              log.info('Tool result:', toolResult);
-
-              // Record the function call and result
-              if (toolResult.content[0]?.type === 'text') {
-                const resultText = toolResult.content[0].text;
-                toolResults.push(resultText);
-                if (!turn.toolCalls) {
-                  turn.toolCalls = [];
+              const toolServerName = this.workspace.mcpManager.getToolServerName(toolName);
+              const toolToolName = this.workspace.mcpManager.getToolName(toolName);
+              const toolCallId = Math.random().toString(16).slice(2, 10); // Random ID, since VertexAI doesn't provide one
+  
+              if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
+                // Process tool approval
+                if (!modelReply.pendingToolCalls) {
+                  modelReply.pendingToolCalls = [];
                 }
-                turn.toolCalls.push({
-                  serverName: this.workspace.mcpManager.getToolServerName(toolName),
-                  toolName: this.workspace.mcpManager.getToolName(toolName),
+                modelReply.pendingToolCalls.push({
+                  serverName: toolServerName,
+                  toolName: toolToolName,
                   args: toolArgs,
-                  toolCallId: Math.random().toString(16).slice(2, 10), // Random ID, since VertexAI doesn't provide one
-                  output: resultText,
-                  elapsedTimeMs: toolResult.elapsedTimeMs,
-                  error: undefined
+                  toolCallId: toolCallId
                 });
-                currentPrompt.push({ functionResponse: { name: toolName, response: { text: resultText } } });
+              } else {
+                // Call the tool
+                const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
+                log.info('Tool result:', toolResult);
+
+                // Record the function call and result
+                if (toolResult.content[0]?.type === 'text') {
+                  const resultText = toolResult.content[0].text;
+                  if (!turn.toolCalls) {
+                    turn.toolCalls = [];
+                  }
+                  turn.toolCalls.push({
+                    serverName: toolServerName,
+                    toolName: toolToolName,
+                    args: toolArgs,
+                    toolCallId: toolCallId,
+                    output: resultText,
+                    elapsedTimeMs: toolResult.elapsedTimeMs,
+                    error: undefined
+                  });
+                  currentPrompt.push({ functionResponse: { name: toolName, response: { text: resultText } } });
+                }
               }
             }
           }
         }
         modelReply.turns.push(turn);
           
-        // Break if no tool uses in this turn
-        if (!hasToolUse) break;
+        // Break if no tool uses in this turn, or if there are pending tool calls (requiring approval)
+        if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
 
       if (turnCount >= session.maxChatTurns) {

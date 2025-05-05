@@ -76,6 +76,13 @@ export class ChatAPI {
   }
 
   private convertMessageToChatMessage(message: ChatMessage): RendererChatMessage & { modelReply?: ModelReply } {
+    if (message.role === 'approval') {
+      // !!! Ideally we want to integrate the approvals into the single modelReply for the multi-turn response in the UX
+      return {
+        type: 'user',
+        content: message.toolCallApprovals.map(approval => approval.serverName + ' - ' + approval.toolName + ' - ' + 'Approved').join('\n'),
+      };
+    }
     return {
       type: message.role === 'assistant' ? 'ai' : message.role,
       content: message.role === 'assistant' ? '' : message.content,

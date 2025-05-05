@@ -5,7 +5,7 @@ import { LLMType } from '../../shared/llm';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ModelReply, Turn, ToolCall } from '../../shared/ModelReply';
+import { ModelReply, Turn, ToolCallResult } from '../../shared/ModelReply';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import { ILLMModel } from '../../shared/llm';
@@ -917,7 +917,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                               </ReactMarkdown>
                             </div>
                           )}
-                          {turn.toolCalls && turn.toolCalls.map((toolCall: ToolCall, toolIdx: number) => {
+                          {turn.toolCalls && turn.toolCalls.map((toolCall: ToolCallResult, toolIdx: number) => {
                             const key = `${msgIdx}-${turnIdx}-${toolIdx}`;
                             const isExpanded = expandedToolCalls.has(key);
                             return (

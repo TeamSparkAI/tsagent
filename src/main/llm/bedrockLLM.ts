@@ -2,7 +2,7 @@ import { ILLM, ILLMModel, LLMType, LLMProviderInfo } from '../../shared/llm';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole, ConverseCommandOutput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import log from 'electron-log';
-import { ChatMessage } from '../../shared/ChatSession';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
 import { WorkspaceManager } from '../state/WorkspaceManager';
@@ -183,11 +183,13 @@ export class BedrockLLM implements ILLM {
 						messageContent.push({ text: turn.message ?? turn.error! });
 						if (turn.toolCalls && turn.toolCalls.length > 0) {
 							for (const toolCall of turn.toolCalls) {
-								messageContent.push({ toolUse: {
-									toolUseId: toolCall.toolCallId,
-									name: toolCall.serverName + '_' + toolCall.toolName,
-									input: toolCall.args as Record<string, any>
-								} });
+								messageContent.push({ 
+                  toolUse: {
+                    toolUseId: toolCall.toolCallId,
+                    name: toolCall.serverName + '_' + toolCall.toolName,
+                    input: toolCall.args as Record<string, any>
+                  } 
+                });
 							}
 						}
             turnMessages.push({
@@ -211,7 +213,7 @@ export class BedrockLLM implements ILLM {
 							});
 						}
           }
-        } else {
+        } else if (message.role != 'approval') {
           // Handle regular messages
           turnMessages.push({
             role: message.role == 'user' ? ConversationRole.USER : ConversationRole.ASSISTANT,
@@ -220,6 +222,87 @@ export class BedrockLLM implements ILLM {
         }
       }
  
+      // In processing tool call approvals, we need to do the following:
+      // - Add the tool call result to the model reply, as a turn (generic)
+      // - Add the tool call and result to the context history (LLM specific)
+
+      // We're only going to process tool call approvals if it's the last message in the chat history
+      const lastChatMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
+      if (lastChatMessage && 'toolCallApprovals' in lastChatMessage) {
+        // Handle tool call approvals
+        const toolCallsContent: ContentBlock[] = [];
+        const toolCallsResults: ContentBlock[] = [];
+        const turn: Turn = { toolCalls: [] };
+        for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
+          log.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
+          const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
+
+          // Add the tool call to the context history
+          toolCallsContent.push({ 
+            toolUse: {
+              toolUseId: toolCallApproval.toolCallId,
+              name: functionName,
+              input: toolCallApproval.args as Record<string, any>
+            }
+          });
+
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
+            session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
+          }
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
+            // Run the tool
+            const toolResult = await this.workspace.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            if (toolResult.content[0]?.type === 'text') {
+              const resultText = toolResult.content[0].text;
+              turn.toolCalls!.push({
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: resultText,
+                elapsedTimeMs: toolResult.elapsedTimeMs,
+                error: undefined
+              });
+              // Add the tool call (executed) result to the context history
+              toolCallsResults.push({
+                toolResult: {
+                  toolUseId: toolCallApproval.toolCallId,
+                  content: [ { text: resultText } ]
+                }
+              });
+            }
+          } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+            // Record the tool call and "denied" result
+            turn.toolCalls!.push({
+              serverName: toolCallApproval.serverName,
+              toolName: toolCallApproval.toolName,
+              args: toolCallApproval.args,
+              toolCallId: toolCallApproval.toolCallId,
+              output: 'Tool call denied',
+              elapsedTimeMs: 0,
+              error: 'Tool call denied'
+            });
+            // Add the tool call (denied) result to the context history
+            toolCallsResults.push({
+              toolResult: {
+                toolUseId: toolCallApproval.toolCallId,
+                content: [ { text: 'Tool call denied' } ]
+              }
+            });
+          }
+        }
+        modelReply.turns.push(turn);
+        // Add the final resolved tool call approvals to the contexct history
+        turnMessages.push({
+          role: ConversationRole.ASSISTANT,
+          content: toolCallsContent
+        });
+        turnMessages.push({
+          role: ConversationRole.USER,
+          content: toolCallsResults
+        });
+      }
+
 			let currentResponse: ConverseCommandOutput | null = null;
 
       let turnCount = 0;
@@ -260,6 +343,8 @@ export class BedrockLLM implements ILLM {
 
 				// We're going to push the response message here so that any tool results added in the processing of this call are added after this message
 				turnMessages.push(currentResponse.output?.message!);
+
+        const toolCallsResults: ContentBlock[] = []
     
 				// log.info('Bedrock send response:', JSON.stringify(currentResponse));
 
@@ -278,46 +363,65 @@ export class BedrockLLM implements ILLM {
 							const toolUseId = toolCall.toolUseId;
 							const toolArgs = toolCall.input as Record<string, any>;
 
-							const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
+              const toolServerName = this.workspace.mcpManager.getToolServerName(toolName);
+              const toolToolName = this.workspace.mcpManager.getToolName(toolName);
 
-              if (toolResult.content[0]?.type === 'text') {
-                const resultText = toolResult.content[0].text;
-
-								// For Bedrock, we push the toolResult as a new user message (we could be smarter and push multiple tool results in a single user message)
-								turnMessages.push({
-									role: ConversationRole.USER,
-									content: [
-										{
-											toolResult: {
-												toolUseId: toolUseId,
-												content: [ { text: resultText } ]
-											}
-										}
-									]
-								})
-
-                if (!turn.toolCalls) {
-                  turn.toolCalls = [];
+              if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
+                // Process tool approval
+                if (!modelReply.pendingToolCalls) {
+                  modelReply.pendingToolCalls = [];
                 }
-  
-                // Record the function call and result
-                turn.toolCalls.push({
-                  serverName: this.workspace.mcpManager.getToolServerName(toolName),
-                  toolName: this.workspace.mcpManager.getToolName(toolName),
+                modelReply.pendingToolCalls.push({
+                  serverName: toolServerName,
+                  toolName: toolToolName,
                   args: toolArgs,
-                  output: resultText,
-                  toolCallId: toolUseId,
-                  elapsedTimeMs: toolResult.elapsedTimeMs,
-                });  
+                  toolCallId: toolUseId
+                });
+              } else {
+                // Call the tool
+                const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
+                if (toolResult.content[0]?.type === 'text') {
+                  const resultText = toolResult.content[0].text;
+                  if (!turn.toolCalls) {
+                    turn.toolCalls = [];
+                  }
+
+                  // For Bedrock, we need to push multiple tool call results into the same user message (or it will complain), so we aggregate them here
+                  // and push the message below (assuming any tool call results are present).
+                  toolCallsResults.push({
+                    toolResult: {
+                      toolUseId: toolUseId,
+                      content: [ { text: resultText } ]
+                    }
+                  })
+      
+                  // Record the function call and result
+                  turn.toolCalls.push({
+                    serverName: toolServerName,
+                    toolName: toolToolName,
+                    args: toolArgs,
+                    output: resultText,
+                    toolCallId: toolUseId,
+                    elapsedTimeMs: toolResult.elapsedTimeMs,
+                  });  
+                }
               }
 						}
 					}
         }
 
+        // Add the tool call results to the context history
+        if (toolCallsResults.length > 0) {
+          turnMessages.push({
+            role: ConversationRole.USER,
+            content: toolCallsResults
+          });
+        }
+
         modelReply.turns.push(turn);
 
-        // Break if no tool uses in this turn
-        if (!hasToolUse) break;
+        // Break if no tool uses in this turn, or if there are pending tool calls (requiring approval)
+        if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
       
       if (turnCount >= session.maxChatTurns) {

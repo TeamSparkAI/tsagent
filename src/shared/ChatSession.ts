@@ -1,11 +1,25 @@
 import { LLMType } from './llm';
-import { ModelReply } from './ModelReply';
+import { ModelReply, ToolCallRequest } from './ModelReply';
 import { SessionToolPermission } from './workspace';
 
 // These represent the Electron-side chat history (requests and responses)
+
+export const TOOL_CALL_DECISION_ALLOW_SESSION = 'allow-session';
+export const TOOL_CALL_DECISION_ALLOW_ONCE = 'allow-once';
+export const TOOL_CALL_DECISION_DENY = 'deny';
+
+export type ToolCallDecision = typeof TOOL_CALL_DECISION_ALLOW_SESSION | typeof TOOL_CALL_DECISION_ALLOW_ONCE | typeof TOOL_CALL_DECISION_DENY;
+
+export interface ToolCallApproval extends ToolCallRequest {
+  decision: ToolCallDecision;
+}
+
 export type ChatMessage = {
   role: 'user' | 'system' | 'error';
   content: string;
+} | {
+  role: 'approval';
+  toolCallApprovals: ToolCallApproval[];
 } | {
   role: 'assistant';
   modelReply: ModelReply;

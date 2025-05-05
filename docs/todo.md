@@ -53,6 +53,22 @@ In a more sophisticated version
 - We'd collect those via a more friendly form
 - Maybe re-use (generalize) the provider metadata implementation (which does something similar)
 
+## Claude is picky about max output token limit
+
+Error: Error: Failed to generate response from Claude - 400 {"type":"error","error":{"type":"invalid_request_error","message":"max_tokens: 10000 > 8192, which is the maximum allowed number of output tokens for claude-3-5-haiku-20241022"}}
+
+Claude APIs don't appear to provide any useful metadata.  Here is what is on the web page:
+
+Claude Model |  Max Output
+============ | ==========
+3-7-sonnet   |   200k
+3-5-sonnet   |   8192
+3-5-haiku    |   8192
+3-opus       |   8192
+3-haiku      |   8192
+
+Context window is 200k for all
+
 ## Context Overflow
 
 Generally speaking, the LLM APIs don't give solid feedback when you overflow the context window.

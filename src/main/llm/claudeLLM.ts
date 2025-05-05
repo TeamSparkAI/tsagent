@@ -3,7 +3,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 import log from 'electron-log';
-import { ChatMessage } from '../../shared/ChatSession';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY } from '../../shared/ChatSession';
 import { ModelReply, Turn } from '../../shared/ModelReply';
 import { WorkspaceManager } from '../state/WorkspaceManager';
 import { ChatSession } from '../state/ChatSession';
@@ -61,7 +61,7 @@ export class ClaudeLLM implements ILLM {
   
   async getModels(): Promise<ILLMModel[]> {
     const modelList = await this.client.models.list();
-    // log.info('Claude models:', modelList.data);
+    //log.info('Claude models:', modelList.data);
     const models: ILLMModel[] = modelList.data.map((model) => ({
       provider: LLMType.Claude,
       id: model.id!,
@@ -145,7 +145,7 @@ export class ClaudeLLM implements ILLM {
               }
             }
           }
-        } else {
+        } else if (message.role != 'approval') {
           // Handle regular messages
           turnMessages.push({
             role: message.role === 'system' ? 'user' : message.role === 'error' ? 'assistant' : message.role,
@@ -154,15 +154,87 @@ export class ClaudeLLM implements ILLM {
         }
       }
 
-      let currentResponse = await this.client.messages.create({
-        model: this.modelName,
-        max_tokens: session.maxOutputTokens,
-        temperature: session.temperature,
-        top_p: session.topP,
-        messages: turnMessages,
-        system: systemPrompt || undefined,
-        tools,
-      });
+      // In processing tool call approvals, we need to do the following:
+      // - Add the tool call result to the model reply, as a turn (generic)
+      // - Add the tool call and result to the context history (LLM specific)
+
+      // We're only going to process tool call approvals if it's the last message in the chat history
+      const lastChatMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
+      if (lastChatMessage && 'toolCallApprovals' in lastChatMessage) {
+        // Handle tool call approvals        
+        const turn: Turn = { toolCalls: [] };
+        for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
+          log.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
+          const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
+
+          // Add the tool call to the context history
+          turnMessages.push({
+            role: 'assistant' as const,
+            content: [
+              {
+                type: 'tool_use',
+                id: toolCallApproval.toolCallId!,
+                name: functionName,
+                input: toolCallApproval.args,
+              }
+            ]
+          });
+
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
+            session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
+          }
+          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
+            // Run the tool
+            const toolResult = await this.workspace.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            if (toolResult.content[0]?.type === 'text') {
+              const resultText = toolResult.content[0].text;
+              turn.toolCalls!.push({
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: resultText,
+                elapsedTimeMs: toolResult.elapsedTimeMs,
+                error: undefined
+              });
+              // Add the tool call (executed) result to the context history
+              turnMessages.push({
+                role: 'user' as const,
+                content: [
+                  {
+                    type: 'tool_result',
+                    tool_use_id: toolCallApproval.toolCallId!,
+                    content: resultText,
+                  }
+                ]
+              });
+            }
+          } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+            // Record the tool call and "denied" result
+            turn.toolCalls!.push({
+              serverName: toolCallApproval.serverName,
+              toolName: toolCallApproval.toolName,
+              args: toolCallApproval.args,
+              toolCallId: toolCallApproval.toolCallId,
+              output: 'Tool call denied',
+              elapsedTimeMs: 0,
+              error: 'Tool call denied'
+            });
+            // Add the tool call (denied) result to the context history
+            turnMessages.push({
+              role: 'user' as const,
+              content: [
+                {
+                  type: 'tool_result',
+                  tool_use_id: toolCallApproval.toolCallId!,
+                  content: 'Tool call denied',
+                }
+              ]
+            });
+          }
+        }
+        modelReply.turns.push(turn);    
+      }
 
       let turnCount = 0;
       while (turnCount < session.maxChatTurns) {
@@ -170,6 +242,16 @@ export class ClaudeLLM implements ILLM {
         turnCount++;
         let hasToolUse = false;
 
+        let currentResponse = await this.client.messages.create({
+          model: this.modelName,
+          max_tokens: session.maxOutputTokens,
+          temperature: session.temperature,
+          top_p: session.topP,
+          messages: turnMessages,
+          system: systemPrompt || undefined, // !!! Is this different on subseqent calls?
+          tools,
+        });
+  
         turn.inputTokens = currentResponse.usage?.input_tokens ?? 0;
         turn.outputTokens = currentResponse.usage?.output_tokens ?? 0;
 
@@ -192,64 +274,72 @@ export class ClaudeLLM implements ILLM {
             const toolName = content.name;
             const toolUseId = content.id;
             const toolArgs = content.input as { [x: string]: unknown } | undefined;
-           
-            // Record the tool use request in the message context
-            turnMessages.push({
-              role: "assistant",
-              content: [
-                {
-                  type: 'tool_use',
-                  id: toolUseId,
-                  name: toolName,
-                  input: toolArgs,
-                }
-              ]
-            });
 
-            const result = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
-            log.info('Tool result:', result);
+            const toolServerName = this.workspace.mcpManager.getToolServerName(toolName);
+            const toolToolName = this.workspace.mcpManager.getToolName(toolName);
 
-            const toolResultContent = result.content[0];
-            if (toolResultContent && toolResultContent.type === 'text') {
-              turnMessages.push({
-                role: 'user',
-                content: [
-                  {
-                    type: 'tool_result',
-                    tool_use_id: toolUseId,
-                    content: toolResultContent.text,
-                  }
-                ]
-              });
-
-              if (!turn.toolCalls) {
-                turn.toolCalls = [];
+            if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
+              // Process tool approval
+              if (!modelReply.pendingToolCalls) {
+                modelReply.pendingToolCalls = [];
               }
-
-              turn.toolCalls.push({
-                serverName: this.workspace.mcpManager.getToolServerName(toolName),
-                toolName: this.workspace.mcpManager.getToolName(toolName),
-                args: toolArgs ?? {},
-                toolCallId: toolUseId,
-                output: toolResultContent?.text ?? '',
-                elapsedTimeMs: result.elapsedTimeMs,
-                error: undefined
+              modelReply.pendingToolCalls.push({
+                serverName: toolServerName,
+                toolName: toolToolName,
+                args: toolArgs,
+                toolCallId: toolUseId
               });
+            } else {
+              // Call the tool
+              const toolResult = await this.workspace.mcpManager.callTool(toolName, toolArgs, session);
+              if (toolResult.content[0]?.type === 'text') {
+                const resultText = toolResult.content[0].text;
+                if (!turn.toolCalls) {
+                  turn.toolCalls = [];
+                }
+
+                // Record the tool use request and ressult in the message context
+                turnMessages.push({
+                  role: "assistant",
+                  content: [
+                    {
+                      type: 'tool_use',
+                      id: toolUseId,
+                      name: toolName,
+                      input: toolArgs,
+                    }
+                  ]
+                });
+
+                turnMessages.push({
+                  role: 'user',
+                  content: [
+                    {
+                      type: 'tool_result',
+                      tool_use_id: toolUseId,
+                      content: resultText,
+                    }
+                  ]
+                });
+
+                turn.toolCalls.push({
+                  serverName: toolServerName,
+                  toolName: toolToolName,
+                  args: toolArgs ?? {},
+                  toolCallId: toolUseId,
+                  output: resultText,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  error: undefined
+                });
+              }
             }
-            currentResponse = await this.client.messages.create({
-              model: this.modelName,
-              max_tokens: 1000,
-              messages: turnMessages,
-              tools,
-            });
-            log.info('Response from tool results message:', currentResponse);
           }
         }
 
         modelReply.turns.push(turn);  
 
-        // Break if no tool uses in this turn
-        if (!hasToolUse) break;
+        // Break if no tool uses in this turn, or if there are pending tool calls (requiring approval)
+        if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
       
       if (turnCount >= session.maxChatTurns) {
