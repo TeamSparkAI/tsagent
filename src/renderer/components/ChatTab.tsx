@@ -99,7 +99,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     const nextMessage = chatState.messages[messageIndex + 1];
     log.info(`[findToolCallDisposition] Next message:`, nextMessage);
     
-    if (nextMessage?.type === 'user' && nextMessage.toolCallApprovals) {
+    if (nextMessage?.type === 'approval' && nextMessage.toolCallApprovals) {
       log.info(`[findToolCallDisposition] Found approval message with toolCallApprovals:`, nextMessage.toolCallApprovals);
       
       // Find the approval for this tool call
@@ -761,14 +761,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         setChatState(prevState => {
           const newMessages = [...prevState.messages];
           
-          // Add the actual approval message to history
-          newMessages.push({
-            type: 'user',
-            content: '', // Empty content since we'll format it in the render
-            toolCallApprovals: approvalMessage.toolCallApprovals
-          });
-
-          // Add the assistant's response
+          // Add all messages from the response, including the approval message
           if (response.updates) {
             newMessages.push(...response.updates.map(msg => {
               if (msg.role === 'assistant') {
@@ -776,6 +769,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                   type: 'ai' as const,
                   content: '',
                   modelReply: msg.modelReply
+                };
+              } else if (msg.role === 'approval') {
+                return {
+                  type: 'approval' as const,
+                  content: '',
+                  toolCallApprovals: msg.toolCallApprovals
                 };
               } else if (msg.role === 'user' || msg.role === 'system' || msg.role === 'error') {
                 return {
@@ -1123,7 +1122,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         onContextMenu={handleContextMenu}
         onScroll={handleScroll}
       >
-        {chatState.messages.map((msg: RendererChatMessage & { modelReply?: ModelReply }, msgIdx: number) => (
+        {chatState.messages.filter(msg => msg.type !== 'approval').map((msg: RendererChatMessage & { modelReply?: ModelReply }, msgIdx: number) => (
           <div 
             key={msgIdx} 
             className={`message ${msg.type}`}
@@ -1201,19 +1200,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                   )}
                 </>
               ) : (
-                <>
-                  {msg.toolCallApprovals ? (
-                    <span>
-                      Approved tool calls: {msg.toolCallApprovals
-                        .map(a => `${a.serverName}.${a.toolName} (${a.decision === TOOL_CALL_DECISION_ALLOW_SESSION ? 'session' : 
-                                                      a.decision === TOOL_CALL_DECISION_ALLOW_ONCE ? 'once' : 
-                                                      'denied'})`)
-                        .join(', ')}
-                    </span>
-                  ) : (
-                    <span>{msg.content}</span>
-                  )}
-                </>
+                <span>{msg.content}</span>
               )}
             </div>
             {msg.modelReply && msg.modelReply.pendingToolCalls && msg.modelReply.pendingToolCalls.map((toolCall, idx) => {

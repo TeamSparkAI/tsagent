@@ -75,7 +75,14 @@ UX still looks like shit - clean it up (make it look more like tool call results
 
 UX should integrated the tool call permissions with results so the AI response is just a clean list as if permission was never requested
 
-This might require use to have a user chat message ID or something so we can understand when a response is a resolution of previous tool approvals (and integrate them)
+---
+
+We get a ModelReply message with pendingToolCalls
+
+We resolve pending tool calls and sent an "approval" message to the chat session, and post a ChatMessage role: "user" with toolCallApprovals to the tab
+
+We receive another ModelReply message as a response to that, where the first turn is the tool calls from the original ModelReply (this loop can continue)
+
 
 ## LATER - CLI support for tool permission processing
 

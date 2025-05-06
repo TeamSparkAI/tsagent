@@ -3,7 +3,7 @@ import { ToolCallDecision } from '../../shared/ChatSession';
 
 // This is the "Renderer" chat message
 export interface RendererChatMessage {
-  type: 'user' | 'ai' | 'system' | 'error';
+  type: 'user' | 'ai' | 'system' | 'error' | 'approval';
   content: string;
   modelReply?: ModelReply;
   toolCallApprovals?: Array<{
