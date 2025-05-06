@@ -14,12 +14,6 @@ It would be ideal if the chat interface presented the tool call permission inlin
 
 The CLI implementation will need to handle the approval UX differently (where there will be an approval prompt, then another response after that if approved and we continue)
 
-## Permission Configuration and Application
-
-We have implemenented the following methods in the chat session to handle tool call approval checks and flows:
-- public toolIsApprovedForSession(serverId: string, toolId: string) - whitelists given tool for remainder of session
-- public async isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean> - determines if tool call approval is required for current invocation
-
 ## Permission Prompt
 
 The permission prompt to the chat user should look like:
@@ -39,7 +33,7 @@ Malicious MCP Servers or conversation content could potentially trick TeamSpark 
 
 ## Message flow for tool call approval
 
-When the LLM encounters a tool call, it checks to see if approval is needed using isToolApprovalRequired()
+When the LLM encounters a tool call, it checks to see if approval is needed
 
 If there are tool calls that do not require approval, it calls them as normal and populates the turn with the calls and results (as current)
 
@@ -55,14 +49,42 @@ When all tool requests have been responded to, the chat tab submits a message ba
     - TOOL_CALL_DECISION_ALLOW_ONCE
     - TOOL_CALL_DECISION_DENY
 
-LLM processes "approval" messages (along with other messages in the list)
+LLM processes "approval" messages along with other messages in the list (this part is already implemented)
 - For each tool call, if "decision" is TOOL_CALL_DECISION_ALLOW_SESSION call toolIsApprovedForSession with tool detail to whitelist it
 - If "decision" is TOOL_CALL_DECISION_ALLOW_SESSION or TOOL_CALL_DECISION_ALLOW_ONCE, run tool, populate tool call and tool call result in message history
 - If "decision" is TOOL_CALL_DECSION_DENY, populate tool call and a tool call result with "User denied tool invocation"
 - LLM calls its generate with message history that includes tool calls / results
 
-## Instructions
+===============
 
-Can you analyze the code and describe a strategy for implementing this feature (do not write any code yet).
+## Test Current single tool call functionality
 
-Describe phases of the approach that could be done one at a time.
+Verify tool permission applied correctly [done]
+- Always, never, tool
+  - When tool, tool is: always, never, default
+    - When default, server is: always, never
+- When approved for session, not required on subsequent when it otherwise would be
+- When approved/dennied, doesn't imapact future call permission requirement
+
+Verify single tool call works with all providers [done]
+
+## Next UX pass
+
+### Single tool call
+
+Don't allow entry/submit when awaiting disposition
+
+Once dispositioned, change button controls to approval state indicator
+
+### Multi-tool call
+
+Must disposition all before submitted to chat session
+- Input disabled while waiting
+- Once an item disposed, state changes to show disposition with undo
+- Once last item disposed, submit
+
+### Final boss - integration permission request with tool call
+
+UX should integrated the tool call permissions with results so the AI response is just a clean list as if permission was never requested
+
+This might require use to have a user chat message ID or something so we can understand when a response is a resolution of previous tool approvals (and integrate them)

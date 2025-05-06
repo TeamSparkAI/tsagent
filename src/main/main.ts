@@ -9,7 +9,8 @@ import { McpConfig } from './mcp/types';
 import { WorkspacesManager } from './state/WorkspacesManager';
 import { WorkspaceManager } from './state/WorkspaceManager';
 import chalk from 'chalk';
-import { THEME_KEY } from '../shared/workspace';
+import { SessionToolPermission, THEME_KEY } from '../shared/workspace';
+import { ChatMessage } from '../shared/ChatSession';
 
 const __dirname = path.dirname(__filename);
 
@@ -444,7 +445,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('chat:send-message', async (event, tabId: string, message: string) => {
+  ipcMain.handle('chat:send-message', async (event, tabId: string, message: string | ChatMessage) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const workspace = getWorkspaceForWindow(windowId);
     
@@ -1298,6 +1299,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     maxOutputTokens: number;
     temperature: number;
     topP: number;
+    toolPermission: SessionToolPermission;
   }) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const workspace = getWorkspaceForWindow(windowId);

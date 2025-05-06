@@ -1,7 +1,7 @@
 import { Rule } from './Rule';
 import { Reference } from './Reference';
 import { McpConfig, CallToolResultWithElapsedTime } from '../main/mcp/types';
-import { ChatSessionResponse, ChatState, MessageUpdate } from './ChatSession';
+import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from './ChatSession';
 import { WorkspaceWindow } from './workspace';
 import { LLMProviderInfo, ILLMModel, LLMType } from './llm';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
@@ -11,7 +11,7 @@ export interface API {
   createChatTab: (tabId: string, modelProvider?: LLMType, modelId?: string) => Promise<ChatSessionResponse>;
   closeChatTab: (tabId: string) => Promise<ChatSessionResponse>;
   getChatState: (tabId: string) => Promise<ChatState | null>;
-  sendMessage: (tabId: string, message: string) => Promise<MessageUpdate>;
+  sendMessage: (tabId: string, message: string | ChatMessage) => Promise<MessageUpdate>;
   clearModel: (tabId: string) => Promise<ChatSessionResponse>;
   switchModel: (tabId: string, modelType: string, modelId?: string) => Promise<ChatSessionResponse>;
   updateChatSettings: (tabId: string, settings: {

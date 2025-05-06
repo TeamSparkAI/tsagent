@@ -5,7 +5,7 @@ import { LLMType } from '../../shared/llm';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ModelReply, Turn, ToolCallResult } from '../../shared/ModelReply';
+import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from '../../shared/ModelReply';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import { ILLMModel } from '../../shared/llm';
@@ -19,6 +19,7 @@ import BedrockLogo from '../assets/bedrock.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import { ChatState } from '../../shared/ChatSession';
+import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from '../../shared/ChatSession';
 
 interface ClientChatState {
   messages: (RendererChatMessage & { modelReply?: ModelReply })[];
@@ -27,6 +28,7 @@ interface ClientChatState {
   currentModelId?: string;
   references?: string[];
   rules?: string[];
+  pendingToolCalls?: ToolCallRequest[];
 }
 
 // Handle external links safely
@@ -583,6 +585,92 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
+  const handleToolCallApproval = async (toolCall: ToolCallRequest, decision: string) => {
+    if (!chatApiRef.current) return;
+
+    // Set loading state
+    setIsLoading(true);
+
+    try {
+      let toolCallDecision: ToolCallDecision;
+      if (decision === 'allow-session') {
+        toolCallDecision = TOOL_CALL_DECISION_ALLOW_SESSION;
+      } else if (decision === 'allow-once') {
+        toolCallDecision = TOOL_CALL_DECISION_ALLOW_ONCE;
+      } else {
+        toolCallDecision = TOOL_CALL_DECISION_DENY;
+      }
+
+      // Create approval message
+      const approvalMessage = {
+        role: 'approval' as const,
+        toolCallApprovals: [{
+          ...toolCall,
+          decision: toolCallDecision
+        }],
+        content: '' // Add empty content to satisfy ChatMessage type
+      };
+
+      // Send approval message and get response
+      const response = await chatApiRef.current.sendMessage(approvalMessage);
+
+      // Update chat state with the full response
+      setChatState(prevState => {
+        const newMessages = [...prevState.messages];
+        
+        // Add the approval message to history
+        newMessages.push({
+          type: 'user' as const,
+          content: `Approved tool call: ${toolCall.serverName}.${toolCall.toolName} (${decision})`
+        });
+
+        // Add the assistant's response
+        if (response.updates) {
+          newMessages.push(...response.updates.map(msg => {
+            if (msg.role === 'assistant') {
+              return {
+                type: 'ai' as const,
+                content: '',
+                modelReply: msg.modelReply
+              };
+            } else if (msg.role === 'user' || msg.role === 'system' || msg.role === 'error') {
+              return {
+                type: msg.role,
+                content: msg.content
+              };
+            }
+            return null;
+          }).filter(Boolean) as (RendererChatMessage & { modelReply?: ModelReply })[]);
+        }
+
+        return {
+          ...prevState,
+          messages: newMessages,
+          pendingToolCalls: prevState.pendingToolCalls?.filter(tc => 
+            tc.toolCallId !== toolCall.toolCallId
+          ),
+          references: response.references || prevState.references,
+          rules: response.rules || prevState.rules
+        };
+      });
+    } catch (error) {
+      log.error('Error handling tool call approval:', error);
+      // Add error message to chat
+      setChatState(prevState => ({
+        ...prevState,
+        messages: [
+          ...prevState.messages,
+          {
+            type: 'error' as const,
+            content: `Error processing tool approval: ${error}`
+          }
+        ]
+      }));
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="chat-tab">
       <div id="model-container">
@@ -953,11 +1041,68 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                           )}
                         </div>
                       ))}
+                      {msg.modelReply.pendingToolCalls && msg.modelReply.pendingToolCalls.map((toolCall, idx) => (
+                        <div key={idx} className="tool-permission-request">
+                          <div className="tool-permission-header">
+                            <strong>Allow tool call from {toolCall.serverName}?</strong>
+                          </div>
+                          <div className="tool-permission-details">
+                            <div className="tool-call-info">
+                              Run {toolCall.toolName} from {toolCall.serverName}
+                              <button 
+                                className="btn expand-button"
+                                onClick={() => {
+                                  const key = `permission-${msgIdx}-${idx}`;
+                                  setExpandedToolCalls(prev => {
+                                    const newSet = new Set(prev);
+                                    if (newSet.has(key)) {
+                                      newSet.delete(key);
+                                    } else {
+                                      newSet.add(key);
+                                    }
+                                    return newSet;
+                                  });
+                                }}
+                              >
+                                {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) ? '▼' : '▶'}
+                              </button>
+                            </div>
+                            {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) && (
+                              <div className="tool-call-args">
+                                <pre>{JSON.stringify(toolCall.args, null, 2)}</pre>
+                              </div>
+                            )}
+                            <div className="tool-permission-warning">
+                              <strong>Review each action carefully before approving</strong>
+                            </div>
+                            <div className="tool-permission-actions">
+                              <button 
+                                className="btn allow-session"
+                                onClick={() => handleToolCallApproval(toolCall, 'allow-session')}
+                              >
+                                Allow for this chat
+                              </button>
+                              <button 
+                                className="btn allow-once"
+                                onClick={() => handleToolCallApproval(toolCall, 'allow-once')}
+                              >
+                                Allow once
+                              </button>
+                              <button 
+                                className="btn deny"
+                                onClick={() => handleToolCallApproval(toolCall, 'deny')}
+                              >
+                                Deny
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </>
               ) : (
-                msg.content
+                <span>{msg.content}</span>
               )}
             </div>
           </div>

@@ -4,6 +4,7 @@ import log from 'electron-log';
 import { ChatSession, ChatSessionOptionsWithRequiredSettings } from './ChatSession';
 import { WorkspaceManager } from './WorkspaceManager';
 import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, SessionToolPermission, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SESSION_TOOL_PERMISSION_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../../shared/workspace';
+import { ChatMessage } from '../../shared/ChatSession';
 
 export class ChatSessionManager {
   private sessions = new Map<string, ChatSession>();
@@ -73,7 +74,7 @@ export class ChatSessionManager {
     return this.sessions.has(tabId);
   }
 
-  async handleMessage(tabId: string, message: string): Promise<MessageUpdate> {
+  async handleMessage(tabId: string, message: string | ChatMessage): Promise<MessageUpdate> {
     const session = this.getSession(tabId);
     try {
       return await session.handleMessage(message);
@@ -133,6 +134,7 @@ export class ChatSessionManager {
     maxOutputTokens: number;
     temperature: number;
     topP: number;
+    toolPermission: SessionToolPermission;
   }): boolean {
     const session = this.getSession(tabId);
     return session.updateSettings(settings);

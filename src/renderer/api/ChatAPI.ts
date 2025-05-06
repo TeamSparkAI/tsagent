@@ -1,6 +1,6 @@
 import { LLMType, ILLMModel } from '../../shared/llm';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ChatMessage } from '../../shared/ChatSession';
+import { ChatMessage, MessageUpdate } from '../../shared/ChatSession';
 import { ModelReply } from '../../shared/ModelReply';
 import log from 'electron-log';
 
@@ -90,7 +90,7 @@ export class ChatAPI {
     };
   }
 
-  public async sendMessage(message: string): Promise<string> {
+  public async sendMessage(message: string | ChatMessage): Promise<MessageUpdate> {
     try {
       // Log the model we're using to send the message
       log.info(`Sending message using model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
@@ -102,15 +102,11 @@ export class ChatAPI {
       if (!state) {
         throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
       }
+      
+      // Update local state with session state from the server
       this.messages = state.messages.map(this.convertMessageToChatMessage);
       
-      // Return the last turn's message if available
-      const lastAssistantMessage = result.updates[1];
-      if (lastAssistantMessage.role === 'assistant') {
-        const lastTurn = lastAssistantMessage.modelReply.turns[lastAssistantMessage.modelReply.turns.length - 1];
-        return lastTurn.message ?? '';
-      }
-      return '';
+      return result;
     } catch (error) {
       log.error('Error sending message:', error);
       throw error;

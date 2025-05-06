@@ -98,12 +98,15 @@ export class OpenAILLM implements ILLM {
     }
 
     try {
-      log.info('Generating response with OpenAI');
-
       // Turn our ChatMessage[] into a OpenAPI API ChatCompletionMessageParam[]
       let turnMessages: OpenAI.ChatCompletionMessageParam[] = [];
       for (const message of messages) {
         if ('modelReply' in message) {
+          if (message.modelReply.turns.length == 0) {
+            // This is the case where the LLM returns a tool call approval, but no other response
+            continue;
+          }
+
           // Process each turn in the LLM reply
           for (const turn of message.modelReply.turns) {
             // Add the assistant's message (including any tool calls)
@@ -159,7 +162,7 @@ export class OpenAILLM implements ILLM {
       if (lastChatMessage && 'toolCallApprovals' in lastChatMessage) {
         // Handle tool call approvals        
         const toolCallsContent: ChatCompletionMessageParam = {
-          role: "assistant" as const,
+          role: "assistant",
           tool_calls: []
         };
         const toolCallsResults: ChatCompletionMessageParam[] = [];
@@ -197,7 +200,7 @@ export class OpenAILLM implements ILLM {
               });
               // Add the tool call (executed) result to the context history
               toolCallsResults.push({
-                role: "tool" as const,
+                role: "tool",
                 tool_call_id: toolCallApproval.toolCallId!,
                 content: resultText
               });
@@ -215,7 +218,7 @@ export class OpenAILLM implements ILLM {
             });
             // Add the tool call (denied) result to the context history
             toolCallsResults.push({
-              role: "tool" as const,
+              role: "tool",
               tool_call_id: toolCallApproval.toolCallId!,
               content: 'Tool call denied'
             });
@@ -227,7 +230,7 @@ export class OpenAILLM implements ILLM {
         turnMessages.push(...toolCallsResults);
       }
 
-      // log.info('Starting OpenAI LLM with messages:', JSON.stringify(currentMessages, null, 2));
+      // log.info('Starting OpenAI LLM with messages:', JSON.stringify(turnMessages, null, 2));
 
       const tools = this.workspace.mcpManager.getAllTools();
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
@@ -237,7 +240,7 @@ export class OpenAILLM implements ILLM {
         const turn: Turn = {};
         let hasToolUse = false;
         turnCount++;
-        log.info(`Processing turn ${turnCount}`);
+        log.debug(`Processing turn ${turnCount}`);
 
         const completion = await this.client.chat.completions.create({
           model: this.modelName,
@@ -269,7 +272,6 @@ export class OpenAILLM implements ILLM {
         }
         
         if (response.tool_calls && response.tool_calls.length > 0) {
-          log.info('tool_calls', response.tool_calls);
           hasToolUse = true;
           // Add the assistant's message with the tool calls (we add it here because we only need it in the state if we're calling
           // a tool and then doing another turn that relies on that state).
@@ -324,7 +326,10 @@ export class OpenAILLM implements ILLM {
             }
           }
         }
-        modelReply.turns.push(turn);
+
+        if (turn.message || turn.toolCalls) {
+          modelReply.turns.push(turn);
+        }
           
         // Break if no tool uses in this turn, or if there are pending tool calls (requiring approval)
         if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
@@ -346,4 +351,4 @@ export class OpenAILLM implements ILLM {
       return modelReply;            
     }
   }
-} 
+}

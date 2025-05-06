@@ -98,50 +98,62 @@ export class ChatSession {
   // - Sometimes we get multiple tool calls in one turn
   // - Sometimes we get explanatory text with a tool call (or multiple tool calls)
   //
-  async handleMessage(message: string): Promise<MessageUpdate> {
+  async handleMessage(message: string | ChatMessage): Promise<MessageUpdate> {
     if (!this.llm) {
       throw new Error('No LLM instance available');
     }
 
-    // Get system prompt from config
+    if (typeof message === 'string') {
+      message = {
+        role: 'user',
+        content: message
+      };
+    }
+
+    // Handle user message text processing
+    if (message.role === 'user') {
+      // Search user message for each instance of @ref:[referenceName] and @rule:[ruleName] and inject found references and rules
+      const referenceRegex = /@ref:([\w-]+)/g;
+      const ruleRegex = /@rule:([\w-]+)/g;
+      const referenceMatches = message.content.match(referenceRegex);
+      const ruleMatches = message.content.match(ruleRegex);
+
+      // Clean up the message by removing @mentions
+      let cleanMessage = message.content;
+      if (referenceMatches) {
+        cleanMessage = cleanMessage.replace(referenceRegex, '');
+        for (const match of referenceMatches) {
+          const referenceName = match.replace('@ref:', '');
+          if (!this.references.includes(referenceName)) {
+            this.references.push(referenceName);
+          }
+        }
+      }
+      
+      if (ruleMatches) {
+        cleanMessage = cleanMessage.replace(ruleRegex, '');
+        for (const match of ruleMatches) {
+          const ruleName = match.replace('@rule:', '');
+          if (!this.rules.includes(ruleName)) {
+            this.rules.push(ruleName);
+          }
+        }
+      }
+      
+      // Clean up any extra whitespace that might have been left
+      cleanMessage = cleanMessage.replace(/\s+/g, ' ').trim();
+
+      message.content = cleanMessage;
+    }
+
+    // Build messages array, starting with system prompt and existing non-system messages
     const systemPrompt = await this.workspace.getSystemPrompt();
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
       ...this.messages.filter(m => m.role !== 'system')
     ];
-
-    // Search user message for each instance of @ref:[referenceName] and @rule:[ruleName] and inject found references and rules
-    const referenceRegex = /@ref:([\w-]+)/g;
-    const ruleRegex = /@rule:([\w-]+)/g;
-    const referenceMatches = message.match(referenceRegex);
-    const ruleMatches = message.match(ruleRegex);
-
-    // Clean up the message by removing @mentions
-    let cleanMessage = message;
-    if (referenceMatches) {
-      cleanMessage = cleanMessage.replace(referenceRegex, '');
-      for (const match of referenceMatches) {
-        const referenceName = match.replace('@ref:', '');
-        if (!this.references.includes(referenceName)) {
-          this.references.push(referenceName);
-        }
-      }
-    }
     
-    if (ruleMatches) {
-      cleanMessage = cleanMessage.replace(ruleRegex, '');
-      for (const match of ruleMatches) {
-        const ruleName = match.replace('@rule:', '');
-        if (!this.rules.includes(ruleName)) {
-          this.rules.push(ruleName);
-        }
-      }
-    }
-    
-    // Clean up any extra whitespace that might have been left
-    cleanMessage = cleanMessage.replace(/\s+/g, ' ').trim();
-
-    // Add the references and rules to the messages array
+    // Add the references to the messages array
     for (const referenceName of this.references) {
       const reference = this.workspace.referencesManager.getReference(referenceName);
       if (reference) {
@@ -152,6 +164,7 @@ export class ChatSession {
       }
     }
     
+    // Add the rules to the messages array
     for (const ruleName of this.rules) {
       const rule = this.workspace.rulesManager.getRule(ruleName);
       if (rule) {
@@ -162,12 +175,9 @@ export class ChatSession {
       }
     }
 
-    // Add the user message
-    const userMessage: ChatMessage = {
-      role: 'user',
-      content: cleanMessage
-    };
-    messages.push(userMessage);
+    // Add the user message to the messages array
+    this.messages.push(message);
+    messages.push(message);
 
     try {
       // Log the model being used for this request
@@ -179,22 +189,16 @@ export class ChatSession {
 
       log.debug('All turns', JSON.stringify(response.turns, null, 2));
 
-      const updates: ChatMessage[] = [
-        {
-          role: 'user',
-          content: message
-        },
-        { 
-          role: 'assistant' as const, 
-          modelReply: response
-        }
-      ];
+      const replyMessage = {
+        role: 'assistant' as const,
+        modelReply: response
+      };
       
-      this.messages.push(...updates);
+      this.messages.push(replyMessage);
       this.lastSyncId++;
       
       return {
-        updates,
+        updates: [message, replyMessage],
         lastSyncId: this.lastSyncId,
         references: [...this.references],
         rules: [...this.rules]
@@ -361,15 +365,19 @@ export class ChatSession {
     // First check if the tool has already been approved for this session
     const serverApprovedTools = this.approvedTools.get(serverId);
     if (serverApprovedTools?.has(toolId)) {
+      log.info(`Tool ${toolId} - already approved for this session, returning false`);
       return false;
     }
 
     // If the tool is not approved for this session, then we need to check the tool permission
     if (this.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS) {
+      log.info(`Tool ${toolId} - permission always required for all tools, returning true`);
       return true;
     } else if (this.toolPermission === SESSION_TOOL_PERMISSION_NEVER) {
+      log.info(`Tool ${toolId} - permission never required for all tools, returning false`);
       return false;
     } else { // SESSION_TOOL_PERMISSION_TOOL
+      log.info(`Tool ${toolId} - permission tool required, checking server config`);
       // Check the permission required for the tool
       const serverConfig = (await this.workspace.getMcpConfig())[serverId];
       if (!serverConfig) {
@@ -380,20 +388,27 @@ export class ChatSession {
         const toolConfig = serverConfig.config.permissions.toolPermissions[toolId];
         if (toolConfig) {
           if (toolConfig.permission === TOOL_PERMISSION_REQUIRED) {
+            log.info(`Tool ${toolId} - specific tool permission required, returning true`);
             return true;
           } else if (toolConfig.permission === TOOL_PERMISSION_NOT_REQUIRED) {
+            log.info(`Tool ${toolId} - specific tool permission not required, returning false`);
             return false;
           }
         }
 
         // If tool config either didn't exist, or was not one of the non-default values, we fall through to here and get the server default
         if (serverConfig.config.permissions.defaultPermission === TOOL_PERMISSION_REQUIRED) {
+          log.info(`Tool ${toolId} - server default permission required, returning true`);
           return true;
+        } else {
+          log.info(`Tool ${toolId} - server default permission not required, returning false`);
+          return false;
         }
       }
     }
 
     // If the above logic fails to deliver a defintive result, then we default to always requiring tool approval
+    log.info(`Tool ${toolId} - no definitive permission result, defaulting to true`);
     return true;
   }
 
@@ -402,11 +417,13 @@ export class ChatSession {
     maxOutputTokens: number;
     temperature: number;
     topP: number;
+    toolPermission: SessionToolPermission;
   }): boolean {
     this.maxChatTurns = settings.maxChatTurns;
     this.maxOutputTokens = settings.maxOutputTokens;
     this.temperature = settings.temperature;
     this.topP = settings.topP;
+    this.toolPermission = settings.toolPermission;
     
     log.info(`Updated chat session settings:`, settings);
     return true;

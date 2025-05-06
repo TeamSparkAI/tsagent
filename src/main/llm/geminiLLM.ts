@@ -229,6 +229,11 @@ export class GeminiLLM implements ILLM {
 
       for (const message of messages) {
         if ('modelReply' in message) {
+          if (message.modelReply.turns.length == 0) {
+            // This is the case where the LLM returns a tool call approval, but no other response
+            continue;
+          }
+
           // Process each turn in the LLM reply
           for (const turn of message.modelReply.turns) {
             // Add the assistant's message (including any tool calls)
@@ -448,7 +453,10 @@ export class GeminiLLM implements ILLM {
             }
           }
         }
-        modelReply.turns.push(turn);
+
+        if (turn.message || turn.toolCalls) {
+          modelReply.turns.push(turn);
+        }
           
         // Break if no tool uses in this turn, or if there are pending tool calls (requiring approval)
         if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
