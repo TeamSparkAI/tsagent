@@ -55,19 +55,23 @@ LLM processes "approval" messages along with other messages in the list (this pa
 - If "decision" is TOOL_CALL_DECSION_DENY, populate tool call and a tool call result with "User denied tool invocation"
 - LLM calls its generate with message history that includes tool calls / results
 
-## NEXT STEP - Tool permission processing and disposition
+## Tool permission processing and disposition (completed)
 
-The UX may receive multiple tool permisssion requests.  When this happens, it should display them all and wait for a decision to be indicated on each one before continuing.
+The UX may receive multiple tool permisssion requests.  When this happens, it displays them all and waits for a decision to be indicated on each one before continuing.
 
 When a user chooses a tool permission response, that request is considered "dispositioned".  
-- When this happens, the buttons should be replaced with a text indication of the disposition ("Approved for session", "Approved once", or "Denied")
-- There should be an undo control that will undo the dispositon and bring the buttons back up.
-- Once all tool permission requests have been dispositoned
-  - The "undo" control for each approval should be removed
-  - The approval message should be sent to the chat session (triggering the normal "Waiting for Response" status)
-- From the beginning of this permission request cycle until the next response is returned from the chat session, the input controls should be disabled.
+- When this happens, the buttons are replaced with a text indication of the disposition ("Approved for session", "Approved once", or "Denied")
+- There is also an undo control that undoes the dispositon and brings the buttons back up.
+- Once all tool permission requests have been dispositioned
+  - The "undo" control for each approval is removed
+  - The approval message is sent to the chat session (triggering the normal "Waiting for Response" status)
+- From the beginning of this permission request cycle until the next response is returned from the chat session, the input controls are disabled.
 
-## LATER - Integration permission request with tool call in chat tab display
+## TODO
+
+UX still looks like shit - clean it up (make it look more like tool call results)
+
+## NEXT - Integration permission request with tool call in chat tab display
 
 UX should integrated the tool call permissions with results so the AI response is just a clean list as if permission was never requested
 

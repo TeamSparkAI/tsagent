@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChatAPI } from '../api/ChatAPI';
 import { LLMType } from '../../shared/llm';
@@ -59,6 +59,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [scrollPosition, setScrollPosition] = useState(0);
   const [isInitialized, setIsInitialized] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPendingDisposition, setIsPendingDisposition] = useState(false);
+  const [pendingDispositions, setPendingDispositions] = useState<Map<string, ToolCallDecision>>(new Map());
   const [chatState, setChatState] = useState<ClientChatState>({
     messages: []
   });
@@ -81,6 +83,75 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     topP: TOP_P_DEFAULT,
     toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
+
+  // Helper to find the disposition for a tool call by looking at the next message
+  const findToolCallDisposition = (toolCallId: string, messageIndex: number): ToolCallDecision | undefined => {
+    log.info(`[findToolCallDisposition] Looking for disposition of toolCallId: ${toolCallId} at message index: ${messageIndex}`);
+    
+    // First check pending dispositions
+    const pending = pendingDispositions.get(toolCallId);
+    if (pending) {
+      log.info(`[findToolCallDisposition] Found pending disposition: ${pending}`);
+      return pending;
+    }
+
+    // Look at the next message in the chat history
+    const nextMessage = chatState.messages[messageIndex + 1];
+    log.info(`[findToolCallDisposition] Next message:`, nextMessage);
+    
+    if (nextMessage?.type === 'user' && nextMessage.toolCallApprovals) {
+      log.info(`[findToolCallDisposition] Found approval message with toolCallApprovals:`, nextMessage.toolCallApprovals);
+      
+      // Find the approval for this tool call
+      const approval = nextMessage.toolCallApprovals.find(a => a.toolCallId === toolCallId);
+      if (approval) {
+        log.info(`[findToolCallDisposition] Found approval for toolCallId ${toolCallId}:`, approval);
+        return approval.decision;
+      } else {
+        log.info(`[findToolCallDisposition] No approval found for toolCallId ${toolCallId} in approvals:`, nextMessage.toolCallApprovals);
+      }
+    } else {
+      log.info(`[findToolCallDisposition] Next message is not an approval message or has no toolCallApprovals`);
+    }
+    return undefined;
+  };
+
+  // Memoize the disposition lookup for each tool call
+  const toolCallDispositions = useMemo(() => {
+    const dispositions = new Map<string, ToolCallDecision>();
+    
+    // For each message with pending tool calls
+    chatState.messages.forEach((msg, msgIdx) => {
+      if (msg.modelReply?.pendingToolCalls) {
+        msg.modelReply.pendingToolCalls.forEach(tc => {
+          if (tc.toolCallId) {
+            const disposition = findToolCallDisposition(tc.toolCallId, msgIdx);
+            if (disposition) {
+              dispositions.set(tc.toolCallId, disposition);
+            }
+          }
+        });
+      }
+    });
+    
+    return dispositions;
+  }, [chatState.messages, pendingDispositions]);
+
+  // Derive pending disposition state from the last message
+  const hasPendingDispositions = useMemo(() => {
+    const lastMessage = chatState.messages[chatState.messages.length - 1];
+    if (!lastMessage?.modelReply?.pendingToolCalls) return false;
+    
+    // Check if any tool call in the last message doesn't have a disposition
+    return lastMessage.modelReply.pendingToolCalls.some(tc => 
+      tc.toolCallId && !toolCallDispositions.has(tc.toolCallId)
+    );
+  }, [chatState.messages, toolCallDispositions]);
+
+  // Update pending disposition mode when it changes
+  useEffect(() => {
+    setIsPendingDisposition(hasPendingDispositions);
+  }, [hasPendingDispositions]);
 
   useEffect(() => {
     // This happens when the tab is first mounted
@@ -362,6 +433,13 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   }, [chatState.selectedModel]);
 
+  // Update textarea disabled state when loading or pending disposition changes
+  useEffect(() => {
+    if (textareaRef.current) {
+      textareaRef.current.disabled = isLoading || isPendingDisposition;
+    }
+  }, [isLoading, isPendingDisposition]);
+
   if (!isInitialized) return null;
 
   const sendMessage = async () => {
@@ -399,7 +477,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       // Use setTimeout to ensure the DOM has been updated before focusing
       setTimeout(() => {
         if (textareaRef.current) {
-          textareaRef.current.disabled = false;  // Explicitly enable the textarea
           textareaRef.current.focus();
         }
       }, 0);
@@ -586,89 +663,168 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   };
 
   const handleToolCallApproval = async (toolCall: ToolCallRequest, decision: string) => {
-    if (!chatApiRef.current) return;
+    if (!chatApiRef.current || !toolCall.toolCallId) return;
 
-    // Set loading state
-    setIsLoading(true);
+    log.info(`[ChatTab] Handling tool call approval for ${toolCall.serverName}.${toolCall.toolName} with decision: ${decision}`);
 
-    try {
-      let toolCallDecision: ToolCallDecision;
-      if (decision === 'allow-session') {
-        toolCallDecision = TOOL_CALL_DECISION_ALLOW_SESSION;
-      } else if (decision === 'allow-once') {
-        toolCallDecision = TOOL_CALL_DECISION_ALLOW_ONCE;
-      } else {
-        toolCallDecision = TOOL_CALL_DECISION_DENY;
+    let toolCallDecision: ToolCallDecision;
+    if (decision === 'allow-session') {
+      toolCallDecision = TOOL_CALL_DECISION_ALLOW_SESSION;
+    } else if (decision === 'allow-once') {
+      toolCallDecision = TOOL_CALL_DECISION_ALLOW_ONCE;
+    } else {
+      toolCallDecision = TOOL_CALL_DECISION_DENY;
+    }
+
+    // Add the new disposition to pending dispositions
+    setPendingDispositions(prev => {
+      const next = new Map(prev);
+      next.set(toolCall.toolCallId!, toolCallDecision);
+      return next;
+    });
+
+    // Find the message containing this tool call
+    const messageWithToolCall = chatState.messages.find(msg => 
+      msg.modelReply?.pendingToolCalls?.some(tc => tc.toolCallId === toolCall.toolCallId)
+    );
+
+    if (!messageWithToolCall?.modelReply?.pendingToolCalls) {
+      log.error('[ChatTab] Could not find message containing tool call');
+      return;
+    }
+
+    // Get current dispositions for this message
+    const currentDispositions = new Map<string, { toolCall: ToolCallRequest, decision: ToolCallDecision }>();
+    
+    // Add existing dispositions from message history and pending dispositions
+    messageWithToolCall.modelReply.pendingToolCalls.forEach(tc => {
+      if (tc.toolCallId) {
+        const disposition = toolCallDispositions.get(tc.toolCallId);
+        if (disposition) {
+          currentDispositions.set(tc.toolCallId, { toolCall: tc, decision: disposition });
+        }
       }
+    });
 
-      // Create approval message
-      const approvalMessage = {
-        role: 'approval' as const,
-        toolCallApprovals: [{
-          ...toolCall,
-          decision: toolCallDecision
-        }],
-        content: '' // Add empty content to satisfy ChatMessage type
-      };
+    // Add the new disposition
+    currentDispositions.set(toolCall.toolCallId, { toolCall, decision: toolCallDecision });
 
-      // Send approval message and get response
-      const response = await chatApiRef.current.sendMessage(approvalMessage);
+    // Check if all tool calls in this message have been dispositioned
+    const allToolCallsInMessage = messageWithToolCall.modelReply.pendingToolCalls;
+    const allDispositioned = allToolCallsInMessage.every(tc => 
+      tc.toolCallId && currentDispositions.has(tc.toolCallId)
+    );
 
-      // Update chat state with the full response
-      setChatState(prevState => {
-        const newMessages = [...prevState.messages];
-        
-        // Add the approval message to history
-        newMessages.push({
-          type: 'user' as const,
-          content: `Approved tool call: ${toolCall.serverName}.${toolCall.toolName} (${decision})`
+    log.info(`[ChatTab] All tool calls in message dispositioned: ${allDispositioned}`);
+    log.info(`[ChatTab] Current dispositions:`, Array.from(currentDispositions.entries()));
+    log.info(`[ChatTab] Tool calls in message:`, allToolCallsInMessage);
+    log.info(`[ChatTab] Tool calls in message length: ${allToolCallsInMessage.length}`);
+    log.info(`[ChatTab] Dispositions needed: ${allToolCallsInMessage.length}`);
+    log.info(`[ChatTab] Dispositions we have: ${currentDispositions.size}`);
+    log.info(`[ChatTab] New disposition:`, { toolCallId: toolCall.toolCallId, decision: toolCallDecision });
+    log.info(`[ChatTab] All dispositions check:`, allToolCallsInMessage.map(tc => ({
+      toolCallId: tc.toolCallId,
+      hasDisposition: tc.toolCallId ? currentDispositions.has(tc.toolCallId) : false
+    })));
+
+    if (allDispositioned) {
+      try {
+        // Create approval message with all dispositions for this message
+        const approvalMessage = {
+          role: 'approval' as const,
+          toolCallApprovals: allToolCallsInMessage
+            .filter(tc => tc.toolCallId && currentDispositions.has(tc.toolCallId))
+            .map(tc => {
+              const disposition = currentDispositions.get(tc.toolCallId!)!;
+              return {
+                toolCallId: tc.toolCallId!,
+                decision: disposition.decision,
+                serverName: tc.serverName,
+                toolName: tc.toolName,
+                args: tc.args
+              };
+            }),
+          content: '' // Add empty content to satisfy ChatMessage type
+        };
+
+        log.info(`[ChatTab] Sending approval message:`, approvalMessage);
+
+        // Set loading state only when we're actually sending the message
+        setIsLoading(true);
+
+        // Send approval message and get response
+        const response = await chatApiRef.current.sendMessage(approvalMessage);
+
+        log.info(`[ChatTab] Received response from chat session:`, response);
+
+        // Update chat state with the full response
+        setChatState(prevState => {
+          const newMessages = [...prevState.messages];
+          
+          // Add the actual approval message to history
+          newMessages.push({
+            type: 'user',
+            content: '', // Empty content since we'll format it in the render
+            toolCallApprovals: approvalMessage.toolCallApprovals
+          });
+
+          // Add the assistant's response
+          if (response.updates) {
+            newMessages.push(...response.updates.map(msg => {
+              if (msg.role === 'assistant') {
+                return {
+                  type: 'ai' as const,
+                  content: '',
+                  modelReply: msg.modelReply
+                };
+              } else if (msg.role === 'user' || msg.role === 'system' || msg.role === 'error') {
+                return {
+                  type: msg.role,
+                  content: msg.content
+                };
+              }
+              return null;
+            }).filter(Boolean) as (RendererChatMessage & { modelReply?: ModelReply })[]);
+          }
+
+          return {
+            ...prevState,
+            messages: newMessages,
+            references: response.references || prevState.references,
+            rules: response.rules || prevState.rules
+          };
         });
 
-        // Add the assistant's response
-        if (response.updates) {
-          newMessages.push(...response.updates.map(msg => {
-            if (msg.role === 'assistant') {
-              return {
-                type: 'ai' as const,
-                content: '',
-                modelReply: msg.modelReply
-              };
-            } else if (msg.role === 'user' || msg.role === 'system' || msg.role === 'error') {
-              return {
-                type: msg.role,
-                content: msg.content
-              };
-            }
-            return null;
-          }).filter(Boolean) as (RendererChatMessage & { modelReply?: ModelReply })[]);
-        }
-
-        return {
+        // Clear pending dispositions after successful send
+        setPendingDispositions(new Map());
+      } catch (error) {
+        log.error('[ChatTab] Error handling tool call approval:', error);
+        // Add error message to chat
+        setChatState(prevState => ({
           ...prevState,
-          messages: newMessages,
-          pendingToolCalls: prevState.pendingToolCalls?.filter(tc => 
-            tc.toolCallId !== toolCall.toolCallId
-          ),
-          references: response.references || prevState.references,
-          rules: response.rules || prevState.rules
-        };
-      });
-    } catch (error) {
-      log.error('Error handling tool call approval:', error);
-      // Add error message to chat
-      setChatState(prevState => ({
-        ...prevState,
-        messages: [
-          ...prevState.messages,
-          {
-            type: 'error' as const,
-            content: `Error processing tool approval: ${error}`
-          }
-        ]
-      }));
-    } finally {
-      setIsLoading(false);
+          messages: [
+            ...prevState.messages,
+            {
+              type: 'error' as const,
+              content: `Error processing tool approval: ${error}`
+            }
+          ]
+        }));
+        // Clear pending dispositions on error
+        setPendingDispositions(new Map());
+      } finally {
+        setIsLoading(false);
+      }
     }
+  };
+
+  const handleUndoDisposition = (toolCallId: string | undefined) => {
+    if (!toolCallId) return;
+    setPendingDispositions(prev => {
+      const next = new Map(prev);
+      next.delete(toolCallId);
+      return next;
+    });
   };
 
   return (
@@ -1041,70 +1197,123 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                           )}
                         </div>
                       ))}
-                      {msg.modelReply.pendingToolCalls && msg.modelReply.pendingToolCalls.map((toolCall, idx) => (
-                        <div key={idx} className="tool-permission-request">
-                          <div className="tool-permission-header">
-                            <strong>Allow tool call from {toolCall.serverName}?</strong>
-                          </div>
-                          <div className="tool-permission-details">
-                            <div className="tool-call-info">
-                              Run {toolCall.toolName} from {toolCall.serverName}
-                              <button 
-                                className="btn expand-button"
-                                onClick={() => {
-                                  const key = `permission-${msgIdx}-${idx}`;
-                                  setExpandedToolCalls(prev => {
-                                    const newSet = new Set(prev);
-                                    if (newSet.has(key)) {
-                                      newSet.delete(key);
-                                    } else {
-                                      newSet.add(key);
-                                    }
-                                    return newSet;
-                                  });
-                                }}
-                              >
-                                {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) ? '▼' : '▶'}
-                              </button>
-                            </div>
-                            {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) && (
-                              <div className="tool-call-args">
-                                <pre>{JSON.stringify(toolCall.args, null, 2)}</pre>
-                              </div>
-                            )}
-                            <div className="tool-permission-warning">
-                              <strong>Review each action carefully before approving</strong>
-                            </div>
-                            <div className="tool-permission-actions">
-                              <button 
-                                className="btn allow-session"
-                                onClick={() => handleToolCallApproval(toolCall, 'allow-session')}
-                              >
-                                Allow for this chat
-                              </button>
-                              <button 
-                                className="btn allow-once"
-                                onClick={() => handleToolCallApproval(toolCall, 'allow-once')}
-                              >
-                                Allow once
-                              </button>
-                              <button 
-                                className="btn deny"
-                                onClick={() => handleToolCallApproval(toolCall, 'deny')}
-                              >
-                                Deny
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      ))}
                     </div>
                   )}
                 </>
               ) : (
-                <span>{msg.content}</span>
+                <>
+                  {msg.toolCallApprovals ? (
+                    <span>
+                      Approved tool calls: {msg.toolCallApprovals
+                        .map(a => `${a.serverName}.${a.toolName} (${a.decision === TOOL_CALL_DECISION_ALLOW_SESSION ? 'session' : 
+                                                      a.decision === TOOL_CALL_DECISION_ALLOW_ONCE ? 'once' : 
+                                                      'denied'})`)
+                        .join(', ')}
+                    </span>
+                  ) : (
+                    <span>{msg.content}</span>
+                  )}
+                </>
               )}
             </div>
+            {msg.modelReply && msg.modelReply.pendingToolCalls && msg.modelReply.pendingToolCalls.map((toolCall, idx) => {
+              if (!toolCall.toolCallId) return null;
+              const disposition = toolCallDispositions.get(toolCall.toolCallId);
+              const isPending = hasPendingDispositions;
+              const isLastMessage = msgIdx === chatState.messages.length - 1;
+              
+              return (
+                <div key={idx} className="tool-permission-request">
+                  <div className="tool-permission-header">
+                    <strong>Allow tool call from {toolCall.serverName}?</strong>
+                  </div>
+                  <div className="tool-permission-details">
+                    <div className="tool-call-info">
+                      Run {toolCall.toolName} from {toolCall.serverName}
+                      <button 
+                        className="btn expand-button"
+                        onClick={() => {
+                          const key = `permission-${msgIdx}-${idx}`;
+                          setExpandedToolCalls(prev => {
+                            const newSet = new Set(prev);
+                            if (newSet.has(key)) {
+                              newSet.delete(key);
+                            } else {
+                              newSet.add(key);
+                            }
+                            return newSet;
+                          });
+                        }}
+                      >
+                        {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) ? '▼' : '▶'}
+                      </button>
+                    </div>
+                    {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) && (
+                      <div className="tool-call-args">
+                        <pre>{JSON.stringify(toolCall.args, null, 2)}</pre>
+                      </div>
+                    )}
+                    {!isLastMessage ? (
+                      // For non-last messages, always show disposition (or unknown)
+                      <div className="tool-permission-disposition">
+                        <span className={`disposition ${disposition || 'unknown'}`}>
+                          {disposition ? (
+                            disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved for session' :
+                            disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved once' :
+                            'Denied'
+                          ) : 'Unknown'}
+                        </span>
+                      </div>
+                    ) : (
+                      // For the last message, show approval UI if no disposition
+                      disposition ? (
+                        <div className="tool-permission-disposition">
+                          <span className={`disposition ${disposition}`}>
+                            {disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved for session' :
+                             disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved once' :
+                             'Denied'}
+                          </span>
+                          {isPending && (
+                            <button 
+                              className="btn undo-button"
+                              onClick={() => handleUndoDisposition(toolCall.toolCallId)}
+                            >
+                              Undo
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <>
+                          <div className="tool-permission-warning">
+                            <strong>Review each action carefully before approving</strong>
+                          </div>
+                          <div className="tool-permission-actions">
+                            <button 
+                              className="btn allow-session"
+                              onClick={() => handleToolCallApproval(toolCall, 'allow-session')}
+                            >
+                              Allow for this chat
+                            </button>
+                            <button 
+                              className="btn allow-once"
+                              onClick={() => handleToolCallApproval(toolCall, 'allow-once')}
+                            >
+                              Allow once
+                            </button>
+                            <button 
+                              className="btn deny"
+                              onClick={() => handleToolCallApproval(toolCall, 'deny')}
+                            >
+                              Deny
+                            </button>
+                          </div>
+                        </>
+                      )
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>
@@ -1125,15 +1334,16 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               sendMessage();
             }
           }}
-          placeholder={chatState.selectedModel ? "Type your message..." : "Select a model to start chatting"}
+          placeholder={isLoading || isPendingDisposition ? "" : 
+            chatState.selectedModel ? "Type your message..." : "Select a model to start chatting"}
           rows={1}
-          disabled={isLoading || !chatState.selectedModel}
+          disabled={isLoading || !chatState.selectedModel || isPendingDisposition}
         />
         <button 
           id="send-button" 
           className="btn btn-primary"
           onClick={sendMessage}
-          disabled={isLoading || !inputValue.trim()}
+          disabled={isLoading || !inputValue.trim() || isPendingDisposition}
         >
           Send
         </button>
