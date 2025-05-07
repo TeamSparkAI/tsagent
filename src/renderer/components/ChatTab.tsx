@@ -84,7 +84,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
 
-  // Helper to find the disposition for a tool call by looking at the next message
+  // Helper to find the disposition for a tool call by looking at the previous message
   const findToolCallDisposition = (toolCallId: string, messageIndex: number): ToolCallDecision | undefined => {
     log.info(`[findToolCallDisposition] Looking for disposition of toolCallId: ${toolCallId} at message index: ${messageIndex}`);
     
@@ -95,23 +95,23 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       return pending;
     }
 
-    // Look at the next message in the chat history
-    const nextMessage = chatState.messages[messageIndex + 1];
-    log.info(`[findToolCallDisposition] Next message:`, nextMessage);
+    // Look at the previous message in the chat history
+    const prevMessage = chatState.messages[messageIndex - 1];
+    log.info(`[findToolCallDisposition] Previous message:`, prevMessage);
     
-    if (nextMessage?.type === 'approval' && nextMessage.toolCallApprovals) {
-      log.info(`[findToolCallDisposition] Found approval message with toolCallApprovals:`, nextMessage.toolCallApprovals);
+    if (prevMessage?.type === 'approval' && prevMessage.toolCallApprovals) {
+      log.info(`[findToolCallDisposition] Found approval message with toolCallApprovals:`, prevMessage.toolCallApprovals);
       
       // Find the approval for this tool call
-      const approval = nextMessage.toolCallApprovals.find(a => a.toolCallId === toolCallId);
+      const approval = prevMessage.toolCallApprovals.find(a => a.toolCallId === toolCallId);
       if (approval) {
         log.info(`[findToolCallDisposition] Found approval for toolCallId ${toolCallId}:`, approval);
         return approval.decision;
       } else {
-        log.info(`[findToolCallDisposition] No approval found for toolCallId ${toolCallId} in approvals:`, nextMessage.toolCallApprovals);
+        log.info(`[findToolCallDisposition] No approval found for toolCallId ${toolCallId} in approvals:`, prevMessage.toolCallApprovals);
       }
     } else {
-      log.info(`[findToolCallDisposition] Next message is not an approval message or has no toolCallApprovals`);
+      log.info(`[findToolCallDisposition] Previous message is not an approval message or has no toolCallApprovals`);
     }
     return undefined;
   };
@@ -440,6 +440,57 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   }, [isLoading, isPendingDisposition]);
 
+  // Group related messages into a single response
+  const groupedMessages = useMemo(() => {
+    type MessageGroup = {
+      messages: (RendererChatMessage & { modelReply?: ModelReply })[];
+    };
+
+    const groups: MessageGroup[] = [];
+    let currentGroup: MessageGroup | null = null;
+
+    chatState.messages.forEach((msg, idx) => {
+      const prevMsg = idx > 0 ? chatState.messages[idx - 1] : null;
+
+      if (msg.type === 'ai') {
+        // If previous message was an approval, continue current group
+        if (prevMsg?.type === 'approval' && currentGroup) {
+          currentGroup.messages.push(msg);
+        } else {
+          // Start new group
+          if (currentGroup) {
+            groups.push(currentGroup);
+          }
+          currentGroup = {
+            messages: [msg]
+          };
+        }
+      } else if (msg.type === 'approval') {
+        // Add approval message to current group
+        if (currentGroup) {
+          currentGroup.messages.push(msg);
+        }
+      } else {
+        // Non-AI, non-approval message
+        if (currentGroup) {
+          groups.push(currentGroup);
+          currentGroup = null;
+        }
+        groups.push({
+          messages: [msg]
+        });
+      }
+    });
+
+    if (currentGroup) {
+      groups.push(currentGroup);
+    }
+
+    log.info(`[ChatTab] Grouped messages:`, JSON.stringify(groups, null, 2));
+
+    return groups;
+  }, [chatState.messages]);
+
   if (!isInitialized) return null;
 
   const sendMessage = async () => {
@@ -569,8 +620,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
-  const toggleToolCall = (messageIndex: number, turnIndex: number, toolIndex: number) => {
-    const key = `${messageIndex}-${turnIndex}-${toolIndex}`;
+  const toggleToolCall = (groupIdx: number, msgIdx: number, turnIdx: number, toolIdx: number) => {
+    const key = `${groupIdx}-${msgIdx}-${turnIdx}-${toolIdx}`;
     setExpandedToolCalls(prev => {
       const next = new Set(prev);
       if (next.has(key)) {
@@ -1122,185 +1173,280 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         onContextMenu={handleContextMenu}
         onScroll={handleScroll}
       >
-        {chatState.messages.filter(msg => msg.type !== 'approval').map((msg: RendererChatMessage & { modelReply?: ModelReply }, msgIdx: number) => (
-          <div 
-            key={msgIdx} 
-            className={`message ${msg.type}`}
-          >
+        {groupedMessages.map((group, groupIdx) => (
+          <div key={groupIdx} className={`message ${group.messages[0].type}`}>
             <div style={{ display: 'inline' }}>
-              <strong>{msg.type.toUpperCase()}:</strong>{' '}
-              {msg.type === 'ai' ? (
+              <strong>{group.messages[0].type.toUpperCase()}:</strong>{' '}
+              {group.messages[0].type === 'ai' ? (
                 <>
-                  {msg.modelReply && (
-                    <div className="llm-reply-turns">
-                      {msg.modelReply.turns.map((turn: Turn, turnIdx: number) => (
-                        <div key={turnIdx} className="turn">
-                          {turn.message && (
-                            <div className="turn-message">
-                              <ReactMarkdown
-                                remarkPlugins={[remarkGfm]}
-                                components={{
-                                  a: ({ node, ...props }) => (
-                                    <a 
-                                      {...props} 
-                                      onClick={handleLinkClick}
-                                      style={{ color: '#007bff', cursor: 'pointer' }}
-                                    />
-                                  ),
-                                  p: ({children}) => (
-                                    <span style={{
-                                      whiteSpace: 'pre-wrap',
-                                    }}>
-                                      {children}
-                                    </span>
-                                  )
-                                }}
-                              >
-                                {turn.message}
-                              </ReactMarkdown>
-                            </div>
-                          )}
-                          {turn.toolCalls && turn.toolCalls.map((toolCall: ToolCallResult, toolIdx: number) => {
-                            const key = `${msgIdx}-${turnIdx}-${toolIdx}`;
-                            const isExpanded = expandedToolCalls.has(key);
-                            return (
-                              <div key={toolIdx} className="tool-call">
-                                <div 
-                                  className={`tool-call-header ${isExpanded ? 'expanded' : ''}`}
-                                  onClick={() => toggleToolCall(msgIdx, turnIdx, toolIdx)}
-                                >
-                                  <span className="tool-call-name">Tool Call: {toolCall.serverName}.{toolCall.toolName} ({toolCall.elapsedTimeMs.toFixed(3)}ms)</span>
+                  {group.messages.map((message, messageIndex) => {
+                    if (message.type === 'ai' && message.modelReply) {
+                      const isLastMessage = messageIndex === group.messages.length - 1;
+                      
+                      return (
+                        <div key={messageIndex} className="message-content">
+                          {message.modelReply.turns.map((turn, turnIndex) => (
+                            <div key={turnIndex}>
+                              {turn.message && (
+                                <div className="markdown-content">
+                                  <ReactMarkdown
+                                    remarkPlugins={[remarkGfm]}
+                                    components={{
+                                      a: ({ node, ...props }) => (
+                                        <a 
+                                          {...props} 
+                                          onClick={handleLinkClick}
+                                          style={{ color: '#007bff', cursor: 'pointer' }}
+                                        />
+                                      ),
+                                      p: ({children}) => (
+                                        <span style={{
+                                          whiteSpace: 'pre-wrap',
+                                        }}>
+                                          {children}
+                                        </span>
+                                      )
+                                    }}
+                                  >
+                                    {turn.message}
+                                  </ReactMarkdown>
                                 </div>
-                                {isExpanded && (
-                                  <div className="tool-call-details">
-                                    <div>Arguments:</div>
-                                    <pre>{JSON.stringify(toolCall.args, null, 2)}</pre>
-                                    <div>Result:</div>
-                                    <div className="tool-call-output">
-                                      {toolCall.output}
+                              )}
+                              
+                              {/* Show completed tool calls with their dispositions */}
+                              {turn.toolCalls?.map((toolCall, toolIndex) => {
+                                // Find the disposition for this tool call in the previous message
+                                const disposition = group.messages
+                                  .slice(0, messageIndex)
+                                  .reverse()
+                                  .find(m => m.type === 'approval')
+                                  ?.toolCallApprovals
+                                  ?.find(a => a.toolCallId === toolCall.toolCallId)
+                                  ?.decision;
+
+                                const key = `${groupIdx}-${messageIndex}-${turnIndex}-${toolIndex}`;
+                                const isExpanded = expandedToolCalls.has(key);
+
+                                return (
+                                  <div key={toolIndex} className="tool-call">
+                                    <div 
+                                      className={`tool-call-header ${isExpanded ? 'expanded' : ''}`}
+                                      onClick={() => toggleToolCall(groupIdx, messageIndex, turnIndex, toolIndex)}
+                                    >
+                                      <span className="tool-call-name">
+                                        {toolCall.serverName}.{toolCall.toolName}
+                                        {toolCall.elapsedTimeMs !== undefined && (
+                                          <span className="tool-call-elapsed-time">
+                                            {' '}({toolCall.elapsedTimeMs.toFixed(2)}ms)
+                                          </span>
+                                        )}
+                                        {disposition && (
+                                          <span className={`disposition-status ${disposition === TOOL_CALL_DECISION_ALLOW_ONCE || disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'approved' : 'denied'}`}>
+                                            {' - '}
+                                            {disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved (once)' :
+                                             disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved (session)' :
+                                             'Denied'}
+                                          </span>
+                                        )}
+                                      </span>
+                                      {!disposition && !toolCall.elapsedTimeMs && (
+                                        <div className="tool-call-actions">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_ALLOW_SESSION);
+                                            }}
+                                            className="btn btn-primary btn-sm"
+                                          >
+                                            Allow for this chat
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_ALLOW_ONCE);
+                                            }}
+                                            className="btn btn-primary btn-sm"
+                                          >
+                                            Allow once
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_DENY);
+                                            }}
+                                            className="btn remove-button btn-sm"
+                                          >
+                                            Deny
+                                          </button>
+                                        </div>
+                                      )}
+                                      {disposition && pendingDispositions.has(toolCall.toolCallId!) && !isLoading && (
+                                        <div className="tool-call-actions">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleUndoDisposition(toolCall.toolCallId);
+                                            }}
+                                            className="btn btn-secondary btn-sm"
+                                          >
+                                            Undo
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
-                                    {toolCall.error && (
-                                      <div className="tool-call-error">
-                                        <strong>Error:</strong> {toolCall.error}
+                                    {isExpanded && (
+                                      <div className="tool-call-details">
+                                        {toolCall.args && (
+                                          <div className="tool-call-section">
+                                            <div className="tool-call-section-header">Arguments:</div>
+                                            <div className="tool-call-output">
+                                              {JSON.stringify(toolCall.args, null, 2)}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {toolCall.output && (
+                                          <div className="tool-call-section">
+                                            <div className="tool-call-section-header">Output:</div>
+                                            <div className="tool-call-output">
+                                              {toolCall.output}
+                                            </div>
+                                          </div>
+                                        )}
+                                        {toolCall.error && (
+                                          <div className="tool-call-section">
+                                            <div className="tool-call-section-header">Error:</div>
+                                            <div className="tool-call-error">
+                                              {toolCall.error}
+                                            </div>
+                                          </div>
+                                        )}
                                       </div>
                                     )}
                                   </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                          {turn.error && (
-                            <div className="turn-error">
-                              <strong>Error:</strong> {turn.error}
+                                );
+                              })}
+                            </div>
+                          ))}
+
+                          {/* Show pending tool calls at the end */}
+                          {isLastMessage && message.modelReply.pendingToolCalls && message.modelReply.pendingToolCalls.length > 0 && (
+                            <div className="tool-calls-section">
+                              {!isLoading && (
+                                <div className="section-title">
+                                  Tool Calls Requiring Approval
+                                </div>
+                              )}
+                              {message.modelReply.pendingToolCalls.map((toolCall, index) => {
+                                if (!toolCall.toolCallId) return null;
+                                const disposition = toolCallDispositions.get(toolCall.toolCallId);
+                                const isPending = hasPendingDispositions;
+                                const key = `${groupIdx}-${messageIndex}-0-${index}`;  // Use 0 as turnIndex for pending calls
+                                const isExpanded = expandedToolCalls.has(key);
+                                
+                                return (
+                                  <div key={index} className="tool-call">
+                                    <div 
+                                      className={`tool-call-header ${isExpanded ? 'expanded' : ''}`}
+                                      onClick={() => toggleToolCall(groupIdx, messageIndex, 0, index)}
+                                    >
+                                      <span className="tool-call-name">
+                                        {toolCall.serverName}.{toolCall.toolName}
+                                        {isLoading && (
+                                          <span className="pending-status">
+                                            {' '}(pending)
+                                          </span>
+                                        )}
+                                        {disposition && (
+                                          <span className={`disposition-status ${disposition === TOOL_CALL_DECISION_ALLOW_ONCE || disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'approved' : 'denied'}`}>
+                                            {' - '}
+                                            {disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved (once)' :
+                                             disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved (session)' :
+                                             'Denied'}
+                                          </span>
+                                        )}
+                                      </span>
+                                      {!disposition && !isLoading && (
+                                        <div className="tool-call-actions">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_ALLOW_SESSION);
+                                            }}
+                                            className="btn btn-primary btn-sm"
+                                          >
+                                            Allow for this chat
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_ALLOW_ONCE);
+                                            }}
+                                            className="btn btn-primary btn-sm"
+                                          >
+                                            Allow once
+                                          </button>
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_DENY);
+                                            }}
+                                            className="btn remove-button btn-sm"
+                                          >
+                                            Deny
+                                          </button>
+                                        </div>
+                                      )}
+                                      {disposition && pendingDispositions.has(toolCall.toolCallId!) && !isLoading && (
+                                        <div className="tool-call-actions">
+                                          <button
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              handleUndoDisposition(toolCall.toolCallId);
+                                            }}
+                                            className="btn btn-secondary btn-sm"
+                                          >
+                                            Undo
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                    {isExpanded && (
+                                      <div className="tool-call-details">
+                                        {toolCall.args && (
+                                          <div className="tool-call-section">
+                                            <div className="tool-call-section-header">Arguments:</div>
+                                            <div className="tool-call-output">
+                                              {JSON.stringify(toolCall.args, null, 2)}
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                              {!isLoading && (
+                                <>
+                                  <div className="warning-message">
+                                    <strong>Warning:</strong>&nbsp;Malicious MCP Servers or conversation content could potentially trick TeamSpark AI Workbench into attempting harmful actions through your installed tools.
+                                  </div>
+                                  <div className="warning-text">
+                                    <strong>Review each action carefully before approving</strong>
+                                  </div>
+                                </>
+                              )}
                             </div>
                           )}
                         </div>
-                      ))}
-                    </div>
-                  )}
+                      );
+                    }
+                    return null;
+                  })}
                 </>
               ) : (
-                <span>{msg.content}</span>
+                <span>{group.messages[0].content}</span>
               )}
             </div>
-            {msg.modelReply && msg.modelReply.pendingToolCalls && msg.modelReply.pendingToolCalls.map((toolCall, idx) => {
-              if (!toolCall.toolCallId) return null;
-              const disposition = toolCallDispositions.get(toolCall.toolCallId);
-              const isPending = hasPendingDispositions;
-              const isLastMessage = msgIdx === chatState.messages.length - 1;
-              
-              return (
-                <div key={idx} className="tool-permission-request">
-                  <div className="tool-permission-header">
-                    <strong>Allow tool call from {toolCall.serverName}?</strong>
-                  </div>
-                  <div className="tool-permission-details">
-                    <div className="tool-call-info">
-                      Run {toolCall.toolName} from {toolCall.serverName}
-                      <button 
-                        className="btn expand-button"
-                        onClick={() => {
-                          const key = `permission-${msgIdx}-${idx}`;
-                          setExpandedToolCalls(prev => {
-                            const newSet = new Set(prev);
-                            if (newSet.has(key)) {
-                              newSet.delete(key);
-                            } else {
-                              newSet.add(key);
-                            }
-                            return newSet;
-                          });
-                        }}
-                      >
-                        {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) ? '▼' : '▶'}
-                      </button>
-                    </div>
-                    {expandedToolCalls.has(`permission-${msgIdx}-${idx}`) && (
-                      <div className="tool-call-args">
-                        <pre>{JSON.stringify(toolCall.args, null, 2)}</pre>
-                      </div>
-                    )}
-                    {!isLastMessage ? (
-                      // For non-last messages, always show disposition (or unknown)
-                      <div className="tool-permission-disposition">
-                        <span className={`disposition ${disposition || 'unknown'}`}>
-                          {disposition ? (
-                            disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved for session' :
-                            disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved once' :
-                            'Denied'
-                          ) : 'Unknown'}
-                        </span>
-                      </div>
-                    ) : (
-                      // For the last message, show approval UI if no disposition
-                      disposition ? (
-                        <div className="tool-permission-disposition">
-                          <span className={`disposition ${disposition}`}>
-                            {disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved for session' :
-                             disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved once' :
-                             'Denied'}
-                          </span>
-                          {isPending && (
-                            <button 
-                              className="btn undo-button"
-                              onClick={() => handleUndoDisposition(toolCall.toolCallId)}
-                            >
-                              Undo
-                            </button>
-                          )}
-                        </div>
-                      ) : (
-                        <>
-                          <div className="tool-permission-warning">
-                            <strong>Review each action carefully before approving</strong>
-                          </div>
-                          <div className="tool-permission-actions">
-                            <button 
-                              className="btn allow-session"
-                              onClick={() => handleToolCallApproval(toolCall, 'allow-session')}
-                            >
-                              Allow for this chat
-                            </button>
-                            <button 
-                              className="btn allow-once"
-                              onClick={() => handleToolCallApproval(toolCall, 'allow-once')}
-                            >
-                              Allow once
-                            </button>
-                            <button 
-                              className="btn deny"
-                              onClick={() => handleToolCallApproval(toolCall, 'deny')}
-                            >
-                              Deny
-                            </button>
-                          </div>
-                        </>
-                      )
-                    )}
-                  </div>
-                </div>
-              );
-            })}
           </div>
         ))}
       </div>

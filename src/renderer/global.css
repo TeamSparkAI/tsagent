@@ -113,9 +113,6 @@ body {
   height: 2px;
   background-color: var(--selected-border);
 }
-.tab-button:not(.active):hover {
-  /* Remove the color change */
-}
 .tab-button:not(.active):hover::after {
   content: '';
   position: absolute;
@@ -384,9 +381,19 @@ body {
   position: relative;
   background-color: var(--bg-tertiary);
   color: var(--text-primary);
+  min-height: 32px;
 }
-.tool-call-header:hover {
-  /* Remove hover effect */
+.tool-call-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 8px;
+}
+.tool-call-actions .btn {
+  padding: 2px 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  min-width: 80px;
 }
 .tool-call-header::before {
   content: '▶';
@@ -410,6 +417,13 @@ body {
   margin-left: 1.5em;
   font-size: 0.9em;
   font-weight: 600;
+}
+.tool-call-name > span {
+  color: inherit;
+}
+.tool-call-elapsed-time {
+  color: var(--text-tertiary);
+  margin-left: 0.5em;
 }
 .tool-call-details {
   margin-top: 0.5rem;
@@ -691,4 +705,98 @@ a:hover {
 
 .message.ai a:hover {
   text-decoration: underline;
+}
+
+.section-header {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.warning-text {
+  font-size: 0.875rem;
+  color: var(--warning);
+  margin-top: 1rem;
+}
+
+.tool-call-section {
+  margin-bottom: 0.5rem;
+}
+
+.tool-call-section-header {
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin-bottom: 0.25rem;
+  color: var(--text-primary);
+}
+
+.disposition-status {
+  margin-left: 0.5rem;
+}
+
+.disposition-status.approved {
+  color: var(--success);
+}
+
+.disposition-status.denied {
+  color: var(--error);
+}
+
+.tool-call-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 0.5rem;
+}
+
+.message-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.markdown-content {
+  font-size: 1rem;
+  max-width: none;
+  color: var(--text-primary);
+}
+
+.markdown-content p {
+  margin: 0;
+  white-space: pre-wrap;
+}
+
+.markdown-content a {
+  color: var(--selected-border);
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.section-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  margin-top: 1rem;  /* Add margin-top here */
+}
+
+.warning-message {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.warning-text {
+  font-size: 1rem;
+  color: var(--warning);
+  margin-bottom: 1rem;
+}
+
+.pending-status {
+  color: var(--text-tertiary);
+  font-style: italic;
 }
