@@ -6,12 +6,14 @@ import log from 'electron-log';
 import { LLMProviderInfo, LLMType } from '../shared/llm';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatSession, ChatSessionOptionsWithRequiredSettings } from '../main/state/ChatSession';
-import { MessageUpdate } from '../shared/ChatSession';
+import { MessageUpdate, ChatMessage, ToolCallDecision, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallApproval } from '../shared/ChatSession';
 import { WorkspaceManager } from '../main/state/WorkspaceManager';
 import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MOST_RECENT_MODEL_KEY, SessionToolPermission, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, SESSION_TOOL_PERMISSION_DEFAULT, SESSION_TOOL_PERMISSION_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../shared/workspace';
 import { LLMFactory } from '../main/llm/llmFactory';
 import path from 'path';
 import * as fs from 'fs';
+import { A, M } from 'ollama/dist/shared/ollama.f6b57f53';
+import { ModelReply } from '../shared/ModelReply';
 
 // Define commands
 const COMMANDS = {
@@ -108,6 +110,17 @@ function showHelp() {
   console.log(chalk.yellow('  /clear') + ' - Clear the chat history');
   console.log(chalk.yellow('  /quit') + ' or ' + chalk.yellow('/exit') + ' - Exit the application');
   console.log('');
+}
+
+function indent(text: string, indent: number = 2, allLines: boolean = true): string {
+  const lines = text.split('\n');
+  if (lines.length === 1) {
+    return allLines ? ' '.repeat(indent) + text : text;
+  }
+  if (allLines) {
+    return lines.map(line => ' '.repeat(indent) + line).join('\n');
+  }
+  return lines[0] + '\n' + lines.slice(1).map(line => ' '.repeat(indent) + line).join('\n');
 }
 
 function getSettingsValue(workspace: WorkspaceManager, key: string, defaultValue: number): number {
@@ -635,18 +648,92 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
       
       spinner.stop();
       
-      for (const update of messageUpdate.updates) {
-        if (update.role === 'assistant') {
-          for (const turn of update.modelReply.turns) {
-            if (turn.message) {
-              console.log(`${turn.message}`);
+      function getAssistantUpdate(update: MessageUpdate | null): (ChatMessage & { role: 'assistant', modelReply: ModelReply }) | null {
+        // Find the first assistant update
+        if (update) {
+          for (const message of update.updates) {
+            if (message.role === 'assistant' && 'modelReply' in message) {
+              return message as ChatMessage & { role: 'assistant', modelReply: ModelReply };
             }
-            if (turn.toolCalls) {
-              for (const toolCall of turn.toolCalls) {
-                console.log(chalk.dim(`Tool call: ${toolCall.toolName}: ${JSON.stringify(toolCall.args)}`));
+          }
+        }
+        return null;
+      }
+
+      // Process message updates and handle any tool call approvals (loop until no more tool call approvals)
+      let assistantUpdate = getAssistantUpdate(messageUpdate);
+      while (assistantUpdate) {
+        for (const turn of assistantUpdate.modelReply.turns) {
+          if (turn.message) {
+            console.log(`\n${turn.message}`);
+          }
+          if (turn.toolCalls) {
+            for (const toolCall of turn.toolCalls) {
+              console.log(chalk.cyan(`\nTool call: ${toolCall.toolName}`));
+              console.log(chalk.dim(indent(`Arguments: ${JSON.stringify(toolCall.args, null, 2)}`)));
+              if (toolCall.output) {
+                console.log(chalk.dim(indent(`Output:`)));
+                console.log(chalk.dim(indent(toolCall.output, 4)));
+              }
+              if (toolCall.error) {
+                console.log(chalk.red(indent(`Error:`)));
+                console.log(chalk.dim(indent(toolCall.error, 4)));
               }
             }
           }
+        }
+
+        // Handle tool call permission requests
+        if (assistantUpdate.modelReply.pendingToolCalls && assistantUpdate.modelReply.pendingToolCalls.length > 0) {
+          console.log(chalk.yellow('Tool calls requiring approval:'));
+          
+          // Collect all tool call approvals
+          const toolCallApprovals: ToolCallApproval[] = [];
+          
+          for (const toolCall of assistantUpdate.modelReply.pendingToolCalls) {
+            console.log(chalk.cyan(`\nTool: ${toolCall.serverName}.${toolCall.toolName}`));
+            console.log(chalk.dim(indent(`Arguments: ${JSON.stringify(toolCall.args, null, 2)}`)));
+            
+            // Prompt for approval until we get a valid answer
+            let decision: ToolCallDecision | null = null;
+            
+            while (!decision) {
+              const answer = await read({
+                prompt: chalk.yellow('Allow for this (s)ession, allow (o)nce, or (d)eny? [s/o/d]: '),
+                default: 'o'
+              });
+              
+              if (answer.toLowerCase() === 's') {
+                decision = TOOL_CALL_DECISION_ALLOW_SESSION;
+              } else if (answer.toLowerCase() === 'o') {
+                decision = TOOL_CALL_DECISION_ALLOW_ONCE;
+              } else if (answer.toLowerCase() === 'd') {
+                decision = TOOL_CALL_DECISION_DENY;
+              } else {
+                console.log(chalk.red('Invalid answer. Please enter s, o, or d.'));
+              }
+            }
+            
+            toolCallApprovals.push({
+              serverName: toolCall.serverName,
+              toolName: toolCall.toolName,
+              toolCallId: toolCall.toolCallId,
+              args: toolCall.args,
+              decision,
+            });
+          }
+          
+          // Send approval message
+          const approvalMessage: ChatMessage = {
+            role: 'approval',
+            toolCallApprovals
+          };
+          
+          // Send the approval message and get response
+          const responseUpdate = await chatSession.handleMessage(approvalMessage);
+          assistantUpdate = getAssistantUpdate(responseUpdate);
+        } else {
+          assistantUpdate = null; // No more pending tool calls, exit the loop
         }
       }
     } catch (error: unknown) {
