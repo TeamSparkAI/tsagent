@@ -120,25 +120,3 @@ Installed tool maintains link to metadata tool it was installed from
 - Can get icon/url from there (display only, default icon if no icon)
 
 Requires permission: yes/no (if yes, prompt will be as below: Allow once, Allow for this chat, Deny)
-
-### Tool Permission
-
-Note: Currently we're YOLO only
-
-Allow tool call from [server name]?
-
-  Run [toolname] from [server/server name] (maybe pop this open to see server/tool config)
-
-Malicious MCP Servers or conversation content could potentially trick xxxxx into attempting harmful actions through your installed tools.
-<bold>Review each action carefully before approving</bold>
-
-[Allow for this chat] [Allow once] [Deny]
-
-Session will track tool approvals for session
-
-On tool call(s), determine if any require permission, and if so, mark them
-
-Tool permission request (variation of tool call)
-- Return this in a way that the client
-
-Client needs to resubmit with approved tool calls to trigger tool calls and continuation

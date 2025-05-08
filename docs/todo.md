@@ -24,10 +24,6 @@ Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 - Maybe this is better as a specific log category/file
 
-## Bugs
-
-Reference and Rule edit screens can overflow and do not scroll when they do
-
 ## Workspaces Issues
 
 Workspace metadata (name/desc) would be nice in UX
