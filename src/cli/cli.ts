@@ -8,7 +8,23 @@ import { Tool } from '@modelcontextprotocol/sdk/types';
 import { ChatSession, ChatSessionOptionsWithRequiredSettings } from '../main/state/ChatSession';
 import { MessageUpdate, ChatMessage, ToolCallDecision, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallApproval } from '../shared/ChatSession';
 import { WorkspaceManager } from '../main/state/WorkspaceManager';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MOST_RECENT_MODEL_KEY, SessionToolPermission, TEMPERATURE_DEFAULT, TEMPERATURE_KEY, SESSION_TOOL_PERMISSION_DEFAULT, SESSION_TOOL_PERMISSION_KEY, TOP_P_DEFAULT, TOP_P_KEY } from '../shared/workspace';
+import { 
+  MAX_CHAT_TURNS_KEY, 
+  MAX_CHAT_TURNS_DEFAULT, 
+  MAX_OUTPUT_TOKENS_KEY, 
+  MAX_OUTPUT_TOKENS_DEFAULT, 
+  TEMPERATURE_KEY, 
+  TEMPERATURE_DEFAULT, 
+  TOP_P_KEY, 
+  TOP_P_DEFAULT,
+  SESSION_TOOL_PERMISSION_KEY,
+  SESSION_TOOL_PERMISSION_DEFAULT,
+  SESSION_TOOL_PERMISSION_ALWAYS,
+  SESSION_TOOL_PERMISSION_NEVER,
+  SESSION_TOOL_PERMISSION_TOOL,
+  SessionToolPermission,
+  MOST_RECENT_MODEL_KEY
+} from '../shared/workspace';
 import { LLMFactory } from '../main/llm/llmFactory';
 import path from 'path';
 import * as fs from 'fs';
@@ -129,8 +145,14 @@ function getSettingsValue(workspace: WorkspaceManager, key: string, defaultValue
 }
 
 function getToolPermissionValue(workspace: WorkspaceManager, key: string, defaultValue: SessionToolPermission): SessionToolPermission {
-  const settingsValue = workspace.getSettingsValue(key);
-  return settingsValue ? settingsValue as SessionToolPermission : defaultValue;
+  const value = workspace.getSettingsValue(key);
+  if (!value) return defaultValue;
+  if (value !== SESSION_TOOL_PERMISSION_ALWAYS && 
+      value !== SESSION_TOOL_PERMISSION_NEVER && 
+      value !== SESSION_TOOL_PERMISSION_TOOL) {
+    return defaultValue;
+  }
+  return value as SessionToolPermission;
 }
 
 function getWorkspaceSettings(workspace: WorkspaceManager): ChatSessionOptionsWithRequiredSettings {
@@ -418,15 +440,19 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
             const workspaceTemperature = getSettingsValue(workspace, TEMPERATURE_KEY, TEMPERATURE_DEFAULT);
             const sessionTopP = settings.topP;
             const workspaceTopP = getSettingsValue(workspace, TOP_P_KEY, TOP_P_DEFAULT);
+            const sessionToolPermission = settings.toolPermission;
+            const workspaceToolPermission = getToolPermissionValue(workspace, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
             // Only if values are different, append "(workspace default: <value>)"
             const maxChatTurns = sessionMaxChatTurns === workspaceMaxChatTurns ? sessionMaxChatTurns : `${sessionMaxChatTurns} (overrides workspace default: ${workspaceMaxChatTurns})`;
             const maxOutputTokens = sessionMaxOutputTokens === workspaceMaxOutputTokens ? sessionMaxOutputTokens : `${sessionMaxOutputTokens} (overrides workspace default: ${workspaceMaxOutputTokens})`;
             const temperature = sessionTemperature === workspaceTemperature ? sessionTemperature : `${sessionTemperature} (overrides workspace default: ${workspaceTemperature})`;
             const topP = sessionTopP === workspaceTopP ? sessionTopP : `${sessionTopP} (overrides workspace default: ${workspaceTopP})`;
+            const toolPermission = sessionToolPermission === workspaceToolPermission ? sessionToolPermission : `${sessionToolPermission} (overrides workspace default: ${workspaceToolPermission})`;
             console.log(chalk.yellow(`  ${MAX_CHAT_TURNS_KEY}: ${maxChatTurns}`));
             console.log(chalk.yellow(`  ${MAX_OUTPUT_TOKENS_KEY}: ${maxOutputTokens}`));
             console.log(chalk.yellow(`  ${TEMPERATURE_KEY}: ${temperature}`));
             console.log(chalk.yellow(`  ${TOP_P_KEY}: ${topP}`));
+            console.log(chalk.yellow(`  ${SESSION_TOOL_PERMISSION_KEY}: ${toolPermission}`));
             console.log('');
           } else if (args[0] == 'clear') {
             const settings = getWorkspaceSettings(workspace);
@@ -438,6 +464,7 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
             await workspace.setSettingsValue(MAX_OUTPUT_TOKENS_KEY, settings.maxOutputTokens.toString());
             await workspace.setSettingsValue(TEMPERATURE_KEY, settings.temperature.toString());
             await workspace.setSettingsValue(TOP_P_KEY, settings.topP.toString());
+            await workspace.setSettingsValue(SESSION_TOOL_PERMISSION_KEY, settings.toolPermission);
             console.log(chalk.cyan('\nChat session settings saved to workspace'));
           } else {
             console.log(chalk.cyan('\nUnknown settings command: '), chalk.yellow(args[1]));
@@ -476,6 +503,14 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
               break;
             }
             chatSession.updateSettings({...settings, topP});
+          } else if (key == SESSION_TOOL_PERMISSION_KEY) {
+            if (value !== SESSION_TOOL_PERMISSION_ALWAYS && 
+                value !== SESSION_TOOL_PERMISSION_NEVER && 
+                value !== SESSION_TOOL_PERMISSION_TOOL) {
+              console.log(chalk.red('Invalid tool permission (must be one of: always, never, tool): '), chalk.yellow(value));
+              break;
+            }
+            chatSession.updateSettings({...settings, toolPermission: value as SessionToolPermission});
           } else {
             console.log(chalk.red('Unknown setting: '), chalk.yellow(key));
             break;
