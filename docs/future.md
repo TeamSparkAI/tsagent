@@ -8,7 +8,7 @@ Support non-text message types (mainly images?)
 
 It would be great to have it pluggable, maybe later.
 
-## Chat usage / priving
+## Chat usage / pricing
 
 Build db of provider/model pricing
 - Complicated as this is constantly changes, no automated way to get prices
