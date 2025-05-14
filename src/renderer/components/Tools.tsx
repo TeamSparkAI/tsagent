@@ -49,7 +49,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     
     // Check if the server type is specified, default to 'stdio' if not
     const effectiveType = server?.config?.type || 'stdio';
-    const [serverType, setServerType] = useState<'stdio' | 'sse' | 'internal'>(effectiveType);
+    const [serverType, setServerType] = useState<'stdio' | 'sse' | 'internal' | 'thv'>(effectiveType);
     
     // For stdio settings, only initialize them if effectiveType is 'stdio'
     const [command, setCommand] = useState<string>(() => {
@@ -67,9 +67,26 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         }
         return [];
     });
+
+    // For thv settings, initialize them if effectiveType is 'thv'
+    const [thvArgs, setThvArgs] = useState<string[]>(() => {
+        if (effectiveType === 'thv' && server?.config) {
+            const argsArray = (server.config as any).thvArgs;
+            return Array.isArray(argsArray) ? [...argsArray] : [];
+        }
+        return [];
+    });
+
+    const [serverArgs, setServerArgs] = useState<string[]>(() => {
+        if (effectiveType === 'thv' && server?.config) {
+            const argsArray = (server.config as any).serverArgs;
+            return Array.isArray(argsArray) ? [...argsArray] : [];
+        }
+        return [];
+    });
     
     const [env, setEnv] = useState<string>(() => {
-        if (effectiveType === 'stdio' && server?.config) {
+        if ((effectiveType === 'stdio' || effectiveType === 'thv') && server?.config) {
             return JSON.stringify((server.config as any).env || {});
         }
         return '{}';
@@ -136,6 +153,14 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         : {}
     );
 
+    // Rename server state to serverPath for thv type
+    const [serverPath, setServerPath] = useState<string>(() => {
+        if (effectiveType === 'thv' && server?.config) {
+            return (server.config as any).server || '';
+        }
+        return '';
+    });
+
     // Log initial state values
     useEffect(() => {
         console.log("EditServerModal initial state:", {
@@ -167,7 +192,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     
                     // For mcpServers format, we need to add type if missing
                     const configType = configObj.type || 'stdio';
-                    setServerType(configType as 'stdio' | 'sse' | 'internal');
+                    setServerType(configType as 'stdio' | 'sse' | 'internal' | 'thv');
                     
                     if (configType === 'stdio' || !configType) {
                         setCommand(configObj.command || '');
@@ -178,6 +203,11 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         setHeaders(configObj.headers || {});
                     } else if (configType === 'internal') {
                         setInternalTool(configObj.tool || 'rules');
+                    } else if (configType === 'thv') {
+                        setServerPath(configObj.server || '');
+                        setThvArgs(Array.isArray(configObj.thvArgs) ? configObj.thvArgs : []);
+                        setServerArgs(Array.isArray(configObj.serverArgs) ? configObj.serverArgs : []);
+                        setEnv(JSON.stringify(configObj.env || {}));
                     }
                     
                     // Update JSON text to standard format without mcpServers wrapper
@@ -210,7 +240,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 // Update config based on type
                 if (configObj) {
                     const configType = configObj.type || 'stdio';
-                    setServerType(configType as 'stdio' | 'sse' | 'internal');
+                    setServerType(configType as 'stdio' | 'sse' | 'internal' | 'thv');
                     
                     if (configType === 'stdio') {
                         setCommand(configObj.command || '');
@@ -221,6 +251,11 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         setHeaders(configObj.headers || {});
                     } else if (configType === 'internal') {
                         setInternalTool(configObj.tool || 'rules');
+                    } else if (configType === 'thv') {
+                        setServerPath(configObj.server || '');
+                        setThvArgs(Array.isArray(configObj.thvArgs) ? configObj.thvArgs : []);
+                        setServerArgs(Array.isArray(configObj.serverArgs) ? configObj.serverArgs : []);
+                        setEnv(JSON.stringify(configObj.env || {}));
                     }
                 }
             }
@@ -252,6 +287,22 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         // If env JSON is invalid, don't update it
                     }
                 }
+            } else if (serverType === 'thv') {
+                configObj = {
+                    type: 'thv',
+                    server: serverPath,
+                    name: name,
+                    thvArgs: thvArgs.filter(arg => arg.trim() !== ''),
+                    serverArgs: serverArgs.filter(arg => arg.trim() !== ''),
+                };
+                
+                if (env && env !== '{}') {
+                    try {
+                        configObj.env = JSON.parse(env);
+                    } catch (e) {
+                        // If env JSON is invalid, don't update it
+                    }
+                }
             } else if (serverType === 'sse') {
                 configObj = {
                     type: 'sse',
@@ -272,7 +323,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
             
             setJsonText(JSON.stringify(serverObj, null, 2));
         }
-    }, [isJsonMode, name, serverType, command, argsArray, env, url, headers, internalTool]);
+    }, [isJsonMode, name, serverType, command, argsArray, env, url, headers, internalTool, thvArgs, serverArgs]);
 
     const handleSave = async () => {
         setError(null);
@@ -300,7 +351,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         const existingServers = await window.api.getServerConfigs();
                         const nameConflict = existingServers.some(s => 
                             s.name === serverName && 
-                            (!server || s.name !== server.name)
+                            (!serverPath || s.name !== serverPath)
                         );
                         
                         if (nameConflict) {
@@ -357,7 +408,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 const existingServers = await window.api.getServerConfigs();
                 const nameConflict = existingServers.some(s => 
                     s.name === serverName && 
-                    (!server || s.name !== server.name)
+                    (!serverPath || s.name !== serverPath)
                 );
                 
                 if (nameConflict) {
@@ -403,7 +454,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     return;
                 }
 
-                // Check if the new name is already in use by another server
+                // Check for name conflicts
                 const existingServers = await window.api.getServerConfigs();
                 const nameConflict = existingServers.some(s => 
                     s.name === name && 
@@ -442,6 +493,16 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             type: 'sse',
                             url,
                             headers: Object.keys(headers).length > 0 ? headers : undefined,
+                            permissions
+                        }
+                        : serverType === 'thv'
+                        ? {
+                            type: 'thv',
+                            server: serverPath,
+                            name: name,
+                            thvArgs: thvArgs.filter(arg => arg.trim() !== ''),
+                            serverArgs: serverArgs.filter(arg => arg.trim() !== ''),
+                            env: Object.keys(JSON.parse(env)).length > 0 ? JSON.parse(env) : undefined,
                             permissions
                         }
                         : {
@@ -539,12 +600,14 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         <select 
                             value={serverType}
-                            onChange={(e) => setServerType(e.target.value as 'stdio' | 'sse' | 'internal')}
+                            onChange={(e) => setServerType(e.target.value as 'stdio' | 'sse' | 'internal' | 'thv')}
                             style={{ width: 'auto', padding: '4px 8px' }}
                         >
                             <option value="stdio">Stdio</option>
                             <option value="sse">SSE</option>
                             <option value="internal">Internal</option>
+                            {/* ToolHive is not supported yet */}
+                            {/* <option value="thv">ToolHive</option> */}
                         </select>
                     </div>
 
@@ -621,6 +684,113 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                     </div>
                                 ))}
                                 <button className="btn add-button" onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
+                            </div>
+                        </>
+                    )}
+
+                    {serverType === 'thv' && (
+                        <>
+                            <label style={{ fontWeight: 'bold' }}>Server:</label>
+                            <input 
+                                type="text" 
+                                value={serverPath}
+                                onChange={(e) => setServerPath(e.target.value)}
+                                style={{ width: '100%', padding: '4px 8px' }}
+                            />
+
+                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>ToolHive Arguments:</label>
+                            <div>
+                                {thvArgs.map((arg, index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                        <input
+                                            type="text"
+                                            value={arg}
+                                            onChange={(e) => {
+                                                const newArgs = [...thvArgs];
+                                                newArgs[index] = e.target.value;
+                                                setThvArgs(newArgs);
+                                            }}
+                                            style={{ flex: 1, padding: '4px 8px' }}
+                                        />
+                                        <button className="btn remove-button" onClick={() => {
+                                            const newArgs = [...thvArgs];
+                                            newArgs.splice(index, 1);
+                                            setThvArgs(newArgs);
+                                        }}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                                <button className="btn add-button" onClick={() => setThvArgs([...thvArgs, ''])}>
+                                    Add Argument
+                                </button>
+                            </div>
+
+                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Server Arguments:</label>
+                            <div>
+                                {serverArgs.map((arg, index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                        <input
+                                            type="text"
+                                            value={arg}
+                                            onChange={(e) => {
+                                                const newArgs = [...serverArgs];
+                                                newArgs[index] = e.target.value;
+                                                setServerArgs(newArgs);
+                                            }}
+                                            style={{ flex: 1, padding: '4px 8px' }}
+                                        />
+                                        <button className="btn remove-button" onClick={() => {
+                                            const newArgs = [...serverArgs];
+                                            newArgs.splice(index, 1);
+                                            setServerArgs(newArgs);
+                                        }}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                                <button className="btn add-button" onClick={() => setServerArgs([...serverArgs, ''])}>
+                                    Add Argument
+                                </button>
+                            </div>
+
+                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Environment:</label>
+                            <div>
+                                {Object.entries(JSON.parse(env)).map(([key, value], index) => (
+                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
+                                        <input
+                                            type="text"
+                                            value={key}
+                                            placeholder="Key"
+                                            onChange={(e) => {
+                                                const newEnv = { ...JSON.parse(env) };
+                                                delete newEnv[key];
+                                                newEnv[e.target.value] = value;
+                                                setEnv(JSON.stringify(newEnv));
+                                            }}
+                                            style={{ width: '40%', padding: '4px 8px' }}
+                                        />
+                                        <input
+                                            type="text"
+                                            value={value as string}
+                                            placeholder="Value"
+                                            onChange={(e) => {
+                                                setEnv(JSON.stringify({ ...JSON.parse(env), [key]: e.target.value }));
+                                            }}
+                                            style={{ flex: 1, padding: '4px 8px' }}
+                                        />
+                                        <button className="btn remove-button" onClick={() => {
+                                            const newEnv = { ...JSON.parse(env) };
+                                            delete newEnv[key];
+                                            setEnv(JSON.stringify(newEnv));
+                                        }}>
+                                            Remove
+                                        </button>
+                                    </div>
+                                ))}
+                                <button className="btn add-button" onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>
+                                    Add Environment Variable
+                                </button>
                             </div>
                         </>
                     )}
@@ -1140,12 +1310,12 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                 <span style={{ color: '#666' }}>{fieldSchema.description || 'Enable this option'}</span>
                                             </div>
                                         ) : (
-                                            <input
-                                                type="text"
+                            <input 
+                                type="text" 
                                                 value={item[fieldName] || ''}
                                                 onChange={(e) => handleParamChange(name, e.target.value, true, index, fieldName)}
-                                                style={{ width: '100%', padding: '4px 8px' }}
-                                            />
+                                style={{ width: '100%', padding: '4px 8px' }}
+                            />
                                         )}
                                     </div>
                                 ))}
@@ -1241,7 +1411,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                     <h2 style={{ margin: 0 }}>Servers</h2>
                     <button className="btn add-button" onClick={handleAddServer}>Add</button>
                 </div>
-                <div>
+                            <div>
                     <div 
                         className={`tab-items-item ${tabState.mode === 'about' ? 'selected' : ''}`}
                         onClick={() => {
@@ -1408,8 +1578,8 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                         style={{ width: '100%', padding: '4px 8px' }}
                                                     />
                                                 ) : (
-                                                    <input
-                                                        type="text"
+                                        <input
+                                            type="text"
                                                         value={testParams[name] as string || ''}
                                                         onChange={(e) => handleParamChange(name, e.target.value)}
                                                         style={{ width: '100%', padding: '4px 8px' }}

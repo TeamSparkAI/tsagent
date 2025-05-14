@@ -1,7 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import * as path from 'path';
 import { LLMType } from '../shared/llm';
-import { createMcpClientFromConfig } from './mcp/client';
 import log from 'electron-log';
 import * as fs from 'fs';
 import { setupCLI } from '../cli/cli';
@@ -11,6 +10,8 @@ import { WorkspaceManager } from './state/WorkspaceManager';
 import chalk from 'chalk';
 import { SessionToolPermission, THEME_KEY } from '../shared/workspace';
 import { ChatMessage } from '../shared/ChatSession';
+//import { ToolHive } from './thv/ToolHive';
+import { createMcpClientFromConfig } from './mcp/manager';
 
 const __dirname = path.dirname(__filename);
 
@@ -228,6 +229,9 @@ async function startApp() {
     app.setName(PRODUCT_NAME);
 
     intializeLogging(true);
+
+    //const thvVersion = await ToolHive.getVersion();
+    //log.info(`ToolHive version: ${thvVersion.version}`);
 
     // Create application menu
     createApplicationMenu();

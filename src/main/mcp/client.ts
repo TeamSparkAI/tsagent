@@ -1,17 +1,12 @@
 import { McpClient, McpConfig } from './types';
-import { getDefaultEnvironment, StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
+import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
 import { Client } from '@modelcontextprotocol/sdk/client/index';
 import { CallToolResult, ClientResultSchema, Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
-import log from 'electron-log';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
-import { McpClientInternalRules } from './InternalClientRules';
-import { McpClientInternalReferences } from './InternalClientReferences';
-import { WorkspaceManager } from '../state/WorkspaceManager';
 import { ChatSession } from '../state/ChatSession';
-import { app } from 'electron';
-import { SYSTEM_PATH_KEY } from '../../shared/workspace';
+import log from 'electron-log';
 
 export abstract class McpClientBase {
     protected mcp: Client;
@@ -30,7 +25,7 @@ export abstract class McpClientBase {
         });
     }
 
-    protected abstract createTransport(): Transport;
+    protected abstract createTransport(): Promise<Transport>;
 
     protected addErrorMessage(message: string) {
         if (message.trim()) {
@@ -55,7 +50,7 @@ export abstract class McpClientBase {
     }
 
     async connect(): Promise<boolean> {
-        this.transport = this.createTransport();
+        this.transport = await this.createTransport();
 
         try {
             this.transport.onerror = (err: Error) => {
@@ -68,6 +63,7 @@ export abstract class McpClientBase {
                 log.error(message);
             };
 
+            log.info(`[MCP CLIENT] connect - transport: ${JSON.stringify(this.transport)}`);
             const connectPromise = this.mcp.connect(this.transport);
             if (this.transport instanceof StdioClientTransport) {
                 if (this.transport.stderr) {
@@ -82,13 +78,17 @@ export abstract class McpClientBase {
 
             this.connected = true;
 
+            log.info(`[MCP CLIENT] connected, getting version`);
             const serverVersion = this.mcp.getServerVersion();
             this.serverVersion = serverVersion ? { 
                 name: serverVersion.name, 
                 version: serverVersion.version 
             } : null;
+            log.info(`[MCP CLIENT] connected, got version: ${JSON.stringify(this.serverVersion)}`);
 
+            log.info(`[MCP CLIENT] connected, getting tools`);  
             const toolsResult = await this.mcp.listTools();
+            log.info(`[MCP CLIENT] connected, got tools: ${JSON.stringify(toolsResult)}`);
             this.serverTools = toolsResult.tools;
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
@@ -154,7 +154,7 @@ export class McpClientStdio extends McpClientBase implements McpClient {
         this.serverParams = serverParams;
     }
 
-    protected createTransport(): Transport {
+    protected async createTransport(): Promise<Transport> {
         log.info(`[MCP CLIENT] createTransport - serverParams: ${JSON.stringify(this.serverParams.env)}`);
         return new StdioClientTransport({
             command: this.serverParams.command,
@@ -191,7 +191,8 @@ export class McpClientSse extends McpClientBase implements McpClient {
         this.headers = headers || {};
     }
 
-    protected createTransport(): Transport {
+    protected async createTransport(): Promise<Transport> {
+        log.info(`[MCP CLIENT] createTransport - url: ${this.url.toString()}`);
         if (Object.keys(this.headers).length > 0) {
             // Create a fetch wrapper that adds headers
             const fetchWithHeaders = (url: string | URL, init?: RequestInit) => {
@@ -211,63 +212,4 @@ export class McpClientSse extends McpClientBase implements McpClient {
 
         return new SSEClientTransport(this.url);
     }
-}
-
-export function createMcpClientFromConfig(workspace: WorkspaceManager, clientConfig: McpConfig) : McpClient {
-    let client: McpClient;
-    const serverName = clientConfig.name;
-    const config = clientConfig.config;
-    const serverType = config.type;
-    
-    if (!serverType || serverType === 'stdio') {
-        // If you specify an env, it will be the ENTIRE environment, so you need PATH in order to find your command
-        // https://github.com/modelcontextprotocol/typescript-sdk/issues/196
-        //
-        // Action: If the user provides an env, but doesn't provide a PATH as part of it, we need to provide one. 
-        //
-        // Also, on MacOS, when "bundled", the PATH is set to: /usr/bin:/bin:/usr/sbin:/sbin
-        // There is no way to access the actual system PATH, which can present a couple of problems:
-        // 1) If the command doesn't have a full path, it won't be found
-        // 2) If the command launches a shell, or spawns other commands, that require a valid PATH (esp "npx"), those will fail unless we pass a valid PATH envinronment variable
-        //
-        // To make npx work out of the box, we need to pass the node bin path and "/bin" (for "sh" and other shell commands required by npx)
-        //
-        // Action: If the user didn't provide a PATH in the env, and there is a system default path for tool use, we'll send that in the env whether any other env was specified or not.
-        //
-        let env = config.env; // If we modify this we'll shallow copy into a new object so we don't modify the original
-        if (!config.env?.PATH) {
-            const defaultPath = workspace.getSettingsValue(SYSTEM_PATH_KEY);
-            if (defaultPath) {
-                // If the user didn't provide a path and there is a default path, use that (whether or not any other env was provided)
-                env = { ...(env ?? {}), PATH: defaultPath };
-            } else if (config.env && Object.keys(config.env).length > 0) {
-                // If the user provided an env, but no PATH, and there's not a default path, we'll use the system PATH
-                const processPath = process.env.PATH;
-                env = { ...env, PATH: processPath! };
-            }
-        }
-
-        client = new McpClientStdio({
-            command: config.command,
-            args: config.args || [],
-            env: env
-        });
-    } else if (serverType === 'sse') {
-        client = new McpClientSse(
-            new URL(config.url), 
-            config.headers
-        );
-    } else if (serverType === 'internal') {
-        if (config.tool === 'rules') {
-            client = new McpClientInternalRules(workspace.rulesManager);
-        } else if (config.tool === 'references') {
-            client = new McpClientInternalReferences(workspace.referencesManager);
-        } else {
-            throw new Error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
-        }
-    } else {
-        throw new Error(`Unknown server type: ${serverType} for server: ${serverName}`);
-    }
-
-    return client;
 }

@@ -77,7 +77,7 @@ Gather all bare keywords, stem them, stem the prompt, determine which keywords a
 Gather all quoted keywords and wildcard keywords, convert to regex, search text, determine which keywords were found
 - Quoted string is word boundary before and after
 
-## File References
+## Dynamic References
 
 OK, so we're not trying to be a coding tool, but...
 
@@ -92,6 +92,9 @@ Or maybe file context is it's own thing separate from references?
 - The model has tools to include/exclude files from context
 
 We probably need a medium complexity coding-type use case to validate these approaches
+
+Similar argument could be made for web page text (via fetch) - where the reference is a cached version of the text of a web page (which we can update on usage when it has changed)
+- This changes the model from "make the text of this web page into a reference" (which will never change), to "make this web page a reference"
 
 ## Tools
 
