@@ -50,6 +50,7 @@ export abstract class McpClientBase {
     }
 
     async connect(): Promise<boolean> {
+        log.info(`[MCP CLIENT] connect - creating transport`);
         this.transport = await this.createTransport();
 
         try {
@@ -100,7 +101,16 @@ export abstract class McpClientBase {
         return this.connected;
     }
 
+    async onDisconnect() {
+        log.info(`[MCP CLIENT] onDisconnect - disconnecting transport`);
+        this.transport?.close();
+        this.transport = null;
+        this.connected = false;
+    }
+
     async callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {
+        if (!this.connected) { await this.connect(); }
+        if (!this.connected) { throw new Error('Not connected to MCP server'); }
         const startTime = performance.now();
         const result = await this.mcp.callTool({name: tool.name, arguments: args}) as CallToolResult;
         const elapsedTimeMs = performance.now() - startTime;
@@ -109,6 +119,14 @@ export abstract class McpClientBase {
             ...result,
             elapsedTimeMs
         };
+    }
+
+    async ping(): Promise<{ elapsedTimeMs: number }> {
+        if (!this.connected) { await this.connect(); }
+        if (!this.connected) { throw new Error('Not connected to MCP server'); }
+        const startTime = performance.now();
+        await this.mcp.ping();
+        return { elapsedTimeMs: performance.now() - startTime };
     }
 
     async disconnect(): Promise<void> {
@@ -121,15 +139,6 @@ export abstract class McpClientBase {
             this.transport = null;
         }
         await this.mcp.close();
-    }
-
-    async ping(): Promise<{ elapsedTimeMs: number }> {
-        if (!this.connected) {
-            throw new Error('Not connected to MCP server');
-        }
-        const startTime = performance.now();
-        await this.mcp.ping();
-        return { elapsedTimeMs: performance.now() - startTime };
     }
 }
 
@@ -193,6 +202,27 @@ export class McpClientSse extends McpClientBase implements McpClient {
 
     protected async createTransport(): Promise<Transport> {
         log.info(`[MCP CLIENT] createTransport - url: ${this.url.toString()}`);
+        let transport: Transport;
+        let fetchCount: number = 0;
+
+        // There is a nasty bug where when an SSE client transport loses connection, it will reconnect, but not renegotiate the MCP protocol, 
+        // so the transport will be in a broken state and subsequent calls to fetch will fail.
+        // https://github.com/modelcontextprotocol/typescript-sdk/issues/510    
+        //
+        // The workaround below is to intercept the session initialization fetch call to identify ones where the session will be corrupted
+        // and recycle the transport accordingly.
+        //
+        const onEventSourceInitFetch = async (url: string | URL, init: RequestInit | undefined, headers?: Headers): Promise<Response> => {
+            log.info(`[MCP CLIENT] onEventSourceInit, fetchCount: ${fetchCount}`);
+            fetchCount++;
+            if (fetchCount > 1) {
+                this.onDisconnect();
+                return new Response(null, { status: 400, statusText: 'SSE Connection terminated, will reconnect on next message' });
+            } else {
+                return fetch(url.toString(), { ...init, headers });
+            }
+        };
+
         if (Object.keys(this.headers).length > 0) {
             // Create a fetch wrapper that adds headers
             const fetchWithHeaders = (url: string | URL, init?: RequestInit) => {
@@ -200,16 +230,26 @@ export class McpClientSse extends McpClientBase implements McpClient {
                 Object.entries(this.headers).forEach(([key, value]) => {
                     headers.set(key, value);
                 });
-                return fetch(url.toString(), { ...init, headers });
+                return onEventSourceInitFetch(url, init, headers);
             };
-
-            return new SSEClientTransport(this.url, {
+            
+            const transport = new SSEClientTransport(this.url, {
                 eventSourceInit: {
                     fetch: fetchWithHeaders
                 }
             });
+
+            return transport;
+        } else {
+            transport = new SSEClientTransport(this.url, {
+                eventSourceInit: {
+                    fetch: (url, init) => {
+                        return onEventSourceInitFetch(url, init);
+                    }
+                }
+            });
         }
 
-        return new SSEClientTransport(this.url);
+        return transport;
     }
 }
