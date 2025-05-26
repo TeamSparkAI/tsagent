@@ -135,9 +135,7 @@ export class GeminiLLM implements ILLM {
     }
   }
 
-  async getModels(): Promise<ILLMModel[]> {
-    // Currently no support for listModels in the Node SDK - may be coming: https://github.com/google-gemini/generative-ai-js/issues/54
-    // For now we're going to make a hardcoded list of current models.
+  async getModelsStatic(): Promise<ILLMModel[]> {
     // This seems like the best source for models and description: https://ai.google.dev/gemini-api/docs/
     const models: ILLMModel[] = [
     {
@@ -199,6 +197,27 @@ export class GeminiLLM implements ILLM {
     // log.info('Gemini models', JSON.stringify(models, null, 2));
 
     return models;
+  }
+
+  async getModels(): Promise<ILLMModel[]> {
+    const returnModels: ILLMModel[] = []
+    const models = await this.genAI.models.list();
+
+    // You might want to filter or sort this list in some way. There's some
+    // models that may not make sense, and you might want the "good" ones first.
+
+    for await (const model of models) {
+      const newModel: ILLMModel = {
+        provider: LLMType.Gemini,
+        // May not need to remove the model/ prefix here in case you like it
+        id: model.name ? model.name.replace(/^model\//, '') : '',
+        name: model.displayName ?? '',
+        description: model.description || '',
+        modelSource: 'Google'
+      };
+      returnModels.push(newModel);
+    }
+    return returnModels;
   }
 
   async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
