@@ -209,8 +209,8 @@ export class GeminiLLM implements ILLM {
     for await (const model of models) {
       const newModel: ILLMModel = {
         provider: LLMType.Gemini,
-        // May not need to remove the model/ prefix here in case you like it
-        id: model.name ? model.name.replace(/^model\//, '') : '',
+        // May not need to remove the models/ prefix here in case you like it
+        id: model.name ? model.name.replace(/^models\//, '') : '',
         name: model.displayName ?? '',
         description: model.description || '',
         modelSource: 'Google'
