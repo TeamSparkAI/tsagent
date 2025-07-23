@@ -98,15 +98,13 @@ Download the pre-built installer for your platform:
 
 This repository is licensed under the [Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License](https://creativecommons.org/licenses/by-nc-nd/4.0/).
 
-### License Terms
+## License
 
-The CC BY-NC-ND 4.0 license allows the work to be viewed and inspected, but it is not an open source license in the traditional sense. Specifically:
+This repository is licensed under the Business Software License.
 
-- You are prohibited from modifying the work in any way (no derivatives)
-- You cannot use it for primarily commercial purposes
-- This license grants the right to see and review the underlying code
-- It does not permit you to adapt, build upon, or redistribute modified versions
+License Terms: The Business Software License allows the work to be viewed and inspected, and used for personal, non-commercial purposes,
+but it is not an open source license in the traditional sense. 
 
-This license may change to a more permissive license in the future if there is interest.
+For more information, see the [Business Software License Agreement](LICENSE.md).
 
-For commercial use licensing, please contact [support@teamspark.ai](mailto:support@teamspark.ai).
+For commercial use licensing, please contact support@teamspark.ai.
