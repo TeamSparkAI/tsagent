@@ -28,7 +28,7 @@ import {
 import { LLMFactory } from '../main/llm/llmFactory';
 import path from 'path';
 import * as fs from 'fs';
-import { A, M } from 'ollama/dist/shared/ollama.f6b57f53';
+
 import { ModelReply } from '../shared/ModelReply';
 
 // Define commands

@@ -1,0 +1,130 @@
+{
+  "name": "desktop",
+  "productName": "TeamSpark AI Workbench",
+  "version": "1.1.0",
+  "description": "Multi-LLM Chat Application",
+  "author": {
+    "name": "TeamSpark",
+    "email": "support@teamspark.ai"
+  },
+  "main": "dist/main.js",
+  "scripts": {
+    "start": "npm run build && electron . --ignore-certificate-errors",
+    "cli": "npm run build && node dist/main.js --cli",
+    "build": "rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.js && cp src/renderer/index.html dist/",
+    "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.js",
+    "test": "jest",
+    "pack": "electron-builder --dir",
+    "dist": "npm run build && electron-builder"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.14",
+    "@types/js-yaml": "^4.0.9",
+    "ts-jest": "^29.1.0",
+    "@types/node": "^20.10.0",
+    "css-loader": "^7.1.2",
+    "electron": "^28.0.0",
+    "electron-builder": "^25.1.8",
+    "style-loader": "^4.0.0",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.3.0",
+    "webpack": "^5.98.0",
+    "webpack-cli": "^6.0.1"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@aws-sdk/client-bedrock": "^3.787.0",
+    "@aws-sdk/client-bedrock-runtime": "^3.785.0",
+    "@google/genai": "^0.9.0",
+    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@types/react": "^19.0.12",
+    "@types/react-dom": "^19.0.4",
+    "@types/uuid": "^10.0.0",
+    "chalk": "^4.1.2",
+    "dotenv": "^16.4.7",
+    "electron-log": "^5.3.2",
+    "js-yaml": "^4.1.0",
+    "ollama": "^0.5.14",
+    "openai": "^4.89.0",
+    "ora": "^5.4.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-markdown": "^10.1.0",
+    "read": "^4.1.0",
+    "remark-gfm": "^4.0.1",
+    "uuid": "^11.1.0"
+  },
+  "build": {
+    "appId": "ai.teamspark.workbench",
+    "productName": "TeamSpark AI Workbench",
+    "afterPack": "./build/afterPack.js",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "build/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "deb",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png",
+      "category": "Development",
+      "executableName": "teamspark-workbench"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json",
+      "LICENSE.md"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}

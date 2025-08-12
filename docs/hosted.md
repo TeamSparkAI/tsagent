@@ -17,3 +17,12 @@ Tools
   - Local agent (configured locally) exposes tools (same client code as now)
   - Expose SSE server endpoint (easy, but means local machine must be internet locatable)
   - PubSub might be better (client registration, tool calling, tool call response, etc)
+
+==========
+
+Package
+- Convert API to REST API in existing Electron app
+- Add API for "run agent"
+- Create dual mode packaging
+  - Electron App
+  - Next.js server with UX and API
