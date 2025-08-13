@@ -6,7 +6,6 @@ Tools need to be easily installable from catalog
 - Wizard-based install (we do this with providers in a crude way now)
 
 Tools need to run in a secure container (Docker, other OCI)
-- Look at ToolHive approach (esp permissions)
 
 Common tool use scenario - "look at my documents and the internet" (consider pre-installing, or building internal tools)
 - Search and retrieve documents

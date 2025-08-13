@@ -2,7 +2,7 @@ import { Rule } from './Rule';
 import { Reference } from './Reference';
 import { McpConfig, CallToolResultWithElapsedTime } from '../main/mcp/types';
 import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from './ChatSession';
-import { WorkspaceWindow } from './workspace';
+import { WorkspaceWindow } from '../main/state/WorkspacesManager';
 import { LLMProviderInfo, ILLMModel, LLMType } from './llm';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 

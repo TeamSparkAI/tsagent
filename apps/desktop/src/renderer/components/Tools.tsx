@@ -606,8 +606,6 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             <option value="stdio">Stdio</option>
                             <option value="sse">SSE</option>
                             <option value="internal">Internal</option>
-                            {/* ToolHive is not supported yet */}
-                            {/* <option value="thv">ToolHive</option> */}
                         </select>
                     </div>
 
@@ -684,113 +682,6 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                     </div>
                                 ))}
                                 <button className="btn add-button" onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
-                            </div>
-                        </>
-                    )}
-
-                    {serverType === 'thv' && (
-                        <>
-                            <label style={{ fontWeight: 'bold' }}>Server:</label>
-                            <input 
-                                type="text" 
-                                value={serverPath}
-                                onChange={(e) => setServerPath(e.target.value)}
-                                style={{ width: '100%', padding: '4px 8px' }}
-                            />
-
-                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>ToolHive Arguments:</label>
-                            <div>
-                                {thvArgs.map((arg, index) => (
-                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                        <input
-                                            type="text"
-                                            value={arg}
-                                            onChange={(e) => {
-                                                const newArgs = [...thvArgs];
-                                                newArgs[index] = e.target.value;
-                                                setThvArgs(newArgs);
-                                            }}
-                                            style={{ flex: 1, padding: '4px 8px' }}
-                                        />
-                                        <button className="btn remove-button" onClick={() => {
-                                            const newArgs = [...thvArgs];
-                                            newArgs.splice(index, 1);
-                                            setThvArgs(newArgs);
-                                        }}>
-                                            Remove
-                                        </button>
-                                    </div>
-                                ))}
-                                <button className="btn add-button" onClick={() => setThvArgs([...thvArgs, ''])}>
-                                    Add Argument
-                                </button>
-                            </div>
-
-                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Server Arguments:</label>
-                            <div>
-                                {serverArgs.map((arg, index) => (
-                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                        <input
-                                            type="text"
-                                            value={arg}
-                                            onChange={(e) => {
-                                                const newArgs = [...serverArgs];
-                                                newArgs[index] = e.target.value;
-                                                setServerArgs(newArgs);
-                                            }}
-                                            style={{ flex: 1, padding: '4px 8px' }}
-                                        />
-                                        <button className="btn remove-button" onClick={() => {
-                                            const newArgs = [...serverArgs];
-                                            newArgs.splice(index, 1);
-                                            setServerArgs(newArgs);
-                                        }}>
-                                            Remove
-                                        </button>
-                                    </div>
-                                ))}
-                                <button className="btn add-button" onClick={() => setServerArgs([...serverArgs, ''])}>
-                                    Add Argument
-                                </button>
-                            </div>
-
-                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Environment:</label>
-                            <div>
-                                {Object.entries(JSON.parse(env)).map(([key, value], index) => (
-                                    <div key={index} style={{ display: 'flex', gap: '8px', marginBottom: '4px' }}>
-                                        <input
-                                            type="text"
-                                            value={key}
-                                            placeholder="Key"
-                                            onChange={(e) => {
-                                                const newEnv = { ...JSON.parse(env) };
-                                                delete newEnv[key];
-                                                newEnv[e.target.value] = value;
-                                                setEnv(JSON.stringify(newEnv));
-                                            }}
-                                            style={{ width: '40%', padding: '4px 8px' }}
-                                        />
-                                        <input
-                                            type="text"
-                                            value={value as string}
-                                            placeholder="Value"
-                                            onChange={(e) => {
-                                                setEnv(JSON.stringify({ ...JSON.parse(env), [key]: e.target.value }));
-                                            }}
-                                            style={{ flex: 1, padding: '4px 8px' }}
-                                        />
-                                        <button className="btn remove-button" onClick={() => {
-                                            const newEnv = { ...JSON.parse(env) };
-                                            delete newEnv[key];
-                                            setEnv(JSON.stringify(newEnv));
-                                        }}>
-                                            Remove
-                                        </button>
-                                    </div>
-                                ))}
-                                <button className="btn add-button" onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>
-                                    Add Environment Variable
-                                </button>
                             </div>
                         </>
                     )}

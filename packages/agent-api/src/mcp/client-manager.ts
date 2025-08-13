@@ -3,25 +3,26 @@ import { McpClientSse, McpClientStdio } from './client';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
 import log from 'electron-log';
-import { WorkspaceManager } from '../state/WorkspaceManager';
-import { ChatSession } from '../state/ChatSession';
-import { McpClientInternalRules } from './InternalClientRules';
-import { McpClientInternalReferences } from './InternalClientReferences';
-import { SYSTEM_PATH_KEY } from '../../shared/workspace';
+import { Agent } from '../types/agent';
+import { ChatSession } from '../types/chat';
+import { McpClientInternalRules } from './client-rules';
+import { McpClientInternalReferences } from './client-references';
+import { SYSTEM_PATH_KEY } from '../types/agent';
+import { MCPClientManager } from './types';
 
 function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig {
     return obj && typeof obj === 'object' && 'type' in obj;
 }
 
-export class MCPClientManager {
+export class MCPClientManagerImpl implements MCPClientManager {
     private clients: Map<string, McpClient>;
 
     constructor() {
         this.clients = new Map<string, McpClient>();
     }
 
-    async loadClients(workspace: WorkspaceManager) {
-        const mcpServers = await workspace.getMcpConfig();
+    async loadClients(agent: Agent) {
+        const mcpServers = await agent.mcpServers.getAll();
         for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
             try {
                 if (!serverConfig || !serverConfig.config) {
@@ -29,7 +30,7 @@ export class MCPClientManager {
                     continue;
                 }
         
-                const client = createMcpClientFromConfig(workspace, serverConfig);      
+                const client = createMcpClientFromConfig(agent, serverConfig); 
                 if (client) {
                     await client.connect();
                     this.clients.set(serverName, client);
@@ -121,7 +122,7 @@ export class MCPClientManager {
     }
 } 
 
-export function createMcpClientFromConfig(workspace: WorkspaceManager, clientConfig: McpConfig) : McpClient {
+export function createMcpClientFromConfig(agent: Agent, clientConfig: McpConfig) : McpClient {
     let client: McpClient;
     const serverName = clientConfig.name;
     const config = clientConfig.config;
@@ -144,7 +145,7 @@ export function createMcpClientFromConfig(workspace: WorkspaceManager, clientCon
         //
         let env = config.env; // If we modify this we'll shallow copy into a new object so we don't modify the original
         if (!config.env?.PATH) {
-            const defaultPath = workspace.getSettingsValue(SYSTEM_PATH_KEY);
+            const defaultPath = agent.getSetting(SYSTEM_PATH_KEY);
             if (defaultPath) {
                 // If the user didn't provide a path and there is a default path, use that (whether or not any other env was provided)
                 env = { ...(env ?? {}), PATH: defaultPath };
@@ -167,9 +168,9 @@ export function createMcpClientFromConfig(workspace: WorkspaceManager, clientCon
         );
     } else if (serverType === 'internal') {
         if (config.tool === 'rules') {
-            client = new McpClientInternalRules(workspace.rulesManager);
+            client = new McpClientInternalRules(agent.rules);
         } else if (config.tool === 'references') {
-            client = new McpClientInternalReferences(workspace.referencesManager);
+            client = new McpClientInternalReferences(agent.references);
         } else {
             throw new Error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
         }

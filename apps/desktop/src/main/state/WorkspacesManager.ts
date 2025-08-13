@@ -2,10 +2,16 @@ import { app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as log from 'electron-log';
-import { WorkspaceWindow } from '../../shared/workspace';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
 import { WorkspaceManager } from './WorkspaceManager';
+
+// Electron-specific interface for window management
+export interface WorkspaceWindow {
+    windowId: string;
+    workspacePath: string;
+    browserWindow?: BrowserWindow;
+}
 
 export class WorkspacesManager extends EventEmitter {
     private windowIdToWorkspaceMap = new Map<string, WorkspaceManager>(); // Indexed by windowId

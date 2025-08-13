@@ -10,7 +10,6 @@ import { WorkspaceManager } from './state/WorkspaceManager';
 import chalk from 'chalk';
 import { SessionToolPermission, THEME_KEY } from '../shared/workspace';
 import { ChatMessage } from '../shared/ChatSession';
-//import { ToolHive } from './thv/ToolHive';
 import { createMcpClientFromConfig } from './mcp/manager';
 
 const __dirname = path.dirname(__filename);
@@ -93,7 +92,7 @@ function getWorkspaceForWindow(windowId?: string): WorkspaceManager | null {
   return workspace;
 }
 
-function intializeLogging(isElectron: boolean) {
+function initializeLogging(isElectron: boolean) {
   if (isElectron) {
     log.initialize({ preload: true }); // Required to wire up the renderer (will crash the CLI)
     const userDataPath = app.getPath('userData');
@@ -191,7 +190,7 @@ function createApplicationMenu() {
 
 async function startApp() {
   if (process.argv.includes('--cli')) {
-    intializeLogging(false);
+    initializeLogging(false);
 
     // -- workspace (path) the workspace directory or file (tspark.json), defaults to cwd
     // -- create (bool) indicates whether the path should be created if it doesn't exist
@@ -228,10 +227,7 @@ async function startApp() {
     process.env.ELECTRON_APP_NAME = PRODUCT_NAME;
     app.setName(PRODUCT_NAME);
 
-    intializeLogging(true);
-
-    //const thvVersion = await ToolHive.getVersion();
-    //log.info(`ToolHive version: ${thvVersion.version}`);
+    initializeLogging(true);
 
     // Create application menu
     createApplicationMenu();

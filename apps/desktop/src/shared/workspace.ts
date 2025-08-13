@@ -1,5 +1,3 @@
-import { BrowserWindow } from 'electron';
-
 export const MAX_CHAT_TURNS_KEY = 'maxChatTurns';
 export const MAX_OUTPUT_TOKENS_KEY = 'maxOutputTokens';
 export const TEMPERATURE_KEY = 'temperature';
@@ -23,12 +21,6 @@ export const MAX_OUTPUT_TOKENS_DEFAULT = 1000;
 export const TEMPERATURE_DEFAULT = 0.5;
 export const TOP_P_DEFAULT = 0.5;
 
-export interface WorkspaceWindow {
-    windowId: string;
-    workspacePath: string;
-    browserWindow?: BrowserWindow;
-}
-
 export interface WorkspaceMetadata {
     name: string;
     created: string;
@@ -46,6 +38,4 @@ export interface WorkspaceConfig {
         [THEME_KEY]: string;
         [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
     };
-    providers: Record<string, Record<string, string>>;
-    mcpServers: Record<string, any>;
 }
