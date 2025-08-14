@@ -224,6 +224,31 @@ export class FileBasedAgent implements Agent, AgentFactory {
     await fs.promises.writeFile(this._promptFile, prompt);
   }
 
+  // Workspace data access methods
+  getWorkspaceProviders(): Record<string, any> | null {
+    return this._workspaceData?.providers || null;
+  }
+
+  async updateWorkspaceProviders(providers: Record<string, any>): Promise<void> {
+    if (!this._workspaceData) {
+      this._workspaceData = this.getInitialConfig();
+    }
+    this._workspaceData.providers = providers;
+    await this.saveConfig();
+  }
+
+  getWorkspaceMcpServers(): Record<string, any> | null {
+    return this._workspaceData?.mcpServers || null;
+  }
+
+  async updateWorkspaceMcpServers(mcpServers: Record<string, any>): Promise<void> {
+    if (!this._workspaceData) {
+      this._workspaceData = this.getInitialConfig();
+    }
+    this._workspaceData.mcpServers = mcpServers;
+    await this.saveConfig();
+  }
+
   // Internal methods
   private async loadConfig(): Promise<void> {
     if (this._configLoaded) return;
@@ -235,6 +260,7 @@ export class FileBasedAgent implements Agent, AgentFactory {
     try {
       const data = await fs.promises.readFile(this._workspaceFile, 'utf8');
       this._workspaceData = JSON.parse(data);
+      
       this._configLoaded = true;
       
       // Load MCP clients after config is loaded

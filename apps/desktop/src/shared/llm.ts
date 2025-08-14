@@ -2,6 +2,7 @@ import { ChatMessage } from './ChatSession';
 import { ModelReply } from './ModelReply';
 import { WorkspaceManager } from '../main/state/WorkspaceManager';
 import { ChatSession } from '../main/state/ChatSession';
+
 export enum LLMType {
   Test = 'test',
   Claude = 'claude',
@@ -36,12 +37,7 @@ export interface ILLMStatic {
 export interface ILLM {
   getModels(): Promise<ILLMModel[]>;
   generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply>;
-} 
-
-// Constructor type with static methods
-export type LLMClass = {
-  new(modelName: string, workspace: WorkspaceManager): ILLM;
-} & ILLMStatic;
+}
 
 export interface ILLMModel {
   provider: LLMType;

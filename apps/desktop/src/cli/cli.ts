@@ -3,11 +3,10 @@ import ora from 'ora';
 import { read } from 'read';
 import log from 'electron-log';
 
-import { LLMProviderInfo, LLMType } from '../shared/llm';
+import { LLMType } from '../shared/llm';
 import { Tool } from '@modelcontextprotocol/sdk/types';
-import { ChatSession, ChatSessionOptionsWithRequiredSettings } from '../main/state/ChatSession';
-import { MessageUpdate, ChatMessage, ToolCallDecision, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallApproval } from '../shared/ChatSession';
-import { WorkspaceManager } from '../main/state/WorkspaceManager';
+import { ChatSession, ChatSessionOptionsWithRequiredSettings, ChatMessage, MessageUpdate, ToolCallDecision, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallApproval, ProviderType } from 'agent-api';
+import { Agent } from 'agent-api';
 import { 
   MAX_CHAT_TURNS_KEY, 
   MAX_CHAT_TURNS_DEFAULT, 
@@ -25,7 +24,6 @@ import {
   SessionToolPermission,
   MOST_RECENT_MODEL_KEY
 } from '../shared/workspace';
-import { LLMFactory } from '../main/llm/llmFactory';
 import path from 'path';
 import * as fs from 'fs';
 
@@ -51,11 +49,11 @@ const COMMANDS = {
   WORKSPACE: '/workspace'
 };
 
-async function toolsCommand(workspace: WorkspaceManager) {
+async function toolsCommand(agent: Agent) {
   try {
     console.log('Checking available tools on MCP servers...\n');
 
-    const mcpClients = workspace.mcpManager.getAllClients()
+    const mcpClients = agent.mcpManager.getAllClients()
     for (const mcpClient of mcpClients) {
       console.log(chalk.cyan.bold(`Server: ${mcpClient.serverVersion?.name}`));
       console.log(chalk.dim('------------------------'));        
@@ -139,13 +137,13 @@ function indent(text: string, indent: number = 2, allLines: boolean = true): str
   return lines[0] + '\n' + lines.slice(1).map(line => ' '.repeat(indent) + line).join('\n');
 }
 
-function getSettingsValue(workspace: WorkspaceManager, key: string, defaultValue: number): number {
-  const settingsValue = workspace.getSettingsValue(key);
+function getSettingsValue(agent: Agent, key: string, defaultValue: number): number {
+  const settingsValue = agent.getSetting(key);
   return settingsValue ? parseFloat(settingsValue) : defaultValue;
 }
 
-function getToolPermissionValue(workspace: WorkspaceManager, key: string, defaultValue: SessionToolPermission): SessionToolPermission {
-  const value = workspace.getSettingsValue(key);
+function getToolPermissionValue(agent: Agent, key: string, defaultValue: SessionToolPermission): SessionToolPermission {
+  const value = agent.getSetting(key);
   if (!value) return defaultValue;
   if (value !== SESSION_TOOL_PERMISSION_ALWAYS && 
       value !== SESSION_TOOL_PERMISSION_NEVER && 
@@ -155,51 +153,50 @@ function getToolPermissionValue(workspace: WorkspaceManager, key: string, defaul
   return value as SessionToolPermission;
 }
 
-function getWorkspaceSettings(workspace: WorkspaceManager): ChatSessionOptionsWithRequiredSettings {
+function getWorkspaceSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings {
   return {
-    maxChatTurns: getSettingsValue(workspace, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT),
-    maxOutputTokens: getSettingsValue(workspace, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT),
-    temperature: getSettingsValue(workspace, TEMPERATURE_KEY, TEMPERATURE_DEFAULT),
-    topP: getSettingsValue(workspace, TOP_P_KEY, TOP_P_DEFAULT),
-    toolPermission: getToolPermissionValue(workspace, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT)
+    maxChatTurns: getSettingsValue(agent, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT),
+    maxOutputTokens: getSettingsValue(agent, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT),
+    temperature: getSettingsValue(agent, TEMPERATURE_KEY, TEMPERATURE_DEFAULT),
+    topP: getSettingsValue(agent, TOP_P_KEY, TOP_P_DEFAULT),
+    toolPermission: getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT)
   };
 }
 
-function isProviderInstalled(workspace: WorkspaceManager, providerName: string): boolean {
-  return workspace.getInstalledProviders().includes(providerName);
+function isProviderInstalled(agent: Agent, providerName: string): boolean {
+  return agent.providers.getAll().includes(providerName as any);
 }
 
-export function setupCLI(workspace: WorkspaceManager, version: string) {
+export function setupCLI(agent: Agent, version: string) {
   // Get version from package.json
   console.log(chalk.green(`Welcome to TeamSpark AI Workbench v${version}!`));
   showHelp();
   
-  const llmFactory = new LLMFactory(workspace);
-  const providersInfo = llmFactory.getProvidersInfo();
+  const providersInfo = agent.providers.getProvidersInfo();
 
-  const getProviderByName = (name: string, providersInfo: Record<LLMType, LLMProviderInfo>): LLMType | undefined => {
+  const getProviderByName = (name: string, providersInfo: any): ProviderType | undefined => {
     for (const [type, info] of Object.entries(providersInfo)) {
       if (type.toLowerCase() === name.toLowerCase()) {
-        return type as LLMType;
+        return type as ProviderType;
       }
     }
     return undefined;
   };
 
-  const updatedMostRecentProvider = async (provider: LLMType, modelId: string) => {
-    const mostRecentProvider = workspace.getSettingsValue(MOST_RECENT_MODEL_KEY);
+  const updatedMostRecentProvider = async (provider: ProviderType, modelId: string) => {
+    const mostRecentProvider = agent.getSetting(MOST_RECENT_MODEL_KEY);
     if (mostRecentProvider) {
-      await workspace.setSettingsValue(MOST_RECENT_MODEL_KEY, `${provider}:${modelId}`);
+      await agent.setSetting(MOST_RECENT_MODEL_KEY, `${provider}:${modelId}`);
     }
   };
 
-  let currentProvider: LLMType | undefined;
+  let currentProvider: ProviderType | undefined;
   let currentModelId: string | undefined;
 
   function createChatSession(): ChatSession {
-    const chatSessionOptions = getWorkspaceSettings(workspace);
+    const chatSessionOptions = getWorkspaceSettings(agent);
  
-    const mostRecentModel = workspace.getSettingsValue(MOST_RECENT_MODEL_KEY);
+    const mostRecentModel = agent.getSetting(MOST_RECENT_MODEL_KEY);
     if (mostRecentModel) {
       const colonIndex = mostRecentModel.indexOf(':');
       if (colonIndex !== -1) {
@@ -213,7 +210,7 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
       }
     }
   
-    return new ChatSession(workspace, chatSessionOptions);
+    return new ChatSession(agent, 'cli-session', chatSessionOptions);
   }  
 
   let chatSession = createChatSession();
@@ -265,7 +262,7 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
 
         case COMMANDS.PROVIDERS:
           if (args.length === 0) {
-            const installedProviders = workspace.getInstalledProviders();
+            const installedProviders = agent.providers.getAll();
             const nonInstalledProviders = Object.entries(providersInfo).filter(([type, info]) => !installedProviders.includes(type));
             if (installedProviders.length === 0) {
               console.log(chalk.cyan('No providers installed'));
@@ -273,7 +270,8 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
               console.log(chalk.cyan(`Providers installed and available:`));
               installedProviders.forEach(provider => {
                 const indicator = provider === currentProvider ? chalk.green('* ') : '  ';
-                console.log(chalk.yellow(`${indicator}${provider}: ${providersInfo[provider as LLMType].name}`));
+                const providerInfo = providersInfo[provider as LLMType];
+                console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo?.name || 'Unknown'}`));
               });
             }
             if (nonInstalledProviders.length === 0) {
@@ -290,12 +288,16 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
             if (providerName) {
               const provider = getProviderByName(providerName, providersInfo);
               if (provider) {
-                if (isProviderInstalled(workspace, providerName)) {
+                if (isProviderInstalled(agent, providerName)) {
                   console.log(chalk.red('Provider already installed:'), chalk.yellow(providerName));
                   break;
                 }
                 console.log(chalk.cyan('\nAdd provider:'), chalk.yellow(providerName));
                 const providerInfo = providersInfo[provider];
+                if (!providerInfo) {
+                  console.log(chalk.red('Provider info not found'));
+                  break;
+                }
                 console.log(chalk.yellow(`  ${providerInfo.name}`));
                 console.log(chalk.yellow(`  ${providerInfo.description}`));
                 const configValues: Record<string, string> = {};
@@ -308,9 +310,9 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
                   }
                   configValues[configValue.key] = value;
                 }
-                await workspace.addProvider(providerName);
+                await agent.providers.add(provider);
                 for (const [key, value] of Object.entries(configValues)) {
-                  await workspace.setProviderSettingsValue(providerName, key, value);
+                  await agent.providers.setSetting(provider, key, value);
                 }
                 console.log(chalk.green('Provider added:'), chalk.yellow(providerName));
               } else {
@@ -322,9 +324,10 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
           } else if (args[0] == 'remove') {
             const providerName = args[1];
             if (providerName) {
-              if (isProviderInstalled(workspace, providerName)) {
+              const provider = getProviderByName(providerName, providersInfo);
+              if (provider && isProviderInstalled(agent, providerName)) {
                 console.log(chalk.cyan('\nRemove provider:'), chalk.yellow(providerName));
-                await workspace.removeProvider(providerName);
+                await agent.providers.remove(provider);
                 if (currentProvider === providerName) {
                   currentProvider = undefined;
                   currentModelId = undefined;
@@ -352,8 +355,7 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
           if (providerName) {
             const provider = getProviderByName(providerName, providersInfo);
             if (provider) {
-              const llm = llmFactory.create(provider);
-              const models = await llm.getModels();
+                          const models = await agent.providers.getModels(provider);
               let modelId = args[1];
               let modelDescription = '';
               if (modelId) {
@@ -374,8 +376,10 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
               }
               currentProvider = provider;
               currentModelId = modelId;
-              chatSession.switchModel(currentProvider, currentModelId);
-              await updatedMostRecentProvider(currentProvider, currentModelId);
+              if (currentProvider && currentModelId) {
+                chatSession.switchModel(currentProvider, currentModelId);
+                await updatedMostRecentProvider(currentProvider, currentModelId);
+              }
               console.log(chalk.green(`Switched to ${providerName} using ${modelDescription}`));
             } else {
               console.log(chalk.red('Provider not found by name:'), chalk.yellow(providerName));
@@ -392,7 +396,7 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
           }
           console.log(chalk.cyan('\nAvailable models:'));
           try {
-            const models = await chatSession.llm?.getModels() || [];
+            const models = await chatSession.provider?.getModels() || [];
             for (const model of models) {
               const indicator = model.id === currentModelId ? chalk.green('* ') : '  ';
               console.log(chalk.green(`${indicator}${model.id}: ${model.name}`));
@@ -411,11 +415,11 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
             console.log(chalk.red('No current provider, select a provider before selecting a model'));
             break;
           }
-          const models = await chatSession.llm?.getModels() || [];
+          const models = await chatSession.provider?.getModels() || [];
           const modelName = args[0];
           if (modelName) {
-            const model = models.find(m => m.id.toLowerCase() === modelName.toLowerCase());
-            if (model) {
+            const model = models.find((m: any) => m.id.toLowerCase() === modelName.toLowerCase());
+            if (model && currentProvider) {
               currentModelId = model.id;
               chatSession.switchModel(currentProvider, currentModelId);
               await updatedMostRecentProvider(currentProvider, currentModelId);
@@ -433,15 +437,15 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
             const settings = chatSession.getState();
             console.log(chalk.cyan('\nSettings:'));
             const sessionMaxChatTurns = settings.maxChatTurns;
-            const workspaceMaxChatTurns = getSettingsValue(workspace, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT);
+            const workspaceMaxChatTurns = getSettingsValue(agent, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT);
             const sessionMaxOutputTokens = settings.maxOutputTokens;
-            const workspaceMaxOutputTokens = getSettingsValue(workspace, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT);
+            const workspaceMaxOutputTokens = getSettingsValue(agent, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT);
             const sessionTemperature = settings.temperature;
-            const workspaceTemperature = getSettingsValue(workspace, TEMPERATURE_KEY, TEMPERATURE_DEFAULT);
+            const workspaceTemperature = getSettingsValue(agent, TEMPERATURE_KEY, TEMPERATURE_DEFAULT);
             const sessionTopP = settings.topP;
-            const workspaceTopP = getSettingsValue(workspace, TOP_P_KEY, TOP_P_DEFAULT);
+            const workspaceTopP = getSettingsValue(agent, TOP_P_KEY, TOP_P_DEFAULT);
             const sessionToolPermission = settings.toolPermission;
-            const workspaceToolPermission = getToolPermissionValue(workspace, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
+            const workspaceToolPermission = getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
             // Only if values are different, append "(workspace default: <value>)"
             const maxChatTurns = sessionMaxChatTurns === workspaceMaxChatTurns ? sessionMaxChatTurns : `${sessionMaxChatTurns} (overrides workspace default: ${workspaceMaxChatTurns})`;
             const maxOutputTokens = sessionMaxOutputTokens === workspaceMaxOutputTokens ? sessionMaxOutputTokens : `${sessionMaxOutputTokens} (overrides workspace default: ${workspaceMaxOutputTokens})`;
@@ -455,16 +459,16 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
             console.log(chalk.yellow(`  ${SESSION_TOOL_PERMISSION_KEY}: ${toolPermission}`));
             console.log('');
           } else if (args[0] == 'clear') {
-            const settings = getWorkspaceSettings(workspace);
+            const settings = getWorkspaceSettings(agent);
             chatSession.updateSettings(settings);
             console.log(chalk.cyan('\nChat session settings restored to workspace defaults'));
           } else if (args[0] == 'save') {
             const settings = chatSession.getState();
-            await workspace.setSettingsValue(MAX_CHAT_TURNS_KEY, settings.maxChatTurns.toString());
-            await workspace.setSettingsValue(MAX_OUTPUT_TOKENS_KEY, settings.maxOutputTokens.toString());
-            await workspace.setSettingsValue(TEMPERATURE_KEY, settings.temperature.toString());
-            await workspace.setSettingsValue(TOP_P_KEY, settings.topP.toString());
-            await workspace.setSettingsValue(SESSION_TOOL_PERMISSION_KEY, settings.toolPermission);
+            await agent.setSetting(MAX_CHAT_TURNS_KEY, settings.maxChatTurns.toString());
+            await agent.setSetting(MAX_OUTPUT_TOKENS_KEY, settings.maxOutputTokens.toString());
+            await agent.setSetting(TEMPERATURE_KEY, settings.temperature.toString());
+            await agent.setSetting(TOP_P_KEY, settings.topP.toString());
+            await agent.setSetting(SESSION_TOOL_PERMISSION_KEY, settings.toolPermission);
             console.log(chalk.cyan('\nChat session settings saved to workspace'));
           } else {
             console.log(chalk.cyan('\nUnknown settings command: '), chalk.yellow(args[1]));
@@ -600,12 +604,12 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
           break;
 
         case COMMANDS.TOOLS:
-          await toolsCommand(workspace);
+          await toolsCommand(agent);
           break;
 
         case COMMANDS.RULES:
           // Show all rules with asterisk for active ones and dash for inactive ones
-          const allRules = workspace.rulesManager.getRules();
+          const allRules = agent.rules.getAll();
           console.log(chalk.cyan('\nRules:'));
           if (allRules.length === 0) {
             console.log(chalk.yellow('No rules available.'));
@@ -621,7 +625,7 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
 
         case COMMANDS.REFERENCES:
           // Show all references with asterisk for active ones and dash for inactive ones
-          const allReferences = workspace.referencesManager.getReferences();
+          const allReferences = agent.references.getAll();
           console.log(chalk.cyan('\nReferences:'));
           if (allReferences.length === 0) {
             console.log(chalk.yellow('No references available.'));
@@ -646,7 +650,7 @@ export function setupCLI(workspace: WorkspaceManager, version: string) {
 
         case COMMANDS.WORKSPACE:
           console.log(chalk.cyan('\nWorkspace:'));
-          console.log(`  ${chalk.yellow(workspace.workspaceDir)}`);
+          console.log(`  ${chalk.yellow(agent.path)}`);
           console.log('');
           break;
 

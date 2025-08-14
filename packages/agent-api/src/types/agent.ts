@@ -35,6 +35,12 @@ export interface Agent {
   getSetting(key: string): string | null;
   setSetting(key: string, value: string): Promise<void>;
   
+  // Workspace data access
+  getWorkspaceProviders(): Record<string, any> | null;
+  updateWorkspaceProviders(providers: Record<string, any>): Promise<void>;
+  getWorkspaceMcpServers(): Record<string, any> | null;
+  updateWorkspaceMcpServers(mcpServers: Record<string, any>): Promise<void>;
+  
   // System prompt
   getSystemPrompt(): Promise<string>;
   setSystemPrompt(prompt: string): Promise<void>;
@@ -71,4 +77,6 @@ export interface AgentConfig {
       [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
       [key: string]: string | SessionToolPermission | undefined;
   };
+  providers?: Record<string, any>;
+  mcpServers?: Record<string, any>;
 }

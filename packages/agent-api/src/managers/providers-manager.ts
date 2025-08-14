@@ -15,96 +15,49 @@ export class ProvidersManager extends EventEmitter implements IProvidersManager 
   }
 
   isInstalled(provider: string): boolean {
-    const providers = this.agent.getSetting('providers');
-    if (!providers) return false;
-    
-    try {
-      const providersObj = JSON.parse(providers);
-      return providersObj[provider] !== undefined;
-    } catch {
-      return false;
-    }
+    const providers = this.agent.getWorkspaceProviders();
+    return providers?.[provider] !== undefined;
   }
 
   async add(provider: string): Promise<void> {
-    const providers = this.agent.getSetting('providers');
-    let providersObj: Record<string, any> = {};
-    
-    if (providers) {
-      try {
-        providersObj = JSON.parse(providers);
-      } catch {
-        providersObj = {};
-      }
-    }
-    
-    providersObj[provider] = {};
-    await this.agent.setSetting('providers', JSON.stringify(providersObj));
+    const providers = this.agent.getWorkspaceProviders() || {};
+    providers[provider] = {};
+    await this.agent.updateWorkspaceProviders(providers);
     
     // Emit change event
     this.emit('providersChanged');
   }
 
   async remove(provider: string): Promise<void> {
-    const providers = this.agent.getSetting('providers');
-    if (!providers) return;
+    const providers = this.agent.getWorkspaceProviders();
+    if (!providers || !providers[provider]) return;
     
-    try {
-      const providersObj = JSON.parse(providers);
-      if (providersObj[provider]) {
-        delete providersObj[provider];
-        await this.agent.setSetting('providers', JSON.stringify(providersObj));
-        
-        // Emit change event
-        this.emit('providersChanged');
-      }
-    } catch {
-      // Invalid JSON, ignore
-    }
+    delete providers[provider];
+    await this.agent.updateWorkspaceProviders(providers);
+    
+    // Emit change event
+    this.emit('providersChanged');
   }
 
   getAll(): string[] {
-    const providers = this.agent.getSetting('providers');
-    if (!providers) return [];
-    
-    try {
-      const providersObj = JSON.parse(providers);
-      return Object.keys(providersObj);
-    } catch {
-      return [];
-    }
+    const providers = this.agent.getWorkspaceProviders();
+    return providers ? Object.keys(providers) : [];
   }
 
   getSetting(provider: string, key: string): string | null {
-    const providers = this.agent.getSetting('providers');
-    if (!providers) return null;
-    
-    try {
-      const providersObj = JSON.parse(providers);
-      return providersObj[provider]?.[key] || null;
-    } catch {
-      return null;
-    }
+    const providers = this.agent.getWorkspaceProviders();
+    return providers?.[provider]?.[key] || null;
   }
 
   async setSetting(provider: string, key: string, value: string): Promise<void> {
-    const providers = this.agent.getSetting('providers');
-    let providersObj: Record<string, any> = {};
+    const providers = this.agent.getWorkspaceProviders() || {};
     
-    if (providers) {
-      try {
-        providersObj = JSON.parse(providers);
-      } catch {
-        providersObj = {};
-      }
+    if (!providers[provider]) {
+      providers[provider] = {};
     }
 
-    if (!providersObj[provider]) {
-      providersObj[provider] = {};
-    }
-
-    providersObj[provider][key] = value;
-    await this.agent.setSetting('providers', JSON.stringify(providersObj));
+    providers[provider][key] = value;
+    await this.agent.updateWorkspaceProviders(providers);
   }
 
   // New methods for provider functionality

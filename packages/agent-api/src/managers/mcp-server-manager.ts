@@ -10,79 +10,45 @@ export class McpServerManagerImpl implements McpServerManager {
   }
 
   async getAll(): Promise<Record<string, McpConfig>> {
-    const mcpServers = this.agent.getSetting('mcpServers');
+    const mcpServers = this.agent.getWorkspaceMcpServers();
     if (!mcpServers) return {};
     
-    try {
-      const mcpServersObj = JSON.parse(mcpServers);
-      
-      // Transform the configuration into the expected format
-      const result: Record<string, McpConfig> = {};
-      for (const [name, serverConfig] of Object.entries(mcpServersObj)) {
-        result[name] = {
-          name,
-          config: serverConfig as McpConfigFileServerConfig
-        };
-      }
-      return result;
-    } catch (error) {
-      console.error('Error loading MCP config:', error);
-      return {};
+    // Transform the configuration into the expected format
+    const result: Record<string, McpConfig> = {};
+    for (const [name, serverConfig] of Object.entries(mcpServers)) {
+      result[name] = {
+        name,
+        config: serverConfig as McpConfigFileServerConfig
+      };
     }
+    return result;
   }
 
   async save(server: McpConfig): Promise<void> {
-    const mcpServers = this.agent.getSetting('mcpServers');
-    let mcpServersObj: Record<string, any> = {};
-    
-    if (mcpServers) {
-      try {
-        mcpServersObj = JSON.parse(mcpServers);
-      } catch {
-        mcpServersObj = {};
-      }
-    }
+    const mcpServers = this.agent.getWorkspaceMcpServers() || {};
 
     // Add or update the server in the mcpServers object
-    mcpServersObj[server.name] = server.config;
-    await this.agent.setSetting('mcpServers', JSON.stringify(mcpServersObj));
+    mcpServers[server.name] = server.config;
+    await this.agent.updateWorkspaceMcpServers(mcpServers);
   }
 
   async delete(serverName: string): Promise<boolean> {
-    const mcpServers = this.agent.getSetting('mcpServers');
-    if (!mcpServers) return false;
+    const mcpServers = this.agent.getWorkspaceMcpServers();
+    if (!mcpServers || !mcpServers[serverName]) return false;
     
-    try {
-      const mcpServersObj = JSON.parse(mcpServers);
-      if (mcpServersObj[serverName]) {
-        delete mcpServersObj[serverName];
-        await this.agent.setSetting('mcpServers', JSON.stringify(mcpServersObj));
-        return true;
-      }
-    } catch {
-      // Invalid JSON, ignore
-    }
-    
-    return false;
+    delete mcpServers[serverName];
+    await this.agent.updateWorkspaceMcpServers(mcpServers);
+    return true;
   }
 
   get(serverName: string): McpConfig | null {
-    const mcpServers = this.agent.getSetting('mcpServers');
-    if (!mcpServers) return null;
+    const mcpServers = this.agent.getWorkspaceMcpServers();
+    if (!mcpServers || !mcpServers[serverName]) return null;
     
-    try {
-      const mcpServersObj = JSON.parse(mcpServers);
-      if (mcpServersObj[serverName]) {
-        return {
-          name: serverName,
-          config: mcpServersObj[serverName] as McpConfigFileServerConfig
-        };
-      }
-    } catch {
-      // Invalid JSON, ignore
-    }
-    
-    return null;
+    return {
+      name: serverName,
+      config: mcpServers[serverName] as McpConfigFileServerConfig
+    };
   }
 }
 

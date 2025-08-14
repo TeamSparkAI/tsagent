@@ -13,14 +13,9 @@ export { ProviderFactory } from './providers/provider-factory';
 // Export ProviderType as a value (not just type)
 export { ProviderType } from './providers/types';
 
-// Export all types from types directory (including Agent interface)
-export type * from './types';
+// Export ChatSession implementation
+export { ChatSessionImpl as ChatSession } from './chat-session';
+export type { ChatSessionOptionsWithRequiredSettings } from './chat-session';
 
-// Export MCP types
-export type * from './mcp/types';
-
-// Export provider types
-export type * from './providers/types';
-
-// Export manager types
-export type * from './managers/types';
+// Export constants and types from types directory
+export * from './types';

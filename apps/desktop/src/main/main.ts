@@ -6,7 +6,8 @@ import * as fs from 'fs';
 import { setupCLI } from '../cli/cli';
 import { McpConfig } from './mcp/types';
 import { WorkspacesManager } from './state/WorkspacesManager';
-import { WorkspaceManager } from './state/WorkspaceManager';
+import { Agent, agentExists, loadAgent, createAgent, ProviderType } from 'agent-api';
+import { ElectronLoggerAdapter } from './logger-adapter';
 import chalk from 'chalk';
 import { SessionToolPermission, THEME_KEY } from '../shared/workspace';
 import { ChatMessage } from '../shared/ChatSession';
@@ -19,7 +20,7 @@ let workspacesManager: WorkspacesManager;
 const PRODUCT_NAME = 'TeamSpark AI Workbench';
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
-async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow> {
+async function createWindow(agent?: Agent): Promise<BrowserWindow> {
   // Get the current window's position if it exists
   const currentWindow = BrowserWindow.getFocusedWindow();
   let x = undefined;
@@ -50,10 +51,10 @@ async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow
   // This can be useful for debuggging frontend events that may be emitted before logging is initialized
   // window.webContents.openDevTools();
 
-  if (workspace) {
-    workspacesManager.registerWindow(window.id.toString(), workspace);
-    // Set initial theme from workspace
-    const theme = workspace.getSettingsValue(THEME_KEY);
+  if (agent) {
+    workspacesManager.registerWindow(window.id.toString(), agent);
+    // Set initial theme from agent
+    const theme = agent.getSetting(THEME_KEY);
     if (theme) {
       window.webContents.executeJavaScript(`document.documentElement.setAttribute('data-theme', '${theme}')`);
     }
@@ -72,8 +73,8 @@ async function createWindow(workspace?: WorkspaceManager): Promise<BrowserWindow
   return window;
 }
 
-// Helper function to get the Workspace for a window
-function getWorkspaceForWindow(windowId?: string): WorkspaceManager | null {
+// Helper function to get the Agent for a window
+function getAgentForWindow(windowId?: string): Agent | null {
   if (!windowId) {
     const focusedWindow = BrowserWindow.getFocusedWindow();
     if (!focusedWindow) {
@@ -83,13 +84,13 @@ function getWorkspaceForWindow(windowId?: string): WorkspaceManager | null {
     windowId = focusedWindow.id.toString();
   }
   
-  const workspace = workspacesManager.getWorkspaceForWindow(windowId);
-  if (!workspace) {
-    log.warn(`No WorkspaceManager found for window: ${windowId}`);
+  const agent = workspacesManager.getAgentForWindow(windowId);
+  if (!agent) {
+    log.warn(`No Agent found for window: ${windowId}`);
     return null;
   }
   
-  return workspace;
+  return agent;
 }
 
 function initializeLogging(isElectron: boolean) {
@@ -120,8 +121,9 @@ function initializeLogging(isElectron: boolean) {
 async function initializeWorkspaceManager() {
   log.info('Starting initialization process');
 
-  // Create and initialize WorkspaceManager
-  workspacesManager = new WorkspacesManager();
+  // Create and initialize WorkspacesManager with logger
+  const logger = new ElectronLoggerAdapter();
+  workspacesManager = new WorkspacesManager(logger);
   await workspacesManager.initialize();
 }
 
@@ -206,12 +208,25 @@ async function startApp() {
       }
     }
 
-    const workspaceManager = await WorkspaceManager.create(workspacePath, create);
-    if (!workspaceManager) {
-      console.error(chalk.red(`${PRODUCT_NAME} failed to locate workspace (tspark.json) in directory: `), workspacePath);
-      console.error(chalk.dim('  Use '), chalk.bold('--workspace <path>'), chalk.dim(' absolute or relative path to a workspace directory (where tspark.json will be found or created)'));
-      console.error(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new workspace in the specified directory, or current working directory if workspace path not specified'));
-      process.exit(1);
+    const logger = new ElectronLoggerAdapter();
+    let agent: Agent | null = null;
+    
+    if (create) {
+      try {
+        agent = await createAgent(workspacePath, logger);
+        console.log(chalk.green(`Created new workspace at: ${workspacePath}`));
+      } catch (error) {
+        console.error(chalk.red(`Failed to create workspace: ${error}`));
+        process.exit(1);
+      }
+    } else {
+      agent = await loadAgent(workspacePath, logger);
+      if (!agent) {
+        console.error(chalk.red(`${PRODUCT_NAME} failed to locate workspace (tspark.json) in directory: `), workspacePath);
+        console.error(chalk.dim('  Use '), chalk.bold('--workspace <path>'), chalk.dim(' absolute or relative path to a workspace directory (where tspark.json will be found or created)'));
+        console.error(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new workspace in the specified directory, or current working directory if workspace path not specified'));
+        process.exit(1);
+      }
     }
 
     let version = "unknown";
@@ -221,7 +236,7 @@ async function startApp() {
       version = process.env.npm_package_version;
     }
 
-    setupCLI(workspaceManager, version);
+    setupCLI(agent, version);
   } else {
     // Set app name before anything else
     process.env.ELECTRON_APP_NAME = PRODUCT_NAME;
@@ -266,26 +281,28 @@ async function startApp() {
       
       if (workspacePath) {
         log.info(`Opening workspace from command line: ${workspacePath}`);
-        const workspace = await WorkspaceManager.create(workspacePath);
-        if (!workspace) {
+        const logger = new ElectronLoggerAdapter();
+        const agent = await loadAgent(workspacePath, logger);
+        if (!agent) {
           log.error('Failed to find workspace (tspark.json) in directory provide on launch command line: ', workspacePath);
           // !!! Ideally we should show the user this message in the UX
           mainWindow = await createWindow();
         } else {
-          mainWindow = await createWindow(workspace);
+          mainWindow = await createWindow(agent);
         }
       } else {
         // Else if there is a most recently used workspace, open that 
         const mostRecentlyUsedWorkspace = workspacesManager.getRecentWorkspaces(); // !!! Should this be workspaceManager.getLastActiveWorkspace()?
         if (mostRecentlyUsedWorkspace.length > 0) {
           log.info(`Opening most recently used workspace: ${mostRecentlyUsedWorkspace[0]}`);
-          const workspace = await WorkspaceManager.create(mostRecentlyUsedWorkspace[0]);
-          if (!workspace) {
+          const logger = new ElectronLoggerAdapter();
+          const agent = await loadAgent(mostRecentlyUsedWorkspace[0], logger);
+          if (!agent) {
             log.error('Failed to find workspace (tspark.json) in most recently used directory: ', mostRecentlyUsedWorkspace[0]);
             // !!! Ideally we should show the user this message in the UX
             mainWindow = await createWindow();
           } else {
-            mainWindow = await createWindow(workspace);
+            mainWindow = await createWindow(agent);
           }
         } else {
           log.info('No most recently used workspace, creating new window with no workspace');
@@ -316,82 +333,82 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   // Rules IPC handlers
   ipcMain.handle('rules:get-rules', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.rulesManager) {
-      log.warn(`RulesManager not initialized for window: ${windowId}`);
+    if (!agent?.rules) {
+      log.warn(`Rules manager not initialized for window: ${windowId}`);
       return [];
     }
-    return workspace.rulesManager.getRules();
+    return agent.rules.getAll();
   });
 
   ipcMain.handle('rules:save-rule', (event, rule) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.rulesManager) {
-      log.warn(`RulesManager not initialized for window: ${windowId}`);
-      throw new Error('RulesManager not initialized');
+    if (!agent?.rules) {
+      log.warn(`Rules manager not initialized for window: ${windowId}`);
+      throw new Error('Rules manager not initialized');
     }
-    return workspace.rulesManager.saveRule(rule);
+    agent.rules.save(rule);
   });
 
   ipcMain.handle('rules:delete-rule', (event, name) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.rulesManager) {
-      log.warn(`RulesManager not initialized for window: ${windowId}`);
-      throw new Error('RulesManager not initialized');
+    if (!agent?.rules) {
+      log.warn(`Rules manager not initialized for window: ${windowId}`);
+      throw new Error('Rules manager not initialized');
     }
-    return workspace.rulesManager.deleteRule(name);
+    return agent.rules.delete(name);
   });
 
   // References IPC handlers
   ipcMain.handle('references:get-references', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.referencesManager) {
-      log.warn(`ReferencesManager not initialized for window: ${windowId}`);
+    if (!agent?.references) {
+      log.warn(`References manager not initialized for window: ${windowId}`);
       return [];
     }
-    return workspace.referencesManager.getReferences();
+    return agent.references.getAll();
   });
 
   ipcMain.handle('references:save-reference', (event, reference) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.referencesManager) {
-      log.warn(`ReferencesManager not initialized for window: ${windowId}`);
-      throw new Error('ReferencesManager not initialized');
+    if (!agent?.references) {
+      log.warn(`References manager not initialized for window: ${windowId}`);
+      throw new Error('References manager not initialized');
     }
-    return workspace.referencesManager.saveReference(reference);
+    agent.references.save(reference);
   });
 
   ipcMain.handle('references:delete-reference', (event, name) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.referencesManager) {
-      log.warn(`ReferencesManager not initialized for window: ${windowId}`);
-      throw new Error('ReferencesManager not initialized');
+    if (!agent?.references) {
+      log.warn(`References manager not initialized for window: ${windowId}`);
+      throw new Error('References manager not initialized');
     }
-    return workspace.referencesManager.deleteReference(name);
+    return agent.references.delete(name);
   });
 
   // Chat session IPC handlers
   ipcMain.handle('chat:create-tab', (event, tabId: string, modelProvider?: LLMType, modelId?: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      workspace.chatSessionManager.createSession(tabId, {
+      agent.chatSessions.create(tabId, {
         modelProvider: modelProvider,
         modelId: modelId
       });
@@ -407,14 +424,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:close-tab', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      workspace.chatSessionManager.deleteSession(tabId);
+      agent.chatSessions.delete(tabId);
       return { success: true };
     } catch (error) {
       log.error('Error closing chat tab:', error);
@@ -427,18 +444,19 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:get-state', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      if (!workspace.chatSessionManager.hasSession(tabId)) {
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
         log.info(`No session exists for tab ${tabId}, returning null`);
         return null;
       }
-      return workspace.chatSessionManager.getSessionState(tabId);
+      return session.getState();
     } catch (error) {
       log.error('Error getting chat state:', error);
       throw error;
@@ -447,14 +465,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:send-message', async (event, tabId: string, message: string | ChatMessage) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      return await workspace.chatSessionManager.handleMessage(tabId, message);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return await session.handleMessage(message);
     } catch (error) {
       log.error('Error sending message:', error);
       throw error;
@@ -463,14 +485,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:add-reference', (event, tabId: string, referenceName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      return workspace.chatSessionManager.addReference(tabId, referenceName);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return session.addReference(referenceName);
     } catch (error) {
       log.error(`Error adding reference '${referenceName}' to chat session:`, error);
       throw error;
@@ -479,14 +505,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:remove-reference', (event, tabId: string, referenceName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      return workspace.chatSessionManager.removeReference(tabId, referenceName);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return session.removeReference(referenceName);
     } catch (error) {
       log.error(`Error removing reference '${referenceName}' from chat session:`, error);
       throw error;
@@ -495,14 +525,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:add-rule', (event, tabId: string, ruleName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      return workspace.chatSessionManager.addRule(tabId, ruleName);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return session.addRule(ruleName);
     } catch (error) {
       log.error(`Error adding rule '${ruleName}' to chat session:`, error);
       throw error;
@@ -511,14 +545,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:remove-rule', (event, tabId: string, ruleName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      return workspace.chatSessionManager.removeRule(tabId, ruleName);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return session.removeRule(ruleName);
     } catch (error) {
       log.error(`Error removing rule '${ruleName}' from chat session:`, error);
       throw error;
@@ -528,14 +566,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:clear-model', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      const result = workspace.chatSessionManager.clearModel(tabId);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      const result = session.clearModel();
       return { 
         success: true,
         updates: result.updates,
@@ -551,14 +593,19 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType, modelId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      const result = workspace.chatSessionManager.switchModel(tabId, modelType, modelId);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      // !!! This is ugly (rendered code can't import ProviderType from agent-api)
+      const result = session.switchModel(modelType as any, modelId);
       return { 
         success: true,
         updates: result.updates,
@@ -594,18 +641,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('get-server-configs', async (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return [];
     }
 
     try {
-      const mcpServers = await workspace.getMcpConfig();
+      const mcpServers = await agent.mcpServers.getAll();
       
       // If mcpServers is empty or undefined, return an empty array
       if (!mcpServers || Object.keys(mcpServers).length === 0) {
-        log.info('No MCP server configurations found in workspace');
+        log.info('No MCP server configurations found in agent');
         return [];
       }
 
@@ -634,18 +681,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('get-mcp-client', async (event, serverName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return [];
     }
 
     try {
-      let client = workspace.mcpManager.getClient(serverName);
+      let client = agent.mcpManager.getClient(serverName);
       let serverType = 'stdio';
       
       if (!client) {
-        const mcpServers = await workspace.getMcpConfig();
+        const mcpServers = await agent.mcpServers.getAll();
         
         // Check if mcpServers is empty or undefined
         if (!mcpServers || Object.keys(mcpServers).length === 0) {
@@ -665,16 +712,11 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
           throw new Error(`Invalid server configuration for ${serverName}: missing config property`);
         }
         
-        // Get the current window's workspace
-        const windowworkspace = getWorkspaceForWindow(windowId);
-        if (!windowworkspace) {
-          throw new Error(`No workspace found for window: ${windowId}`);
-        }
-        client = createMcpClientFromConfig(windowworkspace, serverConfig);
-        if (client) {
-          await client.connect();
-          // !!! mcpClients.set(serverName, client);
-        } else {
+        // The AgentAPI should handle MCP client creation automatically
+        // when the server is configured. Let's try to load clients if they haven't been loaded yet
+        await agent.mcpManager.loadClients(agent);
+        client = agent.mcpManager.getClient(serverName);
+        if (!client) {
           throw new Error(`Failed to create client for server: ${serverName}`);
         }
       }
@@ -703,13 +745,13 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     try {
       log.info('Calling tool:', { serverName, toolName, args });
       const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-      const workspace = getWorkspaceForWindow(windowId);
+      const agent = getAgentForWindow(windowId);
 
-      const client = workspace?.mcpManager.getClient(serverName);
+      const client = agent?.mcpManager.getClient(serverName);
       if (!client) {
         throw new Error(`No MCP client found for server ${serverName}`);
       }
-      const tool = client.serverTools.find(t => t.name === toolName);
+      const tool = client.serverTools.find((t: any) => t.name === toolName);
       if (!tool) {
         throw new Error(`Tool ${toolName} not found in server ${serverName}`);
       }
@@ -724,9 +766,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('ping-server', async (event, serverName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
 
-    const client = workspace?.mcpManager.getClient(serverName);
+    const client = agent?.mcpManager.getClient(serverName);
     if (!client) {
       throw new Error(`No MCP client found for server ${serverName}`);
     }
@@ -735,15 +777,15 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('get-system-prompt', async (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return [];
     }
 
     try {
       log.info('[MAIN PROCESS] getSystemPrompt called');      
-      const prompt = await workspace.getSystemPrompt();
+      const prompt = await agent.getSystemPrompt();
       return prompt;
     } catch (err) {
       log.error('[MAIN PROCESS] Error reading system prompt, using default:', err);
@@ -753,15 +795,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('save-system-prompt', async (event, prompt: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return [];
     }
 
     try {      
-      // Get the ConfigManager for the current workspace
-      await workspace.saveSystemPrompt(prompt);
+      await agent.setSystemPrompt(prompt);
       log.info('System prompt saved successfully');
       return { success: true };
     } catch (err) {
@@ -867,9 +908,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('saveServerConfig', async (event, server: McpConfig) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return [];
     }
 
@@ -891,26 +932,20 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         server.config = { type: 'stdio', command: '', args: [] };
       }
       
-      // Get the ConfigManager for the current workspace
-      await workspace.saveMcpConfig(server);
+      // Save the server configuration using AgentAPI
+      await agent.mcpServers.save(server);
       
       // Reconnect the client with new config
-      const client = workspace.mcpManager.getClient(server.name);
+      const client = agent.mcpManager.getClient(server.name);
       if (client) {
         await client.disconnect();
-        // workspace?.mcpManager.deleteClient(server.name);
+        agent.mcpManager.deleteClient(server.name);
       }
       
-      // Create and connect a new client with the updated configuration
-      try {
-        const newClient = createMcpClientFromConfig(workspace, server);
-        await newClient.connect();
-        workspace.mcpManager.updateClient(server.name, newClient);
-        log.info(`Reconnected MCP client for server: ${server.name}`);
-      } catch (error) {
-        log.error(`Error reconnecting MCP client for ${server.name}:`, error);
-        throw new Error(`Failed to reconnect server: ${error instanceof Error ? error.message : String(error)}`);
-      }
+      // The AgentAPI should handle client creation automatically
+      // when the server is saved. Let's reload clients.
+      await agent.mcpManager.loadClients(agent);
+      log.info(`Reconnected MCP client for server: ${server.name}`);
     } catch (err) {
       log.error('Error saving server config:', err);
       throw err;
@@ -919,14 +954,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('reloadServerInfo', async (event, serverName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return [];
     }
 
     try {
-      const mcpServers = await workspace.getMcpConfig();
+      const mcpServers = await agent.mcpServers.getAll();
       const serverConfig = mcpServers[serverName];
       
       if (!serverConfig) {
@@ -935,15 +970,15 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       }
       
       // Disconnect existing client if any
-      const client = workspace.mcpManager.getClient(serverName);
+      const client = agent.mcpManager.getClient(serverName);
       if (client) {
         await client.disconnect();
+        agent.mcpManager.deleteClient(serverName);
       }
       
-      // Create and connect a new client
-      const newClient = createMcpClientFromConfig(workspace, serverConfig);
-      await newClient.connect();
-      workspace.mcpManager.updateClient(serverName, newClient);
+      // The AgentAPI should handle client creation automatically
+      // when reloading. Let's reload clients.
+      await agent.mcpManager.loadClients(agent);
       
       log.info(`Reloaded MCP client for server: ${serverName}`);
     } catch (err) {
@@ -954,20 +989,20 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('deleteServerConfig', async (event, serverName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return [];
     }
 
     try {
-      await workspace.deleteMcpConfig(serverName);
+      await agent.mcpServers.delete(serverName);
       
       // Disconnect and remove the client
-      const client = workspace.mcpManager.getClient(serverName);
+      const client = agent.mcpManager.getClient(serverName);
       if (client) {
         await client.disconnect();
-        workspace.mcpManager.deleteClient(serverName);
+        agent.mcpManager.deleteClient(serverName);
       }
     } catch (err) {
       log.error('Error deleting server config:', err);
@@ -1004,15 +1039,16 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   ipcMain.handle('workspace:workspaceExists', async (_, path: string) => {
-    return await WorkspaceManager.workspaceExists(path);
+    return await agentExists(path);
   });
 
   // Open the workspace at filePath in the current window, or if no current window, create a new one
   //
   ipcMain.handle('workspace:openWorkspace', async (_, filePath: string) => {
     log.info(`[WORKSPACE OPEN] IPC handler called for workspace:openWorkspace ${filePath}`);
-    const workspace = await WorkspaceManager.create(filePath);
-    if (!workspace) {
+    const logger = new ElectronLoggerAdapter();
+    const agent = await loadAgent(filePath, logger);
+    if (!agent) {
       // This is a directory the user just picked, so it should always be a valid workspace
       log.error('Failed to find workspace (tspark.json) in directory provided: ', filePath);
       // !!! Ideally we should show the user this message in the UX
@@ -1022,16 +1058,16 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     // Get the current window
     const currentWindow = BrowserWindow.getFocusedWindow();
     if (currentWindow) {
-      log.info(`[WORKSPACE OPEN] Opening workspace ${workspace.workspaceDir} in current window ${currentWindow.id}`);
-      workspacesManager.registerWindow(currentWindow.id.toString(), workspace);
+      log.info(`[WORKSPACE OPEN] Opening workspace ${agent.path} in current window ${currentWindow.id}`);
+      workspacesManager.registerWindow(currentWindow.id.toString(), agent);
             
       // Return the current window's ID
       return currentWindow.id;
     }
     
     // If no current window exists, create a new one
-    log.info(`[WORKSPACE OPEN] No current window, creating new window for workspace ${workspace.workspaceDir}`);
-    const window = await createWindow(workspace);
+    log.info(`[WORKSPACE OPEN] No current window, creating new window for workspace ${agent.path}`);
+    const window = await createWindow(agent);
     return window.id;
   });
 
@@ -1040,17 +1076,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('workspace:openInNewWindow', async (_, filePath: string) => {
     log.info(`[WORKSPACE OPEN] Opening workspace ${filePath} in a new window`);
     log.info(`[WORKSPACE OPEN] IPC handler called for workspace:openInNewWindow ${filePath}`);
-    const workspace = await WorkspaceManager.create(filePath);
+    const logger = new ElectronLoggerAdapter();
+    const agent = await loadAgent(filePath, logger);
     
     // Always create a new window
-    if (!workspace) {
+    if (!agent) {
       // This is a directory the user just picked, so it should always be a valid workspace
       log.error('Failed to find workspace (tspark.json) in directory provided: ', filePath);
       // !!! Ideally we should show the user this message in the UX
       return null;
     }
 
-    const window = await createWindow(workspace);
+    const window = await createWindow(agent);
     return window.id;
   });
 
@@ -1061,10 +1098,11 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     // Convert windowId to string to ensure consistent handling
     const windowIdStr = windowId.toString();
 
-    const workspace = await WorkspaceManager.create(workspacePath, true) as WorkspaceManager; // Cannot be null when populateNewWorkspace is true    
+    const logger = new ElectronLoggerAdapter();
+    const agent = await loadAgent(workspacePath, logger);
 
-    log.info(`[WORKSPACE SWITCH] Workspace found: ${workspace.workspaceDir}`);
-    await workspacesManager.switchWorkspace(windowIdStr, workspace);
+    log.info(`[WORKSPACE SWITCH] Workspace found: ${agent.path}`);
+    await workspacesManager.switchWorkspace(windowIdStr, agent);
     return true;
   });
 
@@ -1072,8 +1110,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   //
   ipcMain.handle('workspace:createWorkspaceInNewWindow', async (_, workspacePath: string) => {
     log.info(`[WORKSPACE CREATE] IPC handler called for workspace:createWorkspaceInNewWindow ${workspacePath}`);
-    const workspace = await WorkspaceManager.create(workspacePath, true) as WorkspaceManager; // Cannot be null when populateNewWorkspace is true    
-    const window = await createWindow(workspace);
+    const logger = new ElectronLoggerAdapter();
+    const agent = await loadAgent(workspacePath, logger);
+    const window = await createWindow(agent);
     return window.id;
   });
 
@@ -1083,21 +1122,28 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     log.info(`[WORKSPACE CLONE] IPC handler called for workspace:cloneWorkspace from ${sourcePath} to ${targetPath}`);
     
     // Check if target workspace already exists
-    if (await WorkspaceManager.workspaceExists(targetPath)) {
+    if (await agentExists(targetPath)) {
       log.error(`[WORKSPACE CLONE] Target workspace already exists: ${targetPath}`);
       return { success: false, error: 'A workspace already exists at the target location' };
     }
 
     // Clone the workspace
-    const workspace = await WorkspaceManager.cloneWorkspace(sourcePath, targetPath);
-    if (!workspace) {
+    const logger = new ElectronLoggerAdapter();
+    const sourceAgent = await loadAgent(sourcePath, logger);
+    if (!sourceAgent) {
+      log.error(`[WORKSPACE CLONE] Failed to load source workspace: ${sourcePath}`);
+      return { success: false, error: 'Failed to load source workspace' };
+    }
+    
+    const clonedAgent = await sourceAgent.clone(targetPath);
+    if (!clonedAgent) {
       log.error(`[WORKSPACE CLONE] Failed to clone workspace from ${sourcePath} to ${targetPath}`);
       return { success: false, error: 'Failed to clone workspace' };
     }
 
     // Always create a new window for the cloned workspace
-    log.info(`[WORKSPACE CLONE] Creating new window for cloned workspace ${workspace.workspaceDir}`);
-    const window = await createWindow(workspace);
+    log.info(`[WORKSPACE CLONE] Creating new window for cloned workspace ${clonedAgent.path}`);
+    const window = await createWindow(clonedAgent);
     return { success: true, windowId: window.id };
   });
 
@@ -1109,14 +1155,15 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Convert windowId to string to ensure consistent handling
       const windowIdStr = windowId.toString();
 
-      const workspace = await WorkspaceManager.create(workspacePath);
-      if (!workspace) {
+      const logger = new ElectronLoggerAdapter();
+      const agent = await loadAgent(workspacePath, logger);
+      if (!agent) {
         log.error('[WORKSPACE SWITCH] Failed to find workspace (tspark.json) in directory provided: ', workspacePath);
         // !!! Ideally we should show the user this message in the UX
         return false;
       }
-      log.info(`[WORKSPACE SWITCH] Workspace found: ${workspace.workspaceDir}`);
-      await workspacesManager.switchWorkspace(windowIdStr, workspace);
+      log.info(`[WORKSPACE SWITCH] Workspace found: ${agent.path}`);
+      await workspacesManager.switchWorkspace(windowIdStr, agent);
       return true;
     } catch (error) {
       log.error(`[WORKSPACE SWITCH] Error in IPC handler switching window ${windowId} to workspace ${workspacePath}:`, error);
@@ -1150,52 +1197,48 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   // LLM Provider IPC handlers for model picker
   ipcMain.handle('llm:get-provider-info', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.llmFactory) {
-      log.warn(`LLMFactory not initialized for window: ${windowId}`);
+    if (!agent?.providers) {
+      log.warn(`Providers manager not initialized for window: ${windowId}`);
       return {};
     }
-    return workspace.llmFactory.getProvidersInfo();
+    return agent.providers.getProvidersInfo();
   });
 
   ipcMain.handle('llm:validate-provider-config', async (event, provider: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace) {
-      log.warn(`Workspace not found for window: ${windowId}`);
-      return { isValid: false, error: 'Workspace not found' };
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return { isValid: false, error: 'Agent not found' };
     }
 
-    const llmType = workspace.llmFactory.getLLMTypeByName(provider);
-    if (!llmType) {
-      return { isValid: false, error: `Provider with name ${provider} not found` };
-    }
-    return workspace.llmFactory.validateConfiguration(llmType);
+    return agent.providers.validateProviderConfiguration(provider);
   });
 
   ipcMain.handle('llm:get-provider-config', (event, provider: string, key: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace) {
-      log.warn(`Workspace not found for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return null;
     }
-    return workspace.getProviderSettingsValue(provider, key);
+    return agent.providers.getSetting(provider, key);
   });
 
   ipcMain.handle('llm:set-provider-config', async (event, provider: string, key: string, value: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace) {
-      log.warn(`Workspace not found for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return false;
     }
     try {
-      await workspace.setProviderSettingsValue(provider, key, value);
+      await agent.providers.setSetting(provider, key, value);
       return true;
     } catch (error) {
       log.error(`Error setting provider config ${provider}.${key}:`, error);
@@ -1205,25 +1248,25 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('llm:get-installed-providers', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace) {
-      log.warn(`Workspace not found for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return [];
     }
-    return workspace.getInstalledProviders();
+    return agent.providers.getAll();
   });
 
   ipcMain.handle('llm:add-provider', async (event, provider: LLMType) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace) {
-      log.warn(`Workspace not found for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return false;
     }
     try {
-      await workspace.addProvider(provider);
+      await agent.providers.add(provider);
       return true;
     } catch (error) {
       log.error(`Error adding provider ${provider}:`, error);
@@ -1233,14 +1276,14 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('llm:remove-provider', async (event, provider: LLMType) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace) {
-      log.warn(`Workspace not found for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return false;
     }
     try {
-      await workspace.removeProvider(provider);
+      await agent.providers.remove(provider);
       return true;
     } catch (error) {
       log.error(`Error removing provider ${provider}:`, error);
@@ -1254,13 +1297,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
     try {
       const windowId = BrowserWindow.getFocusedWindow()?.id.toString();
-      const workspace = getWorkspaceForWindow(windowId);
-      if (!workspace?.llmFactory) {
-        log.warn(`LLMFactory not initialized for window: ${windowId}`);
+      const agent = getAgentForWindow(windowId);
+      if (!agent?.providers) {
+        log.warn(`Providers manager not initialized for window: ${windowId}`);
         return [];
       }
-      const llm = workspace.llmFactory.create(provider);
-      return await llm.getModels();
+      return await agent.providers.getModels(provider);
     } catch (error) {
       log.error(`Error getting models for provider ${provider}:`, error);
       return [];
@@ -1270,23 +1312,23 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   // Settings IPC handlers
   ipcMain.handle('get-settings-value', (event, key: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return null;
     }
-    return workspace.getSettingsValue(key);
+    return agent.getSetting(key);
   });
 
   ipcMain.handle('set-settings-value', async (event, key: string, value: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
-    if (!workspace) {
-      log.warn('No workspace found for window:', windowId);
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
       return false;
     }
     try {
-      await workspace.setSettingsValue(key, value);
+      await agent.setSetting(key, value);
       return true;
     } catch (error) {
       log.error(`Error setting setting ${key}:`, error);
@@ -1302,14 +1344,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     toolPermission: SessionToolPermission;
   }) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const workspace = getWorkspaceForWindow(windowId);
+    const agent = getAgentForWindow(windowId);
     
-    if (!workspace?.chatSessionManager) {
-      log.warn(`ChatSessionManager not initialized for window: ${windowId}`);
-      throw new Error('ChatSessionManager not initialized');
+    if (!agent?.chatSessions) {
+      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
+      throw new Error('Chat sessions manager not initialized');
     }
     try {
-      return workspace.chatSessionManager.updateSettings(tabId, settings);
+      const session = agent.chatSessions.get(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return session.updateSettings(settings);
     } catch (error) {
       log.error('Error updating chat settings:', error);
       throw error;

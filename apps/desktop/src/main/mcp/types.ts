@@ -33,7 +33,6 @@ export interface ServerPermissionConfig {
 export type McpConfigFileServerConfig = 
   | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; permissions?: ServerPermissionConfig }
   | { type: 'sse'; url: string; headers?: Record<string, string>; permissions?: ServerPermissionConfig }
-  | { type: 'thv'; server: string; name: string; thvArgs: string[]; serverArgs: string[]; env?: Record<string, string>; permissions?: ServerPermissionConfig }
   | { type: 'internal'; tool: 'rules' | 'references'; permissions?: ServerPermissionConfig };
 
 // Type for the MCP configuration file structure
