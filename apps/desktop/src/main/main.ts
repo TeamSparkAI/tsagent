@@ -11,7 +11,7 @@ import { ElectronLoggerAdapter } from './logger-adapter';
 import chalk from 'chalk';
 import { SessionToolPermission, THEME_KEY } from '../shared/workspace';
 import { ChatMessage } from '../shared/ChatSession';
-import { createMcpClientFromConfig } from './mcp/manager';
+
 
 const __dirname = path.dirname(__filename);
 

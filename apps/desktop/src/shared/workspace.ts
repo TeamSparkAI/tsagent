@@ -20,22 +20,3 @@ export const MAX_CHAT_TURNS_DEFAULT = 20;
 export const MAX_OUTPUT_TOKENS_DEFAULT = 1000;
 export const TEMPERATURE_DEFAULT = 0.5;
 export const TOP_P_DEFAULT = 0.5;
-
-export interface WorkspaceMetadata {
-    name: string;
-    created: string;
-    lastAccessed: string;
-    version: string;
-}
-
-export interface WorkspaceConfig {
-    metadata: WorkspaceMetadata;
-    settings: {
-        [MAX_CHAT_TURNS_KEY]: string;
-        [MAX_OUTPUT_TOKENS_KEY]: string;
-        [TEMPERATURE_KEY]: string;
-        [TOP_P_KEY]: string;
-        [THEME_KEY]: string;
-        [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
-    };
-}

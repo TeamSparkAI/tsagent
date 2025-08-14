@@ -46,17 +46,6 @@ export interface MessageUpdate {
   rules: string[];
 }
 
-export interface ChatSessionOptions {
-  modelProvider?: LLMType;
-  modelId?: string;
-  initialMessages?: ChatMessage[];
-  maxChatTurns?: number;
-  maxOutputTokens?: number;
-  temperature?: number;
-  topP?: number;
-  toolPermission?: SessionToolPermission;
-}
-
 export interface ChatSessionResponse {
   success: boolean;
   error?: string;

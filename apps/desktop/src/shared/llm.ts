@@ -1,8 +1,3 @@
-import { ChatMessage } from './ChatSession';
-import { ModelReply } from './ModelReply';
-import { WorkspaceManager } from '../main/state/WorkspaceManager';
-import { ChatSession } from '../main/state/ChatSession';
-
 export enum LLMType {
   Test = 'test',
   Claude = 'claude',
@@ -26,17 +21,6 @@ export interface LLMProviderInfo {
   description: string;
   website?: string;
   configValues?: ILLMConfigValue[];
-}
-
-// Interface for static methods
-export interface ILLMStatic {
-  getInfo(): LLMProviderInfo;
-}
-
-// Interface for instance methods
-export interface ILLM {
-  getModels(): Promise<ILLMModel[]>;
-  generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply>;
 }
 
 export interface ILLMModel {
