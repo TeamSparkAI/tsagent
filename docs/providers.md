@@ -37,5 +37,17 @@ Claude
     display_name: 'Claude 3 Opus',
     created_at: '2024-02-29T00:00:00Z'
 
-Gemini (no API currently - model data is hardcoded)
-- Issue for exposing API: https://github.com/googleapis/js-genai/issues/473
+Gemini
+    name: "models/gemini-2.5-flash-lite",
+    displayName: "Gemini 2.5 Flash-Lite",
+    description: "Stable verion of Gemini 2.5 Flash-Lite, released in July of 2025",
+    version: "001",
+    tunedModelInfo: {},
+    inputTokenLimit: 1048576,
+    outputTokenLimit: 65536,
+    supportedActions": [
+        "generateContent",
+        "countTokens",
+        "createCachedContent",
+        "batchGenerateContent"
+    ]
