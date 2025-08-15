@@ -93,7 +93,6 @@ export class ChatSessionImpl implements ChatSession {
       lastSyncId: this.lastSyncId,
       currentModelProvider: this.currentProvider,
       currentModelId: this.currentModelId,
-      provider: this.provider,
       references: [...this.references],
       rules: [...this.rules],
       maxChatTurns: this.maxChatTurns,

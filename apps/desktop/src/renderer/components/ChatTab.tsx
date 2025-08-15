@@ -1213,6 +1213,15 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                                 </div>
                               )}
                               
+                              {turn.error && (
+                                <div className="turn-error">
+                                  <div className="error-header">Error:</div>
+                                  <div className="error-content">
+                                    {turn.error}
+                                  </div>
+                                </div>
+                              )}
+                              
                               {/* Show completed tool calls with their dispositions */}
                               {turn.toolCalls?.map((toolCall, toolIndex) => {
                                 // Find the disposition for this tool call in the previous message

@@ -20,6 +20,7 @@
   --tool-call-header-bg: #f8f9fa;
   --tool-call-output-bg: #1e1e1e;
   --tool-call-output-text: #d4d4d4;
+  --error-message-bg: #fff5f5;
 }
 
 [data-theme="dark"] {
@@ -43,6 +44,7 @@
   --tool-call-header-bg: #333333;
   --tool-call-output-bg: #1e1e1e;
   --tool-call-output-text: #d4d4d4;
+  --error-message-bg: #2d1a1a;
 }
 
 body {

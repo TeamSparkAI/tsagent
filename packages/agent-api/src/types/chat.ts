@@ -29,7 +29,6 @@ export interface ChatState {
   lastSyncId: number;
   currentModelProvider?: ProviderType;
   currentModelId?: string;
-  provider?: Provider;
   references: string[];
   rules: string[];
   maxChatTurns: number;

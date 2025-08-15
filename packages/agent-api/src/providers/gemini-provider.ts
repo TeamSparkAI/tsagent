@@ -136,67 +136,43 @@ export class GeminiProvider implements Provider {
   }
 
   async getModels(): Promise<ProviderModel[]> {
-    // Currently no support for listModels in the Node SDK - may be coming: https://github.com/google-gemini/generative-ai-js/issues/54
-    // For now we're going to make a hardcoded list of current models.
-    // This seems like the best source for models and description: https://ai.google.dev/gemini-api/docs/
-    const models: ProviderModel[] = [
+    const theModels = await this.genAI.models.list();
+
+    // Convert async iterable to array and filter for models with supportedActions that include "generateContent"
+    const modelsArray: any[] = [];
+    for await (const model of theModels) {
+      modelsArray.push(model);
+    }
+    const filteredModels = modelsArray.filter(model => model.supportedActions?.includes('generateContent'));
+
+    // Models look like this:
+    /*
     {
+      "name": "models/gemini-2.5-flash-lite",
+      "displayName": "Gemini 2.5 Flash-Lite",
+      "description": "Stable verion of Gemini 2.5 Flash-Lite, released in July of 2025",
+      "version": "001",
+      "tunedModelInfo": {},
+      "inputTokenLimit": 1048576,
+      "outputTokenLimit": 65536,
+      "supportedActions": [
+        "generateContent",
+        "countTokens",
+        "createCachedContent",
+        "batchGenerateContent"
+      ]
+    }
+    */
+
+    const models: ProviderModel[] = filteredModels.map(model => ({
       provider: ProviderType.Gemini,
-      id: "gemini-2.5-pro-preview-03-25",
-      name: "Gemini 2.5 Pro Preview",
-      description: "Enhanced thinking and reasoning, multimodal understanding, advanced coding, and more",
+      id: model.name.replace('models/', ''), // Extract just the model name from the full path
+      name: model.displayName,
+      description: model.description,
       modelSource: "Google"
-    },
-    {
-      provider: ProviderType.Gemini,
-      id: "gemini-2.5-flash-preview-04-17",
-      name: "Gemini 2.5 Flash Preview",
-      description: "Our best model in terms of price-performance, offering well-rounded capabilities.",
-      modelSource: "Google"
-    },
-    {
-      provider: ProviderType.Gemini,
-      id: "gemini-2.0-flash",
-      name: "Gemini 2.0 Flash",
-      description: "Next generation features, speed, thinking, realtime streaming, and multimodal generation",
-      modelSource: "Google"
-    },
-    {
-      provider: ProviderType.Gemini,
-      id: "gemini-2.0-flash-lite",
-      name: "Gemini 2.0 Flash-Lite",
-      description: "Cost efficiency and low latency",
-      modelSource: "Google"
-    },
-    {
-      provider: ProviderType.Gemini,
-      id: "gemini-2.0-flash-live-001",
-      name: "Gemini 2.0 Flash Live",
-      description: "Low-latency bidirectional voice and video interactions",
-      modelSource: "Google"
-    },
-    {
-      provider: ProviderType.Gemini,
-      id: "gemini-1.5-flash",
-      name: "Gemini 1.5 Flash",
-      description: "Fast and versatile performance across a diverse variety of tasks",
-      modelSource: "Google"
-    },
-    {
-      provider: ProviderType.Gemini,
-      id: "gemini-1.5-flash-8b",
-      name: "Gemini 1.5 Flash-8B",
-      description: "High volume and lower intelligence tasks",
-      modelSource: "Google"
-    },
-    {
-      provider: ProviderType.Gemini,
-      id: "gemini-1.5-pro",
-      name: "Gemini 1.5 Pro",
-      description: "Complex reasoning tasks requiring more intelligence",
-      modelSource: "Google"
-    }];
-    // this.logger.info('Gemini models', JSON.stringify(models, null, 2));
+    }));
+
+    // this.logger.info('Gemini models', JSON.stringify(theModels, null, 2));
 
     return models;
   }

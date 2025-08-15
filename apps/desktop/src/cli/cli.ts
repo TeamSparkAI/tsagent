@@ -408,7 +408,7 @@ export function setupCLI(agent: Agent, version: string) {
           }
           console.log(chalk.cyan('\nAvailable models:'));
           try {
-            const models = await chatSession.getState().provider?.getModels() || [];
+            const models = await agent.providers.getModels(currentProvider);
             for (const model of models) {
               const indicator = model.id === currentModelId ? chalk.green('* ') : '  ';
               console.log(chalk.green(`${indicator}${model.id}: ${model.name}`));
@@ -427,7 +427,7 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.red('No current provider, select a provider before selecting a model'));
             break;
           }
-          const models = await chatSession.getState().provider?.getModels() || [];
+          const models = await agent.providers.getModels(currentProvider);
           const modelName = args[0];
           if (modelName) {
             const model = models.find((m: any) => m.id.toLowerCase() === modelName.toLowerCase());
