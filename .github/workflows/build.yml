@@ -27,9 +27,11 @@ jobs:
         id: version
         run: |
           npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          cd apps/desktop && npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          cd ../..
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
-          git add package.json
+          git add package.json apps/desktop/package.json
           git commit -m "Update version to ${{ github.event.inputs.version }}"
           git push
           echo "commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
