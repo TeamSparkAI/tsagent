@@ -1,7 +1,7 @@
 import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
 import { GoogleGenAI, Tool as GeminiTool, Content, Part, Type as SchemaType } from '@google/genai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY } from '../types/chat';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat';
 import { ModelReply, Turn } from './types';
 import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
@@ -201,7 +201,7 @@ export class GeminiProvider implements Provider {
     return models;
   }
 
-  async generateResponse(session: any, messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -363,19 +363,21 @@ export class GeminiProvider implements Provider {
       // this.logger.info('history', JSON.stringify(history, null, 2));
       // this.logger.info('currentPrompt', currentPrompt);
 
+      const state = session.getState();
+
       const chat = this.genAI.chats.create({
         model: this.modelName,
         history,
         config: {
-          maxOutputTokens: session.maxOutputTokens,
-          temperature: session.temperature,
-          topP: session.topP,
+          maxOutputTokens: state.maxOutputTokens,
+          temperature: state.temperature,
+          topP: state.topP,
           tools: modelTools ? [modelTools] : []
         }
       });
 
       let turnCount = 0;
-      while (turnCount < session.maxChatTurns) {
+      while (turnCount < state.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
         this.logger.debug(`Sending message prompt "${JSON.stringify(currentPrompt, null, 2)}", turn count: ${turnCount}`);
@@ -462,17 +464,17 @@ export class GeminiProvider implements Provider {
         if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
 
-      if (turnCount >= session.maxChatTurns) {
+      if (turnCount >= state.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });
       }
 
       return modelReply;
-    } catch (error: any) {
-      this.logger.error('Gemini API error:', error);
+    } catch (error: unknown) {
+      this.logger.error('Gemini API error:', error instanceof Error ? error.message : 'Unknown error');
       modelReply.turns.push({
-        error: `Error: Failed to generate response from Gemini- ${error.message}`
+        error: `Error: Failed to generate response from Gemini- ${error instanceof Error ? error.message : 'Unknown error'}`
       });
       return modelReply;
     }

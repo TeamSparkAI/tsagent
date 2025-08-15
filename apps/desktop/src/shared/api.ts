@@ -1,14 +1,14 @@
-import { Rule } from './Rule';
-import { Reference } from './Reference';
-import { McpConfig, CallToolResultWithElapsedTime } from '../main/mcp/types';
-import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from './ChatSession';
-import { WorkspaceWindow } from '../main/state/WorkspacesManager';
-import { LLMProviderInfo, ILLMModel, LLMType } from './llm';
+import { Rule, Reference } from 'agent-api';
+import { McpConfig, CallToolResultWithElapsedTime } from 'agent-api';
+import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from 'agent-api';
+import { WorkspaceWindow } from '../main/workspaces-manager';
+import { ProviderType } from 'agent-api';
+import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from 'agent-api';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 
 export interface API {
   // Chat session management
-  createChatTab: (tabId: string, modelProvider?: LLMType, modelId?: string) => Promise<ChatSessionResponse>;
+  createChatTab: (tabId: string, modelProvider?: ProviderType, modelId?: string) => Promise<ChatSessionResponse>;
   closeChatTab: (tabId: string) => Promise<ChatSessionResponse>;
   getChatState: (tabId: string) => Promise<ChatState | null>;
   sendMessage: (tabId: string, message: string | ChatMessage) => Promise<MessageUpdate>;

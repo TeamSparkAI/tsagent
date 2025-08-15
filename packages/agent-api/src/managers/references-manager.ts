@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { EventEmitter } from 'events';
 import { ReferencesManager as IReferencesManager } from './types';
-import { Reference, Logger } from '../types';
+import { Reference } from '../types/references';
+import { Logger } from '../types/common';
 
 export class ReferencesManager extends EventEmitter implements IReferencesManager {
   private references: Reference[] = [];

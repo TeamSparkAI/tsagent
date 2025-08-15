@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { TabProps } from '../types/TabProps';
-import type { WorkspaceWindow } from '../../main/state/WorkspacesManager';
+import type { WorkspaceWindow } from '../../main/workspaces-manager';
 import log from 'electron-log';
 import './WorkspaceTab.css';
 

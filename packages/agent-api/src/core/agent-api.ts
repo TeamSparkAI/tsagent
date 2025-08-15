@@ -1,23 +1,24 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { Agent, AgentFactory, Logger, AgentConfig, 
+import { Agent, AgentConfig, 
   MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, 
   MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, 
   TEMPERATURE_DEFAULT, TEMPERATURE_KEY, 
   TOP_P_DEFAULT, TOP_P_KEY, 
   THEME_KEY,
   SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL
-} from './types';
-import { RulesManager } from './managers/rules-manager';
-import { ReferencesManager } from './managers/references-manager';
-import { ProvidersManager } from './managers/providers-manager';
-import { McpServerManagerImpl } from './managers/mcp-server-manager';
-import { ChatSessionManagerImpl } from './managers/chat-session-manager';
-import { MCPClientManagerImpl } from './mcp/client-manager';
+} from '../types/agent';
+import { Logger } from '../types/common';
+import { RulesManager } from '../managers/rules-manager';
+import { ReferencesManager } from '../managers/references-manager';
+import { ProvidersManager } from '../managers/providers-manager';
+import { McpServerManagerImpl } from '../managers/mcp-server-manager';
+import { ChatSessionManagerImpl } from '../managers/chat-session-manager';
+import { MCPClientManagerImpl } from '../mcp/client-manager';
 import { v4 as uuidv4 } from 'uuid';
-import { MCPClientManager } from './mcp/types';
+import { MCPClientManager } from '../mcp/types';
 
-export class FileBasedAgent implements Agent, AgentFactory {
+export class FileBasedAgent implements Agent {
   private static readonly WORKSPACE_FILE_NAME = 'tspark.json';
   private static readonly SYSTEM_PROMPT_FILE_NAME = 'prompt.md';
   private static readonly DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
@@ -58,7 +59,7 @@ export class FileBasedAgent implements Agent, AgentFactory {
     this.chatSessions = new ChatSessionManagerImpl(this, this.logger);
   }
 
-  // Factory methods (AgentFactory interface)
+  // Factory methods
   async createAgent(agentPath: string, logger: Logger, data?: Partial<AgentConfig>): Promise<Agent> {
     return FileBasedAgent.createAgent(agentPath, logger, data);
   }

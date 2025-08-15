@@ -1,4 +1,4 @@
-import { ChatMessage } from '../types/chat';
+import { ChatMessage, ChatSession } from '../types/chat';
 import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
 import { ModelReply } from './types';
 import { Agent } from '../types/agent';
@@ -38,13 +38,14 @@ export class TestProvider implements Provider {
     return { isValid: true };
   }
 
-  async generateResponse(session: any, messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     this.logger.info('Generating response with Test Provider');
+    const state = session.getState();
     return {
       timestamp: Date.now(),
       turns: [
         {
-          message: `Happy Birthday! (maxChatTurns: ${session.maxChatTurns}, maxOutputTokens: ${session.maxOutputTokens}, temperature: ${session.temperature.toFixed(2)}, topP: ${session.topP.toFixed(2)})`,
+          message: `Happy Birthday! (maxChatTurns: ${state.maxChatTurns}, maxOutputTokens: ${state.maxOutputTokens}, temperature: ${state.temperature.toFixed(2)}, topP: ${state.topP.toFixed(2)})`,
           inputTokens: 420,
           outputTokens: 69
         }
@@ -52,4 +53,3 @@ export class TestProvider implements Provider {
     };
   }
 }
-

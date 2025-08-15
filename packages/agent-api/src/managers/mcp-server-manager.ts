@@ -1,5 +1,6 @@
 import { McpServerManager } from './types';
-import { Agent, Logger } from '../types';
+import { Agent } from '../types/agent';
+import { Logger } from '../types/common';
 import { McpConfig, McpConfigFileServerConfig } from '../mcp/types';
 
 export class McpServerManagerImpl implements McpServerManager {

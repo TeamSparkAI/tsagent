@@ -1,12 +1,12 @@
-import { LLMType, ILLMModel } from '../../shared/llm';
+import { ProviderType } from 'agent-api';
+import type { ProviderModel as ILLMModel } from 'agent-api';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ChatMessage, MessageUpdate } from '../../shared/ChatSession';
-import { ModelReply } from '../../shared/ModelReply';
+import { ChatMessage, MessageUpdate, ModelReply } from 'agent-api';
 import log from 'electron-log';
 
 export class ChatAPI {
   private tabId: string;
-  private currentProvider?: LLMType;
+  private currentProvider?: ProviderType;
   private currentModelName?: string;
   private currentModelId?: string;
   private messages: (RendererChatMessage & { modelReply?: ModelReply })[] = [];
@@ -17,7 +17,7 @@ export class ChatAPI {
     this.initModel();
   }
 
-  private async updateModelNameFromState(modelType: LLMType, modelId?: string): Promise<void> {
+  private async updateModelNameFromState(modelType: ProviderType, modelId?: string): Promise<void> {
     if (modelId) {
       try {
         // If we already have the model info cached and it matches the current ID
@@ -57,12 +57,12 @@ export class ChatAPI {
       }
       
       // Update local state with session state from the server
-      this.currentProvider = state.currentModelProvider;
+      this.currentProvider = state.currentModelProvider as unknown as ProviderType;
       this.currentModelId = state.currentModelId;
       
       // Update the model name if we have a provider and model ID
       if (state.currentModelProvider && state.currentModelId) {
-        await this.updateModelNameFromState(state.currentModelProvider, state.currentModelId);
+        await this.updateModelNameFromState(state.currentModelProvider as unknown as ProviderType, state.currentModelId);
       }
       
       log.info(`Initialized ChatAPI with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}, name: ${this.currentModelName}`);
@@ -134,7 +134,7 @@ export class ChatAPI {
     }
   }
 
-  public async switchModel(provider: LLMType, modelId: string): Promise<boolean> {
+  public async switchModel(provider: ProviderType, modelId: string): Promise<boolean> {
     try {
       const result = await window.api.switchModel(this.tabId, provider, modelId);
       if (result.success) {
@@ -159,7 +159,7 @@ export class ChatAPI {
     return [...this.messages];
   }
 
-  public getCurrentModel(): LLMType | undefined {
+  public getCurrentModel(): ProviderType | undefined {
     return this.currentProvider;
   }
   
@@ -167,7 +167,7 @@ export class ChatAPI {
     return this.currentModelName;
   }
 
-  public async getModels(provider: LLMType, forceRefresh: boolean = false): Promise<ILLMModel[]> {
+  public async getModels(provider: ProviderType, forceRefresh: boolean = false): Promise<ILLMModel[]> {
     try {
       // Always fetch all models when explicitly called - this is primarily used by the model picker
       log.info(`Fetching models for provider ${provider} from API`);

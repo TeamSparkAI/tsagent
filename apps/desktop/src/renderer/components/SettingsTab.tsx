@@ -9,7 +9,7 @@ import {
   MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY, SYSTEM_PATH_KEY, THEME_KEY, SESSION_TOOL_PERMISSION_KEY, 
   SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_NEVER,
   SessionToolPermission,
-} from '../../shared/workspace';
+} from 'agent-api';
 
 export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
   const [activeSection, setActiveSection] = useState<string>('about');

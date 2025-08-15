@@ -1,11 +1,33 @@
 {
-  "name": "@teamspark/agent-api",
+  "name": "agent-api",
   "version": "1.0.0",
   "description": "Simple CRUD API for agents (workspaces)",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js"
+    },
+    "./runtime": {
+      "import": "./dist/esm/runtime.js",
+      "require": "./dist/cjs/runtime.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "typesVersions": {
+    "*": {
+      "*": [
+        "./dist/esm/*"
+      ]
+    }
+  },
+
   "scripts": {
-    "build": "tsc",
+    "build": "npm run build:esm && npm run build:cjs",
+    "build:esm": "mkdir -p dist/esm && echo '{\"type\": \"module\"}' > dist/esm/package.json && tsc -p tsconfig.esm.json",
+    "build:cjs": "mkdir -p dist/cjs && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json && tsc -p tsconfig.cjs.json",
     "dev": "ts-node src/index.ts",
     "test": "jest"
   },

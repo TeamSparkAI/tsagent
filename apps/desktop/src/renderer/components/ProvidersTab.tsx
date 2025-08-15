@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
-import { LLMType, LLMProviderInfo, ILLMModel } from '../../shared/llm';
+import { ProviderType } from 'agent-api';
+import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from 'agent-api';
 import { AboutView } from './AboutView';
 import log from 'electron-log';
 
@@ -16,13 +17,13 @@ import BedrockLogo from '../assets/bedrock.png';
 import './ProvidersTab.css';
 
 // Map each provider to its logo
-const providerLogos: Record<LLMType, any> = {
-  [LLMType.Test]: TestLogo,
-  [LLMType.Ollama]: OllamaLogo,
-  [LLMType.OpenAI]: OpenAILogo,
-  [LLMType.Gemini]: GeminiLogo,
-  [LLMType.Claude]: AnthropicLogo,
-  [LLMType.Bedrock]: BedrockLogo,
+const providerLogos: Record<ProviderType, any> = {
+  [ProviderType.Test]: TestLogo,
+  [ProviderType.Ollama]: OllamaLogo,
+  [ProviderType.OpenAI]: OpenAILogo,
+  [ProviderType.Gemini]: GeminiLogo,
+  [ProviderType.Claude]: AnthropicLogo,
+  [ProviderType.Bedrock]: BedrockLogo,
 };
 
 interface Provider {
@@ -42,7 +43,7 @@ interface EditProviderModalProps {
 const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave, onCancel, installedProviders }) => {
   const [config, setConfig] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
-  const [selectedProviderType, setSelectedProviderType] = useState<LLMType | null>(null);
+  const [selectedProviderType, setSelectedProviderType] = useState<ProviderType | null>(null);
   const [providerInfo, setProviderInfo] = useState<Record<string, LLMProviderInfo>>({});
   const [isSelectingProvider, setIsSelectingProvider] = useState(!provider);
   const [showPassword, setShowPassword] = useState(false);
@@ -94,7 +95,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
     }
   };
 
-  const handleProviderSelect = (type: LLMType) => {
+  const handleProviderSelect = (type: ProviderType) => {
     setSelectedProviderType(type);
     setIsSelectingProvider(false);
     const info = providerInfo[type];
@@ -166,7 +167,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                 .map(([type, info]) => (
                   <div
                     key={type}
-                    onClick={() => handleProviderSelect(type as LLMType)}
+                    onClick={() => handleProviderSelect(type as ProviderType)}
                     style={{
                       padding: '16px',
                       border: `2px solid ${selectedProviderType === type ? '#1890ff' : '#e8e8e8'}`,
@@ -179,7 +180,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                     }}
                   >
                     <img 
-                      src={providerLogos[type as LLMType]} 
+                      src={providerLogos[type as ProviderType]} 
                       alt={info.name}
                       className="provider-logo"
                     />
@@ -199,19 +200,19 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             gap: '2px'
           }}>
             <img 
-              src={providerLogos[(provider?.id || selectedProviderType) as LLMType]} 
-              alt={provider?.info.name || providerInfo[selectedProviderType as LLMType]?.name}
+              src={providerLogos[(provider?.id || selectedProviderType) as ProviderType]} 
+              alt={provider?.info.name || providerInfo[selectedProviderType as ProviderType]?.name}
               className="provider-logo-large"
             />
-            <h3 style={{ margin: 0 }}>{provider?.info.name || providerInfo[selectedProviderType as LLMType]?.name}</h3>
+            <h3 style={{ margin: 0 }}>{provider?.info.name || providerInfo[selectedProviderType as ProviderType]?.name}</h3>
           </div>
-          <p>{provider?.info.description || providerInfo[selectedProviderType as LLMType]?.description}</p>
-          {(provider?.info.website || providerInfo[selectedProviderType as LLMType]?.website) && (
+          <p>{provider?.info.description || providerInfo[selectedProviderType as ProviderType]?.description}</p>
+          {(provider?.info.website || providerInfo[selectedProviderType as ProviderType]?.website) && (
             <a 
               href="#" 
               onClick={(e) => {
                 e.preventDefault();
-                const website = provider?.info.website || providerInfo[selectedProviderType as LLMType]?.website;
+                const website = provider?.info.website || providerInfo[selectedProviderType as ProviderType]?.website;
                 if (typeof website === 'string') {
                   window.api.openExternal(website);
                 }
@@ -222,7 +223,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             </a>
           )}
 
-          {(provider?.info.configValues || providerInfo[selectedProviderType as LLMType]?.configValues) && (
+          {(provider?.info.configValues || providerInfo[selectedProviderType as ProviderType]?.configValues) && (
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'max-content 1fr',
@@ -231,7 +232,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
               marginBottom: '20px',
               width: '100%'
             }}>
-              {(provider?.info.configValues || providerInfo[selectedProviderType as LLMType]?.configValues || []).map(configValue => (
+              {(provider?.info.configValues || providerInfo[selectedProviderType as ProviderType]?.configValues || []).map(configValue => (
                 <React.Fragment key={configValue.key}>
                   <label style={{ 
                     fontWeight: 'bold', 
@@ -359,7 +360,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
             .sort((a, b) => a.localeCompare(b))
             .map(async (provider: string) => {
               const models = await window.api.getModelsForProvider(provider);
-              const info = allProviderInfo[provider as LLMType];
+              const info = allProviderInfo[provider as ProviderType];
               return {
                 id: provider,
                 name: provider,
@@ -405,7 +406,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
           .sort((a, b) => a.localeCompare(b))
           .map(async (provider: string) => {
             const models = await window.api.getModelsForProvider(provider);
-            const info = allProviderInfo[provider as LLMType];
+            const info = allProviderInfo[provider as ProviderType];
             return {
               id: provider,
               name: provider,
@@ -495,7 +496,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                       onClick={() => handleProviderSelect(provider.id)}
                     >
                       <img 
-                        src={providerLogos[provider.id as LLMType]} 
+                        src={providerLogos[provider.id as ProviderType]} 
                         alt={provider.info.name}
                         className="provider-logo"
                       />
@@ -535,7 +536,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                     <>
                       <div className="provider-header">
                         <img 
-                          src={providerLogos[provider.id as LLMType]} 
+                          src={providerLogos[provider.id as ProviderType]} 
                           alt={provider.info.name}
                           className="provider-logo-large"
                         />

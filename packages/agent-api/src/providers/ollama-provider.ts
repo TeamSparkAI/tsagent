@@ -1,6 +1,6 @@
 import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
 import { Tool } from '@modelcontextprotocol/sdk/types';
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY } from '../types/chat';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat';
 import { ModelReply, Turn } from './types';
 import { ChatResponse, Message, Ollama, Tool as OllamaTool } from 'ollama';
 import { Agent } from '../types/agent';
@@ -65,7 +65,7 @@ export class OllamaProvider implements Provider {
     }));
   }
 
-  async generateResponse(session: any, messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -234,8 +234,10 @@ export class OllamaProvider implements Provider {
 
       let currentResponse: ChatResponse | null = null;
  
+      const state = session.getState();
+
       let turnCount = 0;
-      while (turnCount < session.maxChatTurns) {
+      while (turnCount < state.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
         let hasToolUse = false;
@@ -247,9 +249,9 @@ export class OllamaProvider implements Provider {
           messages: turnMessages,
           tools: tools,
           options: {
-            num_predict: session.maxOutputTokens,
-            temperature: session.temperature,
-            top_p: session.topP
+            num_predict: state.maxOutputTokens,
+            temperature: state.temperature,
+            top_p: state.topP
           }
         });
     
@@ -347,7 +349,7 @@ export class OllamaProvider implements Provider {
         if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
       
-      if (turnCount >= session.maxChatTurns) {
+      if (turnCount >= state.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });
@@ -355,10 +357,10 @@ export class OllamaProvider implements Provider {
 
       this.logger.info('Ollama response generated successfully');
       return modelReply;
-    } catch (error: any) {
-      this.logger.error('Ollama API error:', error.message);
+    } catch (error: unknown) {
+      this.logger.error('Ollama API error:', error instanceof Error ? error.message : 'Unknown error');
       modelReply.turns.push({
-        error: `Error: Failed to generate response from Ollama - ${error.message}`
+        error: `Error: Failed to generate response from Ollama - ${error instanceof Error ? error.message : 'Unknown error'}`
       });
       return modelReply;
     }

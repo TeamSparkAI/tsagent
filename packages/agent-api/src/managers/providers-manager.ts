@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { ProvidersManager as IProvidersManager } from './types';
-import { Agent, Logger } from '../types';
+import { Agent } from '../types/agent';
+import { Logger } from '../types/common';
 import { ProviderType, ProviderModel } from '../providers/types';
 import { ProviderFactory } from '../providers/provider-factory';
 

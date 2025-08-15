@@ -1,7 +1,7 @@
 import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
 import OpenAI from 'openai';
 import { Tool } from "@modelcontextprotocol/sdk/types";
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY } from '../types/chat';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat';
 import { ModelReply, Turn } from './types';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 import { Agent } from '../types/agent';
@@ -92,7 +92,7 @@ export class OpenAIProvider implements Provider {
   //       as messages).  Then as we are processing turns, we also need to add any reponses we receive from the model, as well as
   //       any replies we make (such as tool call results), to this state.
   //
-  async generateResponse(session: any, messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -236,8 +236,10 @@ export class OpenAIProvider implements Provider {
       const tools = this.agent.mcpManager.getAllTools();
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
 
+      const state = session.getState();
+
       let turnCount = 0;
-      while (turnCount < session.maxChatTurns) {
+      while (turnCount < state.maxChatTurns) {
         const turn: Turn = {};
         let hasToolUse = false;
         turnCount++;
@@ -248,9 +250,9 @@ export class OpenAIProvider implements Provider {
           messages: turnMessages,
           tools: functions.length > 0 ? functions.map(fn => ({ type: 'function', function: fn })) : undefined,
           tool_choice: functions.length > 0 ? 'auto' : undefined,
-          max_tokens: session.maxOutputTokens,
-          temperature: session.temperature,
-          top_p: session.topP,
+          max_tokens: state.maxOutputTokens,
+          temperature: state.temperature,
+          top_p: state.topP,
         });
 
         const response = completion.choices[0]?.message;
@@ -336,7 +338,7 @@ export class OpenAIProvider implements Provider {
         if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
 
-      if (turnCount >= session.maxChatTurns) {
+      if (turnCount >= state.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });
@@ -344,13 +346,12 @@ export class OpenAIProvider implements Provider {
 
       this.logger.info('OpenAI response generated successfully');
       return modelReply;
-    } catch (error: any) {
-      this.logger.error('OpenAI API error:', error);
+    } catch (error: unknown) {
+      this.logger.error('OpenAI API error:', error instanceof Error ? error.message : 'Unknown error');
       modelReply.turns.push({
-        error: `Error: Failed to generate response from OpenAI - ${error.message}`
+        error: `Error: Failed to generate response from OpenAI - ${error instanceof Error ? error.message : 'Unknown error'}`
       });
       return modelReply;            
     }
   }
 }
-

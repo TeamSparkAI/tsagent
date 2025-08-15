@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { LLMType, LLMProviderInfo, ILLMModel } from '../../shared/llm';
+import { ProviderType } from 'agent-api';
+import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from 'agent-api';
 import log from 'electron-log';
 
 // Import provider logos
@@ -13,24 +14,24 @@ import BedrockLogo from '../assets/bedrock.png';
 import './ModelPickerPanel.css';
 
 // Map each provider to its logo
-const providerLogos: Record<LLMType, any> = {
-  [LLMType.Test]: TestLogo,
-  [LLMType.Ollama]: OllamaLogo,
-  [LLMType.OpenAI]: OpenAILogo,
-  [LLMType.Gemini]: GeminiLogo,
-  [LLMType.Claude]: AnthropicLogo,
-  [LLMType.Bedrock]: BedrockLogo,
+  const providerLogos: Record<ProviderType, any> = {
+  [ProviderType.Test]: TestLogo,
+  [ProviderType.Ollama]: OllamaLogo,
+  [ProviderType.OpenAI]: OpenAILogo,
+  [ProviderType.Gemini]: GeminiLogo,
+  [ProviderType.Claude]: AnthropicLogo,
+  [ProviderType.Bedrock]: BedrockLogo,
 };
 
 interface ModelPickerPanelProps {
-  selectedModel?: LLMType;
-  onModelSelect: (model: LLMType, modelId: string, modelName: string) => void;
+  selectedModel?: ProviderType;
+  onModelSelect: (model: ProviderType, modelId: string, modelName: string) => void;
   onClose: () => void;
   id: string;
 }
 
 export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({ 
-  selectedModel = LLMType.Test,
+  selectedModel = ProviderType.Test,
   onModelSelect,
   onClose,
   id
@@ -39,12 +40,12 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     return await window.api.getProviderInfo();
   }, []);
   
-  const getModelsForProvider = useCallback(async (provider: LLMType) => {
+  const getModelsForProvider = useCallback(async (provider: ProviderType) => {
     return await window.api.getModelsForProvider(provider);
   }, []);
   
-  const [selectedProvider, setSelectedProvider] = useState<LLMType>(selectedModel);
-  const [providerInfo, setProviderInfo] = useState<Record<LLMType, LLMProviderInfo>>({} as Record<LLMType, LLMProviderInfo>);
+  const [selectedProvider, setSelectedProvider] = useState<ProviderType>(selectedModel);
+  const [providerInfo, setProviderInfo] = useState<Record<ProviderType, LLMProviderInfo>>({} as Record<ProviderType, LLMProviderInfo>);
   const [models, setModels] = useState<ILLMModel[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string>('');
   const [selectedModelName, setSelectedModelName] = useState<string>('');
@@ -78,7 +79,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
           // Filter provider info to only show installed providers
           const filteredInfo = Object.fromEntries(
             Object.entries(info).filter(([key]) => installedProviders.includes(key))
-          ) as Record<LLMType, LLMProviderInfo>;
+          ) as Record<ProviderType, LLMProviderInfo>;
           
           setProviderInfo(filteredInfo);
           
@@ -99,9 +100,9 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
           if (currentProvider) {
             log.info('[ModelPickerPanel] Found current provider:', currentProvider);
             
-            setSelectedProvider(currentProvider);
+            setSelectedProvider(currentProvider as unknown as ProviderType);
             try {
-              const availableModels = await getModelsForProvider(currentProvider);
+                              const availableModels = await getModelsForProvider(currentProvider as unknown as ProviderType);
               log.info('[ModelPickerPanel] Loaded models for current provider:', {
                 provider: currentProvider,
                 models: availableModels.map(m => m.name)
@@ -132,7 +133,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
             }
           } else {
             // If no current provider or it's not installed, use the first available
-            const firstAvailable = installedProviders[0] as LLMType;
+            const firstAvailable = installedProviders[0] as ProviderType;
             log.info('[ModelPickerPanel] No current provider found, using first available:', firstAvailable);
             
             if (firstAvailable) {
@@ -231,13 +232,13 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         // Filter provider info to only show installed providers
         const filteredInfo = Object.fromEntries(
           Object.entries(info).filter(([key]) => installedProviders.includes(key))
-        ) as Record<LLMType, LLMProviderInfo>;
+        ) as Record<ProviderType, LLMProviderInfo>;
         
         setProviderInfo(filteredInfo);
         
         // If current provider is no longer installed, switch to first available provider
         if (!installedProviders.includes(selectedProvider)) {
-          const firstAvailable = installedProviders[0] as LLMType;
+          const firstAvailable = installedProviders[0] as ProviderType;
           if (firstAvailable) {
             await handleProviderSelect(firstAvailable);
           }
@@ -267,13 +268,13 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         // Filter provider info to only show installed providers
         const filteredInfo = Object.fromEntries(
           Object.entries(info).filter(([key]) => installedProviders.includes(key))
-        ) as Record<LLMType, LLMProviderInfo>;
+        ) as Record<ProviderType, LLMProviderInfo>;
         
         setProviderInfo(filteredInfo);
         
         // If current provider is no longer installed, switch to first available provider
         if (!installedProviders.includes(selectedProvider)) {
-          const firstAvailable = installedProviders[0] as LLMType;
+          const firstAvailable = installedProviders[0] as ProviderType;
           if (firstAvailable) {
             await handleProviderSelect(firstAvailable);
           }
@@ -292,7 +293,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
   }, [selectedProvider]);
 
   // Handle provider selection
-  const handleProviderSelect = (provider: LLMType) => {
+  const handleProviderSelect = (provider: ProviderType) => {
     if (provider !== selectedProvider) {
       setSelectedProvider(provider);
     }
@@ -313,7 +314,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     onClose();
   };
 
-  const handleProviderRemove = async (provider: LLMType) => {
+  const handleProviderRemove = async (provider: ProviderType) => {
     if (confirm(`Are you sure you want to remove the ${providerInfo[provider].name} provider? This will also remove all associated models.`)) {
       try {
         await window.api.removeProvider(provider);
@@ -337,16 +338,16 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
           <h3>Providers</h3>
           <ul>
             {Object.entries(providerInfo)
-              .sort(([a], [b]) => providerInfo[a as LLMType].name.localeCompare(providerInfo[b as LLMType].name))
+              .sort(([a], [b]) => providerInfo[a as ProviderType].name.localeCompare(providerInfo[b as ProviderType].name))
               .map(([key, info]) => (
               <li 
                 key={key} 
-                className={selectedProvider === key as LLMType ? 'selected' : ''}
-                onClick={() => handleProviderSelect(key as LLMType)}
+                className={selectedProvider === key as ProviderType ? 'selected' : ''}
+                onClick={() => handleProviderSelect(key as ProviderType)}
               >
                 {/* Add provider logo */}
                 <img 
-                  src={providerLogos[key as LLMType]} 
+                  src={providerLogos[key as ProviderType]} 
                   alt={info.name}
                   className="provider-logo"
                 />

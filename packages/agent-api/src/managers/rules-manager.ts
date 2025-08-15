@@ -3,7 +3,8 @@ import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { EventEmitter } from 'events';
 import { RulesManager as IRulesManager } from './types';
-import { Rule, Logger } from '../types';
+import { Rule } from '../types/rules';
+import { Logger } from '../types/common';
 
 export class RulesManager extends EventEmitter implements IRulesManager {
   private rules: Rule[] = [];

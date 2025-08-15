@@ -1,4 +1,4 @@
-import { ModelReply, ProviderType } from '../providers/types';
+import { ModelReply, Provider, ProviderType } from '../providers/types';
 import { MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TOP_P_KEY, SessionToolPermission, TEMPERATURE_KEY, SESSION_TOOL_PERMISSION_KEY } from './agent';
 
 // These represent the Electron-side chat history (requests and responses)
@@ -29,6 +29,7 @@ export interface ChatState {
   lastSyncId: number;
   currentModelProvider?: ProviderType;
   currentModelId?: string;
+  provider?: Provider;
   references: string[];
   rules: string[];
   maxChatTurns: number;

@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { API } from '../shared/api';
 import log from 'electron-log';
-import { LLMType } from '../shared/llm';
+import { ProviderType as LLMType } from 'agent-api';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
-import { ChatMessage } from '../shared/ChatSession';
+import { ChatMessage } from 'agent-api';
 
 const api: API = {
   // Rules management

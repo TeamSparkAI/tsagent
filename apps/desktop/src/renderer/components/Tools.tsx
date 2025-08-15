@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
-import { 
+import type { 
     McpConfig, 
     ServerDefaultPermission, 
     ToolPermissionSetting,
+    Tool
+} from "agent-api";
+import { 
     SERVER_PERMISSION_REQUIRED,
     SERVER_PERMISSION_NOT_REQUIRED,
     TOOL_PERMISSION_SERVER_DEFAULT,
     TOOL_PERMISSION_REQUIRED,
     TOOL_PERMISSION_NOT_REQUIRED
-} from '../../main/mcp/types';
-import { Tool } from "@modelcontextprotocol/sdk/types";
+} from "agent-api";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
@@ -1045,18 +1047,24 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             const result = await window.api.callTool(selectedServer.name, selectedTool.name, testParams);
             log.info('Tool call result:', result);
             
-            // Extract the result content
-            const resultContent = result.content[0];
+            // Extract the result content - MCP SDK CallToolResult structure
             let resultText: string;
-            
-            if (resultContent?.type === 'text') {
-                resultText = resultContent.text;
-            } else if (resultContent?.type === 'image') {
-                resultText = `[Image: ${resultContent.mimeType}]`;
-            } else if (resultContent?.type === 'resource') {
-                resultText = `[Resource: ${resultContent.mimeType}]`;
+
+            // Extract the result content
+            if (result.content && Array.isArray(result.content) && result.content.length > 0) {
+                const resultContent = result.content[0];
+                if (resultContent?.type === 'text') {
+                    resultText = resultContent.text;
+                } else if (resultContent?.type === 'image') {
+                    resultText = `[Image: ${resultContent.mimeType}]`;
+                } else if (resultContent?.type === 'resource') {
+                    resultText = `[Resource: ${resultContent.mimeType}]`;
+                } else {
+                    resultText = JSON.stringify(resultContent);
+                }
             } else {
-                resultText = JSON.stringify(resultContent);
+                // Fallback: just stringify the entire result
+                resultText = JSON.stringify(result);
             }
             
             setTestResults({

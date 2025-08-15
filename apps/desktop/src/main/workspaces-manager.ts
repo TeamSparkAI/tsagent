@@ -1,11 +1,10 @@
 import { app } from 'electron';
 import * as fs from 'fs';
 import * as path from 'path';
-import * as log from 'electron-log';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
 import { Agent, Logger } from 'agent-api';
-import { ElectronLoggerAdapter } from '../logger-adapter';
+import { ElectronLoggerAdapter } from './logger-adapter';
 
 // Electron-specific interface for window management
 export interface WorkspaceWindow {

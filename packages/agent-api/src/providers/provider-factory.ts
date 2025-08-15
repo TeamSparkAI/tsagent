@@ -3,10 +3,8 @@ import {
   ProviderType, 
   ProviderInfo
 } from './types';
-import { 
-  Agent,
-  Logger 
-} from '../types';
+import { Agent } from '../types/agent';
+import { Logger } from '../types/common';
 import { TestProvider } from './test-provider';
 import { BedrockProvider } from './bedrock-provider';
 import { ClaudeProvider } from './claude-provider';

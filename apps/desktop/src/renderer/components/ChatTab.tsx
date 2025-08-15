@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChatAPI } from '../api/ChatAPI';
-import { LLMType } from '../../shared/llm';
+import { ProviderType } from 'agent-api';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from '../../shared/ModelReply';
+import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from 'agent-api';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
-import { ILLMModel } from '../../shared/llm';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '../../shared/workspace';
+import type { ProviderModel as ILLMModel } from 'agent-api';
+import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from 'agent-api';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -18,12 +18,12 @@ import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
-import { ChatState } from '../../shared/ChatSession';
-import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from '../../shared/ChatSession';
+import { ChatState } from 'agent-api';
+import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from 'agent-api';
 
 interface ClientChatState {
   messages: (RendererChatMessage & { modelReply?: ModelReply })[];
-  selectedModel?: LLMType;
+  selectedModel?: ProviderType;
   selectedModelName?: string;
   currentModelId?: string;
   references?: string[];
@@ -41,13 +41,13 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
 };
 
 // Map each provider to its logo
-const providerLogos: Record<LLMType, any> = {
-  [LLMType.Test]: TestLogo,
-  [LLMType.Ollama]: OllamaLogo,
-  [LLMType.OpenAI]: OpenAILogo,
-  [LLMType.Gemini]: GeminiLogo,
-  [LLMType.Claude]: AnthropicLogo,
-  [LLMType.Bedrock]: BedrockLogo,
+  const providerLogos: Record<ProviderType, any> = {
+  [ProviderType.Test]: TestLogo,
+  [ProviderType.Ollama]: OllamaLogo,
+  [ProviderType.OpenAI]: OpenAILogo,
+  [ProviderType.Gemini]: GeminiLogo,
+  [ProviderType.Claude]: AnthropicLogo,
+  [ProviderType.Bedrock]: BedrockLogo,
 };
 
 export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {
@@ -161,7 +161,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       // Load the chat state
       const initModel = async () => {
         try {
-          let modelProvider: LLMType | undefined = undefined;
+          let modelProvider: ProviderType | undefined = undefined;
           let modelId: string | undefined = undefined;
 
           // Get installed providers to verify the current model is available
@@ -176,7 +176,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               const id = mostRecentModel.substring(colonIndex + 1);
 
               if (installedProviders.includes(provider)) {
-                modelProvider = provider as LLMType;
+                modelProvider = provider as ProviderType;
                 modelId = id;
               }
             }
@@ -534,7 +534,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     }
   };
 
-  const handleModelChange = async (model: LLMType, modelId: string, modelName?: string) => {
+  const handleModelChange = async (model: ProviderType, modelId: string, modelName?: string) => {
     try {
       if (chatApiRef.current) {
         const success = await chatApiRef.current.switchModel(model, modelId);
@@ -902,12 +902,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                 <span id="model-provider">
                   {(() => {
                     switch (chatState.selectedModel) {
-                      case LLMType.Test: return 'Test LLM';
-                      case LLMType.Gemini: return 'Gemini';
-                      case LLMType.Claude: return 'Claude';
-                      case LLMType.OpenAI: return 'OpenAI';
-                      case LLMType.Ollama: return 'Ollama';
-                      case LLMType.Bedrock: return 'Bedrock';
+                      case ProviderType.Test: return 'Test LLM';
+                      case ProviderType.Gemini: return 'Gemini';
+                      case ProviderType.Claude: return 'Claude';
+                      case ProviderType.OpenAI: return 'OpenAI';
+                      case ProviderType.Ollama: return 'Ollama';
+                      case ProviderType.Bedrock: return 'Bedrock';
                       default: return chatState.selectedModel;
                     }
                   })()}

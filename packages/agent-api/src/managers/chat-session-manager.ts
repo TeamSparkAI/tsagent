@@ -1,7 +1,8 @@
-import { ChatSessionImpl, ChatSessionOptionsWithRequiredSettings } from '../chat-session';
+import { ChatSessionImpl, ChatSessionOptionsWithRequiredSettings } from '../core/chat-session';
 import { ChatSession, ChatSessionOptions } from '../types/chat';
 import { ChatSessionManager } from './types';
-import { Logger, Agent, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_KEY, TEMPERATURE_DEFAULT, TOP_P_KEY, TOP_P_DEFAULT, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL, SessionToolPermission, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types';
+import { Agent, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_KEY, TEMPERATURE_DEFAULT, TOP_P_KEY, TOP_P_DEFAULT, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL, SessionToolPermission, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
+import { Logger } from '../types/common';
 
 export class ChatSessionManagerImpl implements ChatSessionManager {
   private agent: Agent;
@@ -90,4 +91,3 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
     // This is a placeholder for the actual persistence logic
   }
 }
-

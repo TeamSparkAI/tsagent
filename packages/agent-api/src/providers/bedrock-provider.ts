@@ -1,7 +1,7 @@
 import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
 import { Tool } from '@modelcontextprotocol/sdk/types';
 import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole, ConverseCommandOutput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY } from '../types/chat';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat';
 import { ModelReply, Turn } from './types';
 import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
 import { Agent } from '../types/agent';
@@ -127,7 +127,7 @@ export class BedrockProvider implements Provider {
 		return models;
   }
 
-  async generateResponse(session: any, messages: ChatMessage[]): Promise<ModelReply> {
+  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -311,8 +311,10 @@ export class BedrockProvider implements Provider {
 
 			let currentResponse: ConverseCommandOutput | null = null;
 
+      const state = session.getState();
+
       let turnCount = 0;
-      while (turnCount < session.maxChatTurns) {
+      while (turnCount < state.maxChatTurns) {
         const turn: Turn = {};
         turnCount++;
         let hasToolUse = false;
@@ -320,9 +322,9 @@ export class BedrockProvider implements Provider {
         const converseCommand: ConverseCommandInput = {
 					modelId: this.modelName,
           inferenceConfig: {
-            maxTokens: session.maxOutputTokens,
-            temperature: session.temperature,
-            topP: session.topP
+            maxTokens: state.maxOutputTokens,
+            temperature: state.temperature,
+            topP: state.topP
           },
 					messages: turnMessages,
 					toolConfig: {
@@ -432,7 +434,7 @@ export class BedrockProvider implements Provider {
         if (!hasToolUse || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) break;
       }
       
-      if (turnCount >= session.maxChatTurns) {
+      if (turnCount >= state.maxChatTurns) {
         modelReply.turns.push({
           error: 'Maximum number of tool uses reached'
         });
@@ -440,13 +442,12 @@ export class BedrockProvider implements Provider {
 
       this.logger.info('Bedrock response generated successfully');
       return modelReply;
-    } catch (error: any) {
-      this.logger.error('Bedrock API error:', error.message);
+    } catch (error: unknown) {
+      this.logger.error('Bedrock API error:', error instanceof Error ? error.message : 'Unknown error');
       modelReply.turns.push({
-        error: `Error: Failed to generate response from Bedrock - ${error.message}`
+        error: `Error: Failed to generate response from Bedrock - ${error instanceof Error ? error.message : 'Unknown error'}`
       });
       return modelReply;
     }
   }
 }
-

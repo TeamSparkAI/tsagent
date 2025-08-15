@@ -1,17 +1,16 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import * as path from 'path';
-import { LLMType } from '../shared/llm';
+import { ProviderType as LLMType } from 'agent-api';
 import log from 'electron-log';
 import * as fs from 'fs';
 import { setupCLI } from '../cli/cli';
-import { McpConfig } from './mcp/types';
-import { WorkspacesManager } from './state/WorkspacesManager';
-import { Agent, agentExists, loadAgent, createAgent, ProviderType } from 'agent-api';
+import { McpConfig } from 'agent-api';
+import { WorkspacesManager } from './workspaces-manager';
+import { agentExists, loadAgent, createAgent } from 'agent-api/runtime';
+import { Agent } from 'agent-api';
 import { ElectronLoggerAdapter } from './logger-adapter';
 import chalk from 'chalk';
-import { SessionToolPermission, THEME_KEY } from '../shared/workspace';
-import { ChatMessage } from '../shared/ChatSession';
-
+import { SessionToolPermission, THEME_KEY, ChatMessage } from 'agent-api';
 
 const __dirname = path.dirname(__filename);
 

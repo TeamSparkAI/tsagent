@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Rule } from '../../shared/Rule';
+import { Rule } from 'agent-api';
 import ReactMarkdown from 'react-markdown';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';

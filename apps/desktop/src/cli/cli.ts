@@ -2,32 +2,39 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { read } from 'read';
 import log from 'electron-log';
+import path from 'path';
+import * as fs from 'fs';
 
-import { LLMType } from '../shared/llm';
-import { Tool } from '@modelcontextprotocol/sdk/types';
-import { ChatSession, ChatSessionOptionsWithRequiredSettings, ChatMessage, MessageUpdate, ToolCallDecision, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallApproval, ProviderType } from 'agent-api';
-import { Agent } from 'agent-api';
 import { 
+  Agent, 
+  ChatMessage, 
+  createChatSession,
+  ChatSessionOptionsWithRequiredSettings,
+  MessageUpdate, 
+  ModelReply,
+  ProviderType, 
+  SessionToolPermission,
+  Tool,
+  ToolCallApproval, 
+  ToolCallDecision, 
   MAX_CHAT_TURNS_KEY, 
   MAX_CHAT_TURNS_DEFAULT, 
   MAX_OUTPUT_TOKENS_KEY, 
   MAX_OUTPUT_TOKENS_DEFAULT, 
-  TEMPERATURE_KEY, 
-  TEMPERATURE_DEFAULT, 
-  TOP_P_KEY, 
-  TOP_P_DEFAULT,
+  MOST_RECENT_MODEL_KEY,
   SESSION_TOOL_PERMISSION_KEY,
   SESSION_TOOL_PERMISSION_DEFAULT,
   SESSION_TOOL_PERMISSION_ALWAYS,
   SESSION_TOOL_PERMISSION_NEVER,
   SESSION_TOOL_PERMISSION_TOOL,
-  SessionToolPermission,
-  MOST_RECENT_MODEL_KEY
-} from '../shared/workspace';
-import path from 'path';
-import * as fs from 'fs';
-
-import { ModelReply } from '../shared/ModelReply';
+  TEMPERATURE_KEY, 
+  TEMPERATURE_DEFAULT, 
+  TOOL_CALL_DECISION_ALLOW_SESSION, 
+  TOOL_CALL_DECISION_ALLOW_ONCE, 
+  TOOL_CALL_DECISION_DENY, 
+  TOP_P_KEY, 
+  TOP_P_DEFAULT
+} from 'agent-api';
 
 // Define commands
 const COMMANDS = {
@@ -193,7 +200,7 @@ export function setupCLI(agent: Agent, version: string) {
   let currentProvider: ProviderType | undefined;
   let currentModelId: string | undefined;
 
-  function createChatSession(): ChatSession {
+  function createLocalChatSession() {
     const chatSessionOptions = getWorkspaceSettings(agent);
  
     const mostRecentModel = agent.getSetting(MOST_RECENT_MODEL_KEY);
@@ -210,10 +217,10 @@ export function setupCLI(agent: Agent, version: string) {
       }
     }
   
-    return new ChatSession(agent, 'cli-session', chatSessionOptions);
+    return createChatSession(agent, 'cli-session', chatSessionOptions);
   }  
 
-  let chatSession = createChatSession();
+  let chatSession = createLocalChatSession();
   currentProvider = chatSession.getState().currentModelProvider;
   currentModelId = chatSession.getState().currentModelId;
 
@@ -270,8 +277,13 @@ export function setupCLI(agent: Agent, version: string) {
               console.log(chalk.cyan(`Providers installed and available:`));
               installedProviders.forEach(provider => {
                 const indicator = provider === currentProvider ? chalk.green('* ') : '  ';
-                const providerInfo = providersInfo[provider as LLMType];
-                console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo?.name || 'Unknown'}`));
+                // Can we see of provider is a valid ProviderType and only proceed if so?
+                if (!Object.values(ProviderType).includes(provider as ProviderType)) {
+                  console.log(chalk.red('Invalid provider:'), chalk.yellow(provider));
+                } else {
+                  const providerInfo = providersInfo[provider as ProviderType];
+                  console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo?.name || 'Unknown'}`));
+                }
               });
             }
             if (nonInstalledProviders.length === 0) {
@@ -396,7 +408,7 @@ export function setupCLI(agent: Agent, version: string) {
           }
           console.log(chalk.cyan('\nAvailable models:'));
           try {
-            const models = await chatSession.provider?.getModels() || [];
+            const models = await chatSession.getState().provider?.getModels() || [];
             for (const model of models) {
               const indicator = model.id === currentModelId ? chalk.green('* ') : '  ';
               console.log(chalk.green(`${indicator}${model.id}: ${model.name}`));
@@ -415,7 +427,7 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.red('No current provider, select a provider before selecting a model'));
             break;
           }
-          const models = await chatSession.provider?.getModels() || [];
+          const models = await chatSession.getState().provider?.getModels() || [];
           const modelName = args[0];
           if (modelName) {
             const model = models.find((m: any) => m.id.toLowerCase() === modelName.toLowerCase());
@@ -529,17 +541,17 @@ export function setupCLI(agent: Agent, version: string) {
           // Session totals
           console.log(chalk.cyan('  Session Totals:'));
           
-          const userMessages = chatSession.messages.filter(msg => msg.role === 'user').length;
+          const userMessages = chatSession.getState().messages.filter(msg => msg.role === 'user').length;
           console.log(`    User Messages: ${chalk.yellow(userMessages)}`);
           
           // Calculate AI responses (turns)
-          const aiResponses = chatSession.messages
+          const aiResponses = chatSession.getState().messages
             .filter(msg => msg.role === 'assistant')
             .reduce((total, msg) => total + (('modelReply' in msg) ? msg.modelReply.turns.length : 0), 0);
           console.log(`    AI Responses (Turns): ${chalk.yellow(aiResponses)}`);
           
           // Calculate total input tokens
-          const totalInputTokens = chatSession.messages
+          const totalInputTokens = chatSession.getState().messages
             .filter(msg => msg.role === 'assistant')
             .reduce((total, msg) => {
               if ('modelReply' in msg) {
@@ -551,7 +563,7 @@ export function setupCLI(agent: Agent, version: string) {
           console.log(`    Total Input Tokens: ${chalk.yellow(totalInputTokens.toLocaleString())}`);
           
           // Calculate total output tokens
-          const totalOutputTokens = chatSession.messages
+          const totalOutputTokens = chatSession.getState().messages
             .filter(msg => msg.role === 'assistant')
             .reduce((total, msg) => {
               if ('modelReply' in msg) {
@@ -565,7 +577,7 @@ export function setupCLI(agent: Agent, version: string) {
           // Last message stats
           console.log(chalk.cyan('\n  Last Message:'));
           
-          const aiMessages = chatSession.messages.filter(msg => msg.role === 'assistant');
+          const aiMessages = chatSession.getState().messages.filter(msg => msg.role === 'assistant');
           if (aiMessages.length > 0) {
             // Get the last AI message
             const lastMessage = [...aiMessages]
@@ -615,7 +627,7 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.yellow('No rules available.'));
           } else {
             allRules.forEach(rule => {
-              const isActive = chatSession.rules.includes(rule.name);
+              const isActive = chatSession.getState().rules.includes(rule.name);
               const marker = isActive ? '*' : '-';
               console.log(`${marker} ${rule.name} (priority: ${rule.priorityLevel})${!rule.enabled ? ' [disabled]' : ''}`);
             });
@@ -631,7 +643,7 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.yellow('No references available.'));
           } else {
             allReferences.forEach(reference => {
-              const isActive = chatSession.references.includes(reference.name);
+              const isActive = chatSession.getState().references.includes(reference.name);
               const marker = isActive ? '*' : '-';
               console.log(`${marker} ${reference.name} (priority: ${reference.priorityLevel})${!reference.enabled ? ' [disabled]' : ''}`);
             });
@@ -641,7 +653,7 @@ export function setupCLI(agent: Agent, version: string) {
 
         case COMMANDS.CLEAR:
           console.clear();
-          chatSession = createChatSession();
+          chatSession = createLocalChatSession();
           currentProvider = chatSession.getState().currentModelProvider;
           currentModelId = chatSession.getState().currentModelId;
           console.log(chalk.green('Chat history cleared'));

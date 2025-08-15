@@ -1,5 +1,10 @@
+
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
 import { ChatSession } from "../types/chat";
+import { Agent } from "../types/agent";
+
+// Re-export the imported types
+export { CallToolResult, Tool };
 
 export interface CallToolResultWithElapsedTime extends CallToolResult {
     elapsedTimeMs: number;
@@ -67,16 +72,16 @@ export interface McpClient {
 }
 
 export interface MCPClientManager {
-  loadClients(agent: any): Promise<void>;
+  loadClients(agent: Agent): Promise<void>;
   getAllTools(): Tool[];
   callTool(name: string, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime>;
   isReady(): boolean;
   waitForReady(): Promise<void>;
   getToolServerName(name: string): string;
   getToolName(name: string): string;
-  getClient(name: string): any | undefined;
-  updateClient(name: string, client: any): void;
+  getClient(name: string): McpClient | undefined;
+  updateClient(name: string, client: McpClient): void;
   deleteClient(name: string): void;
-  getAllClients(): any[];
+  getAllClients(): McpClient[];
   cleanup(): void;
 }
