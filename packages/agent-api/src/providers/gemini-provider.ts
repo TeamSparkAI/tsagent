@@ -103,7 +103,7 @@ export class GeminiProvider implements Provider {
   static async validateConfiguration(agent: Agent): Promise<{ isValid: boolean, error?: string }> {
     const apiKey = agent.providers.getSetting(ProviderType.Gemini, 'GOOGLE_API_KEY');
     if (!apiKey) {
-      return { isValid: false, error: 'GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.' };
+      return { isValid: false, error: 'GOOGLE_API_KEY is missing in the configuration. Please add it to your config.json file.' };
     }
     try {
       const genAI = new GoogleGenAI({ apiKey });
@@ -125,7 +125,7 @@ export class GeminiProvider implements Provider {
     try {
       const apiKey = this.agent.providers.getSetting(ProviderType.Gemini, 'GOOGLE_API_KEY')!;
       if (!apiKey) {
-        throw new Error('GEMINI_API_KEY is missing in the configuration. Please add it to your config.json file.');
+        throw new Error('GOOGLE_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
       this.genAI = new GoogleGenAI({ apiKey });
       this.logger.info('Gemini Provider initialized successfully');
