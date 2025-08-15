@@ -70,7 +70,7 @@ jobs:
           rm certificate.p12
 
       - name: Build Electron app for Mac
-        run: cd apps/desktop && npm run build && ELECTRON_CACHE=../node_modules/.cache/electron electron-builder --mac --publish never
+        run: cd apps/desktop && npm run build && electron-builder --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
