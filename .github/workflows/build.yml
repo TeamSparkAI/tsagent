@@ -73,7 +73,7 @@ jobs:
           rm certificate.p12
 
       - name: Build Electron app for Mac
-        run: cd apps/desktop && electron-builder --mac --publish never
+        run: cd apps/desktop && npx electron-builder --mac --publish neverNP
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
@@ -113,7 +113,7 @@ jobs:
         run: cd apps/desktop && npm run build
 
       - name: Build Electron app for Linux
-        run: cd apps/desktop && electron-builder --linux --publish never
+        run: cd apps/desktop && npx electron-builder --linux --publish never
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
