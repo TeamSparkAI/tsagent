@@ -25,6 +25,7 @@
     "css-loader": "^7.1.2",
     "electron": "^28.0.0",
     "electron-builder": "^25.1.8",
+    "app-builder-bin": "^5.0.0-alpha.10",
     "style-loader": "^4.0.0",
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.5.2",
