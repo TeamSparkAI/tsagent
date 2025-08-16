@@ -1,7 +1,7 @@
 {
   "name": "desktop",
   "productName": "TeamSpark AI Workbench",
-  "version": "1.1.17",
+  "version": "1.1.18",
   "description": "Multi-LLM Chat Application",
   "author": {
     "name": "TeamSpark",
