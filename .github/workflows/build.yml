@@ -54,7 +54,7 @@ jobs:
         run: npm ci
 
       - name: Verify electron installation
-        run: ls -la node_modules/electron && which electron-builder
+        run: ls -la node_modules/electron && ls -la apps/desktop/node_modules/.bin/electron-builder || echo "electron-builder not in desktop node_modules" && which electron-builder || echo "electron-builder not in PATH"
 
       - name: Build
         run: npm run build
@@ -73,7 +73,7 @@ jobs:
           rm certificate.p12
 
       - name: Build Electron app for Mac
-        run: npm run dist --workspace=desktop -- --mac --publish never
+        run: cd apps/desktop && npm run dist -- --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
@@ -111,7 +111,7 @@ jobs:
         run: npm run build
 
       - name: Build Electron app for Linux
-        run: npm run dist --workspace=desktop -- --linux --publish never
+        run: cd apps/desktop && npm run dist -- --linux --publish never
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
