@@ -55,7 +55,7 @@ export class FileBasedAgent implements Agent {
     this.references = new ReferencesManager(this._workspaceDir, this.logger);
     this.providers = new ProvidersManager(this, this.logger);
     this.mcpServers = new McpServerManagerImpl(this, this.logger);
-    this.mcpManager = new MCPClientManagerImpl();
+    this.mcpManager = new MCPClientManagerImpl(this.logger);
     this.chatSessions = new ChatSessionManagerImpl(this, this.logger);
   }
 
@@ -216,7 +216,7 @@ export class FileBasedAgent implements Agent {
     try {
       return await fs.promises.readFile(this._promptFile, 'utf8');
     } catch (error) {
-      console.error('Error reading system prompt:', error);
+      this.logger.error('Error reading system prompt:', error);
       return FileBasedAgent.DEFAULT_PROMPT;
     }
   }

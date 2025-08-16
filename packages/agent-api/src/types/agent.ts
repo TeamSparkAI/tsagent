@@ -1,5 +1,6 @@
 import { RulesManager, ReferencesManager, ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types';
 import { MCPClientManager } from '../mcp/types';
+import { Logger } from '../types/common';
 
 export const MAX_CHAT_TURNS_KEY = 'maxChatTurns';
 export const MAX_OUTPUT_TOKENS_KEY = 'maxOutputTokens';

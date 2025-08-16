@@ -6,7 +6,7 @@ import { CallToolResult, ClientResultSchema, Tool } from "@modelcontextprotocol/
 import { CallToolResultWithElapsedTime } from './types';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
 import { ChatSession } from '../types/chat';
-import log from 'electron-log';
+import { Logger } from '../types/common';
 
 export abstract class McpClientBase {
     protected mcp: Client;
@@ -16,8 +16,10 @@ export abstract class McpClientBase {
     serverVersion: { name: string; version: string } | null = null;
     serverTools: Tool[] = [];
     protected connected: boolean = false;
+    protected logger: Logger;
 
-    constructor() {
+    constructor(logger: Logger) {
+        this.logger = logger;
         this.mcp = new Client({
             name: "mcp-client",
             version: "1.0.0",
@@ -50,21 +52,21 @@ export abstract class McpClientBase {
     }
 
     async connect(): Promise<boolean> {
-        log.info(`[MCP CLIENT] connect - creating transport`);
+        this.logger.info(`[MCP CLIENT] connect - creating transport`);
         this.transport = await this.createTransport();
 
         try {
             this.transport.onerror = (err: Error) => {
                 const message = `Transport error: ${err.message}`;
-                log.error(message);
+                this.logger.error(message);
             };
 
             this.mcp.onerror = (err: Error) => {
                 const message = `MCP client error: ${err.message}`;
-                log.error(message);
+                this.logger.error(message);
             };
 
-            log.info(`[MCP CLIENT] connect - transport: ${JSON.stringify(this.transport)}`);
+            this.logger.info(`[MCP CLIENT] connect - transport: ${JSON.stringify(this.transport)}`);
             const connectPromise = this.mcp.connect(this.transport);
             if (this.transport instanceof StdioClientTransport) {
                 if (this.transport.stderr) {
@@ -79,21 +81,21 @@ export abstract class McpClientBase {
 
             this.connected = true;
 
-            log.info(`[MCP CLIENT] connected, getting version`);
+            this.logger.info(`[MCP CLIENT] connected, getting version`);
             const serverVersion = this.mcp.getServerVersion();
             this.serverVersion = serverVersion ? { 
                 name: serverVersion.name, 
                 version: serverVersion.version 
             } : null;
-            log.info(`[MCP CLIENT] connected, got version: ${JSON.stringify(this.serverVersion)}`);
+            this.logger.info(`[MCP CLIENT] connected, got version: ${JSON.stringify(this.serverVersion)}`);
 
-            log.info(`[MCP CLIENT] connected, getting tools`);  
+            this.logger.info(`[MCP CLIENT] connected, getting tools`);  
             const toolsResult = await this.mcp.listTools();
-            log.info(`[MCP CLIENT] connected, got tools: ${JSON.stringify(toolsResult)}`);
+            this.logger.info(`[MCP CLIENT] connected, got tools: ${JSON.stringify(toolsResult)}`);
             this.serverTools = toolsResult.tools;
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
-            log.error(`Error connecting to MCP server: ${message}`);
+            this.logger.error(`Error connecting to MCP server: ${message}`);
             this.addErrorMessage(`Error connecting to MCP server: ${message}`);
             this.connected = false;
         }
@@ -102,7 +104,7 @@ export abstract class McpClientBase {
     }
 
     async onDisconnect() {
-        log.info(`[MCP CLIENT] onDisconnect - disconnecting transport`);
+        this.logger.info(`[MCP CLIENT] onDisconnect - disconnecting transport`);
         this.transport?.close();
         this.transport = null;
         this.connected = false;
@@ -158,13 +160,13 @@ export abstract class McpClientBase {
 export class McpClientStdio extends McpClientBase implements McpClient {
     private serverParams: StdioServerParameters;
 
-    constructor(serverParams: StdioServerParameters) {
-        super();
+    constructor(serverParams: StdioServerParameters, logger: Logger) {
+        super(logger);
         this.serverParams = serverParams;
     }
 
     protected async createTransport(): Promise<Transport> {
-        log.info(`[MCP CLIENT] createTransport - serverParams: ${JSON.stringify(this.serverParams.env)}`);
+        this.logger.info(`[MCP CLIENT] createTransport - serverParams: ${JSON.stringify(this.serverParams.env)}`);
         return new StdioClientTransport({
             command: this.serverParams.command,
             args: this.serverParams.args,
@@ -194,14 +196,14 @@ export class McpClientSse extends McpClientBase implements McpClient {
     private url: URL;
     private headers: Record<string, string> = {};
 
-    constructor(url: URL, headers?: Record<string, string>) {
-        super();
+    constructor(url: URL, headers?: Record<string, string>, logger?: Logger) {
+        super(logger!);
         this.url = url;
         this.headers = headers || {};
     }
 
     protected async createTransport(): Promise<Transport> {
-        log.info(`[MCP CLIENT] createTransport - url: ${this.url.toString()}`);
+        this.logger.info(`[MCP CLIENT] createTransport - url: ${this.url.toString()}`);
         let transport: Transport;
         let fetchCount: number = 0;
 
@@ -213,7 +215,7 @@ export class McpClientSse extends McpClientBase implements McpClient {
         // and recycle the transport accordingly.
         //
         const onEventSourceInitFetch = async (url: string | URL, init: RequestInit | undefined, headers?: Headers): Promise<Response> => {
-            log.info(`[MCP CLIENT] onEventSourceInit, fetchCount: ${fetchCount}`);
+            this.logger.info(`[MCP CLIENT] onEventSourceInit, fetchCount: ${fetchCount}`);
             fetchCount++;
             if (fetchCount > 1) {
                 this.onDisconnect();

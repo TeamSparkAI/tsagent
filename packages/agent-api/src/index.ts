@@ -35,10 +35,11 @@ import { ChatSessionImpl } from './core/chat-session';
 import type { ChatSessionOptionsWithRequiredSettings } from './core/chat-session';
 import type { Agent } from './types/agent';
 import type { ChatSession } from './types/chat';
+import type { Logger } from './types/common';
 
 // Factory function for creating chat sessions
-export const createChatSession = (agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings): ChatSession => {
-  return new ChatSessionImpl(agent, id, options);
+export const createChatSession = (agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, logger: Logger): ChatSession => {
+  return new ChatSessionImpl(agent, id, options, logger);
 };
 
 // Export the type for consumers

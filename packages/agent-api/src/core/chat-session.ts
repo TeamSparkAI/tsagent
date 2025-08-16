@@ -1,7 +1,7 @@
 import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession } from '../types/chat';
 import { Provider, ProviderType } from '../providers/types';
-import log from 'electron-log';
 import { Agent } from '../types/agent';
+import { Logger } from '../types/common';
 import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
 import { TOOL_PERMISSION_NOT_REQUIRED, TOOL_PERMISSION_REQUIRED } from '../mcp/types';
 
@@ -25,7 +25,7 @@ export class ChatSessionImpl implements ChatSession {
   toolPermission: SessionToolPermission;
   private approvedTools: Map<string, Set<string>> = new Map();
 
-  constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings) {
+  constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, private logger: Logger) {
     this._id = id;
     this.agent = agent;
     if (options.modelProvider && options.modelId) {
@@ -80,7 +80,7 @@ export class ChatSessionImpl implements ChatSession {
       }
     } 
     
-    log.info(`Created new chat session with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
+    this.logger.info(`Created new chat session with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
   }
 
   get id(): string {
@@ -202,13 +202,13 @@ export class ChatSessionImpl implements ChatSession {
 
     try {
       // Log the model being used for this request
-      log.info(`Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
+      this.logger.info(`Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
       const response = await this.provider.generateResponse(this, messages);
       if (!response) {
         throw new Error(`Failed to generate response from ${this.currentProvider}`);
       }
 
-      log.debug('All turns', JSON.stringify(response.turns, null, 2));
+              this.logger.debug('All turns', JSON.stringify(response.turns, null, 2));
 
       const replyMessage = {
         role: 'assistant' as const,
@@ -225,7 +225,7 @@ export class ChatSessionImpl implements ChatSession {
         rules: [...this.rules]
       };
     } catch (error) {
-      log.error(`Error handling message in session:`, error);
+      this.logger.error(`Error handling message in session:`, error);
       throw error;
     }
   }
@@ -274,7 +274,7 @@ export class ChatSessionImpl implements ChatSession {
       this.messages.push(systemMessage);
       this.lastSyncId++;
       
-      log.info(`Switched model to ${modelType}${modelId ? ` (${modelId})` : ''}`);
+      this.logger.info(`Switched model to ${modelType}${modelId ? ` (${modelId})` : ''}`);
       return {
         updates: [systemMessage],
         lastSyncId: this.lastSyncId,
@@ -282,7 +282,7 @@ export class ChatSessionImpl implements ChatSession {
         rules: [...this.rules]
       };
     } catch (error) {
-      log.error(`Error switching model:`, error);
+      this.logger.error(`Error switching model:`, error);
       const systemMessage: ChatMessage = {
         role: 'system',
         content: `Failed to create LLM instance for model ${modelType}${modelId ? ` (${modelId})` : ''}, error: ${error}`
@@ -305,13 +305,13 @@ export class ChatSessionImpl implements ChatSession {
     // Validate reference exists
     const reference = this.agent.references.get(referenceName);
     if (!reference) {
-      log.warn(`Attempted to add non-existent reference: ${referenceName}`);
+      this.logger.warn(`Attempted to add non-existent reference: ${referenceName}`);
       return false;
     }
     
     this.references.push(referenceName);
     this.lastSyncId++;
-    log.info(`Added reference '${referenceName}' to chat session`);
+    this.logger.info(`Added reference '${referenceName}' to chat session`);
     return true;
   }
 
@@ -323,7 +323,7 @@ export class ChatSessionImpl implements ChatSession {
     
     this.references.splice(index, 1);
     this.lastSyncId++;
-    log.info(`Removed reference '${referenceName}' from chat session`);
+    this.logger.info(`Removed reference '${referenceName}' from chat session`);
     return true;
   }
 
@@ -335,13 +335,13 @@ export class ChatSessionImpl implements ChatSession {
     // Validate rule exists
     const rule = this.agent.rules.get(ruleName);
     if (!rule) {
-      log.warn(`Attempted to add non-existent rule: ${ruleName}`);
+      this.logger.warn(`Attempted to add non-existent rule: ${ruleName}`);
       return false;
     }
     
     this.rules.push(ruleName);
     this.lastSyncId++;
-    log.info(`Added rule '${ruleName}' to chat session`);
+    this.logger.info(`Added rule '${ruleName}' to chat session`);
     return true;
   }
 
@@ -353,7 +353,7 @@ export class ChatSessionImpl implements ChatSession {
     
     this.rules.splice(index, 1);
     this.lastSyncId++;
-    log.info(`Removed rule '${ruleName}' from chat session`);
+    this.logger.info(`Removed rule '${ruleName}' from chat session`);
     return true;
   }
 
@@ -370,19 +370,19 @@ export class ChatSessionImpl implements ChatSession {
     // First check if the tool has already been approved for this session
     const serverApprovedTools = this.approvedTools.get(serverId);
     if (serverApprovedTools?.has(toolId)) {
-      log.info(`Tool ${toolId} - already approved for this session, returning false`);
+      this.logger.info(`Tool ${toolId} - already approved for this session, returning false`);
       return false;
     }
 
     // If the tool is not approved for this session, then we need to check the tool permission
     if (this.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS) {
-      log.info(`Tool ${toolId} - permission always required for all tools, returning true`);
+      this.logger.info(`Tool ${toolId} - permission always required for all tools, returning true`);
       return true;
     } else if (this.toolPermission === SESSION_TOOL_PERMISSION_NEVER) {
-      log.info(`Tool ${toolId} - permission never required for all tools, returning false`);
+              this.logger.info(`Tool ${toolId} - permission never required for all tools, returning false`);
       return false;
     } else { // SESSION_TOOL_PERMISSION_TOOL
-      log.info(`Tool ${toolId} - permission tool required, checking server config`);
+              this.logger.info(`Tool ${toolId} - permission tool required, checking server config`);
       // Check the permission required for the tool
       const serverConfig = this.agent.mcpServers.get(serverId)?.config;
       if (!serverConfig) {
@@ -393,27 +393,27 @@ export class ChatSessionImpl implements ChatSession {
         const toolConfig = serverConfig.permissions.toolPermissions[toolId];
         if (toolConfig) {
           if (toolConfig.permission === TOOL_PERMISSION_REQUIRED) {
-            log.info(`Tool ${toolId} - specific tool permission required, returning true`);
+            this.logger.info(`Tool ${toolId} - specific tool permission required, returning true`);
             return true;
           } else if (toolConfig.permission === TOOL_PERMISSION_NOT_REQUIRED) {
-            log.info(`Tool ${toolId} - specific tool permission not required, returning false`);
+                          this.logger.info(`Tool ${toolId} - specific tool permission not required, returning false`);
             return false;
           }
         }
 
         // If tool config either didn't exist, or was not one of the non-default values, we fall through to here and get the server default
         if (serverConfig.permissions.defaultPermission === TOOL_PERMISSION_REQUIRED) {
-          log.info(`Tool ${toolId} - server default permission required, returning true`);
+          this.logger.info(`Tool ${toolId} - server default permission required, returning true`);
           return true;
         } else {
-          log.info(`Tool ${toolId} - server default permission not required, returning false`);
+                      this.logger.info(`Tool ${toolId} - server default permission not required, returning false`);
           return false;
         }
       }
     }
 
     // If the above logic fails to deliver a defintive result, then we default to always requiring tool approval
-    log.info(`Tool ${toolId} - no definitive permission result, defaulting to true`);
+            this.logger.info(`Tool ${toolId} - no definitive permission result, defaulting to true`);
     return true;
   }
 
@@ -430,7 +430,7 @@ export class ChatSessionImpl implements ChatSession {
     this.topP = settings.topP;
     this.toolPermission = settings.toolPermission;
     
-    log.info(`Updated chat session settings:`, settings);
+    this.logger.info(`Updated chat session settings:`, settings);
     return true;
   }
 } 

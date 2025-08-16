@@ -53,7 +53,8 @@ export class BedrockProvider implements Provider {
       await bedrockClient.send(new ListFoundationModelsCommand({}));
       return { isValid: true };
     } catch (error) {
-      console.error('Failed to validate Bedrock configuration:', error);
+      // Note: This is a static method, so we can't use logger here
+      // The error will be returned to the caller who can log it appropriately
       return { isValid: false, error: 'Failed to validate Bedrock configuration' + (error instanceof Error && error.message ? ': ' + error.message : '') };
     }
   }

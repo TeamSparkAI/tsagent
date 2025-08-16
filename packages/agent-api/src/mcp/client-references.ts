@@ -1,6 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime, McpClient } from "./types";
-import log from 'electron-log';
+import { Logger } from '../types/common';
 import { ReferencesManager } from '../managers/types';
 import { ChatSession } from "../types/chat";
 import { Reference } from "../types/references";
@@ -19,6 +19,7 @@ interface ReferenceArgs {
 
 export class McpClientInternalReferences implements McpClient {
     private referencesManager: ReferencesManager;
+    private logger: Logger;
     serverVersion: { name: string; version: string } | null = { name: "References", version: "1.0.0" };
     serverTools: Tool[] = [
         {
@@ -161,8 +162,9 @@ export class McpClientInternalReferences implements McpClient {
         },
     ];
 
-    constructor(referencesManager: ReferencesManager) {
+    constructor(referencesManager: ReferencesManager, logger: Logger) {
         this.referencesManager = referencesManager;
+        this.logger = logger;
     }
 
     /**
@@ -385,7 +387,7 @@ export class McpClientInternalReferences implements McpClient {
                     throw new Error(`Unknown tool: ${tool.name}`);
             }
         } catch (error) {
-            log.error(`Error in callTool for ${tool.name}:`, error);
+            this.logger.error(`Error in callTool for ${tool.name}:`, error);
             return {
                 content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }],
                 elapsedTimeMs: performance.now() - startTime

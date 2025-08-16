@@ -217,7 +217,7 @@ export function setupCLI(agent: Agent, version: string) {
       }
     }
   
-    return createChatSession(agent, 'cli-session', chatSessionOptions);
+    return createChatSession(agent, 'cli-session', chatSessionOptions, log);
   }  
 
   let chatSession = createLocalChatSession();

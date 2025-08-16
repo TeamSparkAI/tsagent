@@ -119,7 +119,7 @@ export class RulesManager extends EventEmitter implements IRulesManager {
           this.rules.push(rule);
         }
       } catch (error) {
-        console.error(`Error loading rule from ${file}:`, error);
+        this.logger.error(`Error loading rule from ${file}:`, error);
       }
     }
     this.sortRules();

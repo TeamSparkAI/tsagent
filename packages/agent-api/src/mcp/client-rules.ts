@@ -1,6 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime, McpClient } from "./types";
-import log from 'electron-log';
+import { Logger } from '../types/common';
 import { RulesManager } from '../managers/types';
 import { ChatSession } from "../types/chat";
 import { Rule } from "../types/rules";
@@ -19,6 +19,7 @@ interface RuleArgs {
 
 export class McpClientInternalRules implements McpClient {
     private rulesManager: RulesManager;
+    private logger: Logger;
     serverVersion: { name: string; version: string } | null =  { name: "Rules", version: "1.0.0" };
     serverTools: Tool[] = [
         {
@@ -161,8 +162,9 @@ export class McpClientInternalRules implements McpClient {
         }
     ];
 
-    constructor(rulesManager: RulesManager) {
+    constructor(rulesManager: RulesManager, logger: Logger) {
         this.rulesManager = rulesManager;
+        this.logger = logger;
     }
 
     /**
@@ -386,7 +388,7 @@ export class McpClientInternalRules implements McpClient {
                     throw new Error(`Unknown tool: ${tool.name}`);
             }
         } catch (error) {
-            log.error(`Error in callTool for ${tool.name}:`, error);
+            this.logger.error(`Error in callTool for ${tool.name}:`, error);
             return {
                 content: [{ type: "text", text: `Error: ${error instanceof Error ? error.message : 'Unknown error'}` }],
                 elapsedTimeMs: performance.now() - startTime

@@ -110,7 +110,7 @@ export class ReferencesManager extends EventEmitter implements IReferencesManage
           this.references.push(reference);
         }
       } catch (error) {
-        console.error(`Error loading reference from ${file}:`, error);
+        this.logger.error(`Error loading reference from ${file}:`, error);
       }
     }
     this.sortReferences();

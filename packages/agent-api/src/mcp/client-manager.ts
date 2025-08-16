@@ -2,7 +2,7 @@ import { McpClient, McpConfig, McpConfigFileServerConfig } from './types';
 import { McpClientSse, McpClientStdio } from './client';
 import { Tool } from "@modelcontextprotocol/sdk/types";
 import { CallToolResultWithElapsedTime } from './types';
-import log from 'electron-log';
+import { Logger } from '../types/common';
 import { Agent } from '../types/agent';
 import { ChatSession } from '../types/chat';
 import { McpClientInternalRules } from './client-rules';
@@ -16,9 +16,11 @@ function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig
 
 export class MCPClientManagerImpl implements MCPClientManager {
     private clients: Map<string, McpClient>;
+    private logger: Logger;
 
-    constructor() {
+    constructor(logger: Logger) {
         this.clients = new Map<string, McpClient>();
+        this.logger = logger;
     }
 
     async loadClients(agent: Agent) {
@@ -26,11 +28,11 @@ export class MCPClientManagerImpl implements MCPClientManager {
         for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
             try {
                 if (!serverConfig || !serverConfig.config) {
-                    log.error(`Invalid server configuration for ${serverName}: missing config property`);
+                    this.logger.error(`Invalid server configuration for ${serverName}: missing config property`);
                     continue;
                 }
         
-                const client = createMcpClientFromConfig(agent, serverConfig); 
+                const client = createMcpClientFromConfig(agent, serverConfig, this.logger); 
                 if (client) {
                     await client.connect();
                     this.clients.set(serverName, client);
@@ -38,7 +40,7 @@ export class MCPClientManagerImpl implements MCPClientManager {
                     throw new Error(`Failed to create client for server: ${serverName}`);
                 }
             } catch (error) {
-                log.error(`Error initializing MCP client for ${serverName}:`, error);
+                this.logger.error(`Error initializing MCP client for ${serverName}:`, error);
             }
         }
     }
@@ -53,7 +55,7 @@ export class MCPClientManagerImpl implements MCPClientManager {
                 }));
                 allTools.push(...clientTools);
             } catch (error) {
-                log.error(`Error getting tools from server ${clientName}:`, error);
+                this.logger.error(`Error getting tools from server ${clientName}:`, error);
             }
         }
         return allTools;
@@ -118,11 +120,11 @@ export class MCPClientManagerImpl implements MCPClientManager {
             client.disconnect();
         }
         this.clients.clear();
-        log.info('MCPClientManager: Cleanup complete');
+        this.logger.info('MCPClientManager: Cleanup complete');
     }
 } 
 
-export function createMcpClientFromConfig(agent: Agent, clientConfig: McpConfig) : McpClient {
+export function createMcpClientFromConfig(agent: Agent, clientConfig: McpConfig, logger: Logger) : McpClient {
     let client: McpClient;
     const serverName = clientConfig.name;
     const config = clientConfig.config;
@@ -160,17 +162,18 @@ export function createMcpClientFromConfig(agent: Agent, clientConfig: McpConfig)
             command: config.command,
             args: config.args || [],
             env: env
-        });
+        }, logger);
     } else if (serverType === 'sse') {
         client = new McpClientSse(
             new URL(config.url), 
-            config.headers
+            config.headers,
+            logger
         );
     } else if (serverType === 'internal') {
         if (config.tool === 'rules') {
-            client = new McpClientInternalRules(agent.rules);
+            client = new McpClientInternalRules(agent.rules, logger);
         } else if (config.tool === 'references') {
-            client = new McpClientInternalReferences(agent.references);
+            client = new McpClientInternalReferences(agent.references, logger);
         } else {
             throw new Error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
         }

@@ -72,7 +72,7 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
     }
 
     // Create new ChatSession instance
-    const session = new ChatSessionImpl(this.agent, id, optionsWithRequiredSettings);
+    const session = new ChatSessionImpl(this.agent, id, optionsWithRequiredSettings, this.logger);
     this.sessions.set(session.id, session);
     
     this.logger.info(`Created new chat session for tab ${session.id} with model ${session.currentProvider}`);
