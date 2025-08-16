@@ -73,7 +73,7 @@ jobs:
           rm certificate.p12
 
       - name: Build Electron app for Mac
-        run: cd apps/desktop && npx electron-builder --mac --publish neverNP
+        run: cd apps/desktop && npx electron-builder --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
