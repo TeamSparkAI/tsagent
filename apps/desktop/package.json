@@ -129,5 +129,13 @@
     "directories": {
       "output": "release"
     }
+  },
+  "workspaces": {
+    "nohoist": [
+      "app-builder-bin",
+      "app-builder-bin/**",
+      "electron",
+      "electron/**"
+    ]
   }
 }
