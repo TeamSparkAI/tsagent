@@ -1,8 +1,7 @@
 {
   "name": "teamspark-workbench",
-  "version": "1.1.19",
+  "version": "1.1.21",
   "private": true,
-
   "scripts": {
     "build": "cd apps/desktop && npm run build",
     "start": "cd apps/desktop && npm run start"
