@@ -63,6 +63,8 @@ jobs:
           find . -name "app-builder-bin" -type d 2>/dev/null
           echo "=== APP-BUILDER-BIN CONTENTS ==="
           ls -la node_modules/app-builder-bin/mac/ || echo "mac directory not found"
+          echo "=== BINARY PERMISSIONS ==="
+          ls -la node_modules/app-builder-bin/mac/app-builder_arm64 || echo "arm64 binary not found"
           echo "=== PLATFORM INFO ==="
           uname -m && arch
           echo "=== NPM WORKSPACE INFO ==="
@@ -84,8 +86,11 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MAC_CERTIFICATE_PASSWORD" build.keychain
           rm certificate.p12
 
-      - name: Build Electron app for Mac
-        run: npm run dist --workspace=apps/desktop -- --mac --publish never
+      - name: Install desktop app dependencies
+        run: cd apps/desktop && npm ci
+  
+      - name: Build and Package app
+        run: cd apps/desktop && npm run dist -- --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
