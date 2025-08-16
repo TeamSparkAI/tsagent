@@ -54,7 +54,7 @@ jobs:
         run: npm ci
 
       - name: Verify electron installation
-        run: ls -la node_modules/electron && ls -la node_modules/.bin/electron-builder || echo "electron-builder not in root node_modules" && find . -name "electron-builder" -type f 2>/dev/null || echo "electron-builder not found anywhere"
+        run: ls -la node_modules/electron && ls -la node_modules/.bin/electron-builder || echo "electron-builder not in root node_modules" && find . -name "electron-builder" -type f 2>/dev/null || echo "electron-builder not found anywhere" && echo "Finding app-builder-bin location:" && find . -name "app-builder-bin" -type d 2>/dev/null
 
       - name: Build
         run: npm run build
