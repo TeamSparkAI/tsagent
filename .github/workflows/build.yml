@@ -53,6 +53,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Verify electron installation
+        run: ls -la node_modules/electron && which electron-builder
+
       - name: Build
         run: npm run build
 
@@ -70,7 +73,7 @@ jobs:
           rm certificate.p12
 
       - name: Build Electron app for Mac
-        run: cd apps/desktop && npm run build && electron-builder --mac --publish never
+        run: npm run dist --workspace=desktop -- --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
@@ -108,7 +111,7 @@ jobs:
         run: npm run build
 
       - name: Build Electron app for Linux
-        run: cd apps/desktop && npm run build && electron-builder --linux --publish never
+        run: npm run dist --workspace=desktop -- --linux --publish never
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
