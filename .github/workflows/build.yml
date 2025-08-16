@@ -86,11 +86,8 @@ jobs:
           security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$MAC_CERTIFICATE_PASSWORD" build.keychain
           rm certificate.p12
 
-      - name: Install desktop app dependencies
-        run: cd apps/desktop && npm ci
-  
-      - name: Build and Package app
-        run: cd apps/desktop && npm run dist -- --mac --publish never
+      - name: Build Electron app for Mac
+        run: cd apps/desktop && npm run build && cd ../.. && electron-builder --config apps/desktop/package.json --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
@@ -128,7 +125,7 @@ jobs:
         run: npm run build
 
       - name: Build Electron app for Linux
-        run: npm run dist --workspace=apps/desktop -- --linux --publish never
+        run: cd apps/desktop && npm run build && cd ../.. && electron-builder --config apps/desktop/package.json --linux --publish never
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
