@@ -415,9 +415,9 @@ export function setupCLI(agent: Agent, version: string) {
             }
           } catch (error: unknown) {
             if (error instanceof Error) {
-              console.error(chalk.red('Error listing models:'), error.message);
+              console.log(chalk.red('Error listing models:'), error.message);
             } else {
-              console.error(chalk.red('Error listing models'));
+              console.log(chalk.red('Error listing models'));
             }
           }
           break;
@@ -789,9 +789,9 @@ export function setupCLI(agent: Agent, version: string) {
       }
     } catch (error: unknown) {
       if (error instanceof Error) {
-        console.error(chalk.red('Error:'), error.message);
+        console.log(chalk.red('Error:'), error.message);
       } else {
-        console.error(chalk.red('An unknown error occurred'));
+        console.log(chalk.red('An unknown error occurred'));
       }
     }
     return true; // Continue the loop
@@ -827,14 +827,14 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.yellow('Input cancelled via Ctrl+C'));
             running = false;
           } else {
-            console.error(chalk.red('Error in CLI loop:'), error);
+            console.log(chalk.red('Error in CLI loop:'), error);
           }
         }
       }
       console.log(chalk.green('Exiting application.'));
       process.exit(0);
     } catch (error) {
-      console.error(chalk.red('Fatal error in CLI:'), error);
+      console.log(chalk.red('Fatal error in CLI:'), error);
       process.exit(1);
     }
   }

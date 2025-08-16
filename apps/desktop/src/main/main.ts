@@ -215,15 +215,23 @@ async function startApp() {
         agent = await createAgent(workspacePath, logger);
         console.log(chalk.green(`Created new workspace at: ${workspacePath}`));
       } catch (error) {
-        console.error(chalk.red(`Failed to create workspace: ${error}`));
+        console.log(chalk.red(`Failed to create workspace: ${error}`));
         process.exit(1);
       }
     } else {
-      agent = await loadAgent(workspacePath, logger);
-      if (!agent) {
-        console.error(chalk.red(`${PRODUCT_NAME} failed to locate workspace (tspark.json) in directory: `), workspacePath);
-        console.error(chalk.dim('  Use '), chalk.bold('--workspace <path>'), chalk.dim(' absolute or relative path to a workspace directory (where tspark.json will be found or created)'));
-        console.error(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new workspace in the specified directory, or current working directory if workspace path not specified'));
+      try {
+        // First check if agent exists
+        if (!(await agentExists(workspacePath))) {
+          console.log(chalk.red(`${PRODUCT_NAME} failed to locate workspace (tspark.json) in directory: `), workspacePath);
+          console.log(chalk.dim('  Use '), chalk.bold('--workspace <path>'), chalk.dim(' absolute or relative path to a workspace directory (where tspark.json will be found or created)'));
+          console.log(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new workspace in the specified directory, or current working directory if workspace path not specified'));
+          process.exit(1);
+        }
+        
+        // Agent exists, try to load it
+        agent = await loadAgent(workspacePath, logger);
+      } catch (error) {
+        console.log(chalk.red(`Error loading workspace: ${error instanceof Error ? error.message : 'Unknown error'}`));
         process.exit(1);
       }
     }
