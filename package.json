@@ -1,17 +1,10 @@
 {
   "name": "teamspark-workbench",
-  "version": "1.1.20",
+  "version": "1.1.19",
   "private": true,
-  "workspaces": [
-    "apps/*",
-    "packages/*",
-    "tools"
-  ],
+
   "scripts": {
-    "desktop": "npm run start --workspace=desktop",
-    "desktop:build": "npm run build --workspace=desktop",
-    "desktop:dist": "npm run dist --workspace=desktop",
-    "build": "npm run build --workspace=desktop",
-    "start": "npm run start --workspace=desktop"
+    "build": "cd apps/desktop && npm run build",
+    "start": "cd apps/desktop && npm run start"
   }
 }

@@ -53,22 +53,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify electron installation
-        run: |
-          echo "=== ELECTRON ==="
-          ls -la node_modules/electron
-          echo "=== ELECTRON-BUILDER ==="
-          ls -la node_modules/.bin/electron-builder || echo "electron-builder not in root node_modules"
-          echo "=== APP-BUILDER-BIN LOCATION ==="
-          find . -name "app-builder-bin" -type d 2>/dev/null
-          echo "=== APP-BUILDER-BIN CONTENTS ==="
-          ls -la node_modules/app-builder-bin/mac/ || echo "mac directory not found"
-          echo "=== BINARY PERMISSIONS ==="
-          ls -la node_modules/app-builder-bin/mac/app-builder_arm64 || echo "arm64 binary not found"
-          echo "=== PLATFORM INFO ==="
-          uname -m && arch
-          echo "=== NPM WORKSPACE INFO ==="
-          npm ls app-builder-bin
+
 
       - name: Build
         run: npm run build
@@ -87,7 +72,7 @@ jobs:
           rm certificate.p12
 
       - name: Build Electron app for Mac
-        run: cd apps/desktop && npm run build && cd ../.. && electron-builder --config apps/desktop/package.json --mac --publish never
+        run: cd apps/desktop && electron-builder --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
@@ -118,14 +103,14 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        run: npm ci
+      - name: Build agent-api
+        run: cd packages/agent-api && npm install && npm run build
 
-      - name: Build
-        run: npm run build
+      - name: Build desktop
+        run: cd apps/desktop && npm install && npm run build
 
       - name: Build Electron app for Linux
-        run: cd apps/desktop && npm run build && cd ../.. && electron-builder --config apps/desktop/package.json --linux --publish never
+        run: cd apps/desktop && electron-builder --linux --publish never
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4

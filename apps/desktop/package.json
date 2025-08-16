@@ -11,7 +11,7 @@
   "scripts": {
     "start": "npm run build && electron . --ignore-certificate-errors",
     "cli": "npm run build && node dist/main.js --cli",
-    "prebuild": "npm run build --workspace=agent-api",
+    "prebuild": "cd ../../packages/agent-api && npm install && npm run build",
     "build": "rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.js && cp src/renderer/index.html dist/",
     "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.js",
     "test": "jest",
