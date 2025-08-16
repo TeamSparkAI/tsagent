@@ -73,7 +73,7 @@ jobs:
           rm certificate.p12
 
       - name: Build Electron app for Mac
-        run: npm run dist --workspace=apps/desktop -- --mac --publish never --electron-version 28.0.0
+        run: npm run dist --workspace=apps/desktop -- --mac --publish never
         env:
           CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
           CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}

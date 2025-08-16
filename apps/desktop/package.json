@@ -60,6 +60,7 @@
     "appId": "ai.teamspark.workbench",
     "productName": "TeamSpark AI Workbench",
     "afterPack": "./build/afterPack.js",
+    "electronVersion": "28.0.0",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [
