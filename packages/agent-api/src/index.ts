@@ -25,25 +25,12 @@ export {
   ToolCallResult,
   ToolCallRequest,
   ChatState,
+  ChatSessionOptionsWithRequiredSettings,
   ChatSessionResponse,
   TOOL_CALL_DECISION_ALLOW_SESSION, 
   TOOL_CALL_DECISION_ALLOW_ONCE, 
   TOOL_CALL_DECISION_DENY
  } from './types/chat';
-
-import { ChatSessionImpl } from './core/chat-session';
-import type { ChatSessionOptionsWithRequiredSettings } from './core/chat-session';
-import type { Agent } from './types/agent';
-import type { ChatSession } from './types/chat';
-import type { Logger } from './types/common';
-
-// Factory function for creating chat sessions
-export const createChatSession = (agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, logger: Logger): ChatSession => {
-  return new ChatSessionImpl(agent, id, options, logger);
-};
-
-// Export the type for consumers
-export type { ChatSessionOptionsWithRequiredSettings };
 
 // Export MCP types and constants 
 export { 
@@ -65,20 +52,20 @@ export {
 
 // Export constants that are needed by implementation
 export {
-  MAX_CHAT_TURNS_KEY,
-  MAX_OUTPUT_TOKENS_KEY,
-  TEMPERATURE_KEY,
-  TOP_P_KEY,
-  THEME_KEY,
-  SYSTEM_PATH_KEY,
-  MOST_RECENT_MODEL_KEY,
+  SETTINGS_KEY_MAX_CHAT_TURNS,
+  SETTINGS_KEY_MAX_OUTPUT_TOKENS,
+  SETTINGS_KEY_TEMPERATURE,
+  SETTINGS_KEY_TOP_P,
+  SETTINGS_KEY_THEME,
+  SETTINGS_KEY_SYSTEM_PATH,
+  SETTINGS_KEY_MOST_RECENT_MODEL,
   SESSION_TOOL_PERMISSION_KEY,
   SESSION_TOOL_PERMISSION_ALWAYS,
   SESSION_TOOL_PERMISSION_NEVER,
   SESSION_TOOL_PERMISSION_TOOL,
   SESSION_TOOL_PERMISSION_DEFAULT,
-  MAX_CHAT_TURNS_DEFAULT,
-  MAX_OUTPUT_TOKENS_DEFAULT,
-  TEMPERATURE_DEFAULT,
-  TOP_P_DEFAULT
+  SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+  SETTINGS_DEFAULT_TEMPERATURE,
+  SETTINGS_DEFAULT_TOP_P
 } from './types/agent';

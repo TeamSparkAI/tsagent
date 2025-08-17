@@ -1,11 +1,11 @@
 import * as path from 'path';
 import * as fs from 'fs';
 import { Agent, AgentConfig, 
-  MAX_CHAT_TURNS_DEFAULT, MAX_CHAT_TURNS_KEY, 
-  MAX_OUTPUT_TOKENS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, 
-  TEMPERATURE_DEFAULT, TEMPERATURE_KEY, 
-  TOP_P_DEFAULT, TOP_P_KEY, 
-  THEME_KEY,
+  SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_CHAT_TURNS, 
+  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
+  SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_KEY_TEMPERATURE, 
+  SETTINGS_DEFAULT_TOP_P, SETTINGS_KEY_TOP_P, 
+  SETTINGS_KEY_THEME,
   SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL
 } from '../types/agent';
 import { Logger } from '../types/common';
@@ -185,11 +185,11 @@ export class FileBasedAgent implements Agent {
       this._workspaceData = this.getInitialConfig();
     } else if (!this._workspaceData.settings) {
       this._workspaceData.settings = {
-        [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT.toString(),
-        [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT.toString(),
-        [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT.toString(),
-        [TOP_P_KEY]: TOP_P_DEFAULT.toString(),
-        [THEME_KEY]: 'light',
+        [SETTINGS_KEY_MAX_CHAT_TURNS]: SETTINGS_DEFAULT_MAX_CHAT_TURNS.toString(),
+        [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS.toString(),
+        [SETTINGS_KEY_TEMPERATURE]: SETTINGS_DEFAULT_TEMPERATURE.toString(),
+        [SETTINGS_KEY_TOP_P]: SETTINGS_DEFAULT_TOP_P.toString(),
+        [SETTINGS_KEY_THEME]: 'light',
         [SESSION_TOOL_PERMISSION_KEY]: SESSION_TOOL_PERMISSION_TOOL
       };
     }
@@ -294,11 +294,11 @@ export class FileBasedAgent implements Agent {
         ...data?.metadata
       },
       settings: {
-        [MAX_CHAT_TURNS_KEY]: MAX_CHAT_TURNS_DEFAULT.toString(),
-        [MAX_OUTPUT_TOKENS_KEY]: MAX_OUTPUT_TOKENS_DEFAULT.toString(),
-        [TEMPERATURE_KEY]: TEMPERATURE_DEFAULT.toString(),
-        [TOP_P_KEY]: TOP_P_DEFAULT.toString(),
-        [THEME_KEY]: 'light',
+        [SETTINGS_KEY_MAX_CHAT_TURNS]: SETTINGS_DEFAULT_MAX_CHAT_TURNS.toString(),
+        [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS.toString(),
+        [SETTINGS_KEY_TEMPERATURE]: SETTINGS_DEFAULT_TEMPERATURE.toString(),
+        [SETTINGS_KEY_TOP_P]: SETTINGS_DEFAULT_TOP_P.toString(),
+        [SETTINGS_KEY_THEME]: 'light',
         [SESSION_TOOL_PERMISSION_KEY]: SESSION_TOOL_PERMISSION_TOOL,
         ...data?.settings
       }

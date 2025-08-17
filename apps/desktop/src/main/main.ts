@@ -10,7 +10,7 @@ import { agentExists, loadAgent, createAgent } from 'agent-api/runtime';
 import { Agent } from 'agent-api';
 import { ElectronLoggerAdapter } from './logger-adapter';
 import chalk from 'chalk';
-import { SessionToolPermission, THEME_KEY, ChatMessage } from 'agent-api';
+import { SessionToolPermission, SETTINGS_KEY_THEME, ChatMessage } from 'agent-api';
 
 const __dirname = path.dirname(__filename);
 
@@ -53,7 +53,7 @@ async function createWindow(agent?: Agent): Promise<BrowserWindow> {
   if (agent) {
     workspacesManager.registerWindow(window.id.toString(), agent);
     // Set initial theme from agent
-    const theme = agent.getSetting(THEME_KEY);
+    const theme = agent.getSetting(SETTINGS_KEY_THEME);
     if (theme) {
       window.webContents.executeJavaScript(`document.documentElement.setAttribute('data-theme', '${theme}')`);
     }

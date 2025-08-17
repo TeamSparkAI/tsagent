@@ -1,15 +1,15 @@
 import { EventEmitter } from 'events';
 import { ProvidersManager as IProvidersManager } from './types';
-import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
 import { ProviderType, ProviderModel } from '../providers/types';
 import { ProviderFactory } from '../providers/provider-factory';
+import { FileBasedAgent } from '../core/agent-api';
 
 export class ProvidersManager extends EventEmitter implements IProvidersManager {
-  private agent: Agent;
+  private agent: FileBasedAgent;
   private providerFactory: ProviderFactory;
 
-  constructor(agent: Agent, private logger: Logger) {
+  constructor(agent: FileBasedAgent, private logger: Logger) {
     super();
     this.agent = agent;
     this.providerFactory = new ProviderFactory(agent, logger);

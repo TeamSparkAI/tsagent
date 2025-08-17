@@ -7,7 +7,7 @@ import { Agent } from '../types/agent';
 import { ChatSession } from '../types/chat';
 import { McpClientInternalRules } from './client-rules';
 import { McpClientInternalReferences } from './client-references';
-import { SYSTEM_PATH_KEY } from '../types/agent';
+import { SETTINGS_KEY_SYSTEM_PATH } from '../types/agent';
 import { MCPClientManager } from './types';
 
 function isMcpConfigFileServerConfig(obj: any): obj is McpConfigFileServerConfig {
@@ -147,7 +147,7 @@ export function createMcpClientFromConfig(agent: Agent, clientConfig: McpConfig,
         //
         let env = config.env; // If we modify this we'll shallow copy into a new object so we don't modify the original
         if (!config.env?.PATH) {
-            const defaultPath = agent.getSetting(SYSTEM_PATH_KEY);
+            const defaultPath = agent.getSetting(SETTINGS_KEY_SYSTEM_PATH);
             if (defaultPath) {
                 // If the user didn't provide a path and there is a default path, use that (whether or not any other env was provided)
                 env = { ...(env ?? {}), PATH: defaultPath };

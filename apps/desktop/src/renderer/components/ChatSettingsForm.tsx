@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import log from 'electron-log';
 import './ChatSettingsForm.css';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from 'agent-api';
+import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from 'agent-api';
 
 export interface ChatSettings {
   maxChatTurns: number;
@@ -23,27 +23,27 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   showTitle = true
 }) => {
   const [workspaceSettings, setWorkspaceSettings] = useState<ChatSettings>({
-    maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
-    maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
-    temperature: TEMPERATURE_DEFAULT,
-    topP: TOP_P_DEFAULT,
+    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+    temperature: SETTINGS_DEFAULT_TEMPERATURE,
+    topP: SETTINGS_DEFAULT_TOP_P,
     toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
 
   useEffect(() => {
     const loadWorkspaceSettings = async () => {
       try {
-        const maxTurns = await window.api.getSettingsValue(MAX_CHAT_TURNS_KEY);
-        const maxTokens = await window.api.getSettingsValue(MAX_OUTPUT_TOKENS_KEY);
-        const temperature = await window.api.getSettingsValue(TEMPERATURE_KEY);
-        const topP = await window.api.getSettingsValue(TOP_P_KEY);
+            const maxTurns = await window.api.getSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS);
+    const maxTokens = await window.api.getSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS);
+    const temperature = await window.api.getSettingsValue(SETTINGS_KEY_TEMPERATURE);
+    const topP = await window.api.getSettingsValue(SETTINGS_KEY_TOP_P);
         const toolPermission = await window.api.getSettingsValue('toolPermission');
 
         setWorkspaceSettings({
-          maxChatTurns: maxTurns ? parseInt(maxTurns) : MAX_CHAT_TURNS_DEFAULT,
-          maxOutputTokens: maxTokens ? parseInt(maxTokens) : MAX_OUTPUT_TOKENS_DEFAULT,
-          temperature: temperature ? parseFloat(temperature) : TEMPERATURE_DEFAULT,
-          topP: topP ? parseFloat(topP) : TOP_P_DEFAULT,
+          maxChatTurns: maxTurns ? parseInt(maxTurns) : SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+          maxOutputTokens: maxTokens ? parseInt(maxTokens) : SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+          temperature: temperature ? parseFloat(temperature) : SETTINGS_DEFAULT_TEMPERATURE,
+          topP: topP ? parseFloat(topP) : SETTINGS_DEFAULT_TOP_P,
           toolPermission: (toolPermission === SESSION_TOOL_PERMISSION_TOOL || toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || toolPermission === SESSION_TOOL_PERMISSION_NEVER) 
             ? toolPermission as SessionToolPermission 
             : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission

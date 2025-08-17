@@ -2,11 +2,12 @@ import { McpServerManager } from './types';
 import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
 import { McpConfig, McpConfigFileServerConfig } from '../mcp/types';
+import { FileBasedAgent } from '../core/agent-api';
 
 export class McpServerManagerImpl implements McpServerManager {
-  private agent: Agent;
+  private agent: FileBasedAgent;
 
-  constructor(agent: Agent, private logger: Logger) {
+  constructor(agent: FileBasedAgent, private logger: Logger) {
     this.agent = agent;
   }
 

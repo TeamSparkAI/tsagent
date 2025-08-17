@@ -64,5 +64,5 @@ export interface ModelReply {
   pendingToolCalls?: ToolCallRequest[];
 }
 
-// Re-export types from chat for convenience
+// Re-export types from chat for convenience (used by Providers)
 export type { Turn, ToolCallRequest, ToolCallResult } from '../types/chat';

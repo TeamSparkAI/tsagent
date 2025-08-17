@@ -1,5 +1,5 @@
 import { ModelReply, Provider, ProviderType } from '../providers/types';
-import { MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TOP_P_KEY, SessionToolPermission, TEMPERATURE_KEY, SESSION_TOOL_PERMISSION_KEY } from './agent';
+import { SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TOP_P, SessionToolPermission, SETTINGS_KEY_TEMPERATURE, SESSION_TOOL_PERMISSION_KEY } from './agent';
 
 // These represent the Electron-side chat history (requests and responses)
 
@@ -46,10 +46,10 @@ export interface MessageUpdate {
 }
 
 export interface ChatSessionSettings {
-    [MAX_CHAT_TURNS_KEY]: string;
-    [MAX_OUTPUT_TOKENS_KEY]: string;
-    [TEMPERATURE_KEY]: string;
-    [TOP_P_KEY]: string;
+    [SETTINGS_KEY_MAX_CHAT_TURNS]: string;
+    [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: string;
+    [SETTINGS_KEY_TEMPERATURE]: string;
+    [SETTINGS_KEY_TOP_P]: string;
     [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
 }
 
@@ -63,6 +63,9 @@ export interface ChatSessionOptions {
   topP?: number;
   toolPermission?: SessionToolPermission;
 }
+
+type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission'>>;
+export type ChatSessionOptionsWithRequiredSettings = Omit<ChatSessionOptions, keyof RequiredSettings> & RequiredSettings;
 
 export interface ChatSessionResponse {
   success: boolean;

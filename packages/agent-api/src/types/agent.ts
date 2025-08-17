@@ -1,14 +1,13 @@
 import { RulesManager, ReferencesManager, ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types';
 import { MCPClientManager } from '../mcp/types';
-import { Logger } from '../types/common';
 
-export const MAX_CHAT_TURNS_KEY = 'maxChatTurns';
-export const MAX_OUTPUT_TOKENS_KEY = 'maxOutputTokens';
-export const TEMPERATURE_KEY = 'temperature';
-export const TOP_P_KEY = 'topP';
-export const SYSTEM_PATH_KEY = 'systemPath';
-export const MOST_RECENT_MODEL_KEY = 'mostRecentModel';
-export const THEME_KEY = 'theme';
+export const SETTINGS_KEY_MAX_CHAT_TURNS = 'maxChatTurns';
+export const SETTINGS_KEY_MAX_OUTPUT_TOKENS = 'maxOutputTokens';
+export const SETTINGS_KEY_TEMPERATURE = 'temperature';
+export const SETTINGS_KEY_TOP_P = 'topP';
+export const SETTINGS_KEY_SYSTEM_PATH = 'systemPath';
+export const SETTINGS_KEY_MOST_RECENT_MODEL = 'mostRecentModel';
+export const SETTINGS_KEY_THEME = 'theme';
 
 // Tool Permission Settings
 export type SessionToolPermission = 'always' | 'never' | 'tool';
@@ -20,10 +19,11 @@ export const SESSION_TOOL_PERMISSION_NEVER: SessionToolPermission = 'never';
 export const SESSION_TOOL_PERMISSION_TOOL: SessionToolPermission = 'tool';
 export const SESSION_TOOL_PERMISSION_DEFAULT: SessionToolPermission = SESSION_TOOL_PERMISSION_TOOL;
 
-export const MAX_CHAT_TURNS_DEFAULT = 20;
-export const MAX_OUTPUT_TOKENS_DEFAULT = 1000;
-export const TEMPERATURE_DEFAULT = 0.5;
-export const TOP_P_DEFAULT = 0.5;
+// Default values for settings (Agent or ChatSession)
+export const SETTINGS_DEFAULT_MAX_CHAT_TURNS = 20;
+export const SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS = 1000;
+export const SETTINGS_DEFAULT_TEMPERATURE = 0.5;
+export const SETTINGS_DEFAULT_TOP_P = 0.5;
 
 // Core agent interface
 export interface Agent {
@@ -35,12 +35,6 @@ export interface Agent {
   // Settings
   getSetting(key: string): string | null;
   setSetting(key: string, value: string): Promise<void>;
-  
-  // Workspace data access
-  getWorkspaceProviders(): Record<string, any> | null;
-  updateWorkspaceProviders(providers: Record<string, any>): Promise<void>;
-  getWorkspaceMcpServers(): Record<string, any> | null;
-  updateWorkspaceMcpServers(mcpServers: Record<string, any>): Promise<void>;
   
   // System prompt
   getSystemPrompt(): Promise<string>;
@@ -70,11 +64,11 @@ export interface AgentMetadata {
 export interface AgentConfig {
   metadata: AgentMetadata;
   settings: {
-      [MAX_CHAT_TURNS_KEY]: string;
-      [MAX_OUTPUT_TOKENS_KEY]: string;
-      [TEMPERATURE_KEY]: string;
-      [TOP_P_KEY]: string;
-      [THEME_KEY]: string;
+      [SETTINGS_KEY_MAX_CHAT_TURNS]: string;
+      [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: string;
+      [SETTINGS_KEY_TEMPERATURE]: string;
+      [SETTINGS_KEY_TOP_P]: string;
+      [SETTINGS_KEY_THEME]: string;
       [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
       [key: string]: string | SessionToolPermission | undefined;
   };

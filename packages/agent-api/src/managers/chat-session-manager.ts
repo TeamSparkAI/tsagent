@@ -1,7 +1,7 @@
-import { ChatSessionImpl, ChatSessionOptionsWithRequiredSettings } from '../core/chat-session';
-import { ChatSession, ChatSessionOptions } from '../types/chat';
+import { ChatSessionImpl } from '../core/chat-session';
+import { ChatSession, ChatSessionOptions, ChatSessionOptionsWithRequiredSettings } from '../types/chat';
 import { ChatSessionManager } from './types';
-import { Agent, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_KEY, TEMPERATURE_DEFAULT, TOP_P_KEY, TOP_P_DEFAULT, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL, SessionToolPermission, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
+import { Agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL, SessionToolPermission, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
 import { Logger } from '../types/common';
 
 export class ChatSessionManagerImpl implements ChatSessionManager {
@@ -64,10 +64,10 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
 
     const optionsWithRequiredSettings: ChatSessionOptionsWithRequiredSettings = {
       ...options,
-      maxChatTurns: this.getSettingsValue(options.maxChatTurns, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT),
-      maxOutputTokens: this.getSettingsValue(options.maxOutputTokens, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT),
-      temperature: this.getSettingsValue(options.temperature, TEMPERATURE_KEY, TEMPERATURE_DEFAULT),
-      topP: this.getSettingsValue(options.topP, TOP_P_KEY, TOP_P_DEFAULT),
+      maxChatTurns: this.getSettingsValue(options.maxChatTurns, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS),
+      maxOutputTokens: this.getSettingsValue(options.maxOutputTokens, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS),
+      temperature: this.getSettingsValue(options.temperature, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE),
+      topP: this.getSettingsValue(options.topP, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P),
       toolPermission: this.getToolPermissionValue(options.toolPermission, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL)
     }
 

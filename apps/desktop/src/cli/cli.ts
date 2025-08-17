@@ -8,7 +8,6 @@ import * as fs from 'fs';
 import { 
   Agent, 
   ChatMessage, 
-  createChatSession,
   ChatSessionOptionsWithRequiredSettings,
   MessageUpdate, 
   ModelReply,
@@ -17,23 +16,23 @@ import {
   Tool,
   ToolCallApproval, 
   ToolCallDecision, 
-  MAX_CHAT_TURNS_KEY, 
-  MAX_CHAT_TURNS_DEFAULT, 
-  MAX_OUTPUT_TOKENS_KEY, 
-  MAX_OUTPUT_TOKENS_DEFAULT, 
-  MOST_RECENT_MODEL_KEY,
+  SETTINGS_KEY_MAX_CHAT_TURNS, 
+  SETTINGS_DEFAULT_MAX_CHAT_TURNS, 
+  SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
+  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, 
+  SETTINGS_KEY_MOST_RECENT_MODEL,
   SESSION_TOOL_PERMISSION_KEY,
   SESSION_TOOL_PERMISSION_DEFAULT,
   SESSION_TOOL_PERMISSION_ALWAYS,
   SESSION_TOOL_PERMISSION_NEVER,
   SESSION_TOOL_PERMISSION_TOOL,
-  TEMPERATURE_KEY, 
-  TEMPERATURE_DEFAULT, 
+  SETTINGS_KEY_TEMPERATURE, 
+  SETTINGS_DEFAULT_TEMPERATURE, 
   TOOL_CALL_DECISION_ALLOW_SESSION, 
   TOOL_CALL_DECISION_ALLOW_ONCE, 
   TOOL_CALL_DECISION_DENY, 
-  TOP_P_KEY, 
-  TOP_P_DEFAULT
+  SETTINGS_KEY_TOP_P, 
+  SETTINGS_DEFAULT_TOP_P
 } from 'agent-api';
 
 // Define commands
@@ -162,10 +161,10 @@ function getToolPermissionValue(agent: Agent, key: string, defaultValue: Session
 
 function getWorkspaceSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings {
   return {
-    maxChatTurns: getSettingsValue(agent, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT),
-    maxOutputTokens: getSettingsValue(agent, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT),
-    temperature: getSettingsValue(agent, TEMPERATURE_KEY, TEMPERATURE_DEFAULT),
-    topP: getSettingsValue(agent, TOP_P_KEY, TOP_P_DEFAULT),
+    maxChatTurns: getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS),
+    maxOutputTokens: getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS),
+    temperature: getSettingsValue(agent, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE),
+    topP: getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P),
     toolPermission: getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT)
   };
 }
@@ -191,9 +190,9 @@ export function setupCLI(agent: Agent, version: string) {
   };
 
   const updatedMostRecentProvider = async (provider: ProviderType, modelId: string) => {
-    const mostRecentProvider = agent.getSetting(MOST_RECENT_MODEL_KEY);
+    const mostRecentProvider = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
     if (mostRecentProvider) {
-      await agent.setSetting(MOST_RECENT_MODEL_KEY, `${provider}:${modelId}`);
+      await agent.setSetting(SETTINGS_KEY_MOST_RECENT_MODEL, `${provider}:${modelId}`);
     }
   };
 
@@ -203,7 +202,7 @@ export function setupCLI(agent: Agent, version: string) {
   function createLocalChatSession() {
     const chatSessionOptions = getWorkspaceSettings(agent);
  
-    const mostRecentModel = agent.getSetting(MOST_RECENT_MODEL_KEY);
+    const mostRecentModel = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
     if (mostRecentModel) {
       const colonIndex = mostRecentModel.indexOf(':');
       if (colonIndex !== -1) {
@@ -217,7 +216,7 @@ export function setupCLI(agent: Agent, version: string) {
       }
     }
   
-    return createChatSession(agent, 'cli-session', chatSessionOptions, log);
+    return agent.chatSessions.create('cli-session', chatSessionOptions);
   }  
 
   let chatSession = createLocalChatSession();
@@ -449,13 +448,13 @@ export function setupCLI(agent: Agent, version: string) {
             const settings = chatSession.getState();
             console.log(chalk.cyan('\nSettings:'));
             const sessionMaxChatTurns = settings.maxChatTurns;
-            const workspaceMaxChatTurns = getSettingsValue(agent, MAX_CHAT_TURNS_KEY, MAX_CHAT_TURNS_DEFAULT);
+            const workspaceMaxChatTurns = getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS);
             const sessionMaxOutputTokens = settings.maxOutputTokens;
-            const workspaceMaxOutputTokens = getSettingsValue(agent, MAX_OUTPUT_TOKENS_KEY, MAX_OUTPUT_TOKENS_DEFAULT);
+            const workspaceMaxOutputTokens = getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS);
             const sessionTemperature = settings.temperature;
-            const workspaceTemperature = getSettingsValue(agent, TEMPERATURE_KEY, TEMPERATURE_DEFAULT);
+            const workspaceTemperature = getSettingsValue(agent, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE);
             const sessionTopP = settings.topP;
-            const workspaceTopP = getSettingsValue(agent, TOP_P_KEY, TOP_P_DEFAULT);
+            const workspaceTopP = getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P);
             const sessionToolPermission = settings.toolPermission;
             const workspaceToolPermission = getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
             // Only if values are different, append "(workspace default: <value>)"
@@ -464,10 +463,10 @@ export function setupCLI(agent: Agent, version: string) {
             const temperature = sessionTemperature === workspaceTemperature ? sessionTemperature : `${sessionTemperature} (overrides workspace default: ${workspaceTemperature})`;
             const topP = sessionTopP === workspaceTopP ? sessionTopP : `${sessionTopP} (overrides workspace default: ${workspaceTopP})`;
             const toolPermission = sessionToolPermission === workspaceToolPermission ? sessionToolPermission : `${sessionToolPermission} (overrides workspace default: ${workspaceToolPermission})`;
-            console.log(chalk.yellow(`  ${MAX_CHAT_TURNS_KEY}: ${maxChatTurns}`));
-            console.log(chalk.yellow(`  ${MAX_OUTPUT_TOKENS_KEY}: ${maxOutputTokens}`));
-            console.log(chalk.yellow(`  ${TEMPERATURE_KEY}: ${temperature}`));
-            console.log(chalk.yellow(`  ${TOP_P_KEY}: ${topP}`));
+            console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_CHAT_TURNS}: ${maxChatTurns}`));
+            console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_OUTPUT_TOKENS}: ${maxOutputTokens}`));
+            console.log(chalk.yellow(`  ${SETTINGS_KEY_TEMPERATURE}: ${temperature}`));
+            console.log(chalk.yellow(`  ${SETTINGS_KEY_TOP_P}: ${topP}`));
             console.log(chalk.yellow(`  ${SESSION_TOOL_PERMISSION_KEY}: ${toolPermission}`));
             console.log('');
           } else if (args[0] == 'clear') {
@@ -476,10 +475,10 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.cyan('\nChat session settings restored to workspace defaults'));
           } else if (args[0] == 'save') {
             const settings = chatSession.getState();
-            await agent.setSetting(MAX_CHAT_TURNS_KEY, settings.maxChatTurns.toString());
-            await agent.setSetting(MAX_OUTPUT_TOKENS_KEY, settings.maxOutputTokens.toString());
-            await agent.setSetting(TEMPERATURE_KEY, settings.temperature.toString());
-            await agent.setSetting(TOP_P_KEY, settings.topP.toString());
+            await agent.setSetting(SETTINGS_KEY_MAX_CHAT_TURNS, settings.maxChatTurns.toString());
+            await agent.setSetting(SETTINGS_KEY_MAX_OUTPUT_TOKENS, settings.maxOutputTokens.toString());
+            await agent.setSetting(SETTINGS_KEY_TEMPERATURE, settings.temperature.toString());
+            await agent.setSetting(SETTINGS_KEY_TOP_P, settings.topP.toString());
             await agent.setSetting(SESSION_TOOL_PERMISSION_KEY, settings.toolPermission);
             console.log(chalk.cyan('\nChat session settings saved to workspace'));
           } else {
@@ -491,28 +490,28 @@ export function setupCLI(agent: Agent, version: string) {
           const key = args[0];
           const value = args[1];
           const settings = chatSession.getState();
-          if (key == MAX_CHAT_TURNS_KEY) {
+          if (key == SETTINGS_KEY_MAX_CHAT_TURNS) {
             const maxChatTurns = parseInt(value);
             if (isNaN(maxChatTurns) || maxChatTurns < 1 || maxChatTurns > 500) {
               console.log(chalk.red('Invalid max chat turns (must be between 1 and 500): '), chalk.yellow(value));
               break;
             }
             chatSession.updateSettings({...settings, maxChatTurns});
-          } else if (key == MAX_OUTPUT_TOKENS_KEY) {
+          } else if (key == SETTINGS_KEY_MAX_OUTPUT_TOKENS) {
             const maxOutputTokens = parseInt(value);
             if (isNaN(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 100000) {
               console.log(chalk.red('Invalid max output tokens (must be between 1 and 100000): '), chalk.yellow(value));
               break;
             }
             chatSession.updateSettings({...settings, maxOutputTokens});
-          } else if (key == TEMPERATURE_KEY) {
+          } else if (key == SETTINGS_KEY_TEMPERATURE) {
             const temperature = parseFloat(value);
             if (isNaN(temperature) || temperature < 0 || temperature > 1) {
               console.log(chalk.red('Invalid temperature (must be between 0 and 1): '), chalk.yellow(value));
               break;
             }
             chatSession.updateSettings({...settings, temperature});
-          } else if (key == TOP_P_KEY) {
+          } else if (key == SETTINGS_KEY_TOP_P) {
             const topP = parseFloat(value);
             if (isNaN(topP) || topP < 0 || topP > 1) {
               console.log(chalk.red('Invalid topP (must be between 0 and 1): '), chalk.yellow(value));

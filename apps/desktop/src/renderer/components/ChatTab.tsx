@@ -9,7 +9,7 @@ import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from 'agent-api';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import type { ProviderModel as ILLMModel } from 'agent-api';
-import { MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, MOST_RECENT_MODEL_KEY, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from 'agent-api';
+import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MOST_RECENT_MODEL, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from 'agent-api';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -77,10 +77,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [isNewSession, setIsNewSession] = useState(true);
   const [chatSettings, setChatSettings] = useState<ChatSettings>({
-    maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
-    maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
-    temperature: TEMPERATURE_DEFAULT,
-    topP: TOP_P_DEFAULT,
+    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+    temperature: SETTINGS_DEFAULT_TEMPERATURE,
+    topP: SETTINGS_DEFAULT_TOP_P,
     toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
 
@@ -168,7 +168,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           const installedProviders = await window.api.getInstalledProviders();
 
           // Attempt to get the most recent model from settings
-          const mostRecentModel = await window.api.getSettingsValue(MOST_RECENT_MODEL_KEY);
+          const mostRecentModel = await window.api.getSettingsValue(SETTINGS_KEY_MOST_RECENT_MODEL);
           if (mostRecentModel) {
             const colonIndex = mostRecentModel.indexOf(':');
             if (colonIndex !== -1) {
@@ -234,10 +234,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
 
             // Update the chat settings
             setChatSettings({
-              maxChatTurns: state.maxChatTurns ?? MAX_CHAT_TURNS_DEFAULT,
-              maxOutputTokens: state.maxOutputTokens ?? MAX_OUTPUT_TOKENS_DEFAULT,
-              temperature: state.temperature ?? TEMPERATURE_DEFAULT,
-              topP: state.topP ?? TOP_P_DEFAULT,
+              maxChatTurns: state.maxChatTurns ?? SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+              maxOutputTokens: state.maxOutputTokens ?? SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+              temperature: state.temperature ?? SETTINGS_DEFAULT_TEMPERATURE,
+              topP: state.topP ?? SETTINGS_DEFAULT_TOP_P,
               toolPermission: (state.toolPermission === SESSION_TOOL_PERMISSION_TOOL || state.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || state.toolPermission === SESSION_TOOL_PERMISSION_NEVER)
                 ? state.toolPermission as SessionToolPermission
                 : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
@@ -557,7 +557,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           
           // Save the most recent model selection to workspace settings
           const modelValue = modelId ? `${model}:${modelId}` : model;
-          await window.api.setSettingsValue(MOST_RECENT_MODEL_KEY, modelValue);
+          await window.api.setSettingsValue(SETTINGS_KEY_MOST_RECENT_MODEL, modelValue);
           
           log.info(`Changed model to ${model} (${modelName || modelId || 'default'})`);
         } else {

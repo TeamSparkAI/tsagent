@@ -5,8 +5,8 @@ import { AboutView } from './AboutView';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import './SettingsTab.css';
 import { 
-  MAX_CHAT_TURNS_DEFAULT, MAX_OUTPUT_TOKENS_DEFAULT, TEMPERATURE_DEFAULT, TOP_P_DEFAULT, 
-  MAX_CHAT_TURNS_KEY, MAX_OUTPUT_TOKENS_KEY, TEMPERATURE_KEY, TOP_P_KEY, SYSTEM_PATH_KEY, THEME_KEY, SESSION_TOOL_PERMISSION_KEY, 
+  SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, 
+  SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, SETTINGS_KEY_SYSTEM_PATH, SETTINGS_KEY_THEME, SESSION_TOOL_PERMISSION_KEY, 
   SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_NEVER,
   SessionToolPermission,
 } from 'agent-api';
@@ -18,17 +18,17 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const [toolPermission, setToolPermission] = useState<string>(SESSION_TOOL_PERMISSION_TOOL);
   const [currentChatSettings, setCurrentChatSettings] = useState<ChatSettings>({
-    maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
-    maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
-    temperature: TEMPERATURE_DEFAULT,
-    topP: TOP_P_DEFAULT,
+    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+    temperature: SETTINGS_DEFAULT_TEMPERATURE,
+    topP: SETTINGS_DEFAULT_TOP_P,
     toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
   const [initialChatSettings, setInitialChatSettings] = useState<ChatSettings>({
-    maxChatTurns: MAX_CHAT_TURNS_DEFAULT,
-    maxOutputTokens: MAX_OUTPUT_TOKENS_DEFAULT,
-    temperature: TEMPERATURE_DEFAULT,
-    topP: TOP_P_DEFAULT,
+    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+    temperature: SETTINGS_DEFAULT_TEMPERATURE,
+    topP: SETTINGS_DEFAULT_TOP_P,
     toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
   });
   const [currentSystemPath, setCurrentSystemPath] = useState<string>('');
@@ -38,7 +38,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     const loadSettings = async () => {
       try {
         // Load theme
-        const savedTheme = await window.api.getSettingsValue(THEME_KEY);
+        const savedTheme = await window.api.getSettingsValue(SETTINGS_KEY_THEME);
         if (savedTheme) {
           setTheme(savedTheme as 'light' | 'dark');
           document.documentElement.setAttribute('data-theme', savedTheme);
@@ -48,7 +48,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           const defaultTheme = prefersDark ? 'dark' : 'light';
           setTheme(defaultTheme);
           document.documentElement.setAttribute('data-theme', defaultTheme);
-          await window.api.setSettingsValue(THEME_KEY, defaultTheme);
+          await window.api.setSettingsValue(SETTINGS_KEY_THEME, defaultTheme);
         }
 
         // Load system prompt
@@ -57,17 +57,17 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
         setInitialSystemPrompt(systemPrompt || '');
         
         // Load chat settings
-        const maxChatTurns = await window.api.getSettingsValue(MAX_CHAT_TURNS_KEY);
-        const maxOutputTokens = await window.api.getSettingsValue(MAX_OUTPUT_TOKENS_KEY);
-        const temperature = await window.api.getSettingsValue(TEMPERATURE_KEY);
-        const topP = await window.api.getSettingsValue(TOP_P_KEY);
+        const maxChatTurns = await window.api.getSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS);
+        const maxOutputTokens = await window.api.getSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS);
+        const temperature = await window.api.getSettingsValue(SETTINGS_KEY_TEMPERATURE);
+        const topP = await window.api.getSettingsValue(SETTINGS_KEY_TOP_P);
         const toolPermission = await window.api.getSettingsValue(SESSION_TOOL_PERMISSION_KEY);
 
         const loadedChatSettings: ChatSettings = {
-          maxChatTurns: maxChatTurns ? parseInt(maxChatTurns) : MAX_CHAT_TURNS_DEFAULT,
-          maxOutputTokens: maxOutputTokens ? parseInt(maxOutputTokens) : MAX_OUTPUT_TOKENS_DEFAULT,
-          temperature: temperature ? parseFloat(temperature) : TEMPERATURE_DEFAULT,
-          topP: topP ? parseFloat(topP) : TOP_P_DEFAULT,
+          maxChatTurns: maxChatTurns ? parseInt(maxChatTurns) : SETTINGS_DEFAULT_MAX_CHAT_TURNS,
+          maxOutputTokens: maxOutputTokens ? parseInt(maxOutputTokens) : SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
+          temperature: temperature ? parseFloat(temperature) : SETTINGS_DEFAULT_TEMPERATURE,
+          topP: topP ? parseFloat(topP) : SETTINGS_DEFAULT_TOP_P,
           toolPermission: (toolPermission === SESSION_TOOL_PERMISSION_TOOL || toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || toolPermission === SESSION_TOOL_PERMISSION_NEVER) 
             ? toolPermission as SessionToolPermission 
             : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
@@ -77,7 +77,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
         setInitialChatSettings(loadedChatSettings);
 
         // Load system path
-        const systemPath = await window.api.getSettingsValue(SYSTEM_PATH_KEY);
+        const systemPath = await window.api.getSettingsValue(SETTINGS_KEY_SYSTEM_PATH);
         setCurrentSystemPath(systemPath || '');
         setInitialSystemPath(systemPath || '');
       } catch (error) {
@@ -92,7 +92,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
-    await window.api.setSettingsValue(THEME_KEY, newTheme);
+            await window.api.setSettingsValue(SETTINGS_KEY_THEME, newTheme);
   };
 
   const handleSaveSystemPrompt = async () => {
@@ -111,10 +111,10 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const handleSaveChatSettings = async () => {
     try {
-      await window.api.setSettingsValue(MAX_CHAT_TURNS_KEY, currentChatSettings.maxChatTurns.toString());
-      await window.api.setSettingsValue(MAX_OUTPUT_TOKENS_KEY, currentChatSettings.maxOutputTokens.toString());
-      await window.api.setSettingsValue(TEMPERATURE_KEY, currentChatSettings.temperature.toString());
-      await window.api.setSettingsValue(TOP_P_KEY, currentChatSettings.topP.toString());
+              await window.api.setSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS, currentChatSettings.maxChatTurns.toString());
+        await window.api.setSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS, currentChatSettings.maxOutputTokens.toString());
+        await window.api.setSettingsValue(SETTINGS_KEY_TEMPERATURE, currentChatSettings.temperature.toString());
+        await window.api.setSettingsValue(SETTINGS_KEY_TOP_P, currentChatSettings.topP.toString());
       await window.api.setSettingsValue(SESSION_TOOL_PERMISSION_KEY, currentChatSettings.toolPermission);
       setInitialChatSettings(currentChatSettings);
       log.info('Chat settings saved successfully');
@@ -129,7 +129,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const handleSaveSystemPath = async () => {
     try {
-      await window.api.setSettingsValue(SYSTEM_PATH_KEY, currentSystemPath);
+              await window.api.setSettingsValue(SETTINGS_KEY_SYSTEM_PATH, currentSystemPath);
       setInitialSystemPath(currentSystemPath);
       log.info('System path saved successfully');
     } catch (error) {

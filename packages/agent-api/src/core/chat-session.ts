@@ -1,12 +1,9 @@
-import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession } from '../types/chat';
+import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession, ChatSessionOptionsWithRequiredSettings } from '../types/chat';
 import { Provider, ProviderType } from '../providers/types';
 import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
 import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
 import { TOOL_PERMISSION_NOT_REQUIRED, TOOL_PERMISSION_REQUIRED } from '../mcp/types';
-
-type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission'>>;
-export type ChatSessionOptionsWithRequiredSettings = Omit<ChatSessionOptions, keyof RequiredSettings> & RequiredSettings;
 
 export class ChatSessionImpl implements ChatSession {
   private _id: string;
