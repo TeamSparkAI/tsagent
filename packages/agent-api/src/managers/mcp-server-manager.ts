@@ -12,7 +12,7 @@ export class McpServerManagerImpl implements McpServerManager {
   }
 
   getMcpServer(serverName: string): McpConfig | null {
-    const mcpServers = this.agent.getWorkspaceMcpServers();
+    const mcpServers = this.agent.getAgentMcpServers();
     if (!mcpServers || !mcpServers[serverName]) return null;
     
     return {
@@ -22,7 +22,7 @@ export class McpServerManagerImpl implements McpServerManager {
   }
 
   async getAllMcpServers(): Promise<Record<string, McpConfig>> {
-    const mcpServers = this.agent.getWorkspaceMcpServers();
+    const mcpServers = this.agent.getAgentMcpServers();
     if (!mcpServers) return {};
     
     // Transform the configuration into the expected format
@@ -37,23 +37,23 @@ export class McpServerManagerImpl implements McpServerManager {
   }
 
   async saveMcpServer(server: McpConfig): Promise<void> {
-    const mcpServers = this.agent.getWorkspaceMcpServers() || {};
+    const mcpServers = this.agent.getAgentMcpServers() || {};
 
     // Add or update the server in the mcpServers object
     mcpServers[server.name] = server.config;
-    await this.agent.updateWorkspaceMcpServers(mcpServers);
+    await this.agent.updateAgentMcpServers(mcpServers);
 
     // Update the client with the new server config
     await this.mcpManager.updateMcpClient(this.agent, server.name, server);
   }
 
   async deleteMcpServer(serverName: string): Promise<boolean> {
-    const mcpServers = this.agent.getWorkspaceMcpServers();
+    const mcpServers = this.agent.getAgentMcpServers();
     if (!mcpServers || !mcpServers[serverName]) return false;
     
     // Remove the server from the mcpServers object
     delete mcpServers[serverName];
-    await this.agent.updateWorkspaceMcpServers(mcpServers);
+    await this.agent.updateAgentMcpServers(mcpServers);
 
     // Delete the client (if any)
     await this.mcpManager.deleteMcpClient(serverName);

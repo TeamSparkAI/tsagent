@@ -23,13 +23,13 @@ import { Reference, Rule } from '..';
 import { ChatSession, ChatSessionOptions } from '../types/chat';
 
 export class FileBasedAgent  extends EventEmitter implements Agent {
-  private static readonly WORKSPACE_FILE_NAME = 'tspark.json';
+  private static readonly AGENT_FILE_NAME = 'tspark.json';
   private static readonly SYSTEM_PROMPT_FILE_NAME = 'prompt.md';
   private static readonly DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
-  private _workspaceDir: string;
-  private _workspaceFile: string;
-  private _workspaceData: AgentConfig | null = null;
+  private _agentDir: string;
+  private _agentFile: string;
+  private _agentData: AgentConfig | null = null;
   private _promptFile: string;
   private _configLoaded = false;
   private _id: string;
@@ -45,23 +45,23 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   
   // Agent interface properties
   get id(): string { return this._id; }
-  get path(): string { return this._workspaceDir; }
-  get name(): string { return this._workspaceData?.metadata?.name || path.basename(this._workspaceDir); }
+  get path(): string { return this._agentDir; }
+  get name(): string { return this._agentData?.metadata?.name || path.basename(this._agentDir); }
   get description(): string | undefined { return undefined; } // Description not part of AgentMetadata
 
-  private constructor(workspaceDir: string, private logger: Logger) {
+  private constructor(agentDir: string, private logger: Logger) {
     super();
-    this._workspaceDir = workspaceDir;
-    this._workspaceFile = path.join(this._workspaceDir, FileBasedAgent.WORKSPACE_FILE_NAME);
-    this._promptFile = path.join(this._workspaceDir, FileBasedAgent.SYSTEM_PROMPT_FILE_NAME);
+    this._agentDir = agentDir;
+    this._agentFile = path.join(this._agentDir, FileBasedAgent.AGENT_FILE_NAME);
+    this._promptFile = path.join(this._agentDir, FileBasedAgent.SYSTEM_PROMPT_FILE_NAME);
     this._id = uuidv4();
 
     this.providerFactory = new ProviderFactory(this, logger);
     
     // Initialize sub-managers with logger
     this.mcpManager = new MCPClientManagerImpl(this.logger);
-    this.rules = new RulesManager(this._workspaceDir, this.logger);
-    this.references = new ReferencesManager(this._workspaceDir, this.logger);
+    this.rules = new RulesManager(this._agentDir, this.logger);
+    this.references = new ReferencesManager(this._agentDir, this.logger);
     this.mcpServers = new McpServerManagerImpl(this, this.mcpManager, this.logger);
     this.chatSessions = new ChatSessionManagerImpl(this, this.logger);
   }
@@ -94,8 +94,8 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
 
   static async agentExists(agentPath: string): Promise<boolean> {
     const normalizedPath = path.normalize(agentPath);
-    const workspaceFile = path.join(normalizedPath, FileBasedAgent.WORKSPACE_FILE_NAME);
-    return fs.existsSync(workspaceFile);
+    const agentFile = path.join(normalizedPath, FileBasedAgent.AGENT_FILE_NAME);
+    return fs.existsSync(agentFile);
   }
 
   static async cloneAgent(sourcePath: string, targetPath: string, logger: Logger): Promise<FileBasedAgent> {
@@ -117,7 +117,7 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
 
     // Copy all agent files
     const filesToCopy = [
-      FileBasedAgent.WORKSPACE_FILE_NAME,
+      FileBasedAgent.AGENT_FILE_NAME,
       FileBasedAgent.SYSTEM_PROMPT_FILE_NAME,
       'refs',
       'rules'
@@ -146,11 +146,11 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
 
   async delete(): Promise<void> {
     // Remove the entire agent directory
-    await fs.promises.rm(this._workspaceDir, { recursive: true, force: true });
+    await fs.promises.rm(this._agentDir, { recursive: true, force: true });
   }
 
   async clone(targetPath: string): Promise<Agent> {
-    return await FileBasedAgent.cloneAgent(this._workspaceDir, targetPath, this.logger);
+    return await FileBasedAgent.cloneAgent(this._agentDir, targetPath, this.logger);
   }
 
   // Settings management (Agent interface)
@@ -159,11 +159,11 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
       throw new Error('Config not loaded. Call loadConfig() first.');
     }
 
-    if (!this._workspaceData || !this._workspaceData.settings || !this._workspaceData.settings[key]) {
+    if (!this._agentData || !this._agentData.settings || !this._agentData.settings[key]) {
       return null;
     }
         
-    return this._workspaceData.settings[key];
+    return this._agentData.settings[key];
   }
 
   async setSetting(key: string, value: string): Promise<void> {
@@ -171,10 +171,10 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
       await this.loadConfig();
     }
     
-    if (!this._workspaceData) {
-      this._workspaceData = this.getInitialConfig();
-    } else if (!this._workspaceData.settings) {
-      this._workspaceData.settings = {
+    if (!this._agentData) {
+      this._agentData = this.getInitialConfig();
+    } else if (!this._agentData.settings) {
+      this._agentData.settings = {
         [SETTINGS_KEY_MAX_CHAT_TURNS]: SETTINGS_DEFAULT_MAX_CHAT_TURNS.toString(),
         [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS.toString(),
         [SETTINGS_KEY_TEMPERATURE]: SETTINGS_DEFAULT_TEMPERATURE.toString(),
@@ -184,7 +184,7 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
       };
     }
     
-    this._workspaceData.settings[key] = value;
+    this._agentData.settings[key] = value;
     await this.saveConfig();
   }
 
@@ -206,15 +206,15 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
     await fs.promises.writeFile(this._promptFile, prompt);
   }
 
-  getWorkspaceMcpServers(): Record<string, any> | null {
-    return this._workspaceData?.mcpServers || null;
+  getAgentMcpServers(): Record<string, any> | null {
+    return this._agentData?.mcpServers || null;
   }
 
-  async updateWorkspaceMcpServers(mcpServers: Record<string, any>): Promise<void> {
-    if (!this._workspaceData) {
-      this._workspaceData = this.getInitialConfig();
+  async updateAgentMcpServers(mcpServers: Record<string, any>): Promise<void> {
+    if (!this._agentData) {
+      this._agentData = this.getInitialConfig();
     }
-    this._workspaceData.mcpServers = mcpServers;
+    this._agentData.mcpServers = mcpServers;
     await this.saveConfig();
   }
 
@@ -222,29 +222,29 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   private async loadConfig(): Promise<void> {
     if (this._configLoaded) return;
     
-    if (!fs.existsSync(this._workspaceFile)) {
-      throw new Error(`Agent file does not exist: ${this._workspaceFile}`);
+    if (!fs.existsSync(this._agentFile)) {
+      throw new Error(`Agent file does not exist: ${this._agentFile}`);
     }
 
     try {
-      const data = await fs.promises.readFile(this._workspaceFile, 'utf8');
-      this._workspaceData = JSON.parse(data);
+      const data = await fs.promises.readFile(this._agentFile, 'utf8');
+      this._agentData = JSON.parse(data);
       
       this._configLoaded = true;
       
       // Load MCP clients after config is loaded
       await this.mcpManager.loadMcpClients(this);
     } catch (error) {
-      throw new Error(`Failed to load ${FileBasedAgent.WORKSPACE_FILE_NAME}: ${error}`);
+      throw new Error(`Failed to load ${FileBasedAgent.AGENT_FILE_NAME}: ${error}`);
     }
   }
 
   private async saveConfig(): Promise<void> {
-    await fs.promises.writeFile(this._workspaceFile, JSON.stringify(this._workspaceData, null, 2));
+    await fs.promises.writeFile(this._agentFile, JSON.stringify(this._agentData, null, 2));
   }
 
   private async initialize(data?: Partial<AgentConfig>): Promise<void> {
-    this._workspaceData = this.getInitialConfig(data);
+    this._agentData = this.getInitialConfig(data);
     await this.saveConfig();
     this._configLoaded = true;
     
@@ -255,7 +255,7 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   private getInitialConfig(data?: Partial<AgentConfig>): AgentConfig {
     return {
       metadata: {
-        name: data?.metadata?.name || path.basename(this._workspaceDir),
+        name: data?.metadata?.name || path.basename(this._agentDir),
         created: new Date().toISOString(),
         lastAccessed: new Date().toISOString(),
         version: '1.0.0',
@@ -302,33 +302,34 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
     return this.references.deleteReference(name);
   }
 
-  // Workspace data access methods
-  private getWorkspaceProviders(): Record<string, any> | null {
-    return this._workspaceData?.providers || null;
+  // Provider data access methods
+
+  private getAgentProviders(): Record<string, any> | null {
+    return this._agentData?.providers || null;
   }
 
-  private async updateWorkspaceProviders(providers: Record<string, any>): Promise<void> {
-    if (!this._workspaceData) {
-      this._workspaceData = this.getInitialConfig();
+  private async updateAgentProviders(providers: Record<string, any>): Promise<void> {
+    if (!this._agentData) {
+      this._agentData = this.getInitialConfig();
     }
-    this._workspaceData.providers = providers;
+    this._agentData.providers = providers;
     await this.saveConfig();
   }  
 
   // Provider configuration methods
   //
   getInstalledProviders(): ProviderType[] {
-    const providers = this.getWorkspaceProviders();
+    const providers = this.getAgentProviders();
     return providers ? Object.keys(providers) as ProviderType[] : [];
   }
 
   isProviderInstalled(provider: ProviderType): boolean {
-    const providers = this.getWorkspaceProviders();
+    const providers = this.getAgentProviders();
     return providers?.[provider] !== undefined;
   }
 
   getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null {
-    const providers = this.getWorkspaceProviders();
+    const providers = this.getAgentProviders();
     return providers?.[provider] || null;
   }
 
@@ -337,29 +338,29 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   }
 
   async installProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
-    const providers = this.getWorkspaceProviders() || {};
+    const providers = this.getAgentProviders() || {};
     providers[provider] = config;
-    await this.updateWorkspaceProviders(providers);
+    await this.updateAgentProviders(providers);
     
     // Emit change event
     this.emit('providersChanged');
   }
 
   async updateProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
-    const providers = this.getWorkspaceProviders() || {};
+    const providers = this.getAgentProviders() || {};
     providers[provider] = config;
-    await this.updateWorkspaceProviders(providers);
+    await this.updateAgentProviders(providers);
     
     // Emit change event
     this.emit('providersChanged');
   }
 
   async uninstallProvider(provider: ProviderType): Promise<void> {
-    const providers = this.getWorkspaceProviders();
+    const providers = this.getAgentProviders();
     if (!providers || !providers[provider]) return;
     
     delete providers[provider];
-    await this.updateWorkspaceProviders(providers);
+    await this.updateAgentProviders(providers);
     
     // Emit change event
     this.emit('providersChanged');

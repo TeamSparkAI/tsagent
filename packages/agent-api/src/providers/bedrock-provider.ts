@@ -44,7 +44,7 @@ export class BedrockProvider implements Provider {
     const accessKey = config['BEDROCK_SECRET_ACCESS_KEY'];
     const accessKeyId = config['BEDROCK_ACCESS_KEY_ID'];
     if (!accessKey || !accessKeyId) {
-      return { isValid: false, error: 'BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your workspace configuration.' };
+      return { isValid: false, error: 'BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration.' };
     }
     try {
       const bedrockClient = new BedrockClient({
@@ -81,7 +81,7 @@ export class BedrockProvider implements Provider {
       const accessKey = this.config['BEDROCK_SECRET_ACCESS_KEY'];
       const accessKeyId = this.config['BEDROCK_ACCESS_KEY_ID'];
       if (!accessKey || !accessKeyId) {
-        throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your workspace configuration.');
+        throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration.');
       }
       this.client = new BedrockRuntimeClient({ 
         region: 'us-east-1', 

@@ -11,9 +11,9 @@ export class RulesManager extends EventEmitter implements IRulesManager {
   private rulesDir: string;
   private static readonly RULE_FILE_EXTENSION = '.mdt';
 
-  constructor(workspaceDir: string, private logger: Logger) {
+  constructor(agentDir: string, private logger: Logger) {
     super();
-    this.rulesDir = path.join(workspaceDir, 'rules');
+    this.rulesDir = path.join(agentDir, 'rules');
     this.logger.info(`Initializing RulesManager for directory: ${this.rulesDir}`);
     
     if (!fs.existsSync(this.rulesDir)) {

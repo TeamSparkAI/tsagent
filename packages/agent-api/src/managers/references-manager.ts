@@ -11,9 +11,9 @@ export class ReferencesManager extends EventEmitter implements IReferencesManage
   private referencesDir: string;
   private static readonly REFERENCE_FILE_EXTENSION = '.mdt';
 
-  constructor(workspaceDir: string, private logger: Logger) {
+  constructor(agentDir: string, private logger: Logger) {
     super();
-    this.referencesDir = path.join(workspaceDir, 'refs');
+    this.referencesDir = path.join(agentDir, 'refs');
     if (!fs.existsSync(this.referencesDir)) {
       fs.mkdirSync(this.referencesDir, { recursive: true });
     }

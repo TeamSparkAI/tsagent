@@ -1,7 +1,7 @@
 {
   "name": "agent-api",
   "version": "1.2.0",
-  "description": "Simple CRUD API for agents (workspaces)",
+  "description": "Typescript API for agents",
   "type": "module",
   "exports": {
     ".": {
