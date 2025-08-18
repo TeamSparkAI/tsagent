@@ -1,12 +1,12 @@
-# Teamspark AI Workbench Workspaces
+# Teamspark AI Workbench Agents
 
-## Workspaces
+## Agents
 
-workspaces.json (in app files directory) - list of recent workspaces (GUI app only)
+agents.json (in app files directory) - list of recent agents (GUI app only)
 
-## Workspace
+## Agent
 
-tspark.json - in root of workspace
+tspark.json - in root of agent
 
 {
   "metadata": {
@@ -60,7 +60,7 @@ tspark.json - in root of workspace
   }
 }
 
-## Other workspace files
+## Other agent files
 
 /prompt.md (GFM)
 /references/*.mdt (YAML frontmatter + GFM text)

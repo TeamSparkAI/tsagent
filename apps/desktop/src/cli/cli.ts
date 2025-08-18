@@ -52,7 +52,7 @@ const COMMANDS = {
   RULES: '/rules',
   REFERENCES: '/references',
   STATS: '/stats',
-  WORKSPACE: '/workspace'
+  AGENT: '/agent'
 };
 
 async function toolsCommand(agent: Agent) {
@@ -129,13 +129,13 @@ function showHelp() {
   console.log(chalk.yellow('  /model <model>') + ' - Switch to specified model');
   console.log(chalk.yellow('  /settings') + ' - List available settings');
   console.log(chalk.yellow('  /setting <setting> <value>') + ' - Update setting');
-  console.log(chalk.yellow('  /settings reset') + ' - Reset settings to workspace defaults');
-  console.log(chalk.yellow('  /settings save') + ' - Save current settings as workspace defaults');
+  console.log(chalk.yellow('  /settings reset') + ' - Reset settings to agent defaults');
+  console.log(chalk.yellow('  /settings save') + ' - Save current settings as agent defaults');
   console.log(chalk.yellow('  /tools') + ' - List available tools from all configured MCP servers');
   console.log(chalk.yellow('  /rules') + ' - List all rules (* active, - inactive)');
   console.log(chalk.yellow('  /references') + ' - List all references (* active, - inactive)');
   console.log(chalk.yellow('  /stats') + ' - Display statistics for the current chat session');
-  console.log(chalk.yellow('  /workspace') + ' - Display the current workspace path');
+  console.log(chalk.yellow('  /agent') + ' - Display the current agent path');
   console.log(chalk.yellow('  /clear') + ' - Clear the chat history');
   console.log(chalk.yellow('  /quit') + ' or ' + chalk.yellow('/exit') + ' - Exit the application');
   console.log('');
@@ -175,7 +175,7 @@ function getProviderByName(name: string): ProviderType | undefined {
   return providerType;
 }
 
-function getWorkspaceSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings {
+function getAgentSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings {
   return {
     maxChatTurns: getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS),
     maxOutputTokens: getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS),
@@ -206,7 +206,7 @@ export function setupCLI(agent: Agent, version: string) {
   let currentModelId: string | undefined;
 
   function createLocalChatSession() {
-    const chatSessionOptions = getWorkspaceSettings(agent);
+    const chatSessionOptions = getAgentSettings(agent);
  
     const mostRecentModel = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
     if (mostRecentModel) {
@@ -445,21 +445,21 @@ export function setupCLI(agent: Agent, version: string) {
             const settings = chatSession.getState();
             console.log(chalk.cyan('\nSettings:'));
             const sessionMaxChatTurns = settings.maxChatTurns;
-            const workspaceMaxChatTurns = getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS);
+            const agentMaxChatTurns = getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS);
             const sessionMaxOutputTokens = settings.maxOutputTokens;
-            const workspaceMaxOutputTokens = getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS);
+            const agentMaxOutputTokens = getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS);
             const sessionTemperature = settings.temperature;
-            const workspaceTemperature = getSettingsValue(agent, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE);
+            const agentTemperature = getSettingsValue(agent, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE);
             const sessionTopP = settings.topP;
-            const workspaceTopP = getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P);
+            const agentTopP = getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P);
             const sessionToolPermission = settings.toolPermission;
-            const workspaceToolPermission = getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
-            // Only if values are different, append "(workspace default: <value>)"
-            const maxChatTurns = sessionMaxChatTurns === workspaceMaxChatTurns ? sessionMaxChatTurns : `${sessionMaxChatTurns} (overrides workspace default: ${workspaceMaxChatTurns})`;
-            const maxOutputTokens = sessionMaxOutputTokens === workspaceMaxOutputTokens ? sessionMaxOutputTokens : `${sessionMaxOutputTokens} (overrides workspace default: ${workspaceMaxOutputTokens})`;
-            const temperature = sessionTemperature === workspaceTemperature ? sessionTemperature : `${sessionTemperature} (overrides workspace default: ${workspaceTemperature})`;
-            const topP = sessionTopP === workspaceTopP ? sessionTopP : `${sessionTopP} (overrides workspace default: ${workspaceTopP})`;
-            const toolPermission = sessionToolPermission === workspaceToolPermission ? sessionToolPermission : `${sessionToolPermission} (overrides workspace default: ${workspaceToolPermission})`;
+            const agentToolPermission = getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
+            // Only if values are different, append "(agent default: <value>)"
+            const maxChatTurns = sessionMaxChatTurns === agentMaxChatTurns ? sessionMaxChatTurns : `${sessionMaxChatTurns} (overrides agent default: ${agentMaxChatTurns})`;
+            const maxOutputTokens = sessionMaxOutputTokens === agentMaxOutputTokens ? sessionMaxOutputTokens : `${sessionMaxOutputTokens} (overrides agent default: ${agentMaxOutputTokens})`;
+            const temperature = sessionTemperature === agentTemperature ? sessionTemperature : `${sessionTemperature} (overrides agent default: ${agentTemperature})`;
+            const topP = sessionTopP === agentTopP ? sessionTopP : `${sessionTopP} (overrides agent default: ${agentTopP})`;
+            const toolPermission = sessionToolPermission === agentToolPermission ? sessionToolPermission : `${sessionToolPermission} (overrides agent default: ${agentToolPermission})`;
             console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_CHAT_TURNS}: ${maxChatTurns}`));
             console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_OUTPUT_TOKENS}: ${maxOutputTokens}`));
             console.log(chalk.yellow(`  ${SETTINGS_KEY_TEMPERATURE}: ${temperature}`));
@@ -467,9 +467,9 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.yellow(`  ${SESSION_TOOL_PERMISSION_KEY}: ${toolPermission}`));
             console.log('');
           } else if (args[0] == 'clear') {
-            const settings = getWorkspaceSettings(agent);
+            const settings = getAgentSettings(agent);
             chatSession.updateSettings(settings);
-            console.log(chalk.cyan('\nChat session settings restored to workspace defaults'));
+            console.log(chalk.cyan('\nChat session settings restored to agent defaults'));
           } else if (args[0] == 'save') {
             const settings = chatSession.getState();
             await agent.setSetting(SETTINGS_KEY_MAX_CHAT_TURNS, settings.maxChatTurns.toString());
@@ -477,7 +477,7 @@ export function setupCLI(agent: Agent, version: string) {
             await agent.setSetting(SETTINGS_KEY_TEMPERATURE, settings.temperature.toString());
             await agent.setSetting(SETTINGS_KEY_TOP_P, settings.topP.toString());
             await agent.setSetting(SESSION_TOOL_PERMISSION_KEY, settings.toolPermission);
-            console.log(chalk.cyan('\nChat session settings saved to workspace'));
+            console.log(chalk.cyan('\nChat session settings saved to agent'));
           } else {
             console.log(chalk.cyan('\nUnknown settings command: '), chalk.yellow(args[1]));
           }
@@ -656,8 +656,8 @@ export function setupCLI(agent: Agent, version: string) {
           console.log(chalk.green('Welcome to TeamSpark AI Workbench!'));
           break;
 
-        case COMMANDS.WORKSPACE:
-          console.log(chalk.cyan('\nWorkspace:'));
+        case COMMANDS.AGENT:
+          console.log(chalk.cyan('\nAgent:'));
           console.log(`  ${chalk.yellow(agent.path)}`);
           console.log('');
           break;

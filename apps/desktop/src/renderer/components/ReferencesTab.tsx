@@ -270,7 +270,7 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                             <p>
                                 References are documents or pieces of information that can be included in your chat context. 
                                 They help provide background information, guidelines, or specific details that the AI can 
-                                reference when responding to your questions.  The can serve as the "memory" of a workspace
+                                reference when responding to your questions.  The can serve as the "memory" of an agent
                                 or chat session.
                             </p>
                             <p>

@@ -324,7 +324,7 @@ const ModelList: React.FC<ModelListProps> = ({ provider }) => {
   useEffect(() => {
     const validateConfig = async () => {
       try {
-        // Get the current config for the provider from the workspace
+        // Get the current config for the provider from the agent
         const providerType = provider.id as ProviderType;
         
         // Build the config object from individual settings
@@ -545,7 +545,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                 description={
                   <div>
                     <p>
-                      Providers are the AI services that power your workspace. Each provider offers different models
+                      Providers are the AI services that power your agent. Each provider offers different models
                       with varying capabilities and costs. You can install multiple providers and switch between them
                       as needed.
                     </p>

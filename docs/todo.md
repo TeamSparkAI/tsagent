@@ -14,7 +14,7 @@ Chat import/export
 - JSON file
   - Messages/replies
   - Context (references and rules)
-  - Settings (if any override workspace defaults)
+  - Settings (if any override agent defaults)
 
 Edit chat
 - Truncate makes sense
@@ -24,11 +24,11 @@ Chat Debug
 - Show full details of chat history (everything we sent/received on every call, including prior message context, rules, tools, references, etc)
 - Maybe this is better as a specific log category/file
 
-## Workspaces Issues
+## Agent Issues
 
-Workspace metadata (name/desc) would be nice in UX
+Agent metadata (name/desc) would be nice in UX
 
-How many previous workspaces, what happens in UX if they overflow
+How many previous agents, what happens in UX if they overflow
 
 ## Dist
 

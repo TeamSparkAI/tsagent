@@ -308,13 +308,13 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     };
   }, [id]);
 
-  // Reset on workspace change
+  // Reset on agent change
   useEffect(() => {
-    log.info('[CHAT TAB] Setting up workspace:switched event listener');
+    log.info('[CHAT TAB] Setting up agent:switched event listener');
     
-    const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {   
+    const handleAgentSwitched = async (data: { windowId: string, agentPath: string, targetWindowId: string }) => {   
       const currentWindowId = await window.api.getCurrentWindowId();
-      log.info(`[CHAT TAB] Received workspace:switched, current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
+      log.info(`[CHAT TAB] Received agent:switched, current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
         
       // Only update the UI if this event is targeted at the current window
       if (currentWindowId === data.targetWindowId) {
@@ -330,12 +330,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       }
     };
     
-    const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    const listener = window.api.onAgentSwitched(handleAgentSwitched);
     
     return () => {
       if (listener) {
-        log.info('[CHAT TAB] Removed workspace:switched listener');
-        window.api.offWorkspaceSwitched(listener);
+        log.info('[CHAT TAB] Removed agent:switched listener');
+        window.api.offAgentSwitched(listener);
       }
     };
   }, [id]);
@@ -555,7 +555,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             return newState;
           });
           
-          // Save the most recent model selection to workspace settings
+          // Save the most recent model selection to agent settings
           const modelValue = modelId ? `${model}:${modelId}` : model;
           await window.api.setSettingsValue(SETTINGS_KEY_MOST_RECENT_MODEL, modelValue);
           

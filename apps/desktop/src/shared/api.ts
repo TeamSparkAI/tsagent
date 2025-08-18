@@ -1,7 +1,7 @@
 import { Rule, Reference } from 'agent-api';
 import { McpConfig, CallToolResultWithElapsedTime } from 'agent-api';
 import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from 'agent-api';
-import { WorkspaceWindow } from '../main/workspaces-manager';
+import { AgentWindow } from '../main/agents-manager';
 import { ProviderType } from 'agent-api';
 import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from 'agent-api';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
@@ -82,22 +82,22 @@ export interface API {
   onProvidersChanged: (callback: () => void) => () => void;
   offProvidersChanged: (listener: () => void) => void;
 
-  // Workspace methods
+  // Agentmethods
   showOpenDialog: (options: OpenDialogOptions) => Promise<{ canceled: boolean; filePaths: string[] }>;
   showMessageBox: (options: MessageBoxOptions) => Promise<{ response: number }>;
-  getActiveWindows: () => Promise<WorkspaceWindow[]>;
-  getRecentWorkspaces: () => Promise<string[]>;
-  openWorkspace: (path: string) => Promise<void>;
+  getActiveWindows: () => Promise<AgentWindow[]>;
+  getRecentAgents: () => Promise<string[]>;
+  openAgent: (path: string) => Promise<void>;
   openInNewWindow: (path: string) => Promise<void>;
-  createWorkspace: (windowId: string, path: string) => Promise<void>;
-  createWorkspaceInNewWindow: (path: string) => Promise<void>;
-  switchWorkspace: (windowId: string, workspacePath: string) => Promise<boolean>;
+  createAgent: (windowId: string, path: string) => Promise<void>;
+  createAgentInNewWindow: (path: string) => Promise<void>;
+  switchAgent: (windowId: string, agentPath: string) => Promise<boolean>;
   focusWindow: (windowId: string) => Promise<boolean>;
   getCurrentWindowId: () => Promise<string>;
-  cloneWorkspace: (sourcePath: string, targetPath: string) => Promise<{ success: boolean; error?: string; windowId?: string }>;
-  workspaceExists: (path: string) => Promise<boolean>;
-  onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
-  offWorkspaceSwitched: (listener: (event: any, data: any) => void) => void;
+  cloneAgent: (sourcePath: string, targetPath: string) => Promise<{ success: boolean; error?: string; windowId?: string }>;
+  agentExists: (path: string) => Promise<boolean>;
+  onAgentSwitched: (callback: (data: { windowId: string, agentPath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
+  offAgentSwitched: (listener: (event: any, data: any) => void) => void;
 
   // App details
   getAppDetails: () => Promise<{ isPackaged: boolean }>;

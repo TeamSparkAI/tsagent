@@ -7,62 +7,62 @@ import { Agent, Logger } from 'agent-api';
 import { ElectronLoggerAdapter } from './logger-adapter';
 
 // Electron-specific interface for window management
-export interface WorkspaceWindow {
+export interface AgentWindow {
     windowId: string;
-    workspacePath: string;
+    agentPath: string;
     browserWindow?: BrowserWindow;
 }
 
-export class WorkspacesManager extends EventEmitter {
+export class AgentsManager extends EventEmitter {
     private windowIdToAgentMap = new Map<string, Agent>(); // Indexed by windowId
     private logger: Logger;
 
-    private recentWorkspaces: string[];
-    private lastActiveWorkspace: string | null;
-    private readonly maxRecentWorkspaces = 10;
-    private readonly workspacesPath: string;
+    private recentAgents: string[];
+    private lastActiveAgent: string | null;
+    private readonly maxRecentAgents = 10;
+    private readonly agentsPath: string;
 
     constructor(logger?: Logger) {
         super();
         this.logger = logger || new ElectronLoggerAdapter();
-        this.recentWorkspaces = [];
-        this.lastActiveWorkspace = null;
-        this.workspacesPath = path.join(app.getPath('userData'), 'workspaces.json');
-        this.logger.info(`Workspaces file path: ${this.workspacesPath}`);
+        this.recentAgents = [];
+        this.lastActiveAgent = null;
+        this.agentsPath = path.join(app.getPath('userData'), 'agents.json');
+        this.logger.info(`Agents file path: ${this.agentsPath}`);
     }
 
     public async initialize(): Promise<void> {
         await this.loadState();
-        this.logger.info('WorkspacesManager initialized');
+        this.logger.info('AgentsManager initialized');
     }
 
     private async loadState(): Promise<void> {
         try {
-            this.logger.info(`Checking if workspaces file exists at: ${this.workspacesPath}`);
-            if (fs.existsSync(this.workspacesPath)) {
-                this.logger.info(`Loading workspaces from: ${this.workspacesPath}`);
-                const data = await fs.promises.readFile(this.workspacesPath, 'utf-8');
-                const { recentWorkspaces, lastActiveWorkspace } = JSON.parse(data);
-                this.recentWorkspaces = recentWorkspaces;
-                this.lastActiveWorkspace = lastActiveWorkspace;
+            this.logger.info(`Checking if agents file exists at: ${this.agentsPath}`);
+            if (fs.existsSync(this.agentsPath)) {
+                this.logger.info(`Loading agents from: ${this.agentsPath}`);
+                const data = await fs.promises.readFile(this.agentsPath, 'utf-8');
+                const { recentAgents, lastActiveAgent } = JSON.parse(data);
+                this.recentAgents = recentAgents;
+                this.lastActiveAgent = lastActiveAgent;
             } else {
-                this.logger.info(`Workspaces file does not exist at: ${this.workspacesPath}`);
+                this.logger.info(`Agents file does not exist at: ${this.agentsPath}`);
             }
         } catch (error) {
-            this.logger.error('Failed to load recent workspaces:', error);
+            this.logger.error('Failed to load recent agents:', error);
         }
     }
 
     private async saveState(): Promise<void> {
         try {
-            this.logger.info(`Saving workspaces to: ${this.workspacesPath}`);
+            this.logger.info(`Saving agents to: ${this.agentsPath}`);
             const data = JSON.stringify({
-                recentWorkspaces: this.recentWorkspaces,
-                lastActiveWorkspace: this.lastActiveWorkspace
+                recentAgents: this.recentAgents,
+                lastActiveAgent: this.lastActiveAgent
             }, null, 2);
-            await fs.promises.writeFile(this.workspacesPath, data);
+            await fs.promises.writeFile(this.agentsPath, data);
         } catch (error) {
-            this.logger.error('Failed to save recent workspaces:', error);
+            this.logger.error('Failed to save recent agents:', error);
         }
     }
 
@@ -70,29 +70,29 @@ export class WorkspacesManager extends EventEmitter {
         return this.windowIdToAgentMap.get(windowId) || null;
     }
 
-    public getActiveWindows(): WorkspaceWindow[] {
-        // Get all agents (get keys and values from map and map to WorkspaceWindow)
+    public getActiveWindows(): AgentWindow[] {
+        // Get all agents (get keys and values from map and map to AgentWindow)
         const agents = Array.from(this.windowIdToAgentMap.entries()).map(([windowId, agent]) => ({
             windowId,
-            workspacePath: agent.path
+            agentPath: agent.path
         }));
         return agents;
     }
 
-    private async addRecentWorkspace(workspacePath: string): Promise<void> {
+    private async addRecentAgent(agentPath: string): Promise<void> {
         // Remove if already exists
-        this.recentWorkspaces = this.recentWorkspaces.filter(path => path !== workspacePath);
+        this.recentAgents = this.recentAgents.filter(path => path !== agentPath);
         // Add to front
-        this.recentWorkspaces.unshift(workspacePath);
+        this.recentAgents.unshift(agentPath);
         // Trim to max size
-        if (this.recentWorkspaces.length > this.maxRecentWorkspaces) {
-            this.recentWorkspaces = this.recentWorkspaces.slice(0, this.maxRecentWorkspaces);
+        if (this.recentAgents.length > this.maxRecentAgents) {
+            this.recentAgents = this.recentAgents.slice(0, this.maxRecentAgents);
         }
         await this.saveState();
     }
 
-    public getRecentWorkspaces(): string[] {
-        return this.recentWorkspaces;
+    public getRecentAgents(): string[] {
+        return this.recentAgents;
     }
 
     /**
@@ -122,11 +122,11 @@ export class WorkspacesManager extends EventEmitter {
             // Add the window to the active windows map
             this.windowIdToAgentMap.set(windowId, agent);
             
-            // Update last active workspace
-            this.lastActiveWorkspace = agent.path;
+            // Update last active agent
+            this.lastActiveAgent = agent.path;
             
-            // Add to recent workspaces
-            await this.addRecentWorkspace(agent.path);
+            // Add to recent agents
+            await this.addRecentAgent(agent.path);
             
             // Save the state
             await this.saveState();
@@ -135,12 +135,12 @@ export class WorkspacesManager extends EventEmitter {
             const window = BrowserWindow.fromId(parseInt(windowId));
             if (window) {                
                 // Send the event to all windows, but include targetWindowId to indicate which window should update its content
-                this.logger.info(`[AGENT REGISTER] Sending workspace:switched event to all windows with targetWindowId ${windowId}`);
+                this.logger.info(`[AGENT REGISTER] Sending agent:switched event to all windows with targetWindowId ${windowId}`);
                 BrowserWindow.getAllWindows().forEach(win => {
-                    this.logger.info(`[AGENT REGISTER] Sending workspace:switched event to window ${win.id}`);
-                    win.webContents.send('workspace:switched', { 
+                    this.logger.info(`[AGENT REGISTER] Sending agent:switched event to window ${win.id}`);
+                    win.webContents.send('agent:switched', { 
                         windowId, 
-                        workspacePath: agent.path,
+                        agentPath: agent.path,
                         targetWindowId: windowId // This indicates which window should update its content
                     });
                 });
@@ -168,7 +168,7 @@ export class WorkspacesManager extends EventEmitter {
      * @param windowId The ID of the window
      * @param newAgent The agent to switch to, or null for no agent
      */
-    public async switchWorkspace(windowId: string, newAgent: Agent | null): Promise<void> {
+    public async switchAgent(windowId: string, newAgent: Agent | null): Promise<void> {
         try {
             const currentAgent = this.windowIdToAgentMap.get(windowId);
             if (currentAgent) {
@@ -187,12 +187,12 @@ export class WorkspacesManager extends EventEmitter {
             const browserWindow = BrowserWindow.fromId(parseInt(windowId));
             if (browserWindow) {
                 // Send the event to all windows, but include targetWindowId to indicate which window should update its content
-                this.logger.info(`[AGENT SWITCH] Sending workspace:switched event to all windows with targetWindowId ${windowId}`);
+                this.logger.info(`[AGENT SWITCH] Sending agent:switched event to all windows with targetWindowId ${windowId}`);
                 BrowserWindow.getAllWindows().forEach(win => {
-                    this.logger.info(`[AGENT SWITCH] Sending workspace:switched event to window ${win.id}`);
-                    win.webContents.send('workspace:switched', {
+                    this.logger.info(`[AGENT SWITCH] Sending agent:switched event to window ${win.id}`);
+                    win.webContents.send('agent:switched', {
                         windowId,
-                        workspacePath: newAgent ? newAgent.path : null,
+                        agentPath: newAgent ? newAgent.path : null,
                         targetWindowId: windowId // This indicates which window should update its content
                     });
                 });

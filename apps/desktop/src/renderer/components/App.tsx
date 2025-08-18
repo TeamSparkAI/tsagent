@@ -4,15 +4,15 @@ import { ChatTab } from './ChatTab';
 import { Tools } from './Tools';
 import { RulesTab } from './RulesTab';
 import { ReferencesTab } from './ReferencesTab';
-import { WorkspaceTab } from './WorkspaceTab';
+import { AgentTab } from './AgentTab';
 import { ProvidersTab } from './ProvidersTab';
 import { SettingsTab } from './SettingsTab';
 import { v4 as uuidv4 } from 'uuid';
 import log from 'electron-log';
 
-// NOTE: Currently, all tabs are remounted (here in App.tsx) on workspace:switch
+// NOTE: Currently, all tabs are remounted (here in App.tsx) on agent:switch
 // - This is how rules/references tabs are getting reloaded even though they don't listen for workplace:switch
-// - We could try to be more clever, because all tabs other than the Chat tabs don't actually need to detach/attach (they can update themselves on workspace:switch)
+// - We could try to be more clever, because all tabs other than the Chat tabs don't actually need to detach/attach (they can update themselves on agent:switch)
 
 interface TabInstance {
   id: string;
@@ -23,34 +23,34 @@ interface TabInstance {
 export const App: React.FC = () => {
   const [tabs, setTabs] = useState<TabInstance[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
-  const [hasWorkspace, setHasWorkspace] = useState<boolean>(false);
+  const [hasAgent, setHasAgent] = useState<boolean>(false);
 
-  // Define checkWorkspace function outside useEffect so it can be called directly
-  const checkWorkspace = async () => {
+  // Define checkAgent function outside useEffect so it can be called directly
+  const checkAgent = async () => {
     try {
-      log.info('[APP] checkWorkspace called');
+      log.info('[APP] checkAgent called');
       const currentWindowId = await window.api.getCurrentWindowId();
       log.info(`[APP] Current window ID: ${currentWindowId}`);
       
       const activeWindows = await window.api.getActiveWindows();
       log.info(`[APP] Active windows: ${JSON.stringify(activeWindows)}`);
       
-      // Check if the current window is registered with a workspace
+      // Check if the current window is registered with an agent
       const isRegistered = activeWindows.some(window => window.windowId === currentWindowId);
-      log.info(`[APP] Window ${currentWindowId} is ${isRegistered ? 'registered' : 'not registered'} with a workspace`);
+      log.info(`[APP] Window ${currentWindowId} is ${isRegistered ? 'registered' : 'not registered'} with an agent`);
       
-      setHasWorkspace(isRegistered);
+      setHasAgent(isRegistered);
       
-      log.info(`[APP] Workspace status: ${isRegistered ? 'Selected' : 'Not selected'}`);
+      log.info(`[APP] Agent status: ${isRegistered ? 'Selected' : 'Not selected'}`);
       
-      // If a workspace is selected, replace all tabs
+      // If an agent is selected, replace all tabs
       if (isRegistered) {
-        log.info('[APP] Creating all tabs for workspace');
+        log.info('[APP] Creating all tabs for agent');
         const allTabs = [
           {
             id: uuidv4(),
-            type: 'workspace',
-            title: 'Workspace'
+            type: 'agent',
+            title: 'Agent'
           },
           {
             id: uuidv4(),
@@ -85,36 +85,36 @@ export const App: React.FC = () => {
         ];
         log.info(`[APP] Setting ${allTabs.length} tabs`);
         setTabs(allTabs);
-        // Set the first tab (workspace) as active
+        // Set the first tab (agent) as active
         log.info(`[APP] Setting active tab to ${allTabs[0].id}`);
         setActiveTabId(allTabs[0].id);
       } else {
-        // If no workspace is selected, only show the workspace tab
-        log.info('[APP] No workspace selected, only showing workspace tab');
-        const workspaceTab = {
+        // If no agent is selected, only show the agent tab
+        log.info('[APP] No agent selected, only showing agent tab');
+        const agentTab = {
           id: uuidv4(),
-          type: 'workspace',
-          title: 'Workspace'
+          type: 'agent',
+          title: 'Agent'
         };
-        log.info(`[APP] Setting single tab: ${workspaceTab.id}`);
-        setTabs([workspaceTab]);
-        log.info(`[APP] Setting active tab to ${workspaceTab.id}`);
-        setActiveTabId(workspaceTab.id);
+        log.info(`[APP] Setting single tab: ${agentTab.id}`);
+        setTabs([agentTab]);
+        log.info(`[APP] Setting active tab to ${agentTab.id}`);
+        setActiveTabId(agentTab.id);
       }
     } catch (error) {
-      log.error('[APP] Error checking workspace status:', error);
-      setHasWorkspace(false);
+      log.error('[APP] Error checking agent status:', error);
+      setHasAgent(false);
     }
   };
 
-  // Check if a workspace is selected
+  // Check if an agent is selected
   useEffect(() => {
-    log.info('[APP] Initial checkWorkspace call');
-    checkWorkspace();
+    log.info('[APP] Initial checkAgent call');
+    checkAgent();
     
-    // Listen for workspace switched event from the API
-    const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {
-      log.info('[APP] Workspace switched event received from API with data:', data);
+    // Listen for agent switched event from the API
+    const handleAgentSwitched = async (data: { windowId: string, agentPath: string, targetWindowId: string }) => {
+      log.info('[APP] Agent switched event received from API with data:', data);
       
       const currentWindowId = await window.api.getCurrentWindowId();
       log.info(`[APP] Current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
@@ -122,17 +122,17 @@ export const App: React.FC = () => {
       // Only update the UI if this event is targeted at the current window
       if (currentWindowId === data.targetWindowId) {
         log.info(`[APP] Event is targeted at this window, updating tabs`);
-        checkWorkspace();
+        checkAgent();
       }
     };
     
-    log.info('[APP] Setting up workspace:switched event listener');
-    const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+    log.info('[APP] Setting up agent:switched event listener');
+    const listener = window.api.onAgentSwitched(handleAgentSwitched);
     
     return () => {
       if (listener) {
-        log.info('[APP] Cleaning up workspace:switched event listener');
-        window.api.offWorkspaceSwitched(listener);
+        log.info('[APP] Cleaning up agent:switched event listener');
+        window.api.offAgentSwitched(listener);
       }
     };
   }, []); // Empty dependency array to avoid circular dependency
@@ -161,8 +161,8 @@ export const App: React.FC = () => {
 
   const renderTabContent = (tab: TabInstance) => {
     switch (tab.type) {
-      case 'workspace':
-        return <WorkspaceTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+      case 'agent':
+        return <AgentTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'providers':
         return <ProvidersTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'settings':
@@ -186,7 +186,7 @@ export const App: React.FC = () => {
       activeTabId={activeTabId} 
       onTabChange={setActiveTabId}
       onCloseTab={handleCloseTab}
-      hasWorkspace={hasWorkspace}
+      hasAgent={hasAgent}
     >
       {tabs.map(renderTabContent)}
     </TabManager>

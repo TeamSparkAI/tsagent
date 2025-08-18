@@ -23,5 +23,5 @@ References
 - With these kinds of tools we'll by pulling a lot of things into the context history (versus more explicit reference creation)
 - Ability to easily convert message (or specific tool output) to reference easily
 - Maybe we automatically "remember" things that seem important (build references)
-- Or maybe we ask when that happens - "Do you want to remmeber this for future chat sessions in this workspace?"
+- Or maybe we ask when that happens - "Do you want to remmeber this for future chat sessions in this agent?"
 

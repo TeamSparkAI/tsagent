@@ -2,7 +2,7 @@ import React from 'react';
 import { RulesTab } from './RulesTab';
 import { ChatTab } from './ChatTab';
 import { ReferencesTab } from './ReferencesTab';
-import { WorkspaceTab } from './WorkspaceTab';
+import { AgentTab } from './AgentTab';
 import { ProvidersTab } from './ProvidersTab';
 import { SettingsTab } from './SettingsTab';
 import { Tools } from './Tools';
@@ -14,13 +14,13 @@ interface Tab {
 }
 
 export const AppLayout: React.FC = () => {
-  const [activeTabId, setActiveTabId] = React.useState('workspace');
+  const [activeTabId, setActiveTabId] = React.useState('agent');
 
   const tabs: Tab[] = [
     {
-      id: 'workspace',
-      label: 'Workspace',
-      content: <WorkspaceTab id="workspace" activeTabId={activeTabId} name="Workspace" type="workspace" />
+      id: 'agent',
+      label: 'Agent',
+      content: <AgentTab id="agent" activeTabId={activeTabId} name="Agent" type="agent" />
     },
     {
       id: 'providers',

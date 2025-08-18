@@ -911,10 +911,10 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     useEffect(() => {
         loadServers();
-        // Add event listener for workspace changes
-        const handleWorkspaceSwitched = async (data: { windowId: string, workspacePath: string, targetWindowId: string }) => {   
+        // Add event listener for agent changes
+        const handleAgentSwitched = async (data: { windowId: string, agentPath: string, targetWindowId: string }) => {   
             const currentWindowId = await window.api.getCurrentWindowId();
-            log.info(`[TOOLS TAB] Received workspace:switched, current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
+            log.info(`[TOOLS TAB] Received agent:switched, current window ID: ${currentWindowId}, target window ID: ${data.targetWindowId}`);
               
             // Only update the UI if this event is targeted at the current window
             if (currentWindowId === data.targetWindowId) {      
@@ -923,14 +923,14 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         };
 
         // Use the API method instead of DOM event listener
-        const listener = window.api.onWorkspaceSwitched(handleWorkspaceSwitched);
+        const listener = window.api.onAgentSwitched(handleAgentSwitched);
 
         // Clean up the API event listener
         return () => {
-            log.info('[TOOLS TAB] Cleaning up workspace:switched event listener');
+            log.info('[TOOLS TAB] Cleaning up agent:switched event listener');
             if (listener) {
-                window.api.offWorkspaceSwitched(listener);
-                log.info('[TOOLS TAB] Successfully removed workspace:switched listener');
+                window.api.offAgentSwitched(listener);
+                log.info('[TOOLS TAB] Successfully removed agent:switched listener');
             }
         };
     }, []);

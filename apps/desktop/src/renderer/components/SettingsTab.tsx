@@ -159,7 +159,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             description={
               <div>
                 <p>
-                  This tab allows you to configure various settings for your workspace.
+                  This tab allows you to configure various settings for your agent.
                   Use the menu on the left to navigate between different settings sections.
                 </p>
                 <p>

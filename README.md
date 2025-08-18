@@ -75,11 +75,11 @@ then just:
 tspark
 ```
 
-### CLI Workspace
+### CLI Agent
 
-You should either run the command line app in a directory containing a workspace, or pass it a workspace location via 
-the `--workspace` argument. To create a new workspace in current (or provided) workspace directory, use the `--create` 
-argument. Running the cli without a workspace will provide the above workspace guidance and exit.
+You should either run the command line app in a directory containing an agent, or pass it an agent location via 
+the `--agent` argument. To create a new agent in current (or provided) agent directory, use the `--create` 
+argument. Running the cli without an agent will provide the above agent guidance and exit.
 
 ## Website
 

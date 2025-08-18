@@ -76,27 +76,27 @@ const api: API = {
   deleteServerConfig: (name: string) => ipcRenderer.invoke('deleteServerConfig', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
 
-  // Workspace handlers
+  // Agent handlers
   showOpenDialog: (options: OpenDialogOptions) => ipcRenderer.invoke('dialog:showOpenDialog', options),
   showMessageBox: (options: MessageBoxOptions) => ipcRenderer.invoke('dialog:showMessageBox', options),
-  getActiveWindows: () => ipcRenderer.invoke('workspace:getActiveWindows'),
-  getRecentWorkspaces: () => ipcRenderer.invoke('workspace:getRecentWorkspaces'),
-  getCurrentWindowId: () => ipcRenderer.invoke('workspace:getCurrentWindowId'),
-  openWorkspace: (path: string) => ipcRenderer.invoke('workspace:openWorkspace', path),
-  openInNewWindow: (path: string) => ipcRenderer.invoke('workspace:openInNewWindow', path),
-  createWorkspace: (windowId: string, path: string) => ipcRenderer.invoke('workspace:createWorkspace', windowId, path),
-  createWorkspaceInNewWindow: (path: string) => ipcRenderer.invoke('workspace:createWorkspaceInNewWindow', path),
-  switchWorkspace: (windowId: string, workspacePath: string) => ipcRenderer.invoke('workspace:switchWorkspace', windowId, workspacePath),
-  focusWindow: (windowId: string) => ipcRenderer.invoke('workspace:focusWindow', windowId),
-  cloneWorkspace: (sourcePath: string, targetPath: string) => ipcRenderer.invoke('workspace:cloneWorkspace', sourcePath, targetPath),
-  workspaceExists: (path: string) => ipcRenderer.invoke('workspace:workspaceExists', path),
-  onWorkspaceSwitched: (callback: (data: { windowId: string, workspacePath: string, targetWindowId: string }) => void) => {
+  getActiveWindows: () => ipcRenderer.invoke('agent:getActiveWindows'),
+  getRecentAgents: () => ipcRenderer.invoke('agent:getRecentAgents'),
+  getCurrentWindowId: () => ipcRenderer.invoke('agent:getCurrentWindowId'),
+  openAgent: (path: string) => ipcRenderer.invoke('agent:openAgent', path),
+  openInNewWindow: (path: string) => ipcRenderer.invoke('agent:openInNewWindow', path),
+  createAgent: (windowId: string, path: string) => ipcRenderer.invoke('agent:createAgent', windowId, path),
+  createAgentInNewWindow: (path: string) => ipcRenderer.invoke('agent:createAgentInNewWindow', path),
+  switchAgent: (windowId: string, agentPath: string) => ipcRenderer.invoke('agent:switchAgent', windowId, agentPath),
+  focusWindow: (windowId: string) => ipcRenderer.invoke('agent:focusWindow', windowId),
+  cloneAgent: (sourcePath: string, targetPath: string) => ipcRenderer.invoke('agent:cloneAgent', sourcePath, targetPath),
+  agentExists: (path: string) => ipcRenderer.invoke('agent:agentExists', path),
+  onAgentSwitched: (callback: (data: { windowId: string, agentPath: string, targetWindowId: string }) => void) => {
     const wrappedCallback = (_event: any, data: any) => callback(data);
-    ipcRenderer.on('workspace:switched', wrappedCallback);
+    ipcRenderer.on('wagent:switched', wrappedCallback);
     return wrappedCallback;
   },
-  offWorkspaceSwitched: (listener: (event: any, data: any) => void) => {
-    ipcRenderer.removeListener('workspace:switched', listener);
+  offAgentSwitched: (listener: (event: any, data: any) => void) => {
+    ipcRenderer.removeListener('agent:switched', listener);
   },
 
   // LLM Providers (new methods for model picker)

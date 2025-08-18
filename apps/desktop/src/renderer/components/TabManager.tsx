@@ -1,13 +1,4 @@
 import React, { useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
-import { ChatTab } from './ChatTab';
-import { Tools } from './Tools';
-import { RulesTab } from './RulesTab';
-import { ReferencesTab } from './ReferencesTab';
-import { WorkspaceTab } from './WorkspaceTab';
-import { ProvidersTab } from './ProvidersTab';
-import { SettingsTab } from './SettingsTab';
-import { TabProps } from '../types/TabProps';
 
 export interface TabInstance {
   id: string;
@@ -27,7 +18,7 @@ interface TabManagerProps {
   activeTabId: string | null;
   onTabChange: (id: string | null) => void;
   onCloseTab: (id: string) => void;
-  hasWorkspace: boolean;
+  hasAgent: boolean;
 }
 
 export const TabManager: React.FC<TabManagerProps> = ({ 
@@ -36,7 +27,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
   activeTabId,
   onTabChange,
   onCloseTab,
-  hasWorkspace
+  hasAgent
 }) => {
   return (
     <div className="tab-container">
@@ -53,7 +44,7 @@ export const TabManager: React.FC<TabManagerProps> = ({
             }
           </button>
         ))}
-        {hasWorkspace && (
+        {hasAgent && (
           <button className="new-tab-button" onClick={() => onAddTab('chat')}>+ New Chat</button>
         )}
       </div>

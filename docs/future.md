@@ -1,4 +1,4 @@
-# TeamSpark AI Workspace Future
+# TeamSpark AI Workbench Future
 
 ## Chat
 
@@ -25,7 +25,7 @@ This can be trick on a given chat session if you switch models mid-session
 
 ## Tool functionality
 
-mcp client can specify cwd to stdio transport (workspace implications)
+mcp client can specify cwd to stdio transport (agent implications?)
 
 To run MCP test app: npx @modelcontextprotocol/inspector
 

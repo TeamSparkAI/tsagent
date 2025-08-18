@@ -4,8 +4,8 @@ Website with login, account management
 
 Probably still bring-your-own-model (BYOM) unless we were funded and could subsidize
 
-Workspaces all serialized to cloud account / DB
-- Including everything serialized through the workspace manager (including rules, refs, tools)
+Agents all serialized to cloud account / DB
+- Including everything serialized through the agent (including rules, refs, tools)
 
 Settings - same as local (except PATH not needed)
 

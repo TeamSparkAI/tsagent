@@ -5,7 +5,7 @@ import log from 'electron-log';
 import * as fs from 'fs';
 import { setupCLI } from '../cli/cli';
 import { McpConfig } from 'agent-api';
-import { WorkspacesManager } from './workspaces-manager';
+import { AgentsManager } from './agents-manager';
 import { agentExists, loadAgent, createAgent } from 'agent-api/runtime';
 import { Agent } from 'agent-api';
 import { ElectronLoggerAdapter } from './logger-adapter';
@@ -15,7 +15,7 @@ import { SessionToolPermission, SETTINGS_KEY_THEME, ChatMessage } from 'agent-ap
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
-let workspacesManager: WorkspacesManager;
+let agentsManager: AgentsManager;
 const PRODUCT_NAME = 'TeamSpark AI Workbench';
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
@@ -51,7 +51,7 @@ async function createWindow(agent?: Agent): Promise<BrowserWindow> {
   // window.webContents.openDevTools();
 
   if (agent) {
-    workspacesManager.registerWindow(window.id.toString(), agent);
+    agentsManager.registerWindow(window.id.toString(), agent);
     // Set initial theme from agent
     const theme = agent.getSetting(SETTINGS_KEY_THEME);
     if (theme) {
@@ -66,7 +66,7 @@ async function createWindow(agent?: Agent): Promise<BrowserWindow> {
   window.loadFile(indexPath);
 
   window.on('close', () => {
-    workspacesManager.switchWorkspace(window.id.toString(), null);
+    agentsManager.switchAgent(window.id.toString(), null);
   });
 
   return window;
@@ -83,7 +83,7 @@ function getAgentForWindow(windowId?: string): Agent | null {
     windowId = focusedWindow.id.toString();
   }
   
-  const agent = workspacesManager.getAgentForWindow(windowId);
+  const agent = agentsManager.getAgentForWindow(windowId);
   if (!agent) {
     log.warn(`No Agent found for window: ${windowId}`);
     return null;
@@ -117,13 +117,13 @@ function initializeLogging(isElectron: boolean) {
 }
 
 // Initialize paths and managers
-async function initializeWorkspaceManager() {
+async function initializeAgentManager() {
   log.info('Starting initialization process');
 
-  // Create and initialize WorkspacesManager with logger
+  // Create and initialize AgentsManager with logger
   const logger = new ElectronLoggerAdapter();
-  workspacesManager = new WorkspacesManager(logger);
-  await workspacesManager.initialize();
+  agentsManager = new AgentsManager(logger);
+  await agentsManager.initialize();
 }
 
 async function showLicenseAgreement() {
@@ -193,15 +193,15 @@ async function startApp() {
   if (process.argv.includes('--cli')) {
     initializeLogging(false);
 
-    // -- workspace (path) the workspace directory or file (tspark.json), defaults to cwd
+    // -- agent (path) the agent directory or file (tspark.json), defaults to cwd
     // -- create (bool) indicates whether the path should be created if it doesn't exist
     //
-    let workspacePath = process.cwd();
+    let agentPath = process.cwd();
     let create = false;
     for (let i = 0; i < process.argv.length; i++) {
-      if (process.argv[i] === '--workspace') {
-        // Resolve workspace path relative to cwd (unless it's an absolute path)
-        workspacePath = path.resolve(process.argv[i + 1]);
+      if (process.argv[i] === '--agent') {
+        // Resolve agent path relative to cwd (unless it's an absolute path)
+        agentPath = path.resolve(process.argv[i + 1]);
       } else if (process.argv[i] === '--create') {
         create = true;
       }
@@ -212,26 +212,26 @@ async function startApp() {
     
     if (create) {
       try {
-        agent = await createAgent(workspacePath, logger);
-        console.log(chalk.green(`Created new workspace at: ${workspacePath}`));
+        agent = await createAgent(agentPath, logger);
+        console.log(chalk.green(`Created new agent at: ${agentPath}`));
       } catch (error) {
-        console.log(chalk.red(`Failed to create workspace: ${error}`));
+        console.log(chalk.red(`Failed to create agent: ${error}`));
         process.exit(1);
       }
     } else {
       try {
         // First check if agent exists
-        if (!(await agentExists(workspacePath))) {
-          console.log(chalk.red(`${PRODUCT_NAME} failed to locate workspace (tspark.json) in directory: `), workspacePath);
-          console.log(chalk.dim('  Use '), chalk.bold('--workspace <path>'), chalk.dim(' absolute or relative path to a workspace directory (where tspark.json will be found or created)'));
-          console.log(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new workspace in the specified directory, or current working directory if workspace path not specified'));
+        if (!(await agentExists(agentPath))) {
+          console.log(chalk.red(`${PRODUCT_NAME} failed to locate agent (tspark.json) in directory: `), agentPath);
+          console.log(chalk.dim('  Use '), chalk.bold('--agent <path>'), chalk.dim(' absolute or relative path to a agent directory (where tspark.json will be found or created)'));
+          console.log(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new agent in the specified directory, or current working directory if agent path not specified'));
           process.exit(1);
         }
         
         // Agent exists, try to load it
-        agent = await loadAgent(workspacePath, logger);
+        agent = await loadAgent(agentPath, logger);
       } catch (error) {
-        console.log(chalk.red(`Error loading workspace: ${error instanceof Error ? error.message : 'Unknown error'}`));
+        console.log(chalk.red(`Error loading agent: ${error instanceof Error ? error.message : 'Unknown error'}`));
         process.exit(1);
       }
     }
@@ -279,45 +279,45 @@ async function startApp() {
     // Move initialization into the ready event
     app.whenReady().then(async () => {
       log.info('App ready, starting initialization');
-      await initializeWorkspaceManager();
+      await initializeAgentManager();
       log.info('Initialization complete, creating window');
 
-      // If workspace path on command line, open that workspace 
+      // If agent path on command line, open that agent 
       const filteredArgs = process.argv.slice(2).filter(arg => !arg.startsWith('-'));
-      const workspacePath = filteredArgs.length > 0 ? filteredArgs[0] : null;
+      const agentPath = filteredArgs.length > 0 ? filteredArgs[0] : null;
       
-      if (workspacePath) {
-        log.info(`Opening workspace from command line: ${workspacePath}`);
+      if (agentPath) {
+        log.info(`Opening agent from command line: ${agentPath}`);
         const logger = new ElectronLoggerAdapter();
-        const agent = await loadAgent(workspacePath, logger);
+        const agent = await loadAgent(agentPath, logger);
         if (!agent) {
-          log.error('Failed to find workspace (tspark.json) in directory provide on launch command line: ', workspacePath);
+          log.error('Failed to find agent (tspark.json) in directory provide on launch command line: ', agentPath);
           // !!! Ideally we should show the user this message in the UX
           mainWindow = await createWindow();
         } else {
           mainWindow = await createWindow(agent);
         }
       } else {
-        // Else if there is a most recently used workspace, open that 
-        const mostRecentlyUsedWorkspace = workspacesManager.getRecentWorkspaces(); // !!! Should this be workspaceManager.getLastActiveWorkspace()?
-        if (mostRecentlyUsedWorkspace.length > 0) {
-          log.info(`Opening most recently used workspace: ${mostRecentlyUsedWorkspace[0]}`);
+        // Else if there is a most recently used agent, open that 
+        const mostRecentlyUsedAgent = agentsManager.getRecentAgents(); // !!! Should this be agentsManager.getLastActiveAgent()?
+        if (mostRecentlyUsedAgent.length > 0) {
+          log.info(`Opening most recently used agent: ${mostRecentlyUsedAgent[0]}`);
           const logger = new ElectronLoggerAdapter();
-          const agent = await loadAgent(mostRecentlyUsedWorkspace[0], logger);
+          const agent = await loadAgent(mostRecentlyUsedAgent[0], logger);
           if (!agent) {
-            log.error('Failed to find workspace (tspark.json) in most recently used directory: ', mostRecentlyUsedWorkspace[0]);
+            log.error('Failed to find agent (tspark.json) in most recently used directory: ', mostRecentlyUsedAgent[0]);
             // !!! Ideally we should show the user this message in the UX
             mainWindow = await createWindow();
           } else {
             mainWindow = await createWindow(agent);
           }
         } else {
-          log.info('No most recently used workspace, creating new window with no workspace');
+          log.info('No most recently used agent, creating new window with no agent');
           mainWindow = await createWindow();
         }
       }
 
-      // Set up IPC handlers after potential workspace initialization
+      // Set up IPC handlers after potential agent initialization
       setupIpcHandlers(mainWindow);
     });
 
@@ -944,7 +944,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }  
   });
 
-  // Workspace IPC handlers
+  // Agent IPC handlers
   ipcMain.handle('dialog:showOpenDialog', (_, options: OpenDialogOptions) => {
     return dialog.showOpenDialog(options);
   });
@@ -953,15 +953,15 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return dialog.showMessageBox(options);
   });
 
-  ipcMain.handle('workspace:getActiveWindows', () => {
-    return workspacesManager.getActiveWindows();
+  ipcMain.handle('agent:getActiveWindows', () => {
+    return agentsManager.getActiveWindows();
   });
 
-  ipcMain.handle('workspace:getRecentWorkspaces', () => {
-    return workspacesManager.getRecentWorkspaces();
+  ipcMain.handle('agent:getRecentAgents', () => {
+    return agentsManager.getRecentAgents();
   });
 
-  ipcMain.handle('workspace:getCurrentWindowId', (event) => {
+  ipcMain.handle('agent:getCurrentWindowId', (event) => {
     // Get the window that sent the request
     const currentWindow = BrowserWindow.fromWebContents(event.sender);
     if (!currentWindow) {
@@ -972,19 +972,19 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return currentWindow.id.toString();
   });
 
-  ipcMain.handle('workspace:workspaceExists', async (_, path: string) => {
+  ipcMain.handle('agent:agentExists', async (_, path: string) => {
     return await agentExists(path);
   });
 
-  // Open the workspace at filePath in the current window, or if no current window, create a new one
+  // Open the agent at filePath in the current window, or if no current window, create a new one
   //
-  ipcMain.handle('workspace:openWorkspace', async (_, filePath: string) => {
-    log.info(`[WORKSPACE OPEN] IPC handler called for workspace:openWorkspace ${filePath}`);
+  ipcMain.handle('agent:openAgent', async (_, filePath: string) => {
+    log.info(`[AGENT OPEN] IPC handler called for agent:openAgent ${filePath}`);
     const logger = new ElectronLoggerAdapter();
     const agent = await loadAgent(filePath, logger);
     if (!agent) {
-      // This is a directory the user just picked, so it should always be a valid workspace
-      log.error('Failed to find workspace (tspark.json) in directory provided: ', filePath);
+      // This is a directory the user just picked, so it should always be a valid agent
+      log.error('Failed to find agent (tspark.json) in directory provided: ', filePath);
       // !!! Ideally we should show the user this message in the UX
       return null;
     }
@@ -992,31 +992,31 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     // Get the current window
     const currentWindow = BrowserWindow.getFocusedWindow();
     if (currentWindow) {
-      log.info(`[WORKSPACE OPEN] Opening workspace ${agent.path} in current window ${currentWindow.id}`);
-      workspacesManager.registerWindow(currentWindow.id.toString(), agent);
+      log.info(`[AGENT OPEN] Opening agent ${agent.path} in current window ${currentWindow.id}`);
+      agentsManager.registerWindow(currentWindow.id.toString(), agent);
             
       // Return the current window's ID
       return currentWindow.id;
     }
     
     // If no current window exists, create a new one
-    log.info(`[WORKSPACE OPEN] No current window, creating new window for workspace ${agent.path}`);
+    log.info(`[AGENT OPEN] No current window, creating new window for agent ${agent.path}`);
     const window = await createWindow(agent);
     return window.id;
   });
 
-  // Open the workspace at filePath in a new window
+  // Open the agent at filePath in a new window
   //
-  ipcMain.handle('workspace:openInNewWindow', async (_, filePath: string) => {
-    log.info(`[WORKSPACE OPEN] Opening workspace ${filePath} in a new window`);
-    log.info(`[WORKSPACE OPEN] IPC handler called for workspace:openInNewWindow ${filePath}`);
+  ipcMain.handle('agent:openInNewWindow', async (_, filePath: string) => {
+    log.info(`[AGENT OPEN] Opening agent ${filePath} in a new window`);
+    log.info(`[AGENT OPEN] IPC handler called for agent:openInNewWindow ${filePath}`);
     const logger = new ElectronLoggerAdapter();
     const agent = await loadAgent(filePath, logger);
     
     // Always create a new window
     if (!agent) {
-      // This is a directory the user just picked, so it should always be a valid workspace
-      log.error('Failed to find workspace (tspark.json) in directory provided: ', filePath);
+      // This is a directory the user just picked, so it should always be a valid agent
+      log.error('Failed to find agent (tspark.json) in directory provided: ', filePath);
       // !!! Ideally we should show the user this message in the UX
       return null;
     }
@@ -1025,88 +1025,88 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return window.id;
   });
 
-  // Create NEW workspace in the specified window
+  // Create NEW agent in the specified window
   //
-  ipcMain.handle('workspace:createWorkspace', async (_, windowId: string, workspacePath: string) => {
-    log.info(`[WORKSPACE CREATE] IPC handler called for window ${windowId} to workspace ${workspacePath}`);
+  ipcMain.handle('agent:createAgent', async (_, windowId: string, agentPath: string) => {
+    log.info(`[AGENT CREATE] IPC handler called for window ${windowId} to agent ${agentPath}`);
     // Convert windowId to string to ensure consistent handling
     const windowIdStr = windowId.toString();
 
     const logger = new ElectronLoggerAdapter();
-    const agent = await loadAgent(workspacePath, logger);
+    const agent = await loadAgent(agentPath, logger);
 
-    log.info(`[WORKSPACE SWITCH] Workspace found: ${agent.path}`);
-    await workspacesManager.switchWorkspace(windowIdStr, agent);
+    log.info(`[AGENT SWITCH] Agent found: ${agent.path}`);
+    await agentsManager.switchAgent(windowIdStr, agent);
     return true;
   });
 
-  // Create NEW workspace in a new window
+  // Create NEW agent in a new window
   //
-  ipcMain.handle('workspace:createWorkspaceInNewWindow', async (_, workspacePath: string) => {
-    log.info(`[WORKSPACE CREATE] IPC handler called for workspace:createWorkspaceInNewWindow ${workspacePath}`);
+  ipcMain.handle('agent:createAgentInNewWindow', async (_, agentPath: string) => {
+    log.info(`[AGENT CREATE] IPC handler called for agent:createAgentInNewWindow ${agentPath}`);
     const logger = new ElectronLoggerAdapter();
-    const agent = await loadAgent(workspacePath, logger);
+    const agent = await loadAgent(agentPath, logger);
     const window = await createWindow(agent);
     return window.id;
   });
 
-  // Clone workspace to a new location
+  // Clone agent to a new location
   //
-  ipcMain.handle('workspace:cloneWorkspace', async (_, sourcePath: string, targetPath: string) => {
-    log.info(`[WORKSPACE CLONE] IPC handler called for workspace:cloneWorkspace from ${sourcePath} to ${targetPath}`);
+  ipcMain.handle('agent:cloneAgent', async (_, sourcePath: string, targetPath: string) => {
+    log.info(`[AGENT CLONE] IPC handler called for agent:cloneAgent from ${sourcePath} to ${targetPath}`);
     
-    // Check if target workspace already exists
+    // Check if target agent already exists
     if (await agentExists(targetPath)) {
-      log.error(`[WORKSPACE CLONE] Target workspace already exists: ${targetPath}`);
-      return { success: false, error: 'A workspace already exists at the target location' };
+      log.error(`[AGENT CLONE] Target agent already exists: ${targetPath}`);
+      return { success: false, error: 'An agent already exists at the target location' };
     }
 
-    // Clone the workspace
+    // Clone the agent
     const logger = new ElectronLoggerAdapter();
     const sourceAgent = await loadAgent(sourcePath, logger);
     if (!sourceAgent) {
-      log.error(`[WORKSPACE CLONE] Failed to load source workspace: ${sourcePath}`);
-      return { success: false, error: 'Failed to load source workspace' };
+      log.error(`[AGENT CLONE] Failed to load source agent: ${sourcePath}`);
+      return { success: false, error: 'Failed to load source agent' };
     }
     
     const clonedAgent = await sourceAgent.clone(targetPath);
     if (!clonedAgent) {
-      log.error(`[WORKSPACE CLONE] Failed to clone workspace from ${sourcePath} to ${targetPath}`);
-      return { success: false, error: 'Failed to clone workspace' };
+      log.error(`[AGENT CLONE] Failed to clone agent from ${sourcePath} to ${targetPath}`);
+      return { success: false, error: 'Failed to clone agent' };
     }
 
-    // Always create a new window for the cloned workspace
-    log.info(`[WORKSPACE CLONE] Creating new window for cloned workspace ${clonedAgent.path}`);
+    // Always create a new window for the cloned agent
+    log.info(`[AGENT CLONE] Creating new window for cloned agent ${clonedAgent.path}`);
     const window = await createWindow(clonedAgent);
     return { success: true, windowId: window.id };
   });
 
-  // Switch to the workspace at workspacePath in the specified window
+  // Switch to the agent at agentPath in the specified window
   //
-  ipcMain.handle('workspace:switchWorkspace', async (_, windowId: string, workspacePath: string) => {
+  ipcMain.handle('agent:switchAgent', async (_, windowId: string, agentPath: string) => {
     try {
-      log.info(`[WORKSPACE SWITCH] IPC handler called for window ${windowId} to workspace ${workspacePath}`);
+      log.info(`[AGENT SWITCH] IPC handler called for window ${windowId} to agent ${agentPath}`);
       // Convert windowId to string to ensure consistent handling
       const windowIdStr = windowId.toString();
 
       const logger = new ElectronLoggerAdapter();
-      const agent = await loadAgent(workspacePath, logger);
+      const agent = await loadAgent(agentPath, logger);
       if (!agent) {
-        log.error('[WORKSPACE SWITCH] Failed to find workspace (tspark.json) in directory provided: ', workspacePath);
+        log.error('[AGENT SWITCH] Failed to find agent (tspark.json) in directory provided: ', agentPath);
         // !!! Ideally we should show the user this message in the UX
         return false;
       }
-      log.info(`[WORKSPACE SWITCH] Workspace found: ${agent.path}`);
-      await workspacesManager.switchWorkspace(windowIdStr, agent);
+      log.info(`[AGENT SWITCH] Agent found: ${agent.path}`);
+      await agentsManager.switchAgent(windowIdStr, agent);
       return true;
     } catch (error) {
-      log.error(`[WORKSPACE SWITCH] Error in IPC handler switching window ${windowId} to workspace ${workspacePath}:`, error);
+      log.error(`[AGENT SWITCH] Error in IPC handler switching window ${windowId} to agent ${agentPath}:`, error);
       return false;
     }
   });
 
-  // After the other workspace IPC handlers
-  ipcMain.handle('workspace:focusWindow', (_, windowId: string) => {
+  // After the other agent IPC handlers
+  ipcMain.handle('agent:focusWindow', (_, windowId: string) => {
     try {
       log.info(`[WINDOW FOCUS] Focusing window: ${windowId}`);
       const allWindows = BrowserWindow.getAllWindows();

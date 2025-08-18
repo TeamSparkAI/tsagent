@@ -22,7 +22,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   onSettingsChange,
   showTitle = true
 }) => {
-  const [workspaceSettings, setWorkspaceSettings] = useState<ChatSettings>({
+  const [agentSettings, setAgentSettings] = useState<ChatSettings>({
     maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
     maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
     temperature: SETTINGS_DEFAULT_TEMPERATURE,
@@ -31,15 +31,15 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   });
 
   useEffect(() => {
-    const loadWorkspaceSettings = async () => {
+    const loadAgentSettings = async () => {
       try {
-            const maxTurns = await window.api.getSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS);
-    const maxTokens = await window.api.getSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS);
-    const temperature = await window.api.getSettingsValue(SETTINGS_KEY_TEMPERATURE);
-    const topP = await window.api.getSettingsValue(SETTINGS_KEY_TOP_P);
+        const maxTurns = await window.api.getSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS);
+        const maxTokens = await window.api.getSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS);
+        const temperature = await window.api.getSettingsValue(SETTINGS_KEY_TEMPERATURE);
+        const topP = await window.api.getSettingsValue(SETTINGS_KEY_TOP_P);
         const toolPermission = await window.api.getSettingsValue('toolPermission');
 
-        setWorkspaceSettings({
+        setAgentSettings({
           maxChatTurns: maxTurns ? parseInt(maxTurns) : SETTINGS_DEFAULT_MAX_CHAT_TURNS,
           maxOutputTokens: maxTokens ? parseInt(maxTokens) : SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
           temperature: temperature ? parseFloat(temperature) : SETTINGS_DEFAULT_TEMPERATURE,
@@ -49,25 +49,25 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
         });
       } catch (error) {
-        log.error('Error loading workspace settings:', error);
+        log.error('Error loading agent settings:', error);
       }
     };
 
-    loadWorkspaceSettings();
+    loadAgentSettings();
   }, []);
 
   const areSettingsDefault = () => {
     return (
-      settings.maxChatTurns === workspaceSettings.maxChatTurns &&
-      settings.maxOutputTokens === workspaceSettings.maxOutputTokens &&
-      settings.temperature === workspaceSettings.temperature &&
-      settings.topP === workspaceSettings.topP &&
-      settings.toolPermission === workspaceSettings.toolPermission
+      settings.maxChatTurns === agentSettings.maxChatTurns &&
+      settings.maxOutputTokens === agentSettings.maxOutputTokens &&
+      settings.temperature === agentSettings.temperature &&
+      settings.topP === agentSettings.topP &&
+      settings.toolPermission === agentSettings.toolPermission
     );
   };
 
   const handleRestoreDefaults = () => {
-    onSettingsChange(workspaceSettings);
+    onSettingsChange(agentSettings);
   };
 
   const handleChange = (key: keyof ChatSettings, value: string | number) => {
@@ -99,14 +99,14 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
               <button 
                 className="btn-restore-defaults"
                 onClick={handleRestoreDefaults}
-                title="Restore workspace default settings"
+                title="Restore agent default settings"
               >
-                Restore Workspace Defaults
+                Restore Agent Defaults
               </button>
             )}
             {areSettingsDefault() && (
-              <span className="default-indicator" title="Using workspace default settings">
-                Using Workspace Default Settings
+              <span className="default-indicator" title="Using agent default settings">
+                Using Agent Default Settings
               </span>
             )}
           </div>
