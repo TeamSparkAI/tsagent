@@ -44,7 +44,7 @@ export class ChatSessionImpl implements ChatSession {
 
     // Create the LLM instance
     if (this.currentProvider && this.currentModelId) {
-      const llm = this.agent.providers.createProvider(this.currentProvider, this.currentModelId);
+      const llm = this.agent.createProvider(this.currentProvider, this.currentModelId);
       if (!llm) {
         throw new Error(`Failed to create LLM instance for model ${this.currentProvider}`);
       }
@@ -64,14 +64,14 @@ export class ChatSessionImpl implements ChatSession {
     ];
 
     // Add "always" include references to the session
-    for (const reference of this.agent.references.getAll()) {
+    for (const reference of this.agent.getAllReferences()) {
       if (reference.include === 'always') {
         this.addReference(reference.name);
       }
     }
 
     // Add "always" include rules to the session
-    for (const rule of this.agent.rules.getAll()) {
+    for (const rule of this.agent.getAllRules()) {
       if (rule.include === 'always') {
         this.addRule(rule.name);
       }
@@ -173,7 +173,7 @@ export class ChatSessionImpl implements ChatSession {
     
     // Add the references to the messages array
     for (const referenceName of this.references) {
-      const reference = this.agent.references.get(referenceName);
+      const reference = this.agent.getReference(referenceName);
       if (reference) {
         messages.push({
           role: 'user',
@@ -184,7 +184,7 @@ export class ChatSessionImpl implements ChatSession {
     
     // Add the rules to the messages array
     for (const ruleName of this.rules) {
-      const rule = this.agent.rules.get(ruleName);
+      const rule = this.agent.getRule(ruleName);
       if (rule) {
         messages.push({
           role: 'user',
@@ -205,7 +205,7 @@ export class ChatSessionImpl implements ChatSession {
         throw new Error(`Failed to generate response from ${this.currentProvider}`);
       }
 
-              this.logger.debug('All turns', JSON.stringify(response.turns, null, 2));
+      this.logger.debug('All turns', JSON.stringify(response.turns, null, 2));
 
       const replyMessage = {
         role: 'assistant' as const,
@@ -250,7 +250,7 @@ export class ChatSessionImpl implements ChatSession {
   switchModel(modelType: ProviderType, modelId: string): MessageUpdate {
     try {
       // Create new LLM instance
-      const llm = this.agent.providers.createProvider(modelType, modelId);
+      const llm = this.agent.createProvider(modelType, modelId);
       if (!llm) {
         throw new Error(`Failed to create LLM instance for model ${modelType}`);
       }
@@ -300,7 +300,7 @@ export class ChatSessionImpl implements ChatSession {
     }
     
     // Validate reference exists
-    const reference = this.agent.references.get(referenceName);
+    const reference = this.agent.getReference(referenceName);
     if (!reference) {
       this.logger.warn(`Attempted to add non-existent reference: ${referenceName}`);
       return false;
@@ -330,7 +330,7 @@ export class ChatSessionImpl implements ChatSession {
     }
     
     // Validate rule exists
-    const rule = this.agent.rules.get(ruleName);
+    const rule = this.agent.getRule(ruleName);
     if (!rule) {
       this.logger.warn(`Attempted to add non-existent rule: ${ruleName}`);
       return false;
@@ -381,7 +381,7 @@ export class ChatSessionImpl implements ChatSession {
     } else { // SESSION_TOOL_PERMISSION_TOOL
               this.logger.info(`Tool ${toolId} - permission tool required, checking server config`);
       // Check the permission required for the tool
-      const serverConfig = this.agent.mcpServers.get(serverId)?.config;
+      const serverConfig = this.agent.getMcpServer(serverId)?.config;
       if (!serverConfig) {
         throw new Error(`Attempted to check permission for non-existent server: ${serverId}`);
       }

@@ -4,6 +4,7 @@ import { Logger } from '../types/common';
 import { RulesManager } from '../managers/types';
 import { ChatSession } from "../types/chat";
 import { Rule } from "../types/rules";
+import { Agent } from "../types/agent";
 
 /**
  * Interface for rule arguments with all fields optional
@@ -18,7 +19,7 @@ interface RuleArgs {
 }
 
 export class McpClientInternalRules implements McpClient {
-    private rulesManager: RulesManager;
+    private agent: Agent;
     private logger: Logger;
     serverVersion: { name: string; version: string } | null =  { name: "Rules", version: "1.0.0" };
     serverTools: Tool[] = [
@@ -162,8 +163,8 @@ export class McpClientInternalRules implements McpClient {
         }
     ];
 
-    constructor(rulesManager: RulesManager, logger: Logger) {
-        this.rulesManager = rulesManager;
+    constructor(agent: Agent, logger: Logger) {
+        this.agent = agent;
         this.logger = logger;
     }
 
@@ -274,7 +275,7 @@ export class McpClientInternalRules implements McpClient {
                         include: validatedArgs.include || 'manual'
                     };
                     
-                    this.rulesManager.save(newRule);
+                    this.agent.addRule(newRule);
                     
                     return {
                         content: [{ type: "text", text: `Rule "${validatedArgs.name}" created successfully` }],
@@ -285,7 +286,7 @@ export class McpClientInternalRules implements McpClient {
                 case "getRule": {
                     const validatedArgs = this.validateRuleArgs(args, ["name"]);
                     
-                    const rules = this.rulesManager.getAll();
+                    const rules = this.agent.getAllRules();
                     const rule = rules.find((r: Rule) => r.name === validatedArgs.name);
                     
                     if (!rule) {
@@ -301,7 +302,7 @@ export class McpClientInternalRules implements McpClient {
                 case "updateRule": {
                     const validatedArgs = this.validateRuleArgs(args, ["name"]);                    
                     
-                    const existingRules = this.rulesManager.getAll();
+                    const existingRules = this.agent.getAllRules();
                     const existingRule = existingRules.find((r: Rule) => r.name === validatedArgs.name);
                     
                     if (!existingRule) {
@@ -318,7 +319,7 @@ export class McpClientInternalRules implements McpClient {
                         include: validatedArgs.include ?? existingRule.include
                     };
                     
-                    this.rulesManager.save(updatedRule);
+                    this.agent.addRule(updatedRule);
                     
                     return {
                         content: [{ type: "text", text: `Rule "${validatedArgs.name}" updated successfully` }],
@@ -329,7 +330,7 @@ export class McpClientInternalRules implements McpClient {
                 case "deleteRule": {
                     const validatedArgs = this.validateRuleArgs(args, ["name"]);                    
                     
-                    this.rulesManager.delete(validatedArgs.name!);
+                    this.agent.deleteRule(validatedArgs.name!);
                     
                     return {
                         content: [{ type: "text", text: `Rule "${validatedArgs.name}" deleted successfully` }],
@@ -338,7 +339,7 @@ export class McpClientInternalRules implements McpClient {
                 }
 
                 case "listRules": {
-                    const allRules = this.rulesManager.getAll();
+                    const allRules = this.agent.getAllRules();
                     
                     // Create a new array with the text field omitted from each rule
                     const rulesWithoutText = allRules.map(rule => {

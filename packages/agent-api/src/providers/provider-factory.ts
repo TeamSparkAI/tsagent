@@ -21,6 +21,17 @@ export class ProviderFactory {
     this.logger = logger;
   }
 
+  getAvailableProviders(): ProviderType[] {
+    return [
+      ProviderType.Test,
+      ProviderType.Bedrock,
+      ProviderType.Claude,
+      ProviderType.OpenAI,
+      ProviderType.Gemini,
+      ProviderType.Ollama
+    ];
+  }
+
   // Get provider information for all available providers
   getProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>> {
     return {
@@ -33,39 +44,39 @@ export class ProviderFactory {
     };
   }
 
-  getProviderTypeByName(name: string): ProviderType | null {
-    switch (name.toLowerCase()) {
-      case 'test':
-        return ProviderType.Test;
-      case 'claude':
-        return ProviderType.Claude;
-      case 'gemini':
-        return ProviderType.Gemini;
-      case 'ollama':
-        return ProviderType.Ollama;
-      case 'openai':
-        return ProviderType.OpenAI;
-      case 'bedrock':
-        return ProviderType.Bedrock;
+  getProviderInfo(providerType: ProviderType): ProviderInfo {
+    switch (providerType) {
+      case ProviderType.Test:
+        return TestProvider.getInfo();
+      case ProviderType.Bedrock:
+        return BedrockProvider.getInfo();
+      case ProviderType.Claude:
+        return ClaudeProvider.getInfo();
+      case ProviderType.Gemini:
+        return GeminiProvider.getInfo();
+      case ProviderType.Ollama:
+        return OllamaProvider.getInfo();
+      case ProviderType.OpenAI:
+        return OpenAIProvider.getInfo();
       default:
-        return null;
+        throw new Error(`Unknown provider type: ${providerType}`);
     }
   }
 
-  async validateConfiguration(type: ProviderType): Promise<{ isValid: boolean, error?: string }> {
+  async validateConfiguration(type: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
     switch (type) {
       case ProviderType.Test:
-        return TestProvider.validateConfiguration(this.agent);
+        return TestProvider.validateConfiguration(this.agent, config);
       case ProviderType.Bedrock:
-        return BedrockProvider.validateConfiguration(this.agent);
+        return BedrockProvider.validateConfiguration(this.agent, config);
       case ProviderType.Claude:
-        return ClaudeProvider.validateConfiguration(this.agent);
+        return ClaudeProvider.validateConfiguration(this.agent, config);
       case ProviderType.Gemini:  
-        return GeminiProvider.validateConfiguration(this.agent);
+        return GeminiProvider.validateConfiguration(this.agent, config);
       case ProviderType.Ollama:
-        return OllamaProvider.validateConfiguration(this.agent);
+        return OllamaProvider.validateConfiguration(this.agent, config);
       case ProviderType.OpenAI:
-        return OpenAIProvider.validateConfiguration(this.agent);
+        return OpenAIProvider.validateConfiguration(this.agent, config);
       default:
         return { isValid: false, error: `Unsupported provider type: ${type}` };
     }

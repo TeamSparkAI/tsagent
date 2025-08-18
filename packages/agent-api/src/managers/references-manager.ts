@@ -20,27 +20,17 @@ export class ReferencesManager extends EventEmitter implements IReferencesManage
     this.loadReferences();
   }
 
-  getAll(): Reference[] {
+  getAllReferences(): Reference[] {
     return [...this.references];
   }
 
-  get(name: string): Reference | null {
+  getReference(name: string): Reference | null {
     return this.references.find(reference => reference.name === name) || null;
   }
 
-  save(reference: Reference): void {
+  addReference(reference: Reference): void {
     if (!this.validateReferenceName(reference.name)) {
       throw new Error('Reference name can only contain letters, numbers, underscores, and dashes');
-    }
-
-    if (this.hasReferenceWithName(reference.name, reference.name)) {
-      throw new Error('A reference with this name already exists');
-    }
-
-    // If this is an update to an existing reference, delete the old file first
-    const existingReference = this.get(reference.name);
-    if (existingReference && existingReference.name !== reference.name) {
-      this.delete(existingReference.name);
     }
 
     const fileName = `${reference.name}${ReferencesManager.REFERENCE_FILE_EXTENSION}`;
@@ -57,15 +47,16 @@ export class ReferencesManager extends EventEmitter implements IReferencesManage
     const content = `---\n${yaml.dump(metadata)}---\n${reference.text}`;
     fs.writeFileSync(filePath, content, 'utf-8');
 
-    // Reload references to update the in-memory list
-    this.loadReferences();
+    // Update the references list
+    this.references.push(reference);
+    this.sortReferences();
     
     // Emit change event
     this.emit('referencesChanged');
   }
 
-  delete(name: string): boolean {
-    const reference = this.get(name);
+  deleteReference(name: string): boolean {
+    const reference = this.getReference(name);
     if (!reference) return false;
 
     const fileName = `${name}${ReferencesManager.REFERENCE_FILE_EXTENSION}`;
@@ -73,7 +64,7 @@ export class ReferencesManager extends EventEmitter implements IReferencesManage
     
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      this.loadReferences(); // Reload to update in-memory list
+      this.references = this.references.filter(r => r.name !== name);
       
       // Emit change event
       this.emit('referencesChanged');
@@ -128,9 +119,4 @@ export class ReferencesManager extends EventEmitter implements IReferencesManage
   private validateReferenceName(name: string): boolean {
     return /^[a-zA-Z0-9_-]+$/.test(name);
   }
-
-  private hasReferenceWithName(name: string, excludeName?: string): boolean {
-    return this.references.some(r => r.name === name && (!excludeName || r.name !== excludeName));
-  }
 }
-

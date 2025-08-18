@@ -6,6 +6,7 @@ import { ModelReply, Turn } from './types';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
+import { ProviderHelper } from './provider-helper';
 
 export class OpenAIProvider implements Provider {
   private readonly agent: Agent;
@@ -41,8 +42,8 @@ export class OpenAIProvider implements Provider {
     };
   }
 
-  static async validateConfiguration(agent: Agent): Promise<{ isValid: boolean, error?: string }> {
-    const apiKey = agent.providers.getSetting(ProviderType.OpenAI, 'OPENAI_API_KEY');
+  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
+    const apiKey = config['OPENAI_API_KEY'];
     if (!apiKey) {
       return { isValid: false, error: 'OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.' };
     }
@@ -59,9 +60,14 @@ export class OpenAIProvider implements Provider {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+
+    const config = this.agent.getInstalledProviderConfig(ProviderType.OpenAI);
+    if (!config) {
+      throw new Error('OpenAI configuration is missing.');
+    }
     
     try {
-      const apiKey = this.agent.providers.getSetting(ProviderType.OpenAI, 'OPENAI_API_KEY')!;
+      const apiKey = config['OPENAI_API_KEY']!;
       if (!apiKey) {
         throw new Error('OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
@@ -187,7 +193,7 @@ export class OpenAIProvider implements Provider {
           }
           if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
             // Run the tool
-            const toolResult = await this.agent.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
               turn.toolCalls!.push({
@@ -233,7 +239,7 @@ export class OpenAIProvider implements Provider {
 
       // this.logger.info('Starting OpenAI Provider with messages:', JSON.stringify(turnMessages, null, 2));
 
-      const tools = this.agent.mcpManager.getAllTools();
+      const tools = ProviderHelper.getAllTools(this.agent);
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
 
       const state = session.getState();
@@ -285,8 +291,8 @@ export class OpenAIProvider implements Provider {
             if (toolCall.type === 'function') {
               this.logger.info('Processing function call:', toolCall.function);
 
-              const toolServerName = this.agent.mcpManager.getToolServerName(toolCall.function.name);
-              const toolToolName = this.agent.mcpManager.getToolName(toolCall.function.name);
+              const toolServerName = ProviderHelper.getToolServerName(toolCall.function.name);
+              const toolToolName = ProviderHelper.getToolName(toolCall.function.name);
   
               if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
                 // Process tool approval
@@ -301,7 +307,7 @@ export class OpenAIProvider implements Provider {
                 });
               } else {
                 // Call the tool
-                const toolResult = await this.agent.mcpManager.callTool(toolCall.function.name, JSON.parse(toolCall.function.arguments), session);
+                const toolResult = await ProviderHelper.callTool(this.agent, toolCall.function.name, JSON.parse(toolCall.function.arguments), session);
                 if (toolResult.content[0]?.type === 'text') {
                   const resultText = toolResult.content[0].text;
                   if (!turn.toolCalls) {
@@ -317,8 +323,8 @@ export class OpenAIProvider implements Provider {
                   
                   // Record the function call and result
                   turn.toolCalls.push({
-                    serverName: this.agent.mcpManager.getToolServerName(toolCall.function.name),
-                    toolName: this.agent.mcpManager.getToolName(toolCall.function.name),
+                    serverName: ProviderHelper.getToolServerName(toolCall.function.name),
+                    toolName: ProviderHelper.getToolName(toolCall.function.name),
                     args: JSON.parse(toolCall.function.arguments),
                     output: resultText,
                     toolCallId: toolCall.id,

@@ -5,6 +5,7 @@ import { ModelReply, Turn } from './types';
 import { ChatResponse, Message, Ollama, Tool as OllamaTool } from 'ollama';
 import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
+import { ProviderHelper } from './provider-helper';
 
 export class OllamaProvider implements Provider {
   private readonly agent: Agent;
@@ -28,8 +29,8 @@ export class OllamaProvider implements Provider {
     };
   }
 
-  static async validateConfiguration(agent: Agent): Promise<{ isValid: boolean, error?: string }> {
-    const host = agent.providers.getSetting(ProviderType.Ollama, 'OLLAMA_HOST') ?? 'http://127.0.0.1:11434';
+  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
+    const host = config['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434';
     try {
       const client = new Ollama({ host: host });
       await client.list();
@@ -43,9 +44,14 @@ export class OllamaProvider implements Provider {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+
+    const config = this.agent.getInstalledProviderConfig(ProviderType.Ollama);
+    if (!config) {
+      throw new Error('Ollama configuration is missing.');
+    }
     
     try {
-      const host = this.agent.providers.getSetting(ProviderType.Ollama, 'OLLAMA_HOST') ?? 'http://127.0.0.1:11434';
+      const host = config['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434';
       this.client = new Ollama({ host: host });
       this.logger.info('Ollama Provider initialized successfully');
     } catch (error) {
@@ -75,7 +81,7 @@ export class OllamaProvider implements Provider {
       this.logger.info('Generating response with Ollama');
 
       // Convert our tools into an array of whatever Ollama expects 
-      const tools: OllamaTool[] = this.agent.mcpManager.getAllTools().map((tool: Tool) => {
+      const tools: OllamaTool[] = ProviderHelper.getAllTools(this.agent).map((tool: Tool) => {
         const properties: Record<string, any> = {};
         
         // Convert properties safely with type checking
@@ -193,7 +199,7 @@ export class OllamaProvider implements Provider {
           }
           if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
             // Run the tool
-            const toolResult = await this.agent.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
               turn.toolCalls!.push({
@@ -282,8 +288,8 @@ export class OllamaProvider implements Provider {
             const toolName = tool.function.name;
             const toolArgs = tool.function.arguments;
 
-            const toolServerName = this.agent.mcpManager.getToolServerName(toolName);
-            const toolToolName = this.agent.mcpManager.getToolName(toolName);
+            const toolServerName = ProviderHelper.getToolServerName(toolName);
+            const toolToolName = ProviderHelper.getToolName(toolName);
             const toolCallId = Math.random().toString(16).slice(2, 10); // Random ID, since VertexAI doesn't provide one
 
             if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
@@ -299,7 +305,7 @@ export class OllamaProvider implements Provider {
               });
             } else {
               // Call the tool              
-              const toolResult = await this.agent.mcpManager.callTool(toolName, toolArgs, session);
+              const toolResult = await ProviderHelper.callTool(this.agent, toolName, toolArgs, session);
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
                 if (!turn.toolCalls) {

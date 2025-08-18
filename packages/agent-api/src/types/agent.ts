@@ -1,5 +1,8 @@
+import { Reference, Rule } from '..';
 import { RulesManager, ReferencesManager, ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types';
-import { MCPClientManager } from '../mcp/types';
+import { McpClient, McpConfig } from '../mcp/types';
+import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types';
+import { ChatSession, ChatSessionOptions } from './chat';
 
 export const SETTINGS_KEY_MAX_CHAT_TURNS = 'maxChatTurns';
 export const SETTINGS_KEY_MAX_OUTPUT_TOKENS = 'maxOutputTokens';
@@ -26,7 +29,7 @@ export const SETTINGS_DEFAULT_TEMPERATURE = 0.5;
 export const SETTINGS_DEFAULT_TOP_P = 0.5;
 
 // Core agent interface
-export interface Agent {
+export interface Agent extends RulesManager, ReferencesManager, ProvidersManager, McpServerManager, ChatSessionManager {
   readonly id: string;
   readonly path: string;
   readonly name: string;
@@ -39,16 +42,52 @@ export interface Agent {
   // System prompt
   getSystemPrompt(): Promise<string>;
   setSystemPrompt(prompt: string): Promise<void>;
-  
-  // Sub-managers
-  readonly rules: RulesManager;
-  readonly references: ReferencesManager;
-  readonly providers: ProvidersManager;
-  readonly mcpServers: McpServerManager;
-  readonly mcpManager: MCPClientManager;
-  readonly chatSessions: ChatSessionManager;
-  
-  // Lifecycle
+
+  // RulesManager methods
+  getAllRules(): Rule[];
+  getRule(name: string): Rule | null;
+  addRule(rule: Rule): void;
+  deleteRule(name: string): boolean;
+
+  // ReferencesManager methods
+  getAllReferences(): Reference[];
+  getReference(name: string): Reference | null;
+  addReference(reference: Reference): void;
+  deleteReference(name: string): boolean;
+
+  // Provider installion/configuraiton methods
+  getInstalledProviders(): ProviderType[];
+  isProviderInstalled(provider: ProviderType): boolean;
+  getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null;
+  installProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
+  updateProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
+  uninstallProvider(provider: ProviderType): Promise<void>;
+
+  // Provider factory methods
+  validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }>;
+  getAvailableProviders(): ProviderType[];
+  getAvailableProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>>;
+  createProvider(provider: ProviderType, modelId?: string): Provider; // Not serializable
+  getProviderInfo(providerType: ProviderType): ProviderInfo;
+  getProviderModels(providerType: ProviderType): Promise<ProviderModel[]>;
+
+  // McpServerManager methods 
+  getAllMcpServers(): Promise<Record<string, McpConfig>>;
+  getMcpServer(serverName: string): McpConfig | null;
+  saveMcpServer(server: McpConfig): Promise<void>;
+  deleteMcpServer(serverName: string): Promise<boolean>; 
+
+  // MCP Client access methods
+  getAllMcpClients(): Record<string, McpClient>;
+  getMcpClient(name: string): McpClient | undefined;
+
+  // ChatSessionManager methods
+  getAllChatSessions(): ChatSession[];
+  getChatSession(sessionId: string): ChatSession | null;
+  createChatSession(sessionId: string, options?: ChatSessionOptions): ChatSession;
+  deleteChatSession(sessionId: string): Promise<boolean>;
+
+  // Agent Lifecycle
   save(): Promise<void>;
   delete(): Promise<void>;
   clone(targetPath: string): Promise<Agent>;

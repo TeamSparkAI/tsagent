@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import * as path from 'path';
-import { ProviderType as LLMType } from 'agent-api';
+import { ProviderType as LLMType, ProviderType } from 'agent-api';
 import log from 'electron-log';
 import * as fs from 'fs';
 import { setupCLI } from '../cli/cli';
@@ -341,81 +341,74 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('rules:get-rules', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.rules) {
-      log.warn(`Rules manager not initialized for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return [];
     }
-    return agent.rules.getAll();
+    return agent.getAllRules();
   });
 
   ipcMain.handle('rules:save-rule', (event, rule) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.rules) {
-      log.warn(`Rules manager not initialized for window: ${windowId}`);
-      throw new Error('Rules manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
-    agent.rules.save(rule);
+    agent.addRule(rule);
   });
 
   ipcMain.handle('rules:delete-rule', (event, name) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.rules) {
-      log.warn(`Rules manager not initialized for window: ${windowId}`);
-      throw new Error('Rules manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
-    return agent.rules.delete(name);
+    return agent.deleteRule(name);
   });
 
   // References IPC handlers
   ipcMain.handle('references:get-references', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.references) {
-      log.warn(`References manager not initialized for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return [];
     }
-    return agent.references.getAll();
+    return agent.getAllReferences();
   });
 
   ipcMain.handle('references:save-reference', (event, reference) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.references) {
-      log.warn(`References manager not initialized for window: ${windowId}`);
-      throw new Error('References manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
-    agent.references.save(reference);
+    agent.addReference(reference);
   });
 
   ipcMain.handle('references:delete-reference', (event, name) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.references) {
-      log.warn(`References manager not initialized for window: ${windowId}`);
-      throw new Error('References manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
-    return agent.references.delete(name);
+    return agent.deleteReference(name);
   });
 
   // Chat session IPC handlers
   ipcMain.handle('chat:create-tab', (event, tabId: string, modelProvider?: LLMType, modelId?: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return { success: false };
     }
     try {
-      agent.chatSessions.create(tabId, {
+      agent.createChatSession(tabId, {
         modelProvider: modelProvider,
         modelId: modelId
       });
@@ -432,13 +425,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:close-tab', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return { success: false };
     }
     try {
-      agent.chatSessions.delete(tabId);
+      agent.deleteChatSession(tabId);
       return { success: true };
     } catch (error) {
       log.error('Error closing chat tab:', error);
@@ -452,13 +444,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:get-state', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return null;
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         log.info(`No session exists for tab ${tabId}, returning null`);
         return null;
@@ -473,13 +464,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:send-message', async (event, tabId: string, message: string | ChatMessage) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return { success: false };
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
@@ -493,13 +483,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:add-reference', (event, tabId: string, referenceName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
@@ -513,13 +502,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:remove-reference', (event, tabId: string, referenceName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
@@ -533,13 +521,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:add-rule', (event, tabId: string, ruleName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
@@ -553,13 +540,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:remove-rule', (event, tabId: string, ruleName: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
@@ -574,13 +560,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:clear-model', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return { success: false };
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
@@ -601,13 +586,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('chat:switch-model', (event, tabId: string, modelType: LLMType, modelId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return { success: false };
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
@@ -655,7 +639,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
-      const mcpServers = await agent.mcpServers.getAll();
+      const mcpServers = await agent.getAllMcpServers();
       
       // If mcpServers is empty or undefined, return an empty array
       if (!mcpServers || Object.keys(mcpServers).length === 0) {
@@ -695,11 +679,11 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
-      let client = agent.mcpManager.getClient(serverName);
+      let client = agent.getMcpClient(serverName);
       let serverType = 'stdio';
       
       if (!client) {
-        const mcpServers = await agent.mcpServers.getAll();
+        const mcpServers = await agent.getAllMcpServers();
         
         // Check if mcpServers is empty or undefined
         if (!mcpServers || Object.keys(mcpServers).length === 0) {
@@ -719,10 +703,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
           throw new Error(`Invalid server configuration for ${serverName}: missing config property`);
         }
         
-        // The AgentAPI should handle MCP client creation automatically
-        // when the server is configured. Let's try to load clients if they haven't been loaded yet
-        await agent.mcpManager.loadClients(agent);
-        client = agent.mcpManager.getClient(serverName);
+        client = agent.getMcpClient(serverName);
         if (!client) {
           throw new Error(`Failed to create client for server: ${serverName}`);
         }
@@ -754,7 +735,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
       const agent = getAgentForWindow(windowId);
 
-      const client = agent?.mcpManager.getClient(serverName);
+      const client = agent?.getMcpClient(serverName);
       if (!client) {
         throw new Error(`No MCP client found for server ${serverName}`);
       }
@@ -775,7 +756,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
 
-    const client = agent?.mcpManager.getClient(serverName);
+    const client = agent?.getMcpClient(serverName);
     if (!client) {
       throw new Error(`No MCP client found for server ${serverName}`);
     }
@@ -940,56 +921,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       }
       
       // Save the server configuration using AgentAPI
-      await agent.mcpServers.save(server);
-      
-      // Reconnect the client with new config
-      const client = agent.mcpManager.getClient(server.name);
-      if (client) {
-        await client.disconnect();
-        agent.mcpManager.deleteClient(server.name);
-      }
-      
-      // The AgentAPI should handle client creation automatically
-      // when the server is saved. Let's reload clients.
-      await agent.mcpManager.loadClients(agent);
-      log.info(`Reconnected MCP client for server: ${server.name}`);
+      await agent.saveMcpServer(server);
     } catch (err) {
       log.error('Error saving server config:', err);
-      throw err;
-    }
-  });
-
-  ipcMain.handle('reloadServerInfo', async (event, serverName: string) => {
-    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
-    const agent = getAgentForWindow(windowId);
-    if (!agent) {
-      log.warn('No agent found for window:', windowId);
-      return [];
-    }
-
-    try {
-      const mcpServers = await agent.mcpServers.getAll();
-      const serverConfig = mcpServers[serverName];
-      
-      if (!serverConfig) {
-        log.error(`No configuration found for server: ${serverName}`);
-        throw new Error(`No configuration found for server: ${serverName}`);
-      }
-      
-      // Disconnect existing client if any
-      const client = agent.mcpManager.getClient(serverName);
-      if (client) {
-        await client.disconnect();
-        agent.mcpManager.deleteClient(serverName);
-      }
-      
-      // The AgentAPI should handle client creation automatically
-      // when reloading. Let's reload clients.
-      await agent.mcpManager.loadClients(agent);
-      
-      log.info(`Reloaded MCP client for server: ${serverName}`);
-    } catch (err) {
-      log.error('Error reloading server info:', err);
       throw err;
     }
   });
@@ -1003,14 +937,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
-      await agent.mcpServers.delete(serverName);
-      
-      // Disconnect and remove the client
-      const client = agent.mcpManager.getClient(serverName);
-      if (client) {
-        await client.disconnect();
-        agent.mcpManager.deleteClient(serverName);
-      }
+      await agent.deleteMcpServer(serverName);
     } catch (err) {
       log.error('Error deleting server config:', err);
       throw err;
@@ -1202,18 +1129,19 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // LLM Provider IPC handlers for model picker
-  ipcMain.handle('llm:get-provider-info', (event) => {
+  ipcMain.handle('llm:get-provider-info', (event, provider: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     
-    if (!agent?.providers) {
-      log.warn(`Providers manager not initialized for window: ${windowId}`);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
       return {};
     }
-    return agent.providers.getProvidersInfo();
+    const providerType = provider as ProviderType;
+    return agent.getProviderInfo(providerType);
   });
 
-  ipcMain.handle('llm:validate-provider-config', async (event, provider: string) => {
+  ipcMain.handle('llm:validate-provider-config', async (event, provider: string, config: Record<string, string>) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     
@@ -1222,7 +1150,8 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { isValid: false, error: 'Agent not found' };
     }
 
-    return agent.providers.validateProviderConfiguration(provider);
+    const providerType = provider as ProviderType;
+    return agent.validateProviderConfiguration(providerType, config);
   });
 
   ipcMain.handle('llm:get-provider-config', (event, provider: string, key: string) => {
@@ -1233,7 +1162,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.warn(`Agent not found for window: ${windowId}`);
       return null;
     }
-    return agent.providers.getSetting(provider, key);
+    const providerType = provider as ProviderType;
+    const config = agent.getInstalledProviderConfig(providerType);
+    return config?.[key] || null;
   });
 
   ipcMain.handle('llm:set-provider-config', async (event, provider: string, key: string, value: string) => {
@@ -1245,7 +1176,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return false;
     }
     try {
-      await agent.providers.setSetting(provider, key, value);
+      const providerType = provider as ProviderType;
+      const currentConfig = agent.getInstalledProviderConfig(providerType) || {};
+      const newConfig = { ...currentConfig, [key]: value };
+      await agent.updateProvider(providerType, newConfig);
       return true;
     } catch (error) {
       log.error(`Error setting provider config ${provider}.${key}:`, error);
@@ -1261,10 +1195,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.warn(`Agent not found for window: ${windowId}`);
       return [];
     }
-    return agent.providers.getAll();
+    return agent.getInstalledProviders();
   });
 
-  ipcMain.handle('llm:add-provider', async (event, provider: LLMType) => {
+  ipcMain.handle('llm:add-provider', async (event, provider: LLMType, config: Record<string, string>) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     
@@ -1273,7 +1207,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return false;
     }
     try {
-      await agent.providers.add(provider);
+      await agent.installProvider(provider, config);
       return true;
     } catch (error) {
       log.error(`Error adding provider ${provider}:`, error);
@@ -1290,7 +1224,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return false;
     }
     try {
-      await agent.providers.remove(provider);
+      await agent.uninstallProvider(provider);
       return true;
     } catch (error) {
       log.error(`Error removing provider ${provider}:`, error);
@@ -1305,11 +1239,11 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     try {
       const windowId = BrowserWindow.getFocusedWindow()?.id.toString();
       const agent = getAgentForWindow(windowId);
-      if (!agent?.providers) {
-        log.warn(`Providers manager not initialized for window: ${windowId}`);
+      if (!agent) {
+        log.warn(`Agent not found for window: ${windowId}`);
         return [];
       }
-      return await agent.providers.getModels(provider);
+      return await agent.getProviderModels(provider);
     } catch (error) {
       log.error(`Error getting models for provider ${provider}:`, error);
       return [];
@@ -1352,13 +1286,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   }) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
-    
-    if (!agent?.chatSessions) {
-      log.warn(`Chat sessions manager not initialized for window: ${windowId}`);
-      throw new Error('Chat sessions manager not initialized');
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
     }
     try {
-      const session = agent.chatSessions.get(tabId);
+      const session = agent.getChatSession(tabId);
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }

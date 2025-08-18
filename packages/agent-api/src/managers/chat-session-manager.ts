@@ -10,32 +10,14 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
 
   constructor(agent: Agent, private logger: Logger) {
     this.agent = agent;
-    this.loadSessions();
   }
 
-  getAll(): ChatSession[] {
+  getAllChatSessions(): ChatSession[] {
     return Array.from(this.sessions.values());
   }
 
-  get(sessionId: string): ChatSession | null {
+  getChatSession(sessionId: string): ChatSession | null {
     return this.sessions.get(sessionId) || null;
-  }
-
-  async save(session: ChatSession): Promise<void> {
-    this.sessions.set(session.id, session);
-    await this.saveSessions();
-  }
-
-  async delete(sessionId: string): Promise<boolean> {
-    const deleted = this.sessions.delete(sessionId);
-    if (deleted) {
-      await this.saveSessions();
-    }
-    return deleted;
-  }
-
-  has(sessionId: string): boolean {
-    return this.sessions.has(sessionId);
   }
 
   private getSettingsValue(value: number | undefined, key: string, defaultValue: number): number {
@@ -56,10 +38,10 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
       : defaultValue;
   }
 
-  create(id: string, options: ChatSessionOptions = {}): ChatSession {
+  createChatSession(sessionId: string, options: ChatSessionOptions = {}): ChatSession {
     // Don't create if already exists
-    if (this.sessions.has(id)) {
-      throw new Error(`Session already exists with id: ${id}`);
+    if (this.sessions.has(sessionId)) {
+      throw new Error(`Session already exists with id: ${sessionId}`);
     }
 
     const optionsWithRequiredSettings: ChatSessionOptionsWithRequiredSettings = {
@@ -72,22 +54,15 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
     }
 
     // Create new ChatSession instance
-    const session = new ChatSessionImpl(this.agent, id, optionsWithRequiredSettings, this.logger);
+    const session = new ChatSessionImpl(this.agent, sessionId, optionsWithRequiredSettings, this.logger);
     this.sessions.set(session.id, session);
     
     this.logger.info(`Created new chat session for tab ${session.id} with model ${session.currentProvider}`);
     return session;
   }
 
-  private loadSessions(): void {
-    // For now, using in-memory storage
-    // In a real implementation, this would load from files or database
-    this.sessions.clear();
-  }
-
-  private async saveSessions(): Promise<void> {
-    // For now, using in-memory storage
-    // In a real implementation, this would save to files or database
-    // This is a placeholder for the actual persistence logic
+  async deleteChatSession(sessionId: string): Promise<boolean> {
+    const deleted = this.sessions.delete(sessionId);
+    return deleted;
   }
 }

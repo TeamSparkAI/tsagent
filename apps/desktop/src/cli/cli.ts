@@ -59,8 +59,17 @@ async function toolsCommand(agent: Agent) {
   try {
     console.log('Checking available tools on MCP servers...\n');
 
-    const mcpClients = agent.mcpManager.getAllClients()
-    for (const mcpClient of mcpClients) {
+    // Get all server configurations
+    const mcpServers = await agent.getAllMcpServers();
+    
+    // Get client for each server
+    for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+      const mcpClient = agent.getMcpClient(serverName);
+      if (!mcpClient) {
+        console.log(chalk.red(`Server ${serverName}: Not connected`));
+        continue;
+      }
+      
       console.log(chalk.cyan.bold(`Server: ${mcpClient.serverVersion?.name}`));
       console.log(chalk.dim('------------------------'));        
       if (mcpClient.serverTools.length === 0) {
@@ -159,6 +168,13 @@ function getToolPermissionValue(agent: Agent, key: string, defaultValue: Session
   return value as SessionToolPermission;
 }
 
+function getProviderByName(name: string): ProviderType | undefined {
+  const providerType = Object.values(ProviderType).find(
+    p => p.toLowerCase() === name.toLowerCase()
+  );
+  return providerType;
+}
+
 function getWorkspaceSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings {
   return {
     maxChatTurns: getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS),
@@ -169,25 +185,15 @@ function getWorkspaceSettings(agent: Agent): ChatSessionOptionsWithRequiredSetti
   };
 }
 
-function isProviderInstalled(agent: Agent, providerName: string): boolean {
-  return agent.providers.getAll().includes(providerName as any);
-}
+const isProviderInstalled = (agent: Agent, providerName: string): boolean => {
+  const providerType = getProviderByName(providerName);
+  return providerType ? agent.isProviderInstalled(providerType) : false;
+};
 
 export function setupCLI(agent: Agent, version: string) {
   // Get version from package.json
   console.log(chalk.green(`Welcome to TeamSpark AI Workbench v${version}!`));
   showHelp();
-  
-  const providersInfo = agent.providers.getProvidersInfo();
-
-  const getProviderByName = (name: string, providersInfo: any): ProviderType | undefined => {
-    for (const [type, info] of Object.entries(providersInfo)) {
-      if (type.toLowerCase() === name.toLowerCase()) {
-        return type as ProviderType;
-      }
-    }
-    return undefined;
-  };
 
   const updatedMostRecentProvider = async (provider: ProviderType, modelId: string) => {
     const mostRecentProvider = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
@@ -208,15 +214,15 @@ export function setupCLI(agent: Agent, version: string) {
       if (colonIndex !== -1) {
         const providerId = mostRecentModel.substring(0, colonIndex);
         const modelId = mostRecentModel.substring(colonIndex + 1);
-        const provider = getProviderByName(providerId, providersInfo);
-        if (provider) { // !!! Need to verify provider is installed
+        const provider = getProviderByName(providerId);
+        if (provider && agent.isProviderInstalled(provider)) {
           chatSessionOptions.modelProvider = provider;
           chatSessionOptions.modelId = modelId;
         }
       }
     }
   
-    return agent.chatSessions.create('cli-session', chatSessionOptions);
+    return agent.createChatSession('cli-session', chatSessionOptions);
   }  
 
   let chatSession = createLocalChatSession();
@@ -268,47 +274,41 @@ export function setupCLI(agent: Agent, version: string) {
 
         case COMMANDS.PROVIDERS:
           if (args.length === 0) {
-            const installedProviders = agent.providers.getAll();
-            const nonInstalledProviders = Object.entries(providersInfo).filter(([type, info]) => !installedProviders.includes(type));
+            const installedProviders = agent.getInstalledProviders();
+            const availableProviders = agent.getAvailableProviders();
+            const nonInstalledProviders = availableProviders.filter(p => !installedProviders.includes(p));
+            
             if (installedProviders.length === 0) {
               console.log(chalk.cyan('No providers installed'));
             } else {
               console.log(chalk.cyan(`Providers installed and available:`));
               installedProviders.forEach(provider => {
                 const indicator = provider === currentProvider ? chalk.green('* ') : '  ';
-                // Can we see of provider is a valid ProviderType and only proceed if so?
-                if (!Object.values(ProviderType).includes(provider as ProviderType)) {
-                  console.log(chalk.red('Invalid provider:'), chalk.yellow(provider));
-                } else {
-                  const providerInfo = providersInfo[provider as ProviderType];
-                  console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo?.name || 'Unknown'}`));
-                }
+                const providerInfo = agent.getProviderInfo(provider);
+                console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo.name}`));
               });
             }
             if (nonInstalledProviders.length === 0) {
               console.log(chalk.cyan('No providers available to install'));
             } else {
               console.log(chalk.cyan(`Providers available to install:`));
-              nonInstalledProviders.forEach(([type, info]) => {
-                console.log(chalk.yellow(`  ${type}: ${info.name}`));
+              nonInstalledProviders.forEach(provider => {
+                const providerInfo = agent.getProviderInfo(provider);
+                console.log(chalk.yellow(`  ${provider}: ${providerInfo.name}`));
               });
             }
             console.log('');
           } else if (args[0] == 'add') {
             const providerName = args[1];
             if (providerName) {
-              const provider = getProviderByName(providerName, providersInfo);
+              const provider = getProviderByName(providerName);
               if (provider) {
-                if (isProviderInstalled(agent, providerName)) {
+                if (agent.isProviderInstalled(provider)) {
                   console.log(chalk.red('Provider already installed:'), chalk.yellow(providerName));
                   break;
                 }
                 console.log(chalk.cyan('\nAdd provider:'), chalk.yellow(providerName));
-                const providerInfo = providersInfo[provider];
-                if (!providerInfo) {
-                  console.log(chalk.red('Provider info not found'));
-                  break;
-                }
+                const providerInfo = agent.getProviderInfo(provider);
                 console.log(chalk.yellow(`  ${providerInfo.name}`));
                 console.log(chalk.yellow(`  ${providerInfo.description}`));
                 const configValues: Record<string, string> = {};
@@ -321,10 +321,7 @@ export function setupCLI(agent: Agent, version: string) {
                   }
                   configValues[configValue.key] = value;
                 }
-                await agent.providers.add(provider);
-                for (const [key, value] of Object.entries(configValues)) {
-                  await agent.providers.setSetting(provider, key, value);
-                }
+                await agent.installProvider(provider, configValues);
                 console.log(chalk.green('Provider added:'), chalk.yellow(providerName));
               } else {
                 console.log(chalk.red('Provider not found by name:'), chalk.yellow(providerName));
@@ -335,10 +332,10 @@ export function setupCLI(agent: Agent, version: string) {
           } else if (args[0] == 'remove') {
             const providerName = args[1];
             if (providerName) {
-              const provider = getProviderByName(providerName, providersInfo);
-              if (provider && isProviderInstalled(agent, providerName)) {
+              const provider = getProviderByName(providerName);
+              if (provider && agent.isProviderInstalled(provider)) {
                 console.log(chalk.cyan('\nRemove provider:'), chalk.yellow(providerName));
-                await agent.providers.remove(provider);
+                await agent.uninstallProvider(provider);
                 if (currentProvider === providerName) {
                   currentProvider = undefined;
                   currentModelId = undefined;
@@ -364,9 +361,9 @@ export function setupCLI(agent: Agent, version: string) {
           //   args[1] (optional) is model name, if not provided, use default model for provider
           const providerName = args[0];
           if (providerName) {
-            const provider = getProviderByName(providerName, providersInfo);
+            const provider = getProviderByName(providerName);
             if (provider) {
-                          const models = await agent.providers.getModels(provider);
+              const models = await agent.getProviderModels(provider);
               let modelId = args[1];
               let modelDescription = '';
               if (modelId) {
@@ -407,7 +404,7 @@ export function setupCLI(agent: Agent, version: string) {
           }
           console.log(chalk.cyan('\nAvailable models:'));
           try {
-            const models = await agent.providers.getModels(currentProvider);
+            const models = await agent.getProviderModels(currentProvider);
             for (const model of models) {
               const indicator = model.id === currentModelId ? chalk.green('* ') : '  ';
               console.log(chalk.green(`${indicator}${model.id}: ${model.name}`));
@@ -426,10 +423,10 @@ export function setupCLI(agent: Agent, version: string) {
             console.log(chalk.red('No current provider, select a provider before selecting a model'));
             break;
           }
-          const models = await agent.providers.getModels(currentProvider);
+          const models = await agent.getProviderModels(currentProvider);
           const modelName = args[0];
           if (modelName) {
-            const model = models.find((m: any) => m.id.toLowerCase() === modelName.toLowerCase());
+            const model = models.find((m) => m.id.toLowerCase() === modelName.toLowerCase());
             if (model && currentProvider) {
               currentModelId = model.id;
               chatSession.switchModel(currentProvider, currentModelId);
@@ -620,7 +617,7 @@ export function setupCLI(agent: Agent, version: string) {
 
         case COMMANDS.RULES:
           // Show all rules with asterisk for active ones and dash for inactive ones
-          const allRules = agent.rules.getAll();
+          const allRules = agent.getAllRules();
           console.log(chalk.cyan('\nRules:'));
           if (allRules.length === 0) {
             console.log(chalk.yellow('No rules available.'));
@@ -636,7 +633,7 @@ export function setupCLI(agent: Agent, version: string) {
 
         case COMMANDS.REFERENCES:
           // Show all references with asterisk for active ones and dash for inactive ones
-          const allReferences = agent.references.getAll();
+          const allReferences = agent.getAllReferences();
           console.log(chalk.cyan('\nReferences:'));
           if (allReferences.length === 0) {
             console.log(chalk.yellow('No references available.'));

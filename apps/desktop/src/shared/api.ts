@@ -28,14 +28,14 @@ export interface API {
   removeChatRule: (tabId: string, ruleName: string) => Promise<boolean>;
 
   // LLM Provider methods for model picker
-  getProviderInfo: () => Promise<Record<string, LLMProviderInfo>>;
-  validateProviderConfig: (provider: string) => Promise<{ isValid: boolean, error?: string }>;
-  getModelsForProvider: (provider: string) => Promise<ILLMModel[]>;
-  getInstalledProviders: () => Promise<string[]>;
-  addProvider: (provider: string) => Promise<boolean>;
-  removeProvider: (provider: string) => Promise<boolean>;
-  getProviderConfig: (provider: string, key: string) => Promise<string | null>;
-  setProviderConfig: (provider: string, key: string, value: string) => Promise<boolean>;
+  getProviderInfo: (provider: ProviderType) => Promise<LLMProviderInfo>;
+  validateProviderConfig: (provider: ProviderType, config: Record<string, string>) => Promise<{ isValid: boolean, error?: string }>;
+  getModelsForProvider: (provider: ProviderType) => Promise<ILLMModel[]>;
+  getInstalledProviders: () => Promise<ProviderType[]>;
+  addProvider: (provider: ProviderType, config: Record<string, string>) => Promise<boolean>;
+  removeProvider: (provider: ProviderType) => Promise<boolean>;
+  getProviderConfig: (provider: ProviderType, key: string) => Promise<string | null>;
+  setProviderConfig: (provider: ProviderType, key: string, value: string) => Promise<boolean>;
 
   // Settings API
   getSettingsValue: (key: string) => Promise<string | null>;
@@ -68,7 +68,6 @@ export interface API {
   saveRule: (rule: Rule) => Promise<void>;
   deleteRule: (name: string) => Promise<void>;
   saveServerConfig: (server: McpConfig) => Promise<void>;
-  reloadServerInfo: (serverName: string) => Promise<void>;
   deleteServerConfig: (serverName: string) => Promise<void>;
   getReferences: () => Promise<Reference[]>;
   saveReference: (reference: Reference) => Promise<void>;

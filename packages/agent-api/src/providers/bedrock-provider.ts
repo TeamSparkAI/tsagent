@@ -6,11 +6,14 @@ import { ModelReply, Turn } from './types';
 import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
 import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
+import { ProviderHelper } from './provider-helper';
 
 export class BedrockProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
+
+  private config: Record<string, string>;
 
   private client!: BedrockRuntimeClient;
 
@@ -36,9 +39,10 @@ export class BedrockProvider implements Provider {
     };
   }
 
-  static async validateConfiguration(agent: Agent): Promise<{ isValid: boolean, error?: string }> {
-    const accessKey = agent.providers.getSetting(ProviderType.Bedrock, 'BEDROCK_SECRET_ACCESS_KEY');
-    const accessKeyId = agent.providers.getSetting(ProviderType.Bedrock, 'BEDROCK_ACCESS_KEY_ID');
+  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
+    console.log('Bedrock Provider validateConfiguration:', config);
+    const accessKey = config['BEDROCK_SECRET_ACCESS_KEY'];
+    const accessKeyId = config['BEDROCK_ACCESS_KEY_ID'];
     if (!accessKey || !accessKeyId) {
       return { isValid: false, error: 'BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your workspace configuration.' };
     }
@@ -64,9 +68,18 @@ export class BedrockProvider implements Provider {
     this.agent = agent;
     this.logger = logger;
     
+    const config = this.agent.getInstalledProviderConfig(ProviderType.Bedrock);
+    if (!config) {
+      throw new Error('Bedrock configuration is missing.');
+    }
+
+    this.logger.info('Bedrock Provider config:', config);
+
+    this.config = config;
+
     try {
-      const accessKey = this.agent.providers.getSetting(ProviderType.Bedrock, 'BEDROCK_SECRET_ACCESS_KEY');
-      const accessKeyId = this.agent.providers.getSetting(ProviderType.Bedrock, 'BEDROCK_ACCESS_KEY_ID');
+      const accessKey = this.config['BEDROCK_SECRET_ACCESS_KEY'];
+      const accessKeyId = this.config['BEDROCK_ACCESS_KEY_ID'];
       if (!accessKey || !accessKeyId) {
         throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration. Please add them to your workspace configuration.');
       }
@@ -88,8 +101,8 @@ export class BedrockProvider implements Provider {
 		const bedrockClient = new BedrockClient({
 			region: 'us-east-1',
 			credentials: {
-				secretAccessKey: this.agent.providers.getSetting(ProviderType.Bedrock, 'BEDROCK_SECRET_ACCESS_KEY')!,
-				accessKeyId: this.agent.providers.getSetting(ProviderType.Bedrock, 'BEDROCK_ACCESS_KEY_ID')!
+				secretAccessKey: this.config['BEDROCK_SECRET_ACCESS_KEY']!,
+  			accessKeyId: this.config['BEDROCK_ACCESS_KEY_ID']!
 			}
 		});
 		// To support inferece types othet than ON_DEMAND, we will need to list them specifically, and use the returned ARNs to create the models
@@ -138,7 +151,7 @@ export class BedrockProvider implements Provider {
       this.logger.info('Generating response with Bedrock');
 
 			// Build the Bedrock tools array from the MCP tools
-      const tools: BedrockTool[] = this.agent.mcpManager.getAllTools().map((tool: Tool) => {
+      const tools: BedrockTool[] = ProviderHelper.getAllTools(this.agent).map((tool: Tool) => {
         const properties: Record<string, any> = {};
         
         // Convert properties safely with type checking
@@ -258,7 +271,7 @@ export class BedrockProvider implements Provider {
           }
           if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
             // Run the tool
-            const toolResult = await this.agent.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
               turn.toolCalls!.push({
@@ -372,8 +385,8 @@ export class BedrockProvider implements Provider {
 							const toolUseId = toolCall.toolUseId;
 							const toolArgs = toolCall.input as Record<string, any>;
 
-              const toolServerName = this.agent.mcpManager.getToolServerName(toolName);
-              const toolToolName = this.agent.mcpManager.getToolName(toolName);
+              const toolServerName = ProviderHelper.getToolServerName(toolName);
+              const toolToolName = ProviderHelper.getToolName(toolName);
 
               if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
                 // Process tool approval
@@ -388,7 +401,7 @@ export class BedrockProvider implements Provider {
                 });
               } else {
                 // Call the tool
-                const toolResult = await this.agent.mcpManager.callTool(toolName, toolArgs, session);
+                const toolResult = await ProviderHelper.callTool(this.agent, toolName, toolArgs, session);
                 if (toolResult.content[0]?.type === 'text') {
                   const resultText = toolResult.content[0].text;
                   if (!turn.toolCalls) {

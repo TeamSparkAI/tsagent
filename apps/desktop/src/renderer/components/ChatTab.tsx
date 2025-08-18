@@ -175,7 +175,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
               const provider = mostRecentModel.substring(0, colonIndex);
               const id = mostRecentModel.substring(colonIndex + 1);
 
-              if (installedProviders.includes(provider)) {
+              if (installedProviders.includes(provider as ProviderType)) {
                 modelProvider = provider as ProviderType;
                 modelId = id;
               }

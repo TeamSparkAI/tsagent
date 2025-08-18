@@ -72,16 +72,9 @@ export interface McpClient {
 }
 
 export interface MCPClientManager {
-  loadClients(agent: Agent): Promise<void>;
-  getAllTools(): Tool[];
-  callTool(name: string, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime>;
-  isReady(): boolean;
-  waitForReady(): Promise<void>;
-  getToolServerName(name: string): string;
-  getToolName(name: string): string;
-  getClient(name: string): McpClient | undefined;
-  updateClient(name: string, client: McpClient): void;
-  deleteClient(name: string): void;
-  getAllClients(): McpClient[];
-  cleanup(): void;
+  loadMcpClients(agent: Agent): Promise<void>;
+  updateMcpClient(agent: Agent, name: string, clientConfig: McpConfig): Promise<void>;
+  deleteMcpClient(name: string): Promise<void>;
+  getAllMcpClients(): Record<string, McpClient>;
+  getMcpClient(name: string): McpClient | undefined;
 }

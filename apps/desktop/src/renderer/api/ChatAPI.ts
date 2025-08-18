@@ -18,34 +18,17 @@ export class ChatAPI {
   }
 
   private async updateModelNameFromState(modelType: ProviderType, modelId?: string): Promise<void> {
-    if (modelId) {
-      try {
-        // If we already have the model info cached and it matches the current ID
-        if (this.currentModelInfo && this.currentModelInfo.id === modelId) {
-          this.currentModelName = this.currentModelInfo.name;
-          return;
-        }
-        
-        // Otherwise, try to find the model from the provider
-        const models = await window.api.getModelsForProvider(modelType);
-        const model = models.find((m: ILLMModel) => m.id === modelId);
-        if (model && model.name) {
-          // Cache this model
-          this.currentModelInfo = model;
-          this.currentModelName = model.name;
-        } else {
-          // If we can't find the exact model, use the ID as the display name
-          this.currentModelName = modelId;
-        }
-      } catch (error) {
-        log.error('Failed to get model information:', error);
-        // Use the model ID as a fallback display name
-        this.currentModelName = modelId;
+    try {
+      const models = await window.api.getModelsForProvider(modelType);
+      const model = models.find(m => m.id === modelId);
+      if (model) {
+        this.currentModelName = model.name;
+      } else {
+        this.currentModelName = modelId || 'Unknown Model';
       }
-    } else {
-      // Default to a capitalized version of the model type
-      this.currentModelName = modelType.charAt(0).toUpperCase() + 
-        modelType.slice(1);
+    } catch (error) {
+      log.error('Error updating model name from state:', error);
+      this.currentModelName = modelId || 'Unknown Model';
     }
   }
 
@@ -169,11 +152,9 @@ export class ChatAPI {
 
   public async getModels(provider: ProviderType, forceRefresh: boolean = false): Promise<ILLMModel[]> {
     try {
-      // Always fetch all models when explicitly called - this is primarily used by the model picker
-      log.info(`Fetching models for provider ${provider} from API`);
       return await window.api.getModelsForProvider(provider);
     } catch (error) {
-      log.error(`Error getting models for provider ${provider}:`, error);
+      log.error('Error getting models for provider:', error);
       return [];
     }
   }

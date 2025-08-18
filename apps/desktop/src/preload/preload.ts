@@ -73,7 +73,6 @@ const api: API = {
   showEditControlMenu: (editFlags) => ipcRenderer.invoke('show-edit-control-menu', editFlags),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
   saveServerConfig: (server) => ipcRenderer.invoke('saveServerConfig', server),
-  reloadServerInfo: (serverName: string) => ipcRenderer.invoke('reloadServerInfo', serverName),
   deleteServerConfig: (name: string) => ipcRenderer.invoke('deleteServerConfig', name),
   pingServer: (name: string) => ipcRenderer.invoke('ping-server', name),
 
@@ -101,14 +100,14 @@ const api: API = {
   },
 
   // LLM Providers (new methods for model picker)
-  getProviderInfo: () => ipcRenderer.invoke('llm:get-provider-info'),
-  validateProviderConfig: (provider: string) => ipcRenderer.invoke('llm:validate-provider-config', provider),
-  getModelsForProvider: (provider: string) => ipcRenderer.invoke('llm:getModels', provider),
+  getProviderInfo: (provider: LLMType) => ipcRenderer.invoke('llm:get-provider-info', provider),
+  validateProviderConfig: (provider: LLMType, config: Record<string, string>) => ipcRenderer.invoke('llm:validate-provider-config', provider, config),
+  getModelsForProvider: (provider: LLMType) => ipcRenderer.invoke('llm:getModels', provider),
   getInstalledProviders: () => ipcRenderer.invoke('llm:get-installed-providers'),
-  addProvider: (provider: string) => ipcRenderer.invoke('llm:add-provider', provider),
-  removeProvider: (provider: string) => ipcRenderer.invoke('llm:remove-provider', provider),
-  getProviderConfig: (provider: string, key: string) => ipcRenderer.invoke('llm:get-provider-config', provider, key),
-  setProviderConfig: (provider: string, key: string, value: string) => ipcRenderer.invoke('llm:set-provider-config', provider, key, value),
+  addProvider: (provider: LLMType, config: Record<string, string>) => ipcRenderer.invoke('llm:add-provider', provider, config),
+  removeProvider: (provider: LLMType) => ipcRenderer.invoke('llm:remove-provider', provider),
+  getProviderConfig: (provider: LLMType, key: string) => ipcRenderer.invoke('llm:get-provider-config', provider, key),
+  setProviderConfig: (provider: LLMType, key: string, value: string) => ipcRenderer.invoke('llm:set-provider-config', provider, key, value),
   onProvidersChanged: (callback: () => void) => {
     const wrappedCallback = () => callback();
     ipcRenderer.on('providers-changed', wrappedCallback);

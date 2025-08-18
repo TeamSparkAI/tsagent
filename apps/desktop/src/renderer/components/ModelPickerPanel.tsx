@@ -37,7 +37,20 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
   id
 }) => {
   const getProviderInfo = useCallback(async () => {
-    return await window.api.getProviderInfo();
+    // Get all available providers and their info
+    const availableProviders = await window.api.getInstalledProviders();
+    const providerInfoMap: Record<ProviderType, LLMProviderInfo> = {} as Record<ProviderType, LLMProviderInfo>;
+    
+    for (const provider of availableProviders) {
+      try {
+        const info = await window.api.getProviderInfo(provider);
+        providerInfoMap[provider] = info;
+      } catch (error) {
+        log.error(`Failed to get info for provider ${provider}:`, error);
+      }
+    }
+    
+    return providerInfoMap;
   }, []);
   
   const getModelsForProvider = useCallback(async (provider: ProviderType) => {
@@ -78,7 +91,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         if (isMounted) {
           // Filter provider info to only show installed providers
           const filteredInfo = Object.fromEntries(
-            Object.entries(info).filter(([key]) => installedProviders.includes(key))
+            Object.entries(info).filter(([key]) => installedProviders.includes(key as ProviderType))
           ) as Record<ProviderType, LLMProviderInfo>;
           
           setProviderInfo(filteredInfo);
@@ -231,7 +244,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         
         // Filter provider info to only show installed providers
         const filteredInfo = Object.fromEntries(
-          Object.entries(info).filter(([key]) => installedProviders.includes(key))
+          Object.entries(info).filter(([key]) => installedProviders.includes(key as ProviderType))
         ) as Record<ProviderType, LLMProviderInfo>;
         
         setProviderInfo(filteredInfo);
@@ -267,7 +280,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         
         // Filter provider info to only show installed providers
         const filteredInfo = Object.fromEntries(
-          Object.entries(info).filter(([key]) => installedProviders.includes(key))
+          Object.entries(info).filter(([key]) => installedProviders.includes(key as ProviderType))
         ) as Record<ProviderType, LLMProviderInfo>;
         
         setProviderInfo(filteredInfo);

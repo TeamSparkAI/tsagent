@@ -23,32 +23,20 @@ export class RulesManager extends EventEmitter implements IRulesManager {
     this.loadRules();
   }
 
-  getAll(): Rule[] {
+  getAllRules(): Rule[] {
     return [...this.rules];
   }
 
-  get(name: string): Rule | null {
+  getRule(name: string): Rule | null {
     return this.rules.find(rule => rule.name === name) || null;
   }
 
-  save(rule: Rule): void {
-    this.logger.info(`Saving rule: ${rule.name}`);
+  addRule(rule: Rule): void {
+    this.logger.debug(`Adding rule: ${rule.name}`);
     
     if (!this.validateRuleName(rule.name)) {
       this.logger.error(`Invalid rule name: ${rule.name}`);
       throw new Error('Rule name can only contain letters, numbers, underscores, and dashes');
-    }
-
-    if (this.hasRuleWithName(rule.name, rule.name)) {
-      this.logger.warn(`Rule already exists: ${rule.name}`);
-      throw new Error('A rule with this name already exists');
-    }
-
-    // If this is an update to an existing rule, delete the old file first
-    const existingRule = this.get(rule.name);
-    if (existingRule && existingRule.name !== rule.name) {
-      this.logger.info(`Updating existing rule: ${existingRule.name} -> ${rule.name}`);
-      this.delete(existingRule.name);
     }
 
     const fileName = `${rule.name}${RulesManager.RULE_FILE_EXTENSION}`;
@@ -66,15 +54,17 @@ export class RulesManager extends EventEmitter implements IRulesManager {
     fs.writeFileSync(filePath, content, 'utf-8');
     this.logger.info(`Rule saved to: ${filePath}`);
 
-    // Reload rules to update the in-memory list
-    this.loadRules();
+    // Update the rules list
+    this.rules.push(rule);
+    this.sortRules();
     
     // Emit change event
     this.emit('rulesChanged');
   }
 
-  delete(name: string): boolean {
-    const rule = this.get(name);
+  deleteRule(name: string): boolean {
+    this.logger.debug(`Deleting rule: ${name}`);
+    const rule = this.getRule(name);
     if (!rule) return false;
 
     const fileName = `${name}${RulesManager.RULE_FILE_EXTENSION}`;
@@ -82,7 +72,7 @@ export class RulesManager extends EventEmitter implements IRulesManager {
     
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);
-      this.loadRules(); // Reload to update in-memory list
+      this.rules = this.rules.filter(r => r.name !== name);
       
       // Emit change event
       this.emit('rulesChanged');
@@ -136,10 +126,6 @@ export class RulesManager extends EventEmitter implements IRulesManager {
 
   private validateRuleName(name: string): boolean {
     return /^[a-zA-Z0-9_-]+$/.test(name);
-  }
-
-  private hasRuleWithName(name: string, excludeName?: string): boolean {
-    return this.rules.some(r => r.name === name && (!excludeName || r.name !== excludeName));
   }
 }
 

@@ -6,6 +6,7 @@ import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SE
 import { ModelReply, Turn } from './types';
 import { Agent } from '../types/agent';
 import { Logger } from '../types/common';
+import { ProviderHelper } from './provider-helper';
 
 export class ClaudeProvider implements Provider {
   private readonly agent: Agent;
@@ -29,8 +30,8 @@ export class ClaudeProvider implements Provider {
     };
   }
   
-  static async validateConfiguration(agent: Agent): Promise<{ isValid: boolean, error?: string }> {
-    const apiKey = agent.providers.getSetting(ProviderType.Claude, 'ANTHROPIC_API_KEY');
+  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
+    const apiKey = config['ANTHROPIC_API_KEY'];
     if (!apiKey) {
       return { isValid: false, error: 'ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.' };
     }
@@ -47,9 +48,14 @@ export class ClaudeProvider implements Provider {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+
+    const config = this.agent.getInstalledProviderConfig(ProviderType.Claude);
+    if (!config) {
+      throw new Error('Claude configuration is missing.');
+    }
     
     try {
-      const apiKey = this.agent.providers.getSetting(ProviderType.Claude, 'ANTHROPIC_API_KEY')!;
+      const apiKey = config['ANTHROPIC_API_KEY']!;
       if (!apiKey) {
         throw new Error('ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.');
       }
@@ -86,7 +92,7 @@ export class ClaudeProvider implements Provider {
     try {
       this.logger.info('Generating response with Claude');
 
-      const tools = this.agent.mcpManager.getAllTools().map((tool: Tool) => {
+      const tools = ProviderHelper.getAllTools(this.agent).map((tool: Tool) => {
         return {
           name: tool.name,
           description: tool.description,
@@ -192,7 +198,7 @@ export class ClaudeProvider implements Provider {
           }
           if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
             // Run the tool
-            const toolResult = await this.agent.mcpManager.callTool(functionName, toolCallApproval.args, session);
+            const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
               turn.toolCalls!.push({
@@ -284,8 +290,8 @@ export class ClaudeProvider implements Provider {
             const toolUseId = content.id;
             const toolArgs = content.input as { [x: string]: unknown } | undefined;
 
-            const toolServerName = this.agent.mcpManager.getToolServerName(toolName);
-            const toolToolName = this.agent.mcpManager.getToolName(toolName);
+            const toolServerName = ProviderHelper.getToolServerName(toolName);
+            const toolToolName = ProviderHelper.getToolName(toolName);
 
             if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
               // Process tool approval
@@ -300,7 +306,7 @@ export class ClaudeProvider implements Provider {
               });
             } else {
               // Call the tool
-              const toolResult = await this.agent.mcpManager.callTool(toolName, toolArgs, session);
+              const toolResult = await ProviderHelper.callTool(this.agent, toolName, toolArgs, session);
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
                 if (!turn.toolCalls) {

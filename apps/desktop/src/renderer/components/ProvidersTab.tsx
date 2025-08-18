@@ -50,8 +50,20 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
 
   useEffect(() => {
     const loadProviderInfo = async () => {
-      const info = await window.api.getProviderInfo();
-      setProviderInfo(info);
+      // Get all available providers and their info
+      const availableProviders = await window.api.getInstalledProviders();
+      const providerInfoMap: Record<string, LLMProviderInfo> = {};
+      
+      for (const provider of availableProviders) {
+        try {
+          const info = await window.api.getProviderInfo(provider);
+          providerInfoMap[provider] = info;
+        } catch (error) {
+          log.error(`Failed to get info for provider ${provider}:`, error);
+        }
+      }
+      
+      setProviderInfo(providerInfoMap);
     };
     loadProviderInfo();
   }, []);
@@ -61,7 +73,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
       // Initialize config with any existing values
       const initialConfig: Record<string, string> = {};
       provider.info.configValues?.forEach(async configValue => {
-        const value = await window.api.getProviderConfig(provider.id, configValue.key);
+        const value = await window.api.getProviderConfig(provider.id as ProviderType, configValue.key);
         if (value !== null) {
           initialConfig[configValue.key] = value;
         }
@@ -74,19 +86,26 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
     setError(null);
     try {
       if (!provider && selectedProviderType) {
-        // Adding a new provider
-        await window.api.addProvider(selectedProviderType);
-        // Set config values for the new provider
-        for (const [key, value] of Object.entries(config)) {
-          await window.api.setProviderConfig(selectedProviderType, key, value);
+        // Adding a new provider - validate config first
+        const validation = await window.api.validateProviderConfig(selectedProviderType, config);
+        if (!validation.isValid) {
+          setError(validation.error || 'Invalid configuration');
+          return;
         }
+        // Add provider with config
+        await window.api.addProvider(selectedProviderType, config);
         // Close the modal after successful addition
         onSave(config, selectedProviderType);
       } else if (provider) {
-        // Updating existing provider
-        for (const [key, value] of Object.entries(config)) {
-          await window.api.setProviderConfig(provider.id, key, value);
+        // Updating existing provider - validate config first
+        const providerType = provider.id as ProviderType;
+        const validation = await window.api.validateProviderConfig(providerType, config);
+        if (!validation.isValid) {
+          setError(validation.error || 'Invalid configuration');
+          return;
         }
+        // Update provider with new config
+        await window.api.addProvider(providerType, config);
         onSave(config);
       }
     } catch (err) {
@@ -305,7 +324,21 @@ const ModelList: React.FC<ModelListProps> = ({ provider }) => {
   useEffect(() => {
     const validateConfig = async () => {
       try {
-        const result = await window.api.validateProviderConfig(provider.id);
+        // Get the current config for the provider from the workspace
+        const providerType = provider.id as ProviderType;
+        
+        // Build the config object from individual settings
+        const config: Record<string, string> = {};
+        if (provider.info.configValues) {
+          for (const configValue of provider.info.configValues) {
+            const value = await window.api.getProviderConfig(providerType, configValue.key);
+            if (value !== null) {
+              config[configValue.key] = value;
+            }
+          }
+        }
+        
+        const result = await window.api.validateProviderConfig(providerType, config);
         setIsValid(result.isValid);
         setError(result.error || null);
       } catch (err) {
@@ -354,13 +387,12 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
     const loadProviders = async () => {
       try {
         const installedProviders = await window.api.getInstalledProviders();
-        const allProviderInfo = await window.api.getProviderInfo();
         const providersWithModels = await Promise.all(
           installedProviders
             .sort((a, b) => a.localeCompare(b))
-            .map(async (provider: string) => {
+            .map(async (provider: ProviderType) => {
               const models = await window.api.getModelsForProvider(provider);
-              const info = allProviderInfo[provider as ProviderType];
+              const info = await window.api.getProviderInfo(provider);
               return {
                 id: provider,
                 name: provider,
@@ -393,20 +425,18 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
   const handleSaveProvider = async (config: Record<string, string>, newProviderId?: string) => {
     try {
       if (editingProvider) {
-        // Save each config key for existing provider
-        for (const [key, value] of Object.entries(config)) {
-          await window.api.setProviderConfig(editingProvider.id, key, value);
-        }
+        // Update existing provider with new config
+        const providerType = editingProvider.id as ProviderType;
+        await window.api.addProvider(providerType, config);
       }
       // Refresh the providers list
       const installedProviders = await window.api.getInstalledProviders();
-      const allProviderInfo = await window.api.getProviderInfo();
       const providersWithModels = await Promise.all(
         installedProviders
           .sort((a, b) => a.localeCompare(b))
-          .map(async (provider: string) => {
+          .map(async (provider: ProviderType) => {
             const models = await window.api.getModelsForProvider(provider);
-            const info = allProviderInfo[provider as ProviderType];
+            const info = await window.api.getProviderInfo(provider);
             return {
               id: provider,
               name: provider,
@@ -433,7 +463,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
     const provider = providers.find(p => p.id === providerId);
     if (confirm(`Are you sure you want to remove the ${provider?.info.name} provider? This will also remove all associated models.`)) {
       try {
-        await window.api.removeProvider(providerId);
+        await window.api.removeProvider(providerId as ProviderType);
         log.info(`Provider ${provider?.info.name} removed successfully`);
         setProviders(providers.filter(p => p.id !== providerId));
         if (selectedProvider === providerId) {

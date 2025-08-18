@@ -4,6 +4,7 @@ import { Logger } from '../types/common';
 import { ReferencesManager } from '../managers/types';
 import { ChatSession } from "../types/chat";
 import { Reference } from "../types/references";
+import { Agent } from "../types/agent";
 
 /**
  * Interface for reference arguments with all fields optional
@@ -18,7 +19,7 @@ interface ReferenceArgs {
 }
 
 export class McpClientInternalReferences implements McpClient {
-    private referencesManager: ReferencesManager;
+    private agent: Agent;
     private logger: Logger;
     serverVersion: { name: string; version: string } | null = { name: "References", version: "1.0.0" };
     serverTools: Tool[] = [
@@ -162,8 +163,8 @@ export class McpClientInternalReferences implements McpClient {
         },
     ];
 
-    constructor(referencesManager: ReferencesManager, logger: Logger) {
-        this.referencesManager = referencesManager;
+    constructor(agent: Agent, logger: Logger) {
+        this.agent = agent;
         this.logger = logger;
     }
 
@@ -274,7 +275,7 @@ export class McpClientInternalReferences implements McpClient {
                         include: validatedArgs.include || 'manual'
                     };
                     
-                    this.referencesManager.save(newReference);
+                    this.agent.addReference(newReference);
                     
                     return {
                         content: [{ type: "text", text: `Reference "${validatedArgs.name}" created successfully` }],
@@ -285,7 +286,7 @@ export class McpClientInternalReferences implements McpClient {
                 case "getReference": {
                     const validatedArgs = this.validateReferenceArgs(args, ["name"]);
                     
-                    const references = this.referencesManager.getAll();
+                    const references = this.agent.getAllReferences();
                     const reference = references.find((r: Reference) => r.name === validatedArgs.name);
                     
                     if (!reference) {
@@ -301,7 +302,7 @@ export class McpClientInternalReferences implements McpClient {
                 case "updateReference": {
                     const validatedArgs = this.validateReferenceArgs(args, ["name"]);
                     
-                    const existingReferences = this.referencesManager.getAll();
+                    const existingReferences = this.agent.getAllReferences();
                     const existingReference = existingReferences.find((r: Reference) => r.name === validatedArgs.name);
                     
                     if (!existingReference) {
@@ -318,7 +319,7 @@ export class McpClientInternalReferences implements McpClient {
                         include: validatedArgs.include ?? existingReference.include
                     };
                     
-                    this.referencesManager.save(updatedReference);
+                    this.agent.addReference(updatedReference);
                     
                     return {
                         content: [{ type: "text", text: `Reference "${validatedArgs.name}" updated successfully` }],
@@ -329,7 +330,7 @@ export class McpClientInternalReferences implements McpClient {
                 case "deleteReference": {
                     const validatedArgs = this.validateReferenceArgs(args, ["name"]);
                     
-                    this.referencesManager.delete(validatedArgs.name!);
+                    this.agent.deleteReference(validatedArgs.name!);
                     
                     return {
                         content: [{ type: "text", text: `Reference "${validatedArgs.name}" deleted successfully` }],
@@ -338,7 +339,7 @@ export class McpClientInternalReferences implements McpClient {
                 }
 
                 case "listReferences": {
-                    const allReferences = this.referencesManager.getAll();
+                    const allReferences = this.agent.getAllReferences();
                     
                     // Create a new array with the text field omitted from each reference
                     const referencesWithoutText = allReferences.map(reference => {

@@ -11,14 +11,18 @@ import { Agent, AgentConfig,
 import { Logger } from '../types/common';
 import { RulesManager } from '../managers/rules-manager';
 import { ReferencesManager } from '../managers/references-manager';
-import { ProvidersManager } from '../managers/providers-manager';
 import { McpServerManagerImpl } from '../managers/mcp-server-manager';
 import { ChatSessionManagerImpl } from '../managers/chat-session-manager';
 import { MCPClientManagerImpl } from '../mcp/client-manager';
 import { v4 as uuidv4 } from 'uuid';
-import { MCPClientManager } from '../mcp/types';
+import { McpClient, MCPClientManager, McpConfig } from '../mcp/types';
+import { EventEmitter } from 'events';
+import { ProviderFactory } from '../providers/provider-factory';
+import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types';
+import { Reference, Rule } from '..';
+import { ChatSession, ChatSessionOptions } from '../types/chat';
 
-export class FileBasedAgent implements Agent {
+export class FileBasedAgent  extends EventEmitter implements Agent {
   private static readonly WORKSPACE_FILE_NAME = 'tspark.json';
   private static readonly SYSTEM_PROMPT_FILE_NAME = 'prompt.md';
   private static readonly DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
@@ -30,14 +34,15 @@ export class FileBasedAgent implements Agent {
   private _configLoaded = false;
   private _id: string;
 
+  private providerFactory: ProviderFactory;
+
   // Sub-managers
+  public readonly chatSessions: ChatSessionManagerImpl;
   public readonly rules: RulesManager;
   public readonly references: ReferencesManager;
-  public readonly providers: ProvidersManager;
   public readonly mcpServers: McpServerManagerImpl;
-  public readonly mcpManager: MCPClientManager;
-  public readonly chatSessions: ChatSessionManagerImpl;
-
+  private readonly mcpManager: MCPClientManager;
+  
   // Agent interface properties
   get id(): string { return this._id; }
   get path(): string { return this._workspaceDir; }
@@ -45,35 +50,20 @@ export class FileBasedAgent implements Agent {
   get description(): string | undefined { return undefined; } // Description not part of AgentMetadata
 
   private constructor(workspaceDir: string, private logger: Logger) {
+    super();
     this._workspaceDir = workspaceDir;
     this._workspaceFile = path.join(this._workspaceDir, FileBasedAgent.WORKSPACE_FILE_NAME);
     this._promptFile = path.join(this._workspaceDir, FileBasedAgent.SYSTEM_PROMPT_FILE_NAME);
     this._id = uuidv4();
+
+    this.providerFactory = new ProviderFactory(this, logger);
     
     // Initialize sub-managers with logger
+    this.mcpManager = new MCPClientManagerImpl(this.logger);
     this.rules = new RulesManager(this._workspaceDir, this.logger);
     this.references = new ReferencesManager(this._workspaceDir, this.logger);
-    this.providers = new ProvidersManager(this, this.logger);
-    this.mcpServers = new McpServerManagerImpl(this, this.logger);
-    this.mcpManager = new MCPClientManagerImpl(this.logger);
+    this.mcpServers = new McpServerManagerImpl(this, this.mcpManager, this.logger);
     this.chatSessions = new ChatSessionManagerImpl(this, this.logger);
-  }
-
-  // Factory methods
-  async createAgent(agentPath: string, logger: Logger, data?: Partial<AgentConfig>): Promise<Agent> {
-    return FileBasedAgent.createAgent(agentPath, logger, data);
-  }
-
-  async loadAgent(agentPath: string, logger: Logger): Promise<Agent> {
-    return FileBasedAgent.loadAgent(agentPath, logger);
-  }
-
-  async agentExists(agentPath: string): Promise<boolean> {
-    return FileBasedAgent.agentExists(agentPath);
-  }
-
-  async cloneAgent(sourcePath: string, targetPath: string, logger: Logger): Promise<Agent> {
-    return FileBasedAgent.cloneAgent(sourcePath, targetPath, logger);
   }
 
   // Static factory methods
@@ -198,15 +188,6 @@ export class FileBasedAgent implements Agent {
     await this.saveConfig();
   }
 
-  // Legacy methods for backward compatibility
-  getSettingsValue(key: string): string | null {
-    return this.getSetting(key);
-  }
-
-  async setSettingsValue(key: string, value: string): Promise<void> {
-    return this.setSetting(key, value);
-  }
-
   // System prompt management
   async getSystemPrompt(): Promise<string> {
     if (!fs.existsSync(this._promptFile)) {
@@ -223,19 +204,6 @@ export class FileBasedAgent implements Agent {
 
   async setSystemPrompt(prompt: string): Promise<void> {
     await fs.promises.writeFile(this._promptFile, prompt);
-  }
-
-  // Workspace data access methods
-  getWorkspaceProviders(): Record<string, any> | null {
-    return this._workspaceData?.providers || null;
-  }
-
-  async updateWorkspaceProviders(providers: Record<string, any>): Promise<void> {
-    if (!this._workspaceData) {
-      this._workspaceData = this.getInitialConfig();
-    }
-    this._workspaceData.providers = providers;
-    await this.saveConfig();
   }
 
   getWorkspaceMcpServers(): Record<string, any> | null {
@@ -265,7 +233,7 @@ export class FileBasedAgent implements Agent {
       this._configLoaded = true;
       
       // Load MCP clients after config is loaded
-      await this.mcpManager.loadClients(this);
+      await this.mcpManager.loadMcpClients(this);
     } catch (error) {
       throw new Error(`Failed to load ${FileBasedAgent.WORKSPACE_FILE_NAME}: ${error}`);
     }
@@ -281,7 +249,7 @@ export class FileBasedAgent implements Agent {
     this._configLoaded = true;
     
     // Load MCP clients after initialization
-    await this.mcpManager.loadClients(this);
+    await this.mcpManager.loadMcpClients(this);
   }
 
   private getInitialConfig(data?: Partial<AgentConfig>): AgentConfig {
@@ -305,16 +273,154 @@ export class FileBasedAgent implements Agent {
     };
   }
 
-  // Internal access for sub-managers
-  get workspaceData(): AgentConfig | null {
-    return this._workspaceData;
+  // RulesManager methods
+  getAllRules(): Rule[] {
+    return this.rules.getAllRules();
+  }
+  getRule(name: string): Rule | null {
+    return this.rules.getRule(name);
+  }
+  addRule(rule: Rule): void {
+    this.rules.addRule(rule);
+  }
+  deleteRule(name: string): boolean {
+    return this.rules.deleteRule(name);
   }
 
-  get workspaceDir(): string {
-    return this._workspaceDir;
+  // ReferencesManager methods
+  getAllReferences(): Reference[] {
+    return this.references.getAllReferences();
+  }
+  getReference(name: string): Reference | null {
+    return this.references.getReference(name);
   }
 
-  get configLoaded(): boolean {
-    return this._configLoaded;
+  addReference(reference: Reference): void {
+    this.references.addReference(reference);
+  }
+  deleteReference(name: string): boolean {
+    return this.references.deleteReference(name);
+  }
+
+  // Workspace data access methods
+  private getWorkspaceProviders(): Record<string, any> | null {
+    return this._workspaceData?.providers || null;
+  }
+
+  private async updateWorkspaceProviders(providers: Record<string, any>): Promise<void> {
+    if (!this._workspaceData) {
+      this._workspaceData = this.getInitialConfig();
+    }
+    this._workspaceData.providers = providers;
+    await this.saveConfig();
+  }  
+
+  // Provider configuration methods
+  //
+  getInstalledProviders(): ProviderType[] {
+    const providers = this.getWorkspaceProviders();
+    return providers ? Object.keys(providers) as ProviderType[] : [];
+  }
+
+  isProviderInstalled(provider: ProviderType): boolean {
+    const providers = this.getWorkspaceProviders();
+    return providers?.[provider] !== undefined;
+  }
+
+  getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null {
+    const providers = this.getWorkspaceProviders();
+    return providers?.[provider] || null;
+  }
+
+  createProvider(provider: ProviderType, modelId?: string): Provider {
+    return this.providerFactory.create(provider, modelId);
+  }
+
+  async installProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
+    const providers = this.getWorkspaceProviders() || {};
+    providers[provider] = config;
+    await this.updateWorkspaceProviders(providers);
+    
+    // Emit change event
+    this.emit('providersChanged');
+  }
+
+  async updateProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
+    const providers = this.getWorkspaceProviders() || {};
+    providers[provider] = config;
+    await this.updateWorkspaceProviders(providers);
+    
+    // Emit change event
+    this.emit('providersChanged');
+  }
+
+  async uninstallProvider(provider: ProviderType): Promise<void> {
+    const providers = this.getWorkspaceProviders();
+    if (!providers || !providers[provider]) return;
+    
+    delete providers[provider];
+    await this.updateWorkspaceProviders(providers);
+    
+    // Emit change event
+    this.emit('providersChanged');
+  }
+
+  // Provider factory methods
+  //
+  async validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
+    return this.providerFactory.validateConfiguration(provider, config);
+  }
+
+  getAvailableProviders(): ProviderType[] {
+    return this.providerFactory.getAvailableProviders();
+  }
+
+  getAvailableProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>> {
+    return this.providerFactory.getProvidersInfo();
+  }
+
+  getProviderInfo(providerType: ProviderType): ProviderInfo {
+    return this.providerFactory.getProviderInfo(providerType);
+  }
+
+  async getProviderModels(providerType: ProviderType): Promise<ProviderModel[]> {
+    const providerInstance = this.providerFactory.create(providerType);
+    return providerInstance.getModels();
+  }
+
+  // MCP Server management methods
+  getAllMcpServers(): Promise<Record<string, McpConfig>> {
+    return this.mcpServers.getAllMcpServers();
+  }
+  getMcpServer(serverName: string): McpConfig | null {
+    return this.mcpServers.getMcpServer(serverName);
+  }
+  saveMcpServer(server: McpConfig): Promise<void> {
+    return this.mcpServers.saveMcpServer(server);
+  }
+  deleteMcpServer(serverName: string): Promise<boolean> {
+    return this.mcpServers.deleteMcpServer(serverName);
+  }
+
+  // MCP Client access methods
+  getAllMcpClients(): Record<string, McpClient> {
+    return this.mcpManager.getAllMcpClients();
+  }
+  getMcpClient(name: string): McpClient | undefined {
+    return this.mcpManager.getMcpClient(name);
+  }
+  
+  // ChatSessionManager methods
+  getAllChatSessions(): ChatSession[] {
+    return this.chatSessions.getAllChatSessions();
+  }
+  getChatSession(sessionId: string): ChatSession | null {
+    return this.chatSessions.getChatSession(sessionId);
+  }
+  createChatSession(sessionId: string, options?: ChatSessionOptions): ChatSession {
+    return this.chatSessions.createChatSession(sessionId, options);
+  }
+  deleteChatSession(sessionId: string): Promise<boolean> {
+    return this.chatSessions.deleteChatSession(sessionId);
   }
 }

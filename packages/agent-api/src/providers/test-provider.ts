@@ -34,7 +34,7 @@ export class TestProvider implements Provider {
     }];
   }
 
-  static async validateConfiguration(agent: Agent): Promise<{ isValid: boolean, error?: string }> {
+  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
     return { isValid: true };
   }
 
