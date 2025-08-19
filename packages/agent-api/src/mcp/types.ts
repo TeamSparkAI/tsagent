@@ -72,9 +72,8 @@ export interface McpClient {
 }
 
 export interface MCPClientManager {
-  loadMcpClients(agent: Agent): Promise<void>;
-  updateMcpClient(agent: Agent, name: string, clientConfig: McpConfig): Promise<void>;
-  deleteMcpClient(name: string): Promise<void>;
-  getAllMcpClients(): Record<string, McpClient>;
-  getMcpClient(name: string): McpClient | undefined;
+  unloadMcpClient(name: string): Promise<void>;
+  unloadMcpClients(): Promise<void>;
+  getAllMcpClients(): Promise<Record<string, McpClient>>;
+  getMcpClient(name: string): Promise<McpClient | undefined>;
 }

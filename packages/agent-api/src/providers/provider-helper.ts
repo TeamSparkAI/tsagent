@@ -22,9 +22,10 @@ export class ProviderHelper {
         return name.substring(firstUnderscoreIndex + 1);
     }
 
-    static getAllTools(agent: Agent): Tool[] {
+    static async getAllTools(agent: Agent): Promise<Tool[]> {
         const allTools: Tool[] = [];
-        for (const [clientName, client] of Object.entries(agent.getAllMcpClients())) {
+        const mcpClients = await agent.getAllMcpClients();
+        for (const [clientName, client] of Object.entries(mcpClients)) {
             try {
                 const clientTools = client.serverTools.map(tool => ({
                     ...tool,
@@ -41,7 +42,7 @@ export class ProviderHelper {
     static async callTool(agent: Agent, name: string, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {
         const clientName = ProviderHelper.getToolServerName(name);
         const toolName = ProviderHelper.getToolName(name);
-        const client = agent.getMcpClient(clientName);
+        const client = await agent.getMcpClient(clientName);
         if (!client) {
             throw new Error(`Client not found: ${clientName}`);
         }

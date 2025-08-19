@@ -151,7 +151,7 @@ export class BedrockProvider implements Provider {
       this.logger.info('Generating response with Bedrock');
 
 			// Build the Bedrock tools array from the MCP tools
-      const tools: BedrockTool[] = ProviderHelper.getAllTools(this.agent).map((tool: Tool) => {
+      const tools: BedrockTool[] = (await ProviderHelper.getAllTools(this.agent)).map((tool: Tool) => {
         const properties: Record<string, any> = {};
         
         // Convert properties safely with type checking

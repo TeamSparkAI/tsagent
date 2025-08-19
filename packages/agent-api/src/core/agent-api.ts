@@ -61,7 +61,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this.providerFactory = new ProviderFactory(this, logger);
     
     // Initialize sub-managers with logger
-    this.mcpManager = new MCPClientManagerImpl(this.logger);
+    this.mcpManager = new MCPClientManagerImpl(this, this.logger);
     this.rules = new RulesManager(this.logger);
     this.references = new ReferencesManager(this.logger);
     this.mcpServers = new McpServerManagerImpl(this, this.mcpManager, this.logger);
@@ -113,13 +113,6 @@ export class AgentImpl  extends EventEmitter implements Agent {
     await this.references.loadReferences(this._strategy);
     await this.rules.loadRules(this._strategy);
 
-    // Load MCP clients after loading config
-    try { 
-      await this.mcpManager.loadMcpClients(this);
-    } catch (error) {
-      this.logger.error(`Error loading MCP clients: ${error}`);
-    }
-
     this.logger.info(`[AGENT] Agent loaded successfully, theme: ${this._agentData?.settings?.[SETTINGS_KEY_THEME]}`);
   }
 
@@ -133,14 +126,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   
       await this._strategy.saveConfig(this._agentData);
       await this._strategy.saveSystemPrompt(this._prompt);
-    }
-    
-    // Load MCP clients after initialization
-    try {
-      await this.mcpManager.loadMcpClients(this);
-    } catch (error) {
-      this.logger.error(`Error loading MCP clients: ${error}`);
-    }
+    }    
   }
   
   async delete(): Promise<void> {
@@ -350,10 +336,10 @@ export class AgentImpl  extends EventEmitter implements Agent {
   deleteMcpServer(serverName: string): Promise<boolean> {
     return this.mcpServers.deleteMcpServer(serverName);
   }
-  getAllMcpClients(): Record<string, McpClient> {
+  getAllMcpClients(): Promise<Record<string, McpClient>> {
     return this.mcpManager.getAllMcpClients();
   }
-  getMcpClient(name: string): McpClient | undefined {
+  getMcpClient(name: string): Promise<McpClient | undefined> {
     return this.mcpManager.getMcpClient(name);
   }
   

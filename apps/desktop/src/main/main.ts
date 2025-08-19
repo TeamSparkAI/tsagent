@@ -679,7 +679,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
-      let client = agent.getMcpClient(serverName);
+      let client = await agent.getMcpClient(serverName);
       let serverType = 'stdio';
       
       if (!client) {
@@ -703,7 +703,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
           throw new Error(`Invalid server configuration for ${serverName}: missing config property`);
         }
         
-        client = agent.getMcpClient(serverName);
+        client = await agent.getMcpClient(serverName);
         if (!client) {
           throw new Error(`Failed to create client for server: ${serverName}`);
         }
@@ -735,7 +735,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
       const agent = getAgentForWindow(windowId);
 
-      const client = agent?.getMcpClient(serverName);
+      const client = await agent?.getMcpClient(serverName);
       if (!client) {
         throw new Error(`No MCP client found for server ${serverName}`);
       }
@@ -756,7 +756,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
 
-    const client = agent?.getMcpClient(serverName);
+    const client = await agent?.getMcpClient(serverName);
     if (!client) {
       throw new Error(`No MCP client found for server ${serverName}`);
     }

@@ -10,9 +10,11 @@ import { MCPClientManager } from './types';
 export class MCPClientManagerImpl implements MCPClientManager {
     private clients: Map<string, McpClient>;
     private logger: Logger;
+    private agent: Agent;
 
-    constructor(logger: Logger) {
+    constructor(agent: Agent, logger: Logger) {
         this.clients = new Map<string, McpClient>();
+        this.agent = agent;
         this.logger = logger;
     }
 
@@ -95,30 +97,8 @@ export class MCPClientManagerImpl implements MCPClientManager {
         }
     }
 
-    async loadMcpClients(agent: Agent) {
-        const mcpServers = await agent.getAllMcpServers();
-        
-        const clientPromises = Object.entries(mcpServers).map(([serverName, serverConfig]) => 
-            this.loadMcpClient(agent, serverName, serverConfig)
-        );
-        
-        await Promise.allSettled(clientPromises);
-    }
 
-    async updateMcpClient(agent: Agent, name: string, clientConfig: McpConfig): Promise<void> {
-        const existingClient = this.clients.get(name);
-        if (existingClient) {
-            await existingClient.disconnect();
-        }
-        const newClient = this.createMcpClientFromConfig(agent, clientConfig);
-        if (!newClient) {
-            throw new Error(`Failed to create client for server: ${name}`);
-        }
-        await newClient.connect();
-        this.clients.set(name, newClient);
-    }
-
-    async deleteMcpClient(name: string): Promise<void> {
+    async unloadMcpClient(name: string): Promise<void> {
         const client = this.clients.get(name);
         if (client) {
             await client.disconnect();
@@ -126,10 +106,10 @@ export class MCPClientManagerImpl implements MCPClientManager {
         }
     }
 
-    // !!! Doesn't appear to be used anywhere - should probably be paired with calls to loadClients()
-    unloadMcpClients(): void {
+    // !!! Doesn't appear to be used anywhere - should probably be called on parent destruction
+    async unloadMcpClients(): Promise<void> {
         for (const client of this.clients.values()) {
-            client.disconnect();
+            await client.disconnect();
         }
         this.clients.clear();
         this.logger.info('MCPClientManager: Unload clients complete');
@@ -140,11 +120,38 @@ export class MCPClientManagerImpl implements MCPClientManager {
     // its server was updated or deleted.  On an update, the next call to get the client would reload it.
     //
     
-    getAllMcpClients(): Record<string, McpClient> {
-        return Object.fromEntries(this.clients.entries());
+    async getAllMcpClients(): Promise<Record<string, McpClient>> {
+        const mcpServers = await this.agent.getAllMcpServers();
+        const result: Record<string, McpClient> = {};
+        
+        // Load any clients that aren't already loaded
+        for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+            if (!this.clients.has(serverName)) {
+                await this.loadMcpClient(this.agent, serverName, serverConfig);
+            }
+            const client = this.clients.get(serverName);
+            if (client) {
+                result[serverName] = client;
+            }
+        }
+        
+        return result;
     }
 
-    getMcpClient(name: string): McpClient | undefined {
+    async getMcpClient(name: string): Promise<McpClient | undefined> {
+        // If client is already loaded, return it
+        if (this.clients.has(name)) {
+            return this.clients.get(name);
+        }
+        
+        // Load the specific client
+        const mcpServers = await this.agent.getAllMcpServers();
+        const serverConfig = mcpServers[name];
+        if (!serverConfig) {
+            return undefined; // Server doesn't exist
+        }
+        
+        await this.loadMcpClient(this.agent, name, serverConfig);
         return this.clients.get(name);
     }
 } 

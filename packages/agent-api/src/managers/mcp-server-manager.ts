@@ -44,7 +44,7 @@ export class McpServerManagerImpl implements McpServerManager {
     await this.agent.updateAgentMcpServers(mcpServers);
 
     // Update the client with the new server config
-    await this.mcpManager.updateMcpClient(this.agent, server.name, server);
+    await this.mcpManager.unloadMcpClient(server.name);
   }
 
   async deleteMcpServer(serverName: string): Promise<boolean> {
@@ -56,7 +56,7 @@ export class McpServerManagerImpl implements McpServerManager {
     await this.agent.updateAgentMcpServers(mcpServers);
 
     // Delete the client (if any)
-    await this.mcpManager.deleteMcpClient(serverName);
+    await this.mcpManager.unloadMcpClient(serverName);
     
     return true;
   }

@@ -64,7 +64,7 @@ async function toolsCommand(agent: Agent) {
     
     // Get client for each server
     for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-      const mcpClient = agent.getMcpClient(serverName);
+      const mcpClient = await agent.getMcpClient(serverName);
       if (!mcpClient) {
         console.log(chalk.red(`Server ${serverName}: Not connected`));
         continue;

@@ -84,8 +84,8 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   deleteMcpServer(serverName: string): Promise<boolean>; 
 
   // MCP Client access methods
-  getAllMcpClients(): Record<string, McpClient>;
-  getMcpClient(name: string): McpClient | undefined;
+  getAllMcpClients(): Promise<Record<string, McpClient>>;
+  getMcpClient(name: string): Promise<McpClient | undefined>;
 
   // ChatSessionManager methods
   getAllChatSessions(): ChatSession[];
