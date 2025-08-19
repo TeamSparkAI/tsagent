@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { setupCLI } from '../cli/cli';
 import { McpConfig } from 'agent-api';
 import { AgentsManager } from './agents-manager';
-import { agentExists, loadAgent, createAgent } from 'agent-api/runtime';
+import { agentExists, loadAgent, createAgent, cloneAgent } from 'agent-api/runtime';
 import { Agent } from 'agent-api';
 import { ElectronLoggerAdapter } from './logger-adapter';
 import chalk from 'chalk';
@@ -1069,7 +1069,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { success: false, error: 'Failed to load source agent' };
     }
     
-    const clonedAgent = await sourceAgent.clone(targetPath);
+    const clonedAgent = await cloneAgent(sourcePath, targetPath, logger);
     if (!clonedAgent) {
       log.error(`[AGENT CLONE] Failed to clone agent from ${sourcePath} to ${targetPath}`);
       return { success: false, error: 'Failed to clone agent' };

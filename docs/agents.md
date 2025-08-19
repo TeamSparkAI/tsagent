@@ -1,5 +1,14 @@
 # Teamspark AI Workbench Agents
 
+## Agent functionality
+
+We now have agent-api where all of our agent functionality lives.  The current implementation is FileSystemAgent which
+works off of the tspark.json file and other related files in the agent directory.  It should be pretty easy to create
+an ephemeral agent (that just manages everything in memory, with no serialization - the client just loads it on create,
+and is free to interrogate its contents and save if desired).
+
+We could also return an in memory Agent that had a pluggable serialization strategy.
+
 ## Agents
 
 agents.json (in app files directory) - list of recent agents (GUI app only)

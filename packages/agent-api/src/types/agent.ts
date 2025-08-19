@@ -1,4 +1,5 @@
 import { Reference, Rule } from '..';
+import { AgentStrategy } from '../core/agent-strategy';
 import { RulesManager, ReferencesManager, ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types';
 import { McpClient, McpConfig } from '../mcp/types';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types';
@@ -29,11 +30,16 @@ export const SETTINGS_DEFAULT_TEMPERATURE = 0.5;
 export const SETTINGS_DEFAULT_TOP_P = 0.5;
 
 // Core agent interface
-export interface Agent extends RulesManager, ReferencesManager, ProvidersManager, McpServerManager, ChatSessionManager {
+export interface Agent extends ProvidersManager, McpServerManager, ChatSessionManager {
   readonly id: string;
-  readonly path: string;
   readonly name: string;
+  readonly path: string;
   readonly description?: string;
+  
+  // Agent lifecycle
+  load(): Promise<void>; // strategy required
+  create(data?: Partial<AgentConfig>): Promise<void>;
+  delete(): Promise<void>;
   
   // Settings
   getSetting(key: string): string | null;
@@ -46,14 +52,14 @@ export interface Agent extends RulesManager, ReferencesManager, ProvidersManager
   // RulesManager methods
   getAllRules(): Rule[];
   getRule(name: string): Rule | null;
-  addRule(rule: Rule): void;
-  deleteRule(name: string): boolean;
+  addRule(rule: Rule): Promise<void>;
+  deleteRule(name: string): Promise<boolean>;
 
   // ReferencesManager methods
   getAllReferences(): Reference[];
   getReference(name: string): Reference | null;
-  addReference(reference: Reference): void;
-  deleteReference(name: string): boolean;
+  addReference(reference: Reference): Promise<void>;
+  deleteReference(name: string): Promise<boolean>;
 
   // Provider installion/configuraiton methods
   getInstalledProviders(): ProviderType[];
@@ -86,11 +92,6 @@ export interface Agent extends RulesManager, ReferencesManager, ProvidersManager
   getChatSession(sessionId: string): ChatSession | null;
   createChatSession(sessionId: string, options?: ChatSessionOptions): ChatSession;
   deleteChatSession(sessionId: string): Promise<boolean>;
-
-  // Agent Lifecycle
-  save(): Promise<void>;
-  delete(): Promise<void>;
-  clone(targetPath: string): Promise<Agent>;
 }
 
 export interface AgentMetadata {
@@ -100,17 +101,19 @@ export interface AgentMetadata {
   version: string;
 }
 
+export interface AgentSettings {
+  [SETTINGS_KEY_MAX_CHAT_TURNS]: string;
+  [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: string;
+  [SETTINGS_KEY_TEMPERATURE]: string;
+  [SETTINGS_KEY_TOP_P]: string;
+  [SETTINGS_KEY_THEME]: string;
+  [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
+  [key: string]: string | SessionToolPermission | undefined;
+}
+
 export interface AgentConfig {
   metadata: AgentMetadata;
-  settings: {
-      [SETTINGS_KEY_MAX_CHAT_TURNS]: string;
-      [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: string;
-      [SETTINGS_KEY_TEMPERATURE]: string;
-      [SETTINGS_KEY_TOP_P]: string;
-      [SETTINGS_KEY_THEME]: string;
-      [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
-      [key: string]: string | SessionToolPermission | undefined;
-  };
+  settings: AgentSettings;
   providers?: Record<string, any>;
   mcpServers?: Record<string, any>;
 }

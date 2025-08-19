@@ -1,6 +1,6 @@
 import * as path from 'path';
 import * as fs from 'fs';
-import { Agent, AgentConfig, 
+import { Agent, AgentConfig, AgentSettings,
   SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_CHAT_TURNS, 
   SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
   SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_KEY_TEMPERATURE, 
@@ -21,17 +21,21 @@ import { ProviderFactory } from '../providers/provider-factory';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types';
 import { Reference, Rule } from '..';
 import { ChatSession, ChatSessionOptions } from '../types/chat';
+import { AgentStrategy, FileBasedAgentStrategy } from './agent-strategy';
 
-export class FileBasedAgent  extends EventEmitter implements Agent {
-  private static readonly AGENT_FILE_NAME = 'tspark.json';
-  private static readonly SYSTEM_PROMPT_FILE_NAME = 'prompt.md';
+// The idea behind the agent strategy is that you might want to serialize agents differenty (for example, in a database for an 
+// online service), or you might want to be able to create ephemral agents where you can set their state however you want and use
+// them (with no strategy to serialize them).
+//
+// We inject an optional AgentStrategy into our agent at creation time.  We then call either load() or create() to initialize the agent.
+//
+
+export class AgentImpl  extends EventEmitter implements Agent {
   private static readonly DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
-  private _agentDir: string;
-  private _agentFile: string;
+  private _strategy: AgentStrategy | null = null;
   private _agentData: AgentConfig | null = null;
-  private _promptFile: string;
-  private _configLoaded = false;
+  private _prompt: string | null = null;
   private _id: string;
 
   private providerFactory: ProviderFactory;
@@ -45,118 +49,113 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   
   // Agent interface properties
   get id(): string { return this._id; }
-  get path(): string { return this._agentDir; }
-  get name(): string { return this._agentData?.metadata?.name || path.basename(this._agentDir); }
+  get name(): string { return this._agentData?.metadata?.name || this._strategy?.getName() || this._id; }
+  get path(): string { return this._strategy?.getName() || this._id; }
   get description(): string | undefined { return undefined; } // Description not part of AgentMetadata
 
-  private constructor(agentDir: string, private logger: Logger) {
+  constructor(strategy: AgentStrategy | null, private logger: Logger) {
     super();
-    this._agentDir = agentDir;
-    this._agentFile = path.join(this._agentDir, FileBasedAgent.AGENT_FILE_NAME);
-    this._promptFile = path.join(this._agentDir, FileBasedAgent.SYSTEM_PROMPT_FILE_NAME);
     this._id = uuidv4();
+    this._strategy = strategy;
 
     this.providerFactory = new ProviderFactory(this, logger);
     
     // Initialize sub-managers with logger
     this.mcpManager = new MCPClientManagerImpl(this.logger);
-    this.rules = new RulesManager(this._agentDir, this.logger);
-    this.references = new ReferencesManager(this._agentDir, this.logger);
+    this.rules = new RulesManager(this.logger);
+    this.references = new ReferencesManager(this.logger);
     this.mcpServers = new McpServerManagerImpl(this, this.mcpManager, this.logger);
     this.chatSessions = new ChatSessionManagerImpl(this, this.logger);
   }
 
-  // Static factory methods
-  static async loadAgent(agentPath: string, logger: Logger): Promise<FileBasedAgent> {
-    const normalizedPath = path.normalize(agentPath);
-    const agent = new FileBasedAgent(normalizedPath, logger);
-    await agent.loadConfig();
-    return agent;
+  private getDefaultSettings(): AgentSettings {
+    return {
+      [SETTINGS_KEY_MAX_CHAT_TURNS]: SETTINGS_DEFAULT_MAX_CHAT_TURNS.toString(),
+      [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS.toString(),
+      [SETTINGS_KEY_TEMPERATURE]: SETTINGS_DEFAULT_TEMPERATURE.toString(),
+      [SETTINGS_KEY_TOP_P]: SETTINGS_DEFAULT_TOP_P.toString(),
+      [SETTINGS_KEY_THEME]: 'light',
+      [SESSION_TOOL_PERMISSION_KEY]: SESSION_TOOL_PERMISSION_TOOL
+    };
   }
 
-  static async createAgent(agentPath: string, logger: Logger, data?: Partial<AgentConfig>): Promise<FileBasedAgent> {
-    const normalizedPath = path.normalize(agentPath);
-    
-    // Check if agent already exists
-    if (await FileBasedAgent.agentExists(normalizedPath)) {
-      throw new Error(`Agent already exists at path: ${normalizedPath}`);
-    }
-
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(normalizedPath)) {
-      fs.mkdirSync(normalizedPath, { recursive: true });
-    }
-
-    const agent = new FileBasedAgent(normalizedPath, logger);
-    await agent.initialize(data);
-    return agent;
-  }
-
-  static async agentExists(agentPath: string): Promise<boolean> {
-    const normalizedPath = path.normalize(agentPath);
-    const agentFile = path.join(normalizedPath, FileBasedAgent.AGENT_FILE_NAME);
-    return fs.existsSync(agentFile);
-  }
-
-  static async cloneAgent(sourcePath: string, targetPath: string, logger: Logger): Promise<FileBasedAgent> {
-    const normalizedSource = path.normalize(sourcePath);
-    const normalizedTarget = path.normalize(targetPath);
-
-    if (!await FileBasedAgent.agentExists(normalizedSource)) {
-      throw new Error(`Source agent does not exist: ${normalizedSource}`);
-    }
-
-    if (await FileBasedAgent.agentExists(normalizedTarget)) {
-      throw new Error(`Target agent already exists: ${normalizedTarget}`);
-    }
-
-    // Create target directory
-    if (!fs.existsSync(normalizedTarget)) {
-      fs.mkdirSync(normalizedTarget, { recursive: true });
-    }
-
-    // Copy all agent files
-    const filesToCopy = [
-      FileBasedAgent.AGENT_FILE_NAME,
-      FileBasedAgent.SYSTEM_PROMPT_FILE_NAME,
-      'refs',
-      'rules'
-    ];
-
-    for (const file of filesToCopy) {
-      const sourceFile = path.join(normalizedSource, file);
-      const targetFile = path.join(normalizedTarget, file);
-      
-      if (fs.existsSync(sourceFile)) {
-        if (fs.lstatSync(sourceFile).isDirectory()) {
-          await fs.promises.cp(sourceFile, targetFile, { recursive: true });
-        } else {
-          await fs.promises.copyFile(sourceFile, targetFile);
-        }
+  private getInitialConfig(data?: Partial<AgentConfig>): AgentConfig {
+    return {
+      metadata: {
+        name: data?.metadata?.name || this._strategy?.getName() || this._id,
+        created: new Date().toISOString(),
+        lastAccessed: new Date().toISOString(),
+        version: '1.0.0',
+        ...data?.metadata
+      },
+      settings: {
+        ...this.getDefaultSettings(),
+        ...data?.settings
       }
+    };
+  }
+
+  async load(): Promise<void> {
+    if (!this._strategy) {
+      throw new Error('Strategy not set, cannot call load(). Call create() instead to create an agent with no strategy.');
     }
 
-    return await FileBasedAgent.loadAgent(normalizedTarget, logger);
+    if (!await this._strategy.exists()) {
+      throw new Error('Agent does not exist. Call create() to create a new agent.');
+    }
+
+    this._agentData = await this._strategy.loadConfig();
+    if (this._agentData && !this._agentData.settings) {
+      this._agentData.settings = this.getDefaultSettings();
+    }
+    this._prompt = await this._strategy.loadSystemPrompt(AgentImpl.DEFAULT_PROMPT);
+
+    await this.references.loadReferences(this._strategy);
+    await this.rules.loadRules(this._strategy);
+
+    // Load MCP clients after loading config
+    try { 
+      await this.mcpManager.loadMcpClients(this);
+    } catch (error) {
+      this.logger.error(`Error loading MCP clients: ${error}`);
+    }
+
+    this.logger.info(`[AGENT] Agent loaded successfully, theme: ${this._agentData?.settings?.[SETTINGS_KEY_THEME]}`);
   }
 
-  // Instance methods
-  async save(): Promise<void> {
-    await this.saveConfig();
+  async create(data?: Partial<AgentConfig>): Promise<void> {
+    this._agentData = this.getInitialConfig(data);
+    this._prompt = AgentImpl.DEFAULT_PROMPT;
+    if (this._strategy) {
+      if (await this._strategy.exists()) {
+        throw new Error('Cannot create agent that already exists. Call load() to load an existing agent.');
+      }
+  
+      await this._strategy.saveConfig(this._agentData);
+      await this._strategy.saveSystemPrompt(this._prompt);
+    }
+    
+    // Load MCP clients after initialization
+    try {
+      await this.mcpManager.loadMcpClients(this);
+    } catch (error) {
+      this.logger.error(`Error loading MCP clients: ${error}`);
+    }
   }
-
+  
   async delete(): Promise<void> {
-    // Remove the entire agent directory
-    await fs.promises.rm(this._agentDir, { recursive: true, force: true });
-  }
-
-  async clone(targetPath: string): Promise<Agent> {
-    return await FileBasedAgent.cloneAgent(this._agentDir, targetPath, this.logger);
+    // Remove the entire agent
+    if (this._strategy) {
+      await this._strategy.deleteAgent();
+    }
   }
 
   // Settings management (Agent interface)
+  //
+
   getSetting(key: string): string | null {
-    if (!this._configLoaded) {
-      throw new Error('Config not loaded. Call loadConfig() first.');
+    if (!this._agentData) {
+      throw new Error('Config not loaded. Call initialize() or load() first.');
     }
 
     if (!this._agentData || !this._agentData.settings || !this._agentData.settings[key]) {
@@ -167,127 +166,52 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   }
 
   async setSetting(key: string, value: string): Promise<void> {
-    if (!this._configLoaded) {
-      await this.loadConfig();
+    if (!this._agentData || !this._agentData.settings) {
+      throw new Error('Config not loaded. Call initialize() or load() first.');
     }
-    
-    if (!this._agentData) {
-      this._agentData = this.getInitialConfig();
-    } else if (!this._agentData.settings) {
-      this._agentData.settings = {
-        [SETTINGS_KEY_MAX_CHAT_TURNS]: SETTINGS_DEFAULT_MAX_CHAT_TURNS.toString(),
-        [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS.toString(),
-        [SETTINGS_KEY_TEMPERATURE]: SETTINGS_DEFAULT_TEMPERATURE.toString(),
-        [SETTINGS_KEY_TOP_P]: SETTINGS_DEFAULT_TOP_P.toString(),
-        [SETTINGS_KEY_THEME]: 'light',
-        [SESSION_TOOL_PERMISSION_KEY]: SESSION_TOOL_PERMISSION_TOOL
-      };
-    }
-    
+
     this._agentData.settings[key] = value;
-    await this.saveConfig();
+    if (this._strategy) {
+      await this._strategy.saveConfig(this._agentData);
+    }
   }
 
   // System prompt management
+  //
+
   async getSystemPrompt(): Promise<string> {
-    if (!fs.existsSync(this._promptFile)) {
-      return FileBasedAgent.DEFAULT_PROMPT;
+    if (this._prompt) {
+      return this._prompt;
     }
-    
-    try {
-      return await fs.promises.readFile(this._promptFile, 'utf8');
-    } catch (error) {
-      this.logger.error('Error reading system prompt:', error);
-      return FileBasedAgent.DEFAULT_PROMPT;
-    }
+    return AgentImpl.DEFAULT_PROMPT;
   }
 
   async setSystemPrompt(prompt: string): Promise<void> {
-    await fs.promises.writeFile(this._promptFile, prompt);
-  }
-
-  getAgentMcpServers(): Record<string, any> | null {
-    return this._agentData?.mcpServers || null;
-  }
-
-  async updateAgentMcpServers(mcpServers: Record<string, any>): Promise<void> {
-    if (!this._agentData) {
-      this._agentData = this.getInitialConfig();
+    this._prompt = prompt;
+    if (this._strategy) {
+      await this._strategy.saveSystemPrompt(prompt);
     }
-    this._agentData.mcpServers = mcpServers;
-    await this.saveConfig();
-  }
-
-  // Internal methods
-  private async loadConfig(): Promise<void> {
-    if (this._configLoaded) return;
-    
-    if (!fs.existsSync(this._agentFile)) {
-      throw new Error(`Agent file does not exist: ${this._agentFile}`);
-    }
-
-    try {
-      const data = await fs.promises.readFile(this._agentFile, 'utf8');
-      this._agentData = JSON.parse(data);
-      
-      this._configLoaded = true;
-      
-      // Load MCP clients after config is loaded
-      await this.mcpManager.loadMcpClients(this);
-    } catch (error) {
-      throw new Error(`Failed to load ${FileBasedAgent.AGENT_FILE_NAME}: ${error}`);
-    }
-  }
-
-  private async saveConfig(): Promise<void> {
-    await fs.promises.writeFile(this._agentFile, JSON.stringify(this._agentData, null, 2));
-  }
-
-  private async initialize(data?: Partial<AgentConfig>): Promise<void> {
-    this._agentData = this.getInitialConfig(data);
-    await this.saveConfig();
-    this._configLoaded = true;
-    
-    // Load MCP clients after initialization
-    await this.mcpManager.loadMcpClients(this);
-  }
-
-  private getInitialConfig(data?: Partial<AgentConfig>): AgentConfig {
-    return {
-      metadata: {
-        name: data?.metadata?.name || path.basename(this._agentDir),
-        created: new Date().toISOString(),
-        lastAccessed: new Date().toISOString(),
-        version: '1.0.0',
-        ...data?.metadata
-      },
-      settings: {
-        [SETTINGS_KEY_MAX_CHAT_TURNS]: SETTINGS_DEFAULT_MAX_CHAT_TURNS.toString(),
-        [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS.toString(),
-        [SETTINGS_KEY_TEMPERATURE]: SETTINGS_DEFAULT_TEMPERATURE.toString(),
-        [SETTINGS_KEY_TOP_P]: SETTINGS_DEFAULT_TOP_P.toString(),
-        [SETTINGS_KEY_THEME]: 'light',
-        [SESSION_TOOL_PERMISSION_KEY]: SESSION_TOOL_PERMISSION_TOOL,
-        ...data?.settings
-      }
-    };
   }
 
   // RulesManager methods
+  //
+
   getAllRules(): Rule[] {
     return this.rules.getAllRules();
   }
   getRule(name: string): Rule | null {
     return this.rules.getRule(name);
   }
-  addRule(rule: Rule): void {
-    this.rules.addRule(rule);
+  addRule(rule: Rule): Promise<void> {
+    return this.rules.addRule(this._strategy, rule);
   }
-  deleteRule(name: string): boolean {
-    return this.rules.deleteRule(name);
+  deleteRule(name: string): Promise<boolean> {
+    return this.rules.deleteRule(this._strategy, name);
   }
 
   // ReferencesManager methods
+  //
+
   getAllReferences(): Reference[] {
     return this.references.getAllReferences();
   }
@@ -295,14 +219,15 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
     return this.references.getReference(name);
   }
 
-  addReference(reference: Reference): void {
-    this.references.addReference(reference);
+  addReference(reference: Reference): Promise<void> {
+    return this.references.addReference(this._strategy, reference);
   }
-  deleteReference(name: string): boolean {
-    return this.references.deleteReference(name);
+  deleteReference(name: string): Promise<boolean> {
+    return this.references.deleteReference(this._strategy, name);
   }
 
-  // Provider data access methods
+  // Provider state management (internal)
+  //
 
   private getAgentProviders(): Record<string, any> | null {
     return this._agentData?.providers || null;
@@ -310,14 +235,17 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
 
   private async updateAgentProviders(providers: Record<string, any>): Promise<void> {
     if (!this._agentData) {
-      this._agentData = this.getInitialConfig();
+      throw new Error('Config not loaded. Call initialize() or load() first.');
     }
     this._agentData.providers = providers;
-    await this.saveConfig();
+    if (this._strategy) {
+      await this._strategy.saveConfig(this._agentData);
+    }
   }  
 
   // Provider configuration methods
   //
+
   getInstalledProviders(): ProviderType[] {
     const providers = this.getAgentProviders();
     return providers ? Object.keys(providers) as ProviderType[] : [];
@@ -368,6 +296,7 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
 
   // Provider factory methods
   //
+
   async validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
     return this.providerFactory.validateConfiguration(provider, config);
   }
@@ -389,7 +318,26 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
     return providerInstance.getModels();
   }
 
+  // Agent methods used by MCP Server manager to manage MCP server (and client)state
+  //
+
+  getAgentMcpServers(): Record<string, any> | null {
+    return this._agentData?.mcpServers || null;
+  }
+
+  async updateAgentMcpServers(mcpServers: Record<string, any>): Promise<void> {
+    if (!this._agentData) {
+      throw new Error('Config not loaded. Call initialize() or load() first.');
+    }
+    this._agentData.mcpServers = mcpServers;
+    if (this._strategy) {
+      await this._strategy.saveConfig(this._agentData);
+    }
+  }
+
   // MCP Server management methods
+  //
+
   getAllMcpServers(): Promise<Record<string, McpConfig>> {
     return this.mcpServers.getAllMcpServers();
   }
@@ -402,8 +350,6 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   deleteMcpServer(serverName: string): Promise<boolean> {
     return this.mcpServers.deleteMcpServer(serverName);
   }
-
-  // MCP Client access methods
   getAllMcpClients(): Record<string, McpClient> {
     return this.mcpManager.getAllMcpClients();
   }
@@ -412,6 +358,8 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   }
   
   // ChatSessionManager methods
+  //
+
   getAllChatSessions(): ChatSession[] {
     return this.chatSessions.getAllChatSessions();
   }
@@ -424,4 +372,38 @@ export class FileBasedAgent  extends EventEmitter implements Agent {
   deleteChatSession(sessionId: string): Promise<boolean> {
     return this.chatSessions.deleteChatSession(sessionId);
   }
+}
+
+export class FileBasedAgentFactory {
+    static async loadAgent(agentPath: string, logger: Logger): Promise<AgentImpl> {
+      const normalizedPath = path.normalize(agentPath);
+      
+      // Check if agent already exists
+      if (!await FileBasedAgentStrategy.agentExists(normalizedPath)) {
+        throw new Error(`Agent does not exist at path: ${normalizedPath}`);
+      }
+
+      const strategy = new FileBasedAgentStrategy(normalizedPath, logger);
+      const agent = new AgentImpl(strategy, logger);
+      await agent.load();
+      return agent;
+    }
+  
+    static async createAgent(agentPath: string, logger: Logger, data?: Partial<AgentConfig>): Promise<AgentImpl> {
+      const normalizedPath = path.normalize(agentPath);
+      
+      // Check if agent already exists
+      if (await FileBasedAgentStrategy.agentExists(normalizedPath)) {
+        throw new Error(`Agent already exists at path: ${normalizedPath}`);
+      }
+
+      const strategy = new FileBasedAgentStrategy(normalizedPath, logger);
+      const agent = new AgentImpl(strategy, logger);
+      await agent.create(data);
+      return agent;
+    }
+  
+    static async cloneAgent(sourcePath: string, targetPath: string, logger: Logger): Promise<Agent> {
+      return await FileBasedAgentStrategy.cloneAgent(sourcePath, targetPath, logger);
+    }
 }

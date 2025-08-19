@@ -10,6 +10,24 @@ npm workspace hoisting, which cannot be disabled).  After a day of fighting with
 If we switch to pnpm, its workspace support is much better, and would allow us the disable hoising for electron and any other
 tooling.  It would also make it easier to publish agent-api as it's own npm package (which we'd like to do at some point).
 
+FileSystemAgent
+
+- Providers serialize through agent via agent.getAgentProviders / updateAgentProviders
+- McpServers serialize through agent via agent.getAgentMcpServers / updateAgentMcpServers
+- Rules/References
+  - Passed agentDir in contructor (happens to load sync in constructor which is not ideal)
+  - loadAll (enumerates files in dir, reads/parses to load list)
+  - add (saves to file in dir)
+  - delete (deletes file in dir)
+- ChatSession - ephemeral (just needs agent for state)
+- McpClient - ephemeral (just needs agent/McpServers for state)
+
+How could we make a general purpose serialization strategy for that?
+- Load providers list, save providers list
+- Load mcp servers list, save mcp servers list
+- Load rules, add rule, delete rule
+- Load references, add reference, delete reference
+
 ## Chat UX
 
 Allow user to @mention a rule or reference to add them to the chat context (interactively, as you type, maybe with lookup/matching)

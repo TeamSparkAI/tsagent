@@ -75,33 +75,36 @@ export class MCPClientManagerImpl implements MCPClientManager {
     
         return client;
     }
-    
-    // !!! Called by client and agent (Agent should really manage this itself and not expose loadClients to clients)
-    // !!! Do we want to call cleanup before load (on reloads by agent)?
-    //
-    async loadMcpClients(agent: Agent) {
-        const mcpServers = await agent.getAllMcpServers();
-        for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-            try {
-                if (!serverConfig || !serverConfig.config) {
-                    this.logger.error(`Invalid server configuration for ${serverName}: missing config property`);
-                    continue;
-                }
-        
-                const client = this.createMcpClientFromConfig(agent, serverConfig); 
-                if (client) {
-                    await client.connect();
-                    this.clients.set(serverName, client);
-                } else {
-                    throw new Error(`Failed to create client for server: ${serverName}`);
-                }
-            } catch (error) {
-                this.logger.error(`Error initializing MCP client for ${serverName}:`, error);
+
+    private async loadMcpClient(agent: Agent, serverName: string, serverConfig: any): Promise<void> {
+        try {
+            if (!serverConfig || !serverConfig.config) {
+                this.logger.error(`Invalid server configuration for ${serverName}: missing config property`);
+                return;
             }
+    
+            const client = this.createMcpClientFromConfig(agent, serverConfig); 
+            if (client) {
+                await client.connect();
+                this.clients.set(serverName, client);
+            } else {
+                throw new Error(`Failed to create client for server: ${serverName}`);
+            }
+        } catch (error) {
+            this.logger.error(`Error initializing MCP client for ${serverName}:`, error);
         }
     }
 
-    // To be called by agent only (on server add/save)
+    async loadMcpClients(agent: Agent) {
+        const mcpServers = await agent.getAllMcpServers();
+        
+        const clientPromises = Object.entries(mcpServers).map(([serverName, serverConfig]) => 
+            this.loadMcpClient(agent, serverName, serverConfig)
+        );
+        
+        await Promise.allSettled(clientPromises);
+    }
+
     async updateMcpClient(agent: Agent, name: string, clientConfig: McpConfig): Promise<void> {
         const existingClient = this.clients.get(name);
         if (existingClient) {
@@ -115,7 +118,6 @@ export class MCPClientManagerImpl implements MCPClientManager {
         this.clients.set(name, newClient);
     }
 
-    // To be called by agent only (on server delete)
     async deleteMcpClient(name: string): Promise<void> {
         const client = this.clients.get(name);
         if (client) {
@@ -132,6 +134,11 @@ export class MCPClientManagerImpl implements MCPClientManager {
         this.clients.clear();
         this.logger.info('MCPClientManager: Unload clients complete');
     }
+    
+    // We could lazy load clients (making these methods async).  If we did that, then in the code above,
+    // what we'd probably do is just have an invalidateClient() method to disconnect/unload a client when
+    // its server was updated or deleted.  On an update, the next call to get the client would reload it.
+    //
     
     getAllMcpClients(): Record<string, McpClient> {
         return Object.fromEntries(this.clients.entries());

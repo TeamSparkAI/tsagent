@@ -92,7 +92,7 @@ const api: API = {
   agentExists: (path: string) => ipcRenderer.invoke('agent:agentExists', path),
   onAgentSwitched: (callback: (data: { windowId: string, agentPath: string, targetWindowId: string }) => void) => {
     const wrappedCallback = (_event: any, data: any) => callback(data);
-    ipcRenderer.on('wagent:switched', wrappedCallback);
+    ipcRenderer.on('agent:switched', wrappedCallback);
     return wrappedCallback;
   },
   offAgentSwitched: (listener: (event: any, data: any) => void) => {
