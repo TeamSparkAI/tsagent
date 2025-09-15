@@ -46,7 +46,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   public readonly references: ReferencesManager;
   public readonly mcpServers: McpServerManagerImpl;
   private readonly mcpManager: MCPClientManager;
-  
+
   // Agent interface properties
   get id(): string { return this._id; }
   get name(): string { return this._agentData?.metadata?.name || this._strategy?.getName() || this._id; }
@@ -128,12 +128,12 @@ export class AgentImpl  extends EventEmitter implements Agent {
       await this._strategy.saveSystemPrompt(this._prompt);
     }    
   }
-  
+
   async delete(): Promise<void> {
     // Remove the entire agent
     if (this._strategy) {
       await this._strategy.deleteAgent();
-    }
+  }
   }
 
   // Settings management (Agent interface)

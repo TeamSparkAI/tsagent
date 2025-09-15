@@ -69,3 +69,6 @@ export {
   SETTINGS_DEFAULT_TEMPERATURE,
   SETTINGS_DEFAULT_TOP_P
 } from './types/agent';
+
+// Export function to populate model from settings
+export { populateModelFromSettings } from './types/agent';

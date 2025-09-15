@@ -32,7 +32,8 @@ import {
   TOOL_CALL_DECISION_ALLOW_ONCE, 
   TOOL_CALL_DECISION_DENY, 
   SETTINGS_KEY_TOP_P, 
-  SETTINGS_DEFAULT_TOP_P
+  SETTINGS_DEFAULT_TOP_P,
+  populateModelFromSettings
 } from 'agent-api';
 
 // Define commands
@@ -207,21 +208,7 @@ export function setupCLI(agent: Agent, version: string) {
 
   function createLocalChatSession() {
     const chatSessionOptions = getAgentSettings(agent);
- 
-    const mostRecentModel = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
-    if (mostRecentModel) {
-      const colonIndex = mostRecentModel.indexOf(':');
-      if (colonIndex !== -1) {
-        const providerId = mostRecentModel.substring(0, colonIndex);
-        const modelId = mostRecentModel.substring(colonIndex + 1);
-        const provider = getProviderByName(providerId);
-        if (provider && agent.isProviderInstalled(provider)) {
-          chatSessionOptions.modelProvider = provider;
-          chatSessionOptions.modelId = modelId;
-        }
-      }
-    }
-  
+    populateModelFromSettings(agent, chatSessionOptions);
     return agent.createChatSession('cli-session', chatSessionOptions);
   }  
 

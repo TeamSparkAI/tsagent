@@ -1,6 +1,5 @@
 import { Reference, Rule } from '..';
-import { AgentStrategy } from '../core/agent-strategy';
-import { RulesManager, ReferencesManager, ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types';
+import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types';
 import { McpClient, McpConfig } from '../mcp/types';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types';
 import { ChatSession, ChatSessionOptions } from './chat';
@@ -116,4 +115,31 @@ export interface AgentConfig {
   settings: AgentSettings;
   providers?: Record<string, any>;
   mcpServers?: Record<string, any>;
+}
+
+function getProviderByName(name: string): ProviderType | undefined {
+  const providerType = Object.values(ProviderType).find(
+    p => p.toLowerCase() === name.toLowerCase()
+  );
+  return providerType;
+}
+
+export function populateModelFromSettings(agent: Agent, chatSessionOptions: ChatSessionOptions): void {
+  if (chatSessionOptions.modelProvider && chatSessionOptions.modelId) {
+    return;
+  }
+
+  const mostRecentModel = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
+  if (mostRecentModel) {
+    const colonIndex = mostRecentModel.indexOf(':');
+    if (colonIndex !== -1) {
+      const providerId = mostRecentModel.substring(0, colonIndex);
+      const modelId = mostRecentModel.substring(colonIndex + 1);
+      const provider = getProviderByName(providerId);
+      if (provider && agent.isProviderInstalled(provider)) {
+        chatSessionOptions.modelProvider = provider;
+        chatSessionOptions.modelId = modelId;
+      }
+    }
+  }  
 }

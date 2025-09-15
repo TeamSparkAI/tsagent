@@ -1,6 +1,6 @@
 import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession, ChatSessionOptionsWithRequiredSettings } from '../types/chat';
 import { Provider, ProviderType } from '../providers/types';
-import { Agent } from '../types/agent';
+import { Agent, populateModelFromSettings } from '../types/agent';
 import { Logger } from '../types/common';
 import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
 import { TOOL_PERMISSION_NOT_REQUIRED, TOOL_PERMISSION_REQUIRED } from '../mcp/types';
@@ -25,6 +25,9 @@ export class ChatSessionImpl implements ChatSession {
   constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, private logger: Logger) {
     this._id = id;
     this.agent = agent;
+
+    populateModelFromSettings(agent, options);
+
     if (options.modelProvider && options.modelId) {
       this.currentProvider = options.modelProvider;
       this.currentModelId = options.modelId;
@@ -76,7 +79,8 @@ export class ChatSessionImpl implements ChatSession {
         this.addRule(rule.name);
       }
     } 
-    
+
+    this.logger.info(`Created new chat session with name ${this.agent.name} at path ${this.agent.path}`);    
     this.logger.info(`Created new chat session with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
   }
 
