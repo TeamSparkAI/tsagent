@@ -171,6 +171,7 @@ export class McpClientStdio extends McpClientBase implements McpClient {
             command: this.serverParams.command,
             args: this.serverParams.args,
             env: this.serverParams.env,
+            cwd: this.serverParams.cwd ?? undefined,
             stderr: 'pipe'
         });
     }

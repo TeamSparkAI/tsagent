@@ -31,7 +31,7 @@ export interface ServerPermissionConfig {
 }
 
 export type McpConfigFileServerConfig = 
-  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; permissions?: ServerPermissionConfig }
+  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; permissions?: ServerPermissionConfig }
   | { type: 'sse'; url: string; headers?: Record<string, string>; permissions?: ServerPermissionConfig }
   | { type: 'internal'; tool: 'rules' | 'references'; permissions?: ServerPermissionConfig };
 

@@ -81,6 +81,13 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         return '{}';
     });
     
+    const [cwd, setCwd] = useState<string>(() => {
+        if ((effectiveType === 'stdio') && server?.config) {
+            return (server.config as any).cwd || '';
+        }
+        return '';
+    });
+    
     // For SSE settings, only initialize them if effectiveType is 'sse'
     const [url, setUrl] = useState<string>(() => {
         if (effectiveType === 'sse' && server?.config) {
@@ -121,7 +128,8 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 "type": "stdio",
                 "command": "",
                 "args": [],
-                "env": {}
+                "env": {},
+                "cwd": ""
             }
         }, null, 2);
     });
@@ -179,6 +187,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         setCommand(configObj.command || '');
                         setArgsArray(Array.isArray(configObj.args) ? configObj.args : []);
                         setEnv(JSON.stringify(configObj.env || {}));
+                        setCwd(configObj.cwd || '');
                     } else if (configType === 'sse') {
                         setUrl(configObj.url || '');
                         setHeaders(configObj.headers || {});
@@ -222,6 +231,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         setCommand(configObj.command || '');
                         setArgsArray(Array.isArray(configObj.args) ? configObj.args : []);
                         setEnv(JSON.stringify(configObj.env || {}));
+                        setCwd(configObj.cwd || '');
                     } else if (configType === 'sse') {
                         setUrl(configObj.url || '');
                         setHeaders(configObj.headers || {});
@@ -257,6 +267,10 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     } catch (e) {
                         // If env JSON is invalid, don't update it
                     }
+                }
+                
+                if (cwd && cwd.trim() !== '') {
+                    configObj.cwd = cwd.trim();
                 }
             } else if (serverType === 'sse') {
                 configObj = {
@@ -441,6 +455,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             command,
                             args: argsArray.filter(arg => arg.trim() !== ''),
                             env: Object.keys(JSON.parse(env)).length > 0 ? JSON.parse(env) : undefined,
+                            cwd: cwd && cwd.trim() !== '' ? cwd.trim() : undefined,
                             permissions
                         }
                         : serverType === 'sse'
@@ -628,6 +643,15 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                 ))}
                                 <button className="btn add-button" onClick={() => setEnv(JSON.stringify({ ...JSON.parse(env), '': '' }))}>Add Environment Variable</button>
                             </div>
+
+                            <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Working Directory (optional):</label>
+                            <input 
+                                type="text" 
+                                value={cwd}
+                                onChange={(e) => setCwd(e.target.value)}
+                                placeholder="Leave empty to use current directory"
+                                style={{ width: '100%', padding: '4px 8px' }}
+                            />
                         </>
                     )}
 

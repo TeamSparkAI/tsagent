@@ -55,7 +55,8 @@ export class MCPClientManagerImpl implements MCPClientManager {
             client = new McpClientStdio({
                 command: config.command,
                 args: config.args || [],
-                env: env
+                env: env,
+                cwd: config.cwd
             }, this.logger);
         } else if (serverType === 'sse') {
             client = new McpClientSse(
