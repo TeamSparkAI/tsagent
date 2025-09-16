@@ -14,6 +14,12 @@ interface AgentInfo {
   description: string;
   version: string;
   url: string;
+  provider: {
+    organization: string;
+    url: string;
+  };
+  iconUrl: string;
+  documentationUrl: string;
   skills: Array<{
     id: string;
     name: string;
@@ -79,6 +85,9 @@ export class A2AMCPServer {
                       description: { type: 'string', description: 'Agent description' },
                       version: { type: 'string', description: 'Agent version' },
                       url: { type: 'string', description: 'Agent endpoint URL' },
+                      provider: { type: 'object', properties: { organization: { type: 'string' }, url: { type: 'string' } } },
+                      iconUrl: { type: 'string', description: 'Agent icon URL' },
+                      documentationUrl: { type: 'string', description: 'Agent documentation URL' },
                       skills: {
                         type: 'array',
                         items: {
@@ -175,6 +184,9 @@ export class A2AMCPServer {
           description: agentCard.description,
           version: agentCard.version,
           url: endpoint,
+          provider: agentCard.provider,
+          iconUrl: agentCard.iconUrl,
+          documentationUrl: agentCard.documentationUrl,
           skills: agentCard.skills || [],
           capabilities: {
             streaming: agentCard.capabilities?.streaming,

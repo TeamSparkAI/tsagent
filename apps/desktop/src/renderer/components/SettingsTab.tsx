@@ -22,13 +22,15 @@ const ArrayInput: React.FC<{
   onChange: (items: string[]) => void;
   placeholder: string;
   label: string;
-}> = ({ items, onChange, placeholder, label }) => {
+  onPendingItemChange?: (item: string) => void;
+}> = ({ items, onChange, placeholder, label, onPendingItemChange }) => {
   const [newItem, setNewItem] = useState('');
 
   const addItem = () => {
-    if (newItem.trim() && !items.includes(newItem.trim())) {
+    if (newItem.trim()) {
       onChange([...items, newItem.trim()]);
       setNewItem('');
+      onPendingItemChange?.('');
     }
   };
 
@@ -43,6 +45,12 @@ const ArrayInput: React.FC<{
     }
   };
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setNewItem(value);
+    onPendingItemChange?.(value);
+  };
+
   return (
     <div className="array-input">
       <label>{label}</label>
@@ -50,7 +58,7 @@ const ArrayInput: React.FC<{
         <input
           type="text"
           value={newItem}
-          onChange={(e) => setNewItem(e.target.value)}
+          onChange={handleInputChange}
           onKeyPress={handleKeyPress}
           placeholder={placeholder}
           className="array-input-field"
@@ -81,7 +89,9 @@ const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel
   const [name, setName] = useState(skill?.name || '');
   const [description, setDescription] = useState(skill?.description || '');
   const [tags, setTags] = useState<string[]>(skill?.tags || []);
-  const [examples, setExamples] = useState<string[]>(skill?.examples || []);
+  const [examples, setExamples] = useState<string[]>(skill?.examples ?? []);
+  const [pendingTag, setPendingTag] = useState('');
+  const [pendingExample, setPendingExample] = useState('');
   const [error, setError] = useState<string | null>(null);
 
   const handleSave = () => {
@@ -97,12 +107,26 @@ const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel
       return;
     }
 
+    // Auto-add any pending items from the input fields
+    const finalTags = [...tags];
+    const finalExamples = [...examples];
+    
+    // Add pending tag if it exists and isn't already in the list
+    if (pendingTag.trim() && !finalTags.includes(pendingTag.trim())) {
+      finalTags.push(pendingTag.trim());
+    }
+    
+    // Add pending example if it exists and isn't already in the list
+    if (pendingExample.trim() && !finalExamples.includes(pendingExample.trim())) {
+      finalExamples.push(pendingExample.trim());
+    }
+
     const skillData: AgentSkill = {
       id: skill?.id || `skill_${Date.now()}`,
       name: name.trim(),
       description: description.trim(),
-      tags: tags,
-      examples: examples.length > 0 ? examples : undefined
+      tags: finalTags,
+      examples: finalExamples.length > 0 ? finalExamples : undefined
     };
 
     onSave(skillData);
@@ -153,6 +177,7 @@ const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel
         onChange={setTags}
         placeholder="Enter a tag"
         label="Tags"
+        onPendingItemChange={setPendingTag}
       />
 
       <ArrayInput
@@ -160,6 +185,7 @@ const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel
         onChange={setExamples}
         placeholder="Enter an example"
         label="Examples"
+        onPendingItemChange={setPendingExample}
       />
 
       <div className="settings-actions">
@@ -278,6 +304,15 @@ const AgentInfoSection: React.FC = () => {
     }
   };
 
+  // Helper function to normalize skills for comparison
+  const normalizeSkillsForComparison = (skills: AgentSkill[] | undefined): string => {
+    if (!skills || skills.length === 0) return '';
+    return JSON.stringify(skills.map(skill => ({
+      ...skill,
+      examples: skill.examples && skill.examples.length > 0 ? skill.examples : undefined
+    })));
+  };
+
   const hasChanges = metadata && originalMetadata && (
     name !== originalMetadata.name || 
     (description || '') !== (originalMetadata.description || '') ||
@@ -287,7 +322,7 @@ const AgentInfoSection: React.FC = () => {
     (providerOrg || '') !== (originalMetadata.provider?.organization || '') ||
     (providerUrl || '') !== (originalMetadata.provider?.url || '') ||
     agentMode !== (originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive') ||
-    JSON.stringify(metadata.skills || []) !== JSON.stringify(originalMetadata.skills || [])
+    normalizeSkillsForComparison(metadata.skills) !== normalizeSkillsForComparison(originalMetadata.skills)
   );
 
   // Skills handling functions
@@ -314,15 +349,21 @@ const AgentInfoSection: React.FC = () => {
   const handleSaveSkill = (skill: AgentSkill) => {
     if (!metadata) return;
     
+    // Normalize the skill to ensure examples is undefined if empty
+    const normalizedSkill: AgentSkill = {
+      ...skill,
+      examples: skill.examples && skill.examples.length > 0 ? skill.examples : undefined
+    };
+    
     const currentSkills = metadata.skills || [];
     let updatedSkills: AgentSkill[];
     
     if (editingSkill) {
       // Update existing skill
-      updatedSkills = currentSkills.map(s => s.id === skill.id ? skill : s);
+      updatedSkills = currentSkills.map(s => s.id === skill.id ? normalizedSkill : s);
     } else {
       // Add new skill
-      updatedSkills = [...currentSkills, skill];
+      updatedSkills = [...currentSkills, normalizedSkill];
     }
     
     setMetadata({

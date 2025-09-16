@@ -97,6 +97,7 @@ export class SimpleAgentExecutor implements AgentExecutor {
 export class A2AServer {
   private app!: A2AExpressApp;
   private agent!: Agent;
+  private agentMetadata: any = null;
   private logger: ConsoleLogger;
   private isReady = false;
 
@@ -110,6 +111,16 @@ export class A2AServer {
       this.logger.info(`Loading agent from: ${agentPath}`);
       this.agent = await loadAgent(agentPath, this.logger);
       this.logger.info(`Agent loaded successfully: ${this.agent.name}`);
+      
+      // Load agent metadata
+      try {
+        this.agentMetadata = this.agent.getMetadata();
+        this.logger.info(`Agent metadata loaded:`, this.agentMetadata);
+      } catch (metadataError) {
+        this.logger.warn(`Failed to load agent metadata, using defaults:`, metadataError);
+        this.agentMetadata = null;
+      }
+      
       this.setupApp();
       this.isReady = true;
     } catch (error) {
@@ -119,11 +130,11 @@ export class A2AServer {
   }
 
   private setupApp(): void {
-    // Create minimal agent card
+    // Create agent card using metadata when available
     const agentCard: AgentCard = {
       name: this.agent.name,
-      description: this.agent.description || 'Agent powered by agent-api',
-      version: '1.0.0',
+      description: this.agentMetadata?.description || this.agent.description || 'Agent powered by agent-api',
+      version: this.agentMetadata?.version || '1.0.0',
       protocolVersion: '1.0.0',
       url: `http://localhost:${this.port}`,
       defaultInputModes: ['text/plain'],
@@ -133,15 +144,19 @@ export class A2AServer {
         pushNotifications: false,
         stateTransitionHistory: false,
       },
-      skills: [{
-        id: 'chat',
-        name: 'chat',
-        description: 'General conversation and assistance',
-        inputModes: ['text/plain'],
-        outputModes: ['text/plain'],
-        tags: ['conversation', 'assistance']
-      }]
+      skills: this.getAgentSkills()
     };
+
+    // Add optional fields if they exist in metadata
+    if (this.agentMetadata?.iconUrl) {
+      agentCard.iconUrl = this.agentMetadata.iconUrl;
+    }
+    if (this.agentMetadata?.documentationUrl) {
+      agentCard.documentationUrl = this.agentMetadata.documentationUrl;
+    }
+    if (this.agentMetadata?.provider) {
+      agentCard.provider = this.agentMetadata.provider;
+    }
 
     // Create executor and task store
     const executor = new SimpleAgentExecutor(this.agent, this.logger);
@@ -152,6 +167,32 @@ export class A2AServer {
 
     // Create A2A Express app
     this.app = new A2AExpressApp(requestHandler);
+  }
+
+  private getAgentSkills(): any[] {
+    // Use agent skills from metadata if available, otherwise use default chat skill
+    if (this.agentMetadata?.skills && Array.isArray(this.agentMetadata.skills) && this.agentMetadata.skills.length > 0) {
+      // Map agent skills to A2A protocol format
+      return this.agentMetadata.skills.map((skill: any) => ({
+        id: skill.id,
+        name: skill.name,
+        description: skill.description,
+        inputModes: ['text/plain'],
+        outputModes: ['text/plain'],
+        tags: skill.tags || [],
+        examples: skill.examples || []
+      }));
+    } else {
+      // Default chat skill
+      return [{
+        id: 'chat',
+        name: 'chat',
+        description: 'General conversation and assistance',
+        inputModes: ['text/plain'],
+        outputModes: ['text/plain'],
+        tags: ['conversation', 'assistance']
+      }];
+    }
   }
 
   public getApp(): A2AExpressApp {
