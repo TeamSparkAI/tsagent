@@ -11,6 +11,184 @@ import {
   SessionToolPermission,
 } from 'agent-api';
 
+interface AgentMetadata {
+  name: string;
+  description?: string;
+  created: string;
+  lastAccessed: string;
+  version: string;
+}
+
+const AgentInfoSection: React.FC = () => {
+  const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+  const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadAgentMetadata();
+  }, []);
+
+  const loadAgentMetadata = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const agentMetadata = await window.api.getAgentMetadata();
+      if (agentMetadata) {
+        setMetadata(agentMetadata);
+        setName(agentMetadata.name);
+        setDescription(agentMetadata.description || '');
+      }
+    } catch (err) {
+      log.error('Error loading agent metadata:', err);
+      setError('Failed to load agent information');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!name.trim()) {
+      setError('Agent name is required');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setError(null);
+      setSuccess(null);
+
+      const result = await window.api.updateAgentMetadata({
+        name: name.trim(),
+        description: description.trim() || undefined
+      });
+
+      if (result.success) {
+        setSuccess('Agent information updated successfully');
+        await loadAgentMetadata(); // Reload to get updated data
+      } else {
+        setError(result.error || 'Failed to update agent information');
+      }
+    } catch (err) {
+      log.error('Error updating agent metadata:', err);
+      setError('Failed to update agent information');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const hasChanges = metadata && (
+    name !== metadata.name || 
+    (description || '') !== (metadata.description || '')
+  );
+
+  if (isLoading) {
+    return (
+      <div className="agent-info-settings">
+        <h2>Agent Info</h2>
+        <div className="loading">Loading agent information...</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="agent-info-settings">
+      <h2>Agent Info</h2>
+      <p className="setting-description">
+        Configure your agent's name and description. This information helps identify your agent and provides context about its purpose.
+      </p>
+
+      {error && (
+        <div className="error-message" style={{ 
+          color: '#dc3545', 
+          backgroundColor: '#f8d7da', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="success-message" style={{ 
+          color: '#155724', 
+          backgroundColor: '#d4edda', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {success}
+        </div>
+      )}
+
+      <div className="form-group">
+        <label htmlFor="agent-name">
+          Agent Name *
+        </label>
+        <input
+          id="agent-name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter agent name"
+          className="common-input"
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="agent-description">
+          Description
+        </label>
+        <textarea
+          id="agent-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Enter agent description (optional)"
+          rows={4}
+          className="common-textarea"
+        />
+      </div>
+
+      {metadata && (
+        <div className="agent-metadata">
+          <h4>Agent Details</h4>
+          <div><strong>Created:</strong> {new Date(metadata.created).toLocaleString()}</div>
+          <div><strong>Last Accessed:</strong> {new Date(metadata.lastAccessed).toLocaleString()}</div>
+          <div><strong>Version:</strong> {metadata.version}</div>
+        </div>
+      )}
+
+      <div className="settings-actions">
+        <button 
+          className="btn btn-primary"
+          onClick={handleSave}
+          disabled={!hasChanges || isSaving}
+        >
+          {isSaving ? 'Saving...' : 'Save Agent Info'}
+        </button>
+        {hasChanges && (
+          <button 
+            className="btn btn-secondary"
+            onClick={() => {
+              setName(metadata?.name || '');
+              setDescription(metadata?.description || '');
+              setError(null);
+              setSuccess(null);
+            }}
+            disabled={isSaving}
+          >
+            Cancel Changes
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
   const [activeSection, setActiveSection] = useState<string>('about');
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('');
@@ -152,6 +330,8 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const renderContent = () => {
     switch (activeSection) {
+      case 'agent-info':
+        return <AgentInfoSection />;
       case 'about':
         return (
           <AboutView
@@ -323,6 +503,12 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           >
             <span className="info-icon">ℹ️</span>
             <span>About Settings</span>
+          </div>
+          <div 
+            className={`tab-items-item ${activeSection === 'agent-info' ? 'selected' : ''}`}
+            onClick={() => setActiveSection('agent-info')}
+          >
+            <span>Agent Info</span>
           </div>
           <div 
             className={`tab-items-item ${activeSection === 'system-prompt' ? 'selected' : ''}`}

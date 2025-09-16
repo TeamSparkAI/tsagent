@@ -250,4 +250,57 @@
 .tool-permission-settings select:focus {
   outline: none;
   border-color: var(--accent-color);
-} 
+}
+
+/* Agent Info Settings */
+.agent-info-settings {
+  max-width: 800px;
+  margin: 0;
+  padding: 0 20px;
+}
+
+.agent-info-settings h2 {
+  margin-top: 0;
+  margin-bottom: 20px;
+}
+
+.agent-info-settings .setting-description {
+  line-height: 1.5;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.agent-info-settings .form-group {
+  margin-bottom: 20px;
+}
+
+.agent-info-settings .form-group label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.agent-info-settings .agent-metadata {
+  margin-top: 20px;
+  padding: 16px;
+  background-color: var(--bg-secondary);
+  border-radius: 4px;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.agent-info-settings .agent-metadata h4 {
+  margin: 0 0 8px 0;
+  color: var(--text-primary);
+}
+
+.agent-info-settings .agent-metadata div {
+  margin-bottom: 4px;
+}
+
+.agent-info-settings .settings-actions {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+}

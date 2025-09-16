@@ -62,6 +62,8 @@ const api: API = {
   setSettingsValue: (key: string, value: string) => ipcRenderer.invoke('set-settings-value', key, value),
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
+  getAgentMetadata: () => ipcRenderer.invoke('get-agent-metadata'),
+  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string }>) => ipcRenderer.invoke('update-agent-metadata', metadata),
   
   // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),

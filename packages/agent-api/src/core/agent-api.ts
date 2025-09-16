@@ -6,7 +6,8 @@ import { Agent, AgentConfig, AgentSettings,
   SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_KEY_TEMPERATURE, 
   SETTINGS_DEFAULT_TOP_P, SETTINGS_KEY_TOP_P, 
   SETTINGS_KEY_THEME,
-  SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL
+  SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL,
+  AgentMetadata
 } from '../types/agent';
 import { Logger } from '../types/common';
 import { RulesManager } from '../managers/rules-manager';
@@ -51,7 +52,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   get id(): string { return this._id; }
   get name(): string { return this._agentData?.metadata?.name || this._strategy?.getName() || this._id; }
   get path(): string { return this._strategy?.getName() || this._id; }
-  get description(): string | undefined { return undefined; } // Description not part of AgentMetadata
+  get description(): string | undefined { return this._agentData?.metadata?.description; }
 
   constructor(strategy: AgentStrategy | null, private logger: Logger) {
     super();
@@ -176,6 +177,28 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this._prompt = prompt;
     if (this._strategy) {
       await this._strategy.saveSystemPrompt(prompt);
+    }
+  }
+
+  // Agent metadata management
+  //
+  
+  getMetadata(): AgentMetadata {
+    if (!this._agentData?.metadata) {
+      throw new Error('Agent not loaded');
+    }
+    return { ...this._agentData.metadata };
+  }
+
+  async updateMetadata(metadata: Partial<AgentMetadata>): Promise<void> {
+    if (!this._agentData) {
+      throw new Error('Agent not loaded');
+    }
+    
+    this._agentData.metadata = { ...this._agentData.metadata, ...metadata };
+    
+    if (this._strategy) {
+      await this._strategy.saveConfig(this._agentData);
     }
   }
 

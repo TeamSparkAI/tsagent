@@ -48,6 +48,10 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   getSystemPrompt(): Promise<string>;
   setSystemPrompt(prompt: string): Promise<void>;
 
+  // Agent metadata
+  getMetadata(): AgentMetadata;
+  updateMetadata(metadata: Partial<AgentMetadata>): Promise<void>;
+
   // RulesManager methods
   getAllRules(): Rule[];
   getRule(name: string): Rule | null;
@@ -95,6 +99,7 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
 
 export interface AgentMetadata {
   name: string;
+  description?: string;
   created: string;
   lastAccessed: string;
   version: string;

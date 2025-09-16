@@ -799,6 +799,45 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
+  // Agent metadata IPC handlers
+  ipcMain.handle('get-agent-metadata', async (event) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
+      return null;
+    }
+
+    try {
+      log.info('[MAIN PROCESS] getAgentMetadata called');
+      const metadata = agent.getMetadata();
+      log.info('[MAIN PROCESS] Agent metadata retrieved:', metadata);
+      return metadata;
+    } catch (err) {
+      log.error('[MAIN PROCESS] Error getting agent metadata:', err);
+      throw err;
+    }
+  });
+
+  ipcMain.handle('update-agent-metadata', async (event, metadata: Partial<{ name: string; description?: string }>) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn('No agent found for window:', windowId);
+      return { success: false, error: 'No agent found' };
+    }
+
+    try {
+      log.info('[MAIN PROCESS] updateAgentMetadata called with:', metadata);
+      await agent.updateMetadata(metadata);
+      log.info('Agent metadata updated successfully');
+      return { success: true };
+    } catch (err) {
+      log.error('Error updating agent metadata:', err);
+      return { success: false, error: err instanceof Error ? err.message : 'Unknown error' };
+    }
+  });
+
   // Add new IPC handler
   ipcMain.handle('show-chat-menu', (_, hasSelection: boolean, x: number, y: number) => {
     const menu = Menu.buildFromTemplate([

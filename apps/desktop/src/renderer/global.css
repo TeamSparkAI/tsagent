@@ -613,6 +613,27 @@ input::placeholder, textarea::placeholder {
   color: var(--text-tertiary);
 }
 
+/* Common input styles */
+.common-input {
+  width: 100%;
+  padding: 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 20px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.common-input:focus {
+  outline: none;
+  border-color: var(--selected-border);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
 /* Common textarea styles */
 .common-textarea {
   width: 100%;
@@ -626,6 +647,7 @@ input::placeholder, textarea::placeholder {
   margin-bottom: 20px;
   background-color: var(--bg-secondary);
   color: var(--text-primary);
+  box-sizing: border-box;
 }
 
 .common-textarea:focus {
