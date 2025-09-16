@@ -819,7 +819,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('update-agent-metadata', async (event, metadata: Partial<{ name: string; description?: string }>) => {
+  ipcMain.handle('update-agent-metadata', async (event, metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[] }>) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     if (!agent) {

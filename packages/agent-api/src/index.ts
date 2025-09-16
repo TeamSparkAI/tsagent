@@ -2,7 +2,7 @@
 // Runtime code (that requires node.js) is exported from './runtime'
 
 // Export agent types
-export type { Agent, AgentConfig, AgentMetadata, SessionToolPermission } from './types/agent';
+export type { Agent, AgentConfig, AgentMetadata, AgentSkill, SessionToolPermission } from './types/agent';
 
 // Export common types
 export type { Logger } from './types/common';

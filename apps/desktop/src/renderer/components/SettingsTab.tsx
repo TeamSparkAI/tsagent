@@ -8,25 +8,191 @@ import {
   SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, 
   SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, SETTINGS_KEY_SYSTEM_PATH, SETTINGS_KEY_THEME, SESSION_TOOL_PERMISSION_KEY, 
   SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_NEVER,
-  SessionToolPermission,
+  SessionToolPermission, AgentMetadata, AgentSkill,
 } from 'agent-api';
 
-interface AgentMetadata {
-  name: string;
-  description?: string;
-  created: string;
-  lastAccessed: string;
-  version: string;
+interface EditSkillModalProps {
+  skill?: AgentSkill;
+  onSave: (skill: AgentSkill) => void;
+  onCancel: () => void;
 }
+
+const ArrayInput: React.FC<{
+  items: string[];
+  onChange: (items: string[]) => void;
+  placeholder: string;
+  label: string;
+}> = ({ items, onChange, placeholder, label }) => {
+  const [newItem, setNewItem] = useState('');
+
+  const addItem = () => {
+    if (newItem.trim() && !items.includes(newItem.trim())) {
+      onChange([...items, newItem.trim()]);
+      setNewItem('');
+    }
+  };
+
+  const removeItem = (index: number) => {
+    onChange(items.filter((_, i) => i !== index));
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addItem();
+    }
+  };
+
+  return (
+    <div className="array-input">
+      <label>{label}</label>
+      <div className="array-input-container">
+        <input
+          type="text"
+          value={newItem}
+          onChange={(e) => setNewItem(e.target.value)}
+          onKeyPress={handleKeyPress}
+          placeholder={placeholder}
+          className="array-input-field"
+        />
+        <button 
+          type="button" 
+          onClick={addItem} 
+          className="array-add-button"
+          disabled={!newItem.trim()}
+          title="Add item"
+        >
+          +
+        </button>
+      </div>
+      <div className="array-items">
+        {items.map((item, index) => (
+          <div key={index} className="array-item">
+            <span>{item}</span>
+            <button type="button" onClick={() => removeItem(index)} className="btn-remove">×</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel }) => {
+  const [name, setName] = useState(skill?.name || '');
+  const [description, setDescription] = useState(skill?.description || '');
+  const [tags, setTags] = useState<string[]>(skill?.tags || []);
+  const [examples, setExamples] = useState<string[]>(skill?.examples || []);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = () => {
+    setError(null);
+    
+    if (!name.trim()) {
+      setError('Skill name is required');
+      return;
+    }
+    
+    if (!description.trim()) {
+      setError('Skill description is required');
+      return;
+    }
+
+    const skillData: AgentSkill = {
+      id: skill?.id || `skill_${Date.now()}`,
+      name: name.trim(),
+      description: description.trim(),
+      tags: tags,
+      examples: examples.length > 0 ? examples : undefined
+    };
+
+    onSave(skillData);
+  };
+
+  return (
+    <div style={{ padding: '20px' }}>
+      <h2>{skill ? 'Edit Skill' : 'Add Skill'}</h2>
+      
+      {error && (
+        <div className="error-message" style={{ 
+          color: '#dc3545', 
+          backgroundColor: '#f8d7da', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {error}
+        </div>
+      )}
+
+      <div className="form-group">
+        <label htmlFor="skill-name">Name *</label>
+        <input
+          id="skill-name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter skill name"
+          className="common-input"
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="skill-description">Description *</label>
+        <textarea
+          id="skill-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe what this skill does"
+          rows={3}
+          className="common-textarea"
+        />
+      </div>
+
+      <ArrayInput
+        items={tags}
+        onChange={setTags}
+        placeholder="Enter a tag"
+        label="Tags"
+      />
+
+      <ArrayInput
+        items={examples}
+        onChange={setExamples}
+        placeholder="Enter an example"
+        label="Examples"
+      />
+
+      <div className="settings-actions">
+        <button className="btn btn-primary" onClick={handleSave}>
+          {skill ? 'Update Skill' : 'Add Skill'}
+        </button>
+        <button className="btn btn-secondary" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const AgentInfoSection: React.FC = () => {
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+  const [originalMetadata, setOriginalMetadata] = useState<AgentMetadata | null>(null);
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [version, setVersion] = useState('');
+  const [iconUrl, setIconUrl] = useState('');
+  const [documentationUrl, setDocumentationUrl] = useState('');
+  const [providerOrg, setProviderOrg] = useState('');
+  const [providerUrl, setProviderUrl] = useState('');
+  const [agentMode, setAgentMode] = useState<'interactive' | 'autonomous'>('interactive');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  
+  // Skills editing state
+  const [isEditingSkill, setIsEditingSkill] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<AgentSkill | undefined>(undefined);
 
   useEffect(() => {
     loadAgentMetadata();
@@ -39,8 +205,17 @@ const AgentInfoSection: React.FC = () => {
       const agentMetadata = await window.api.getAgentMetadata();
       if (agentMetadata) {
         setMetadata(agentMetadata);
+        setOriginalMetadata(JSON.parse(JSON.stringify(agentMetadata))); // Deep copy
         setName(agentMetadata.name);
         setDescription(agentMetadata.description || '');
+        setVersion(agentMetadata.version || '');
+        setIconUrl(agentMetadata.iconUrl || '');
+        setDocumentationUrl(agentMetadata.documentationUrl || '');
+        setProviderOrg(agentMetadata.provider?.organization || '');
+        setProviderUrl(agentMetadata.provider?.url || '');
+        // Set initial mode based on skills - if skills exist and is empty array, it's autonomous
+        // If skills is null/undefined, it's interactive
+        setAgentMode(agentMetadata.skills && Array.isArray(agentMetadata.skills) ? 'autonomous' : 'interactive');
       }
     } catch (err) {
       log.error('Error loading agent metadata:', err);
@@ -63,12 +238,35 @@ const AgentInfoSection: React.FC = () => {
 
       const result = await window.api.updateAgentMetadata({
         name: name.trim(),
-        description: description.trim() || undefined
+        description: description.trim() || undefined,
+        version: version.trim() || undefined,
+        iconUrl: iconUrl.trim() || undefined,
+        documentationUrl: documentationUrl.trim() || undefined,
+        provider: (providerOrg.trim() || providerUrl.trim()) ? {
+          organization: providerOrg.trim(),
+          url: providerUrl.trim()
+        } : undefined,
+        skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined
       });
 
       if (result.success) {
         setSuccess('Agent information updated successfully');
-        await loadAgentMetadata(); // Reload to get updated data
+        // Update original metadata to reflect the saved state
+        const updatedMetadata: AgentMetadata = {
+          ...metadata!,
+          name: name.trim(),
+          description: description.trim() || undefined,
+          version: version.trim() || undefined,
+          iconUrl: iconUrl.trim() || undefined,
+          documentationUrl: documentationUrl.trim() || undefined,
+          provider: (providerOrg.trim() || providerUrl.trim()) ? {
+            organization: providerOrg.trim(),
+            url: providerUrl.trim()
+          } : undefined,
+          skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined
+        };
+        setOriginalMetadata(JSON.parse(JSON.stringify(updatedMetadata)));
+        setMetadata(updatedMetadata);
       } else {
         setError(result.error || 'Failed to update agent information');
       }
@@ -80,10 +278,61 @@ const AgentInfoSection: React.FC = () => {
     }
   };
 
-  const hasChanges = metadata && (
-    name !== metadata.name || 
-    (description || '') !== (metadata.description || '')
+  const hasChanges = metadata && originalMetadata && (
+    name !== originalMetadata.name || 
+    (description || '') !== (originalMetadata.description || '') ||
+    (version || '') !== (originalMetadata.version || '') ||
+    (iconUrl || '') !== (originalMetadata.iconUrl || '') ||
+    (documentationUrl || '') !== (originalMetadata.documentationUrl || '') ||
+    (providerOrg || '') !== (originalMetadata.provider?.organization || '') ||
+    (providerUrl || '') !== (originalMetadata.provider?.url || '') ||
+    agentMode !== (originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive') ||
+    JSON.stringify(metadata.skills || []) !== JSON.stringify(originalMetadata.skills || [])
   );
+
+  // Skills handling functions
+  const handleAddSkill = () => {
+    setEditingSkill(undefined);
+    setIsEditingSkill(true);
+  };
+
+  const handleEditSkill = (skill: AgentSkill) => {
+    setEditingSkill(skill);
+    setIsEditingSkill(true);
+  };
+
+  const handleDeleteSkill = (skillId: string) => {
+    if (!metadata?.skills) return;
+    
+    const updatedSkills = metadata.skills.filter(skill => skill.id !== skillId);
+    setMetadata({
+      ...metadata,
+      skills: updatedSkills.length > 0 ? updatedSkills : []
+    });
+  };
+
+  const handleSaveSkill = (skill: AgentSkill) => {
+    if (!metadata) return;
+    
+    const currentSkills = metadata.skills || [];
+    let updatedSkills: AgentSkill[];
+    
+    if (editingSkill) {
+      // Update existing skill
+      updatedSkills = currentSkills.map(s => s.id === skill.id ? skill : s);
+    } else {
+      // Add new skill
+      updatedSkills = [...currentSkills, skill];
+    }
+    
+    setMetadata({
+      ...metadata,
+      skills: updatedSkills
+    });
+    
+    setIsEditingSkill(false);
+    setEditingSkill(undefined);
+  };
 
   if (isLoading) {
     return (
@@ -94,11 +343,25 @@ const AgentInfoSection: React.FC = () => {
     );
   }
 
+  // Show skills editing modal if editing
+  if (isEditingSkill) {
+    return (
+      <EditSkillModal
+        skill={editingSkill}
+        onSave={handleSaveSkill}
+        onCancel={() => {
+          setIsEditingSkill(false);
+          setEditingSkill(undefined);
+        }}
+      />
+    );
+  }
+
   return (
     <div className="agent-info-settings">
       <h2>Agent Info</h2>
       <p className="setting-description">
-        Configure your agent's name and description. This information helps identify your agent and provides context about its purpose.
+        Describe the agent. This information helps identify your agent and provides context about its purpose.
       </p>
 
       {error && (
@@ -126,17 +389,34 @@ const AgentInfoSection: React.FC = () => {
       )}
 
       <div className="form-group">
-        <label htmlFor="agent-name">
-          Agent Name *
-        </label>
-        <input
-          id="agent-name"
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="Enter agent name"
-          className="common-input"
-        />
+        <div className="name-version-fields">
+          <div className="name-field">
+            <label htmlFor="agent-name">
+              Name *
+            </label>
+            <input
+              id="agent-name"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Enter agent name"
+              className="common-input"
+            />
+          </div>
+          <div className="version-field">
+            <label htmlFor="agent-version">
+              Version
+            </label>
+            <input
+              id="agent-version"
+              type="text"
+              value={version}
+              onChange={(e) => setVersion(e.target.value)}
+              placeholder="Enter version (optional)"
+              className="common-input"
+            />
+          </div>
+        </div>
       </div>
 
       <div className="form-group">
@@ -147,18 +427,134 @@ const AgentInfoSection: React.FC = () => {
           id="agent-description"
           value={description}
           onChange={(e) => setDescription(e.target.value)}
-          placeholder="Enter agent description (optional)"
+          placeholder="Describe your agent"
           rows={4}
           className="common-textarea"
         />
       </div>
 
-      {metadata && (
-        <div className="agent-metadata">
-          <h4>Agent Details</h4>
-          <div><strong>Created:</strong> {new Date(metadata.created).toLocaleString()}</div>
-          <div><strong>Last Accessed:</strong> {new Date(metadata.lastAccessed).toLocaleString()}</div>
-          <div><strong>Version:</strong> {metadata.version}</div>
+      <div className="form-group">
+        <label>Provider</label>
+        <div className="provider-fields">
+          <div className="provider-field">
+            <label htmlFor="provider-org">Organization</label>
+            <input
+              id="provider-org"
+              type="text"
+              value={providerOrg}
+              onChange={(e) => setProviderOrg(e.target.value)}
+              placeholder="Organization name"
+              className="common-input"
+            />
+          </div>
+          <div className="provider-field">
+            <label htmlFor="provider-url">URL</label>
+            <input
+              id="provider-url"
+              type="url"
+              value={providerUrl}
+              onChange={(e) => setProviderUrl(e.target.value)}
+              placeholder="https://example.com"
+              className="common-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label>Resources</label>
+        <div className="resource-fields">
+          <div className="resource-field">
+            <label htmlFor="agent-icon-url">Icon URL</label>
+            <input
+              id="agent-icon-url"
+              type="url"
+              value={iconUrl}
+              onChange={(e) => setIconUrl(e.target.value)}
+              placeholder="https://example.com/icon.png"
+              className="common-input"
+            />
+          </div>
+          <div className="resource-field">
+            <label htmlFor="agent-documentation-url">Documentation URL</label>
+            <input
+              id="agent-documentation-url"
+              type="url"
+              value={documentationUrl}
+              onChange={(e) => setDocumentationUrl(e.target.value)}
+              placeholder="https://example.com/docs"
+              className="common-input"
+            />
+          </div>
+        </div>
+      </div>
+
+      <hr className="form-separator" />
+
+      <div className="form-group">
+        <label>Agent Mode</label>
+        <div className="agent-mode-selector">
+          <button
+            className={`mode-button ${agentMode === 'interactive' ? 'active' : ''}`}
+            onClick={() => setAgentMode('interactive')}
+          >
+            Interactive
+          </button>
+          <button
+            className={`mode-button ${agentMode === 'autonomous' ? 'active' : ''}`}
+            onClick={() => setAgentMode('autonomous')}
+          >
+            Autonomous
+          </button>
+        </div>
+        <div className="agent-mode-description">
+          {agentMode === 'interactive' 
+            ? 'Interactive chat session with history, supports user interaction (clarifying questions, tool use permission)'
+            : 'Autonomous agent without chat session history or user interaction, provides direct answers to calling agent'
+          }
+        </div>
+      </div>
+
+      {/* Skills Section - Only show in autonomous mode */}
+      {agentMode === 'autonomous' && (
+        <div className="form-group">
+          <label>Skills</label>
+          <div className="skills-list">
+            {metadata?.skills && metadata.skills.length > 0 ? (
+              metadata.skills.map(skill => (
+                <div key={skill.id} className="skill-item">
+                  <div className="skill-info">
+                    <div className="skill-name">{skill.name}</div>
+                    <div className="skill-description">{skill.description}</div>
+                    {skill.tags && skill.tags.length > 0 && (
+                      <div className="skill-tags">
+                        {skill.tags.map((tag, index) => (
+                          <span key={index} className="skill-tag">{tag}</span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <div className="skill-actions">
+                    <button 
+                      onClick={() => handleEditSkill(skill)} 
+                      className="btn btn-secondary"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteSkill(skill.id)} 
+                      className="btn btn-danger"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="no-skills">No skills defined</div>
+            )}
+            <button onClick={handleAddSkill} className="btn add-button">Add Skill</button>
+          </div>
         </div>
       )}
 
@@ -174,10 +570,21 @@ const AgentInfoSection: React.FC = () => {
           <button 
             className="btn btn-secondary"
             onClick={() => {
-              setName(metadata?.name || '');
-              setDescription(metadata?.description || '');
+              if (originalMetadata) {
+                setMetadata(JSON.parse(JSON.stringify(originalMetadata))); // Reset to original
+                setName(originalMetadata.name);
+                setDescription(originalMetadata.description || '');
+                setVersion(originalMetadata.version || '');
+                setIconUrl(originalMetadata.iconUrl || '');
+                setDocumentationUrl(originalMetadata.documentationUrl || '');
+                setProviderOrg(originalMetadata.provider?.organization || '');
+                setProviderUrl(originalMetadata.provider?.url || '');
+                setAgentMode(originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive');
+              }
               setError(null);
               setSuccess(null);
+              setIsEditingSkill(false);
+              setEditingSkill(undefined);
             }}
             disabled={isSaving}
           >

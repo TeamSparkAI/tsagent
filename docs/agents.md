@@ -99,73 +99,83 @@ Agents can be one of:
   - Only presents model with approved tools (cannot ask user for tool use permission)
   - Does not return tool call details (we can suppress/remove)
   - Cannot modify state (rules/references)
-  - Will define one or more skills (each skill will have skill metadata and skill prompt)
-    - Skill metadata is id, name, desc, tags
+  - Will define one or more skills (each skill will have skill metadata: id, name, desc, tags)
 
 Agent Orchestration
 - Any agent (interactive or autonomous) can orchestrate other agents
 - Orchestration implemented via A2A MCP server (list_agents, call_agent)
-- Orchestration prompt (to explain how to use the tools - is this necessary of can the tool description handle it?)
+- Orchestration prompt (to explain how to use the tools - is this necessary of can the MCP tool description handle it?)
 
 ## Agent Definiton
-Agent metadata (public information) will be maintained in agent card JSON file, supplemented with other files in that directory
+
 Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
-New tspark_a2a_server server will take agent directory (or agentcard path), default to cwd, and port, and run the agent an A2A server
-- Launchable via command-line or code
+- Not really related to agent work - but would be nice to support ToolVault to process agent calls
 
-## Orchestration MCP server
+Should we add enabled/disabled state to mcp server instances?  So we don't have to delete and lose all config (we can just disable)?
 
-tspark_a2a_mcp
+AgentMetadata has been expanded to cover AgentCard:
+- name 
+- version
+- description
+- provider (organization/url)
+- iconUrl
+- documentationUrl
+- skills (id, name, description, tags, examples)
 
-Can we build orchestrator prompt into tool descriptions or do we need separate orchestration prompt?
-Configuration is list of agents
-- http path to agents running on the network
-- file path to agent profile (can be run via tspark_a2a server command line or code)
+Mode (interactive/autonomous) is represented by presence of "skills" attribute, even if empty, to indicate autonomous
 
-## Orchestration Tab
+## A2A Server for TeamSark Agent(s)
 
-- Enabled (install/uninstall MCP server on enable/disable?)
-- Orchestration Prompt
-- Agents (point to agentcard file or url) - add/edit/del
+Package: a2a-server
+  
+Command line app and API launcher to expose TeamSpark agent as A2A server
 
-Do we need an agent enum (with details) and test function?  Maybe later, since you can do it via the MCP server?
+- Command line app takes optional dir/file path (uses cwd if not specified) and optional port
+- Produce agent-card produced from agent config/metadata
+- Bridge A2A server (Express app) to TeamSpark agent(s)
+- Note: It is possible to use path routing to host multiple A2A endpoints on one host/port (one Express app)
 
-## TODO
+## A2A Orchestration MCP server
 
-Change agent config (UX and serialization)
+Package: a2a-mcp
 
-Current: tspark.json
+MCP server that implements A2A orchestration of A2A servers
 
-{
-  "metadata": {
-    "name": "",
-    "created": "",
-    "lastAccessed": "",
-    "version": "1.0.0"
-  }
-  providers: {}
-  mcpServers: {}
-  settings: {
-    "maxChatTurns": "20",
-  }
-}
+- Takes list of A2A servers as config (http endpoints of running servers)
+- Implements list_agents, call_agent
 
-New:
+## Later
 
-agent-card.json (public information about the agent)
-mcp.json (mcpServers key) - MCP server configs (and permissions) - this will make it compatible with ToolVault and maybe other MCP tools
-tspark.json (private information required to run the agent in the UX, from the command line, or programatically)
-- providers
-- settings
+### Support TeamSpark Agents in a2a-mcp
 
-Maybe agent-tspark.json or agent-config.json for internal/private config?
+Allow file endpoints of TeamSpark agent config dir/file in config (run via a2a-server command line or API)
+Run these endpoints from MCP server in order to include them in agent set
+- Could run them in a single a2a-server (one host/port, process) using routes
 
+### Agent type constraints
 
-What about:
+Implement constraints of agent (chat session?) based on interactive/autonomous
+- Autonomous
+  - Only present tools that don't require approval
+  - Immutable rules/references (suppress internal tools that mutate them - is that enough?)
+  - Session doesn't include history on request
+  - Response filters out tool calls
+- We could just:
+  - Parameterize tools approval availability and immutable rules/refs (together or separately)
+  - Have the a2a_server use a new session per call/message (should do that anyway), so it will have no history
+    - Do we also want to make sure that when using autonomous agent interactively (test/dev) that it doesn't maintain chat history?
+  - Have the a2a_server strip out the tool call results
 
-/prompt.md (GFM)
-/references/*.mdt (YAML frontmatter + GFM text)
-/rules/*.mdt (YAML frontmatter + GFM text)
+### Orchestration UX
+
+A TeamSpark Workbench tab providing a better UX for a2a-mcp
+
+- Enabled/Disabled (installs MCP server when enabled, removes when disabled)
+- Orchestration Prompt (?)
+- Manages config of MCP server (agents) - add/remove/delete
+  - Agents are file or URL paths
+- Shows details (AgentCard) of configured agents (including metadata, icon, docs link, skills details, etc)
+- Lets you test agents interactively
 
 ## Sample agent card
 
@@ -208,50 +218,3 @@ What about:
   ],
   ]
 }
-
-## TODO
-
-As long was we store all of the metadata we need for agent-card.json in tspark.json, do we really need to store agent-card.json?
-- We'll just generate it in our A2A server from our config
-- Metadata to add:
-  - mode (interactive/autonomous) - could use presence of "skills" attribute (ux requires at least one skill when autonomous toggled on)?
-  - version (existing version is metadataVersion)
-  - name (existing)
-  - description
-  - provider (organization/url)
-  - iconUrl
-  - documentationUrl
-  - skills (id, name, description, tags, examples)
-
-Implement a2a_server (command line app and API launcher)
-- A2A server than runs against a TeamSpark agent
-  - Command line app takes optional dir/file path (uses cwd if not specified) and optional port
-- Produce agent-card from agent config/metadata
-- Bridge A2A server (Express?) to our agents
-
-Implement a2a_mcp
-- MCP server that implements A2A orchestration
-- Takes list of A2A servers as config (http endpoints of running servers)
-- Implements list_agents, call_agent
-- Later:
-  - Also allow file endpoints of TeamSpark agent config dir/file in config
-  - Run these endpoints from MCP server in order to include them is agent set
-
-## Later
-
-Implement constraints of agent (chat session?) based on interactive/autonomous
-- Autonomous
-  - Only present tools that don't require approval
-  - Immutable rules/references (suppress internal tools that mutate them - is that enough?)
-  - Session doesn't include history on request
-  - Response filters out tool calls
-- We could just:
-  - Parameterize tools approval availability and immutable rules/refs (together or separately)
-  - Have the a2a_server use a new session per skill call (should do that anyway), so it will have no history
-  - Have the a2a_server strip out the tool call results
-
-Orchestration tab (better UX for a2a_mcp)
-- Installs MCP server when enabled, removes whe disabled
-- Manages config of MCP server (agents) - add/remove/delete
-- Shows details of configured agents/skills (including metadata, icon, docs link, etc)
-  - Lets you test skills interactively

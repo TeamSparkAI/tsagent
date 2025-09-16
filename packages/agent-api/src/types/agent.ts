@@ -31,8 +31,8 @@ export const SETTINGS_DEFAULT_TOP_P = 0.5;
 // Core agent interface
 export interface Agent extends ProvidersManager, McpServerManager, ChatSessionManager {
   readonly id: string;
-  readonly name: string;
   readonly path: string;
+  readonly name: string;
   readonly description?: string;
   
   // Agent lifecycle
@@ -97,12 +97,28 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   deleteChatSession(sessionId: string): Promise<boolean>;
 }
 
+// This is a subset of the AgentSkill interface from the A2A protocol
+export interface AgentSkill {
+  id: string;          // A unique identifier for the agent's skill
+  name: string;        // A human-readable name for the skill
+  description: string; // A detailed description of the skill, intended to help clients or users understand its purpose and functionality
+  tags: string[];      // A set of keywords describing the skill's capabilities - ["cooking", "customer support", "billing"]
+  examples?: string[]; // Example prompts or scenarios that this skill can handle. Provides a hint to the client on how to use the skill
+}
+
 export interface AgentMetadata {
   name: string;
+  version?: string;
   description?: string;
+  iconUrl?: string;
+  documentationUrl?: string;
+  provider?: {
+    organization: string;
+    url: string;
+  };
+  skills?: AgentSkill[];
   created: string;
   lastAccessed: string;
-  version: string;
 }
 
 export interface AgentSettings {

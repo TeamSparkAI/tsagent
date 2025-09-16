@@ -271,8 +271,53 @@
 }
 
 .agent-info-settings .form-group {
-  margin-bottom: 20px;
+  margin-bottom: 12px;
 }
+
+.agent-info-settings .form-group .common-input,
+.agent-info-settings .form-group .common-textarea {
+  margin-bottom: 0;
+}
+
+/* Name and Version Fields */
+.name-version-fields {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 12px;
+}
+
+.name-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.name-field label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.version-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.version-field label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+/* Form Separator */
+.form-separator {
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 20px 0;
+  opacity: 0.6;
+}
+
 
 .agent-info-settings .form-group label {
   display: block;
@@ -303,4 +348,274 @@
   margin-top: 20px;
   display: flex;
   gap: 10px;
+}
+
+/* Agent Mode Selector Styles */
+.agent-mode-selector {
+  display: flex;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  margin-bottom: 4px;
+  max-width: 300px;
+}
+
+.mode-button {
+  flex: 1;
+  padding: 10px 16px;
+  border: none;
+  background-color: transparent;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border-right: 1px solid var(--border-color);
+}
+
+.mode-button:last-child {
+  border-right: none;
+}
+
+.mode-button:hover {
+  background-color: var(--hover-bg);
+  color: var(--text-primary);
+}
+
+.mode-button.active {
+  background-color: var(--accent-color, #1890ff);
+  color: white;
+  font-weight: 600;
+}
+
+.mode-button.active:hover {
+  background-color: var(--accent-color-hover, #40a9ff);
+}
+
+.agent-mode-description {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-top: 2px;
+  font-style: italic;
+}
+
+/* Skills List Styles */
+.skills-list {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 12px;
+  background-color: var(--bg-secondary);
+}
+
+.skill-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background-color: var(--bg-primary);
+}
+
+.skill-item:last-of-type {
+  margin-bottom: 12px;
+}
+
+.skill-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.skill-name {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.skill-description {
+  color: var(--text-secondary);
+  font-size: 13px;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.skill-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.skill-tag {
+  background-color: var(--accent-color, #1890ff);
+  color: white;
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.skill-actions {
+  display: flex;
+  gap: 6px;
+  margin-left: 12px;
+}
+
+.skill-actions .btn {
+  padding: 4px 8px;
+  font-size: 12px;
+}
+
+.no-skills {
+  color: var(--text-tertiary);
+  font-style: italic;
+  text-align: center;
+  padding: 20px;
+  margin-bottom: 12px;
+}
+
+/* Array Input Styles */
+.array-input {
+  margin-bottom: 16px;
+}
+
+.array-input label {
+  display: block;
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+}
+
+.array-input-container {
+  position: relative;
+  margin-bottom: 8px;
+}
+
+.array-input-field {
+  width: 100%;
+  padding: 10px 40px 10px 10px;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  box-sizing: border-box;
+}
+
+.array-input-field:focus {
+  outline: none;
+  border-color: var(--selected-border);
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2);
+}
+
+.array-add-button {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 3px;
+  background-color: var(--accent-color, #1890ff);
+  color: white;
+  font-size: 16px;
+  font-weight: bold;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.array-add-button:hover:not(:disabled) {
+  background-color: var(--accent-color-hover, #40a9ff);
+}
+
+.array-add-button:disabled {
+  background-color: var(--text-tertiary);
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.array-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.array-item {
+  display: flex;
+  align-items: center;
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 4px 8px;
+  font-size: 13px;
+}
+
+.array-item span {
+  margin-right: 6px;
+  color: var(--text-primary);
+}
+
+.btn-remove {
+  background: none;
+  border: none;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-remove:hover {
+  color: var(--text-primary);
+}
+
+/* Resource Fields Styles */
+.resource-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.resource-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.resource-field label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+/* Provider Fields Styles */
+.provider-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.provider-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.provider-field label {
+  font-weight: bold;
+  margin-bottom: 8px;
+  color: var(--text-primary);
+  font-size: 13px;
 }

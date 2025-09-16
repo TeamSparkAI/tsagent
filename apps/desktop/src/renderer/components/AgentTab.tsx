@@ -1,16 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { TabProps } from '../types/TabProps';
 import type { AgentWindow } from '../../main/agents-manager';
+import { AgentMetadata } from 'agent-api';
 import log from 'electron-log';
 import './AgentTab.css';
 
-interface AgentMetadata {
-  name: string;
-  description?: string;
-  created: string;
-  lastAccessed: string;
-  version: string;
-}
 
 interface AgentInfoProps {
   agentPath: string;
