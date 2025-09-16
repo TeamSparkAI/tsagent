@@ -9,7 +9,7 @@ import { A2AClient } from '@a2a-js/sdk/client';
 import { v4 as uuidv4 } from 'uuid';
 
 interface AgentInfo {
-  id: string;
+  agentId: string;
   name: string;
   description: string;
   version: string;
@@ -74,7 +74,7 @@ export class A2AMCPServer {
                   items: {
                     type: 'object',
                     properties: {
-                      id: { type: 'string', description: 'Unique agent identifier' },
+                      agentId: { type: 'string', description: 'Unique agent identifier' },
                       name: { type: 'string', description: 'Agent name' },
                       description: { type: 'string', description: 'Agent description' },
                       version: { type: 'string', description: 'Agent version' },
@@ -170,7 +170,7 @@ export class A2AMCPServer {
         this.agentMap.set(agentId, endpoint);
         
         agents.push({
-          id: agentId,
+          agentId: agentId,
           name: agentCard.name,
           description: agentCard.description,
           version: agentCard.version,
@@ -189,20 +189,24 @@ export class A2AMCPServer {
 
     console.error('A2A MCP Server agents:', { agents });
 
-    return { 
-      structuredContent: { agents }
+    // Model implementations don't appear to access/use the structuredContent (maybe this is an issue with our implementation
+    // of the tool call result processing?).  So to be safe, we need to encode the answer in text as well as structuredContent.
+
+    const getAgentDetails = (agent: AgentInfo) => {    
+      return '**' + agent.name + '** (AgentId: ' + agent.agentId + ')\n' +
+             'Description: ' + agent.description + '\n' +
+             'Version: ' + agent.version + '\n'
     };
-    
-    /* We might also want to include a text version of the agents response as "content" above
+
     return {
       content: [
         {
           type: 'text',
-          text: JSON.stringify({ agents }, null, 2),
-        },
+          text: `Found ${agents.length} A2A agents: ${agents.map(getAgentDetails).join('\n')}`
+        }
       ],
+      structuredContent: { agents }
     };
-    */
   }
 
   private async handleSendMessage(args: any) {
