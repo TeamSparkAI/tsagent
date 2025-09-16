@@ -838,6 +838,29 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
+  ipcMain.handle('get-agent-metadata-by-path', async (event, agentPath: string) => {
+    try {
+      log.info('[MAIN PROCESS] getAgentMetadataByPath called for:', agentPath);
+      
+      // Check if agent exists
+      const exists = await agentExists(agentPath);
+      if (!exists) {
+        log.warn('Agent does not exist at path:', agentPath);
+        return null;
+      }
+
+      // Load the agent to get metadata
+      const agent = await loadAgent(agentPath, new ElectronLoggerAdapter());
+      const metadata = agent.getMetadata();
+      
+      log.info('[MAIN PROCESS] Agent metadata retrieved for path:', agentPath, metadata);
+      return metadata;
+    } catch (err) {
+      log.error('[MAIN PROCESS] Error getting agent metadata by path:', err);
+      return null;
+    }
+  });
+
   // Add new IPC handler
   ipcMain.handle('show-chat-menu', (_, hasSelection: boolean, x: number, y: number) => {
     const menu = Menu.buildFromTemplate([

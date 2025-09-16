@@ -50,7 +50,7 @@ export const App: React.FC = () => {
           {
             id: uuidv4(),
             type: 'agent',
-            title: 'Agent'
+            title: 'Agents'
           },
           {
             id: uuidv4(),
@@ -94,7 +94,7 @@ export const App: React.FC = () => {
         const agentTab = {
           id: uuidv4(),
           type: 'agent',
-          title: 'Agent'
+          title: 'Agents'
         };
         log.info(`[APP] Setting single tab: ${agentTab.id}`);
         setTabs([agentTab]);

@@ -54,6 +54,7 @@ export interface API {
   saveSystemPrompt: (prompt: string) => Promise<void>;
   getAgentMetadata: () => Promise<{ name: string; description?: string; created: string; lastAccessed: string; version: string } | null>;
   updateAgentMetadata: (metadata: Partial<{ name: string; description?: string }>) => Promise<{ success: boolean; error?: string }>;
+  getAgentMetadataByPath: (agentPath: string) => Promise<{ name: string; description?: string; created: string; lastAccessed: string; version: string } | null>;
   showChatMenu: (hasSelection: boolean, x: number, y: number) => Promise<void>;
   showEditControlMenu: (editFlags: { 
     canUndo: boolean;

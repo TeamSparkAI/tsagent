@@ -64,6 +64,7 @@ const api: API = {
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
   getAgentMetadata: () => ipcRenderer.invoke('get-agent-metadata'),
   updateAgentMetadata: (metadata: Partial<{ name: string; description?: string }>) => ipcRenderer.invoke('update-agent-metadata', metadata),
+  getAgentMetadataByPath: (agentPath: string) => ipcRenderer.invoke('get-agent-metadata-by-path', agentPath),
   
   // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),

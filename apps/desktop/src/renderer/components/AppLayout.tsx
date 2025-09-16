@@ -19,8 +19,8 @@ export const AppLayout: React.FC = () => {
   const tabs: Tab[] = [
     {
       id: 'agent',
-      label: 'Agent',
-      content: <AgentTab id="agent" activeTabId={activeTabId} name="Agent" type="agent" />
+      label: 'Agents',
+      content: <AgentTab id="agent" activeTabId={activeTabId} name="Agents" type="agent" />
     },
     {
       id: 'providers',

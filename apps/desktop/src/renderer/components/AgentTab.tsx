@@ -4,6 +4,74 @@ import type { AgentWindow } from '../../main/agents-manager';
 import log from 'electron-log';
 import './AgentTab.css';
 
+interface AgentMetadata {
+  name: string;
+  description?: string;
+  created: string;
+  lastAccessed: string;
+  version: string;
+}
+
+interface AgentInfoProps {
+  agentPath: string;
+  showPath?: boolean;
+}
+
+const AgentInfo: React.FC<AgentInfoProps> = ({ agentPath, showPath = true }) => {
+  const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    const loadMetadata = async () => {
+      try {
+        setIsLoading(true);
+        const agentMetadata = await window.api.getAgentMetadataByPath(agentPath);
+        setMetadata(agentMetadata);
+      } catch (err) {
+        log.error('Error loading agent metadata:', err);
+        setMetadata(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    loadMetadata();
+  }, [agentPath]);
+
+  if (isLoading) {
+    return (
+      <div className="agent-info">
+        <div className="agent-name">Loading...</div>
+        {showPath && <div className="agent-path">{agentPath}</div>}
+      </div>
+    );
+  }
+
+  if (!metadata) {
+    return (
+      <div className="agent-info">
+        <div className="agent-name">Unknown Agent</div>
+        {showPath && <div className="agent-path">{agentPath}</div>}
+      </div>
+    );
+  }
+
+  const truncateDescription = (description: string | undefined, maxLength: number = 60) => {
+    if (!description) return '';
+    return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
+  };
+
+  return (
+    <div className="agent-info">
+      <div className="agent-name">{metadata.name}</div>
+      {metadata.description && (
+        <div className="agent-description">{truncateDescription(metadata.description)}</div>
+      )}
+      {showPath && <div className="agent-path">{agentPath}</div>}
+    </div>
+  );
+};
+
 interface AgentTabProps extends TabProps {
   id: string;
   name: string;
@@ -449,7 +517,7 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
                   <h2>Current Agent</h2>
                 </div>
                 <div className="agent-item">
-                  <div className="path">{currentAgent.agentPath}</div>
+                  <AgentInfo agentPath={currentAgent.agentPath} />
                   <div className="agent-buttons">
                     <button
                       onClick={handlecloneAgent}
@@ -478,9 +546,7 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
                       key={window.windowId}
                       className="agent-item"
                     >
-                      <div className="window-item">
-                        <div className="path">{window.agentPath}</div>
-                      </div>
+                      <AgentInfo agentPath={window.agentPath} />
                       <div className="agent-buttons">
                         <button
                           onClick={() => handleFocusWindow(window.windowId)}
@@ -507,7 +573,7 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
                       key={path}
                       className="agent-item"
                     >
-                      <div className="path">{path}</div>
+                      <AgentInfo agentPath={path} />
                       <div className="agent-buttons">
                         <button
                           onClick={() => handleSwitchToRecent(path)}
