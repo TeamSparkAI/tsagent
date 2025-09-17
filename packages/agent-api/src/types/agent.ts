@@ -28,12 +28,15 @@ export const SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS = 1000;
 export const SETTINGS_DEFAULT_TEMPERATURE = 0.5;
 export const SETTINGS_DEFAULT_TOP_P = 0.5;
 
+export type AgentMode = 'interactive' | 'autonomous';
+
 // Core agent interface
 export interface Agent extends ProvidersManager, McpServerManager, ChatSessionManager {
   readonly id: string;
   readonly path: string;
   readonly name: string;
   readonly description?: string;
+  readonly mode: AgentMode;
   
   // Agent lifecycle
   load(): Promise<void>; // strategy required

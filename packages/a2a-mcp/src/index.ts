@@ -166,6 +166,14 @@ export class A2AMCPServer {
     });
   }
 
+  private async getAgentCard(endpoint: string): Promise<any> {
+    const response = await fetch(`${endpoint}/.well-known/agent-card.json`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch agent card: ${response.status}`);
+    }
+    return response.json();
+  }
+
   private async handleListAgents() {
     const agents: AgentInfo[] = [];
     
@@ -201,8 +209,11 @@ export class A2AMCPServer {
 
     console.error('A2A MCP Server agents:', { agents });
 
-    // Model implementations don't appear to access/use the structuredContent (maybe this is an issue with our implementation
-    // of the tool call result processing?).  So to be safe, we need to encode the answer in text as well as structuredContent.
+    // Because we provide outputSchema for the tools, we are required to produce structuredContent that fulfills that schema
+    // (some models will produce an error if there is an outputSchema and no structuredContent).  In practice, some models do
+    // not support structuredContent and still others that do support (and require) structuredContent will produce errors if a
+    // content value is not returned (even when there is a structuredContent value).  So we return both the "structuredContent"
+    // value and a plaintext version of that same data as "content".
 
     const getAgentDetails = (agent: AgentInfo) => {    
       return '**' + agent.name + '** (AgentId: ' + agent.agentId + ')\n' +
@@ -279,7 +290,7 @@ export class A2AMCPServer {
           "parts": [
             {
               "kind": "text",
-              "text": "Alright chief, let's see how much Bob can bench. Unfortunately, I don't have any information about Bob's bench press capabilities. Is there anything else I can help you with?\n"
+              "text": "This is the model response text"
             }
           ],
           "contextId": "dd16b42e-27a4-4321-889e-7d002cfc4249"
@@ -311,6 +322,10 @@ export class A2AMCPServer {
         }
       }
       
+      // See note above about returning both "structuredContent" and a plaintext version of that same data as "content".
+
+      // !!! If we can determine that the agents can access strucutred content, maybe we just return the responseText as content
+
       return {
         content: [
           {
@@ -333,14 +348,6 @@ export class A2AMCPServer {
     }
   }
 
-  private async getAgentCard(endpoint: string): Promise<any> {
-    const response = await fetch(`${endpoint}/.well-known/agent-card.json`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch agent card: ${response.status}`);
-    }
-    return response.json();
-  }
-
   public async start(): Promise<void> {
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
@@ -350,7 +357,11 @@ export class A2AMCPServer {
 
 // Parse command line arguments for A2A endpoints
 const args = process.argv.slice(2);
-const a2aEndpoints = args.length > 0 ? args : ['http://localhost:4000'];
+const a2aEndpoints = args.length > 0 ? args : null;
+if (!a2aEndpoints) {
+  console.error('Error: A2A endpoints are required');
+  process.exit(1);
+}
 
 console.error('A2A MCP Server starting with endpoints:', a2aEndpoints);
 

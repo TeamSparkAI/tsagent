@@ -7,7 +7,8 @@ import { Agent, AgentConfig, AgentSettings,
   SETTINGS_DEFAULT_TOP_P, SETTINGS_KEY_TOP_P, 
   SETTINGS_KEY_THEME,
   SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL,
-  AgentMetadata
+  AgentMetadata,
+  AgentMode
 } from '../types/agent';
 import { Logger } from '../types/common';
 import { RulesManager } from '../managers/rules-manager';
@@ -53,6 +54,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   get name(): string { return this._agentData?.metadata?.name || this._strategy?.getName() || this._id; }
   get path(): string { return this._strategy?.getName() || this._id; }
   get description(): string | undefined { return this._agentData?.metadata?.description; }
+  get mode(): AgentMode { return this._agentData?.metadata?.skills ? 'autonomous' : 'interactive'; }
 
   constructor(strategy: AgentStrategy | null, private logger: Logger) {
     super();

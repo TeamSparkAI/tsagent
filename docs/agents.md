@@ -104,14 +104,27 @@ Agents can be one of:
 Agent Orchestration
 - Any agent (interactive or autonomous) can orchestrate other agents
 - Orchestration implemented via A2A MCP server (list_agents, call_agent)
-- Orchestration prompt (to explain how to use the tools - is this necessary of can the MCP tool description handle it?)
+- Orchestration prompt (to explain how to use the tools - is this necessary or can the MCP tool description handle it?)
 
-## Agent Definiton
+## MCP Server Updates
 
 Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
 - Not really related to agent work - but would be nice to support ToolVault to process agent calls
 
-Should we add enabled/disabled state to mcp server instances?  So we don't have to delete and lose all config (we can just disable)?
+Add "disabled" flag to MCP server and to individual MCP tools
+- Need to provided UX for both, with serialization
+  - Display tool-level "disabled" in tool list
+  - UX to enabled/disable all tools (to make it easier to handle large tool lists)
+- Need to obey when building tools list
+  - Only collect non-disbled tools from non-disabled servers
+  - If "autonomous" further filter to only allow tools that don't require permission
+
+Clean up MCP servers UX (limit width of tools column, show text with "show raw")
+- Consider tabs with config, tools, logs (like ToolVault)
+
+We might need some way to force reload of the MCP server (to force reload of the a2a-mcp servers agents)
+
+## Agent Definiton
 
 AgentMetadata has been expanded to cover AgentCard:
 - name 
@@ -121,8 +134,7 @@ AgentMetadata has been expanded to cover AgentCard:
 - iconUrl
 - documentationUrl
 - skills (id, name, description, tags, examples)
-
-Mode (interactive/autonomous) is represented by presence of "skills" attribute, even if empty, to indicate autonomous
+- mode (interactive/autonomous) - computed property based on truthy "skills" attribute value (which even if empty array, indicates autonomous)
 
 ## A2A Server for TeamSark Agent(s)
 
@@ -130,8 +142,9 @@ Package: a2a-server
   
 Command line app and API launcher to expose TeamSpark agent as A2A server
 
-- Command line app takes optional dir/file path (uses cwd if not specified) and optional port
-- Produce agent-card produced from agent config/metadata
+- Command line app takes dir/file path and optional port
+  - Future: Agent path optional, uses cwd if not specified
+- AgentCard produced from agent metadata
 - Bridge A2A server (Express app) to TeamSpark agent(s)
 - Note: It is possible to use path routing to host multiple A2A endpoints on one host/port (one Express app)
 
@@ -146,13 +159,30 @@ MCP server that implements A2A orchestration of A2A servers
 
 ## Later
 
+Our chat logic may not be handling structuredContent propery (or maybe the LLMs just don't support it?)
+
+When we returned ONLY structured content (from a2a-mcp) both Gemini and Claude threw errors
+- Either they didn't see/accept/process the structuredContent, or our chat logic didn't make it available
+- Adding plaintext "content" to the MCP return payload made the errors go away
+
+We also saw that when the tool descriptions had output schema and we didn't return structuredContent that we got errors to that effect
+- Which implies that the LLMs could detect the absence of structuredConent and the presensence when we added it
+
 ### Support TeamSpark Agents in a2a-mcp
 
 Allow file endpoints of TeamSpark agent config dir/file in config (run via a2a-server command line or API)
-Run these endpoints from MCP server in order to include them in agent set
-- Could run them in a single a2a-server (one host/port, process) using routes
+
+Config params can be:
+- http:// for A2A agents
+- file:// for TeamSpark agents
+
+We collect all TeamSpark agents and run them in a single a2a-server with paths (and default port)
+We add each path to our A2A agents list
+We have to manage the lifecycle of the a2a-server (specifically the Express server it runs)
 
 ### Agent type constraints
+
+Agent Mode is available as property (truthy skills attribute means autonomous)
 
 Implement constraints of agent (chat session?) based on interactive/autonomous
 - Autonomous
@@ -171,7 +201,9 @@ Implement constraints of agent (chat session?) based on interactive/autonomous
 A TeamSpark Workbench tab providing a better UX for a2a-mcp
 
 - Enabled/Disabled (installs MCP server when enabled, removes when disabled)
+  - We may added enabled/disable support for servers and do that instead to preserve config
 - Orchestration Prompt (?)
+  - Insert after system prompt in context
 - Manages config of MCP server (agents) - add/remove/delete
   - Agents are file or URL paths
 - Shows details (AgentCard) of configured agents (including metadata, icon, docs link, skills details, etc)
