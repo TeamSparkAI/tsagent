@@ -7,6 +7,13 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { A2AClient } from '@a2a-js/sdk/client';
 import { v4 as uuidv4 } from 'uuid';
+import { MultiA2AServer } from 'a2a-server';
+
+interface AgentEndpoint {
+  originalUri: string;    // Original URI (for logging/debugging)
+  httpEndpoint: string;   // Always an HTTP endpoint (normalized)
+  isEmbedded: boolean;    // Whether this came from embedded server
+}
 
 interface AgentInfo {
   agentId: string;
@@ -39,11 +46,12 @@ interface AgentInfo {
 export class A2AMCPServer {
   private server: Server;
   private clients: Map<string, A2AClient> = new Map();
-  private a2aEndpoints: string[] = [];
+  private endpoints: AgentEndpoint[] = [];
   private agentMap: Map<string, string> = new Map(); // agentId -> endpoint
+  private embeddedServer: MultiA2AServer | null = null;
+  private pendingUris: string[] = [];
 
-  constructor(a2aEndpoints: string[] = []) {
-    this.a2aEndpoints = a2aEndpoints;
+  constructor(uris: string[] = []) {
     this.server = new Server(
       {
         name: 'a2a-mcp',
@@ -57,6 +65,76 @@ export class A2AMCPServer {
     );
 
     this.setupHandlers();
+    // Store URIs for processing in start()
+    this.pendingUris = uris;
+  }
+
+  private async processUris(uris: string[]): Promise<void> {
+    const filePaths: string[] = [];
+    
+    for (const uri of uris) {
+      if (uri.startsWith('http://') || uri.startsWith('https://')) {
+        // HTTP URI - use as-is
+        this.endpoints.push({
+          originalUri: uri,
+          httpEndpoint: uri,
+          isEmbedded: false
+        });
+      } else if (uri.startsWith('file://')) {
+        // File URI - collect for embedded server
+        const filePath = uri.replace('file://', '');
+        filePaths.push(filePath);
+      } else {
+        // Assume file path (backward compatibility)
+        filePaths.push(uri);
+      }
+    }
+    
+    // Start embedded server if we have file paths
+    if (filePaths.length > 0) {
+      await this.startEmbeddedServer(filePaths);
+    }
+  }
+
+  private async startEmbeddedServer(filePaths: string[]): Promise<void> {
+    try {
+      console.error(`Starting embedded A2A server with ${filePaths.length} file-based agents...`);
+      this.embeddedServer = new MultiA2AServer(0); // Dynamic port
+      
+      // Register all file-based agents
+      for (const filePath of filePaths) {
+        await this.embeddedServer.registerAgent(filePath);
+      }
+      
+      // Start server and get endpoints
+      const result = await this.embeddedServer.start();
+      
+      // Add embedded server endpoints
+      for (const agent of result.agents) {
+        this.endpoints.push({
+          originalUri: `file://${filePaths.find(p => agent.baseUrl.includes(p.split('/').pop() || '')) || 'unknown'}`,
+          httpEndpoint: agent.baseUrl,
+          isEmbedded: true
+        });
+      }
+      
+      console.error(`Embedded A2A server started on port ${result.port} with ${result.agents.length} agents`);
+    } catch (error) {
+      console.error('Failed to start embedded A2A server:', error);
+      // Continue with HTTP-only agents
+    }
+  }
+
+  private async shutdownEmbeddedServer(): Promise<void> {
+    if (this.embeddedServer) {
+      try {
+        await this.embeddedServer.shutdown();
+        this.embeddedServer = null;
+        console.error('Embedded A2A server shutdown complete');
+      } catch (error) {
+        console.error('Error shutting down embedded A2A server:', error);
+      }
+    }
   }
 
   private setupHandlers(): void {
@@ -177,21 +255,21 @@ export class A2AMCPServer {
   private async handleListAgents() {
     const agents: AgentInfo[] = [];
     
-    for (let i = 0; i < this.a2aEndpoints.length; i++) {
-      const endpoint = this.a2aEndpoints[i];
+    for (let i = 0; i < this.endpoints.length; i++) {
+      const endpoint = this.endpoints[i];
       try {
-        const agentCard = await this.getAgentCard(endpoint);
+        const agentCard = await this.getAgentCard(endpoint.httpEndpoint);
         const agentId = `agent_${String(i + 1).padStart(3, '0')}`;
         
         // Map agent ID to endpoint
-        this.agentMap.set(agentId, endpoint);
+        this.agentMap.set(agentId, endpoint.httpEndpoint);
         
         agents.push({
           agentId: agentId,
           name: agentCard.name,
           description: agentCard.description,
           version: agentCard.version,
-          url: endpoint,
+          url: endpoint.httpEndpoint,
           provider: agentCard.provider,
           iconUrl: agentCard.iconUrl,
           documentationUrl: agentCard.documentationUrl,
@@ -203,7 +281,7 @@ export class A2AMCPServer {
           }
         });
       } catch (error) {
-        console.error(`Failed to get agent card from ${endpoint}:`, error);
+        console.error(`Failed to get agent card from ${endpoint.httpEndpoint} (original: ${endpoint.originalUri}):`, error);
       }
     }
 
@@ -349,6 +427,26 @@ export class A2AMCPServer {
   }
 
   public async start(): Promise<void> {
+    // Process URIs first (start embedded server if needed)
+    await this.processUris(this.pendingUris);
+    this.pendingUris = []; // Clear pending URIs
+    
+    // Set up graceful shutdown
+    const gracefulShutdown = async (signal: string) => {
+      console.error(`Received ${signal}, shutting down gracefully...`);
+      try {
+        await this.shutdownEmbeddedServer();
+        console.error('A2A MCP Server shutdown complete');
+      } catch (error) {
+        console.error('Error during shutdown:', error);
+      }
+      process.exit(0);
+    };
+
+    process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+    process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+
+    // Start MCP server
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
     console.error('A2A MCP Server running on stdio');
@@ -357,15 +455,15 @@ export class A2AMCPServer {
 
 // Parse command line arguments for A2A endpoints
 const args = process.argv.slice(2);
-const a2aEndpoints = args.length > 0 ? args : null;
-if (!a2aEndpoints) {
-  console.error('Error: A2A endpoints are required');
+const uris = args.length > 0 ? args : null;
+if (!uris) {
+  console.error('Error: A2A endpoints or file paths are required');
   process.exit(1);
 }
 
-console.error('A2A MCP Server starting with endpoints:', a2aEndpoints);
+console.error('A2A MCP Server starting with URIs:', uris);
 
-const server = new A2AMCPServer(a2aEndpoints);
+const server = new A2AMCPServer(uris);
 server.start().catch(console.error);
 
 export default A2AMCPServer;

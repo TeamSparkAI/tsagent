@@ -140,13 +140,13 @@ AgentMetadata has been expanded to cover AgentCard:
 
 Package: a2a-server
   
-Command line app and API launcher to expose TeamSpark agent as A2A server
+Command line app and API launcher to expose TeamSpark agent(s) as A2A server(s)
 
-- Command line app takes dir/file path and optional port
+- Command line app takes one or more dir/file paths and optional port
   - Future: Agent path optional, uses cwd if not specified
 - AgentCard produced from agent metadata
 - Bridge A2A server (Express app) to TeamSpark agent(s)
-- Note: It is possible to use path routing to host multiple A2A endpoints on one host/port (one Express app)
+- If multiple agents, each will be served at unique route (logged from CLI and available from start() via API)
 
 ## A2A Orchestration MCP server
 
@@ -154,7 +154,11 @@ Package: a2a-mcp
 
 MCP server that implements A2A orchestration of A2A servers
 
-- Takes list of A2A servers as config (http endpoints of running servers)
+- Takes list of A2A servers as config
+  - http:// or https:// uri endpoints for A2A servers
+  - file:// uri for TeamSpark agents (or non-uri which will be treated as file path)
+- TeamSpark agents (if any) will be run in a single embedded a2a-server (at unique paths) and presented as A2A servers
+- We manage the lifecycle of the embedded a2a-server (server orderly shutdown when MCP server shuts down)
 - Implements list_agents, call_agent
 
 ## Later
@@ -167,18 +171,6 @@ When we returned ONLY structured content (from a2a-mcp) both Gemini and Claude t
 
 We also saw that when the tool descriptions had output schema and we didn't return structuredContent that we got errors to that effect
 - Which implies that the LLMs could detect the absence of structuredConent and the presensence when we added it
-
-### Support TeamSpark Agents in a2a-mcp
-
-Allow file endpoints of TeamSpark agent config dir/file in config (run via a2a-server command line or API)
-
-Config params can be:
-- http:// for A2A agents
-- file:// for TeamSpark agents
-
-We collect all TeamSpark agents and run them in a single a2a-server with paths (and default port)
-We add each path to our A2A agents list
-We have to manage the lifecycle of the a2a-server (specifically the Express server it runs)
 
 ### Agent type constraints
 
