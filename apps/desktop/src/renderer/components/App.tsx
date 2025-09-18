@@ -7,6 +7,7 @@ import { ReferencesTab } from './ReferencesTab';
 import { AgentTab } from './AgentTab';
 import { ProvidersTab } from './ProvidersTab';
 import { SettingsTab } from './SettingsTab';
+import { OrchestrationTab } from './OrchestrationTab';
 import { v4 as uuidv4 } from 'uuid';
 import log from 'electron-log';
 
@@ -76,6 +77,11 @@ export const App: React.FC = () => {
             id: uuidv4(),
             type: 'tools',
             title: 'Tools'
+          },
+          {
+            id: uuidv4(),
+            type: 'orchestration',
+            title: 'Orchestration'
           },
           {
             id: uuidv4(),
@@ -163,6 +169,8 @@ export const App: React.FC = () => {
     switch (tab.type) {
       case 'agent':
         return <AgentTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+      case 'orchestration':
+        return <OrchestrationTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'providers':
         return <ProvidersTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'settings':

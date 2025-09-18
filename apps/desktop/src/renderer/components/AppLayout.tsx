@@ -6,6 +6,7 @@ import { AgentTab } from './AgentTab';
 import { ProvidersTab } from './ProvidersTab';
 import { SettingsTab } from './SettingsTab';
 import { Tools } from './Tools';
+import { OrchestrationTab } from './OrchestrationTab';
 
 interface Tab {
   label: string;
@@ -21,6 +22,11 @@ export const AppLayout: React.FC = () => {
       id: 'agent',
       label: 'Agents',
       content: <AgentTab id="agent" activeTabId={activeTabId} name="Agents" type="agent" />
+    },
+    {
+      id: 'orchestration',
+      label: 'Orchestration',
+      content: <OrchestrationTab id="orchestration" activeTabId={activeTabId} name="Orchestration" type="orchestration" />
     },
     {
       id: 'providers',

@@ -77,14 +77,14 @@ tspark.json - in root of agent
 
 ===============================================================
 
+# Agent v2 (A2A)
+
 https://github.com/a2aproject/A2A
 https://a2a-protocol.org/latest/
 
-# Agent v2 (A2A)
-
 Goals
 - Allow TeamSpark agents to be able to orchestrate other agents (TeamSpark or otherwise) via A2A
-- Allow TeamSpark agents to be served via A2A and usable by an agent supporting A2A
+- Allow TeamSpark agents to be served via A2A and usable by an agent supporting A2A (TeamSpark or otherwise)
 
 Agents can be one of:
 - Interactive
@@ -94,11 +94,11 @@ Agents can be one of:
   - Can modify state (rules/references) during session (manually or via LLM tool usage)
 - Autonomous
   - System prompt: "You are an autonomous agent..."
-  - No chat history - input prompt produces complete reply (no clarification or partial answers)
-  - Only returns final result (no reasoning details, etc)
+  - No chat history - input prompt produces complete reply
+  - Only returns final result (no partial resoonse, no clarifying questions, no reasoning details, etc)
   - Only presents model with approved tools (cannot ask user for tool use permission)
   - Does not return tool call details (we can suppress/remove)
-  - Cannot modify state (rules/references)
+  - Cannot modify state (particularly rules/references)
   - Will define one or more skills (each skill will have skill metadata: id, name, desc, tags)
 
 Agent Orchestration
@@ -108,10 +108,10 @@ Agent Orchestration
 
 ## MCP Server Updates
 
-Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
+Later: Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
 - Not really related to agent work - but would be nice to support ToolVault to process agent calls
 
-Reworked tool permission and added tool enabled (similar implementation, with server default and tool overrides).  Modified chat session
+Done: Reworked tool permission and added tool enabled (similar implementation, with server default and tool overrides).  Modified chat session
 getAllTools() to filter based on enabled tools, and when in autonomous mode, only tools that don't require permission.
 
 "mcpServers": {
@@ -195,9 +195,9 @@ We also saw that when the tool descriptions had output schema and we didn't retu
 
 ### Agent type constraints
 
-Agent Mode is available as property (truthy skills attribute means autonomous)
+Done: Agent Mode is available as property (truthy skills attribute means autonomous)
 
-Implement constraints of agent (chat session?) based on interactive/autonomous
+Implement constraints of agent in chat session based on interactive/autonomous
 - Autonomous
   - Only present tools that don't require approval [done]
   - Immutable rules/references (suppress internal tools that mutate them - is that enough?)
