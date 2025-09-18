@@ -4,10 +4,7 @@
   "description": "MCP server that bridges to A2A servers via the A2A client",
   "type": "module",
   "exports": {
-    ".": {
-      "import": "./dist/esm/index.js",
-      "require": "./dist/cjs/index.js"
-    }
+    ".": "./dist/index.js"
   },
   "files": [
     "dist"
@@ -15,15 +12,13 @@
   "typesVersions": {
     "*": {
       "*": [
-        "./dist/esm/*"
+        "./dist/*"
       ]
     }
   },
   "scripts": {
-    "build": "npm run build:esm && npm run build:cjs",
-    "build:esm": "mkdir -p dist/esm && echo '{\"type\": \"module\"}' > dist/esm/package.json && npx tsc -p tsconfig.esm.json",
-    "build:cjs": "mkdir -p dist/cjs && echo '{\"type\": \"commonjs\"}' > dist/cjs/package.json && npx tsc -p tsconfig.cjs.json",
-    "dev": "npx ts-node src/index.ts",
+    "build": "npx tsc",
+    "dev": "npx tsx src/index.ts",
     "test": "jest"
   },
   "dependencies": {
