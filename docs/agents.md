@@ -111,51 +111,10 @@ Agent Orchestration
 Later: Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
 - Not really related to agent work - but would be nice to support ToolVault to process agent calls
 
-Done: Reworked tool permission and added tool enabled (similar implementation, with server default and tool overrides).  Modified chat session
-getAllTools() to filter based on enabled tools, and when in autonomous mode, only tools that don't require permission.
-
-"mcpServers": {
-  "filesystem": {
-    "type": "stdio",
-    "command": "npx",
-    "args": [
-      "-y",
-      "@modelcontextprotocol/server-filesystem",
-      "/Users/bob/Documents/GitHub/teamspark-workbench-www"
-    ],
-    "toolPermissionRequired": {
-      "serverDefault": true,
-      "tools": {
-        "write_file": true,
-        "edit_file": false
-      }
-    },
-    "toolEnabled": {
-      "serverDefault": true,
-      "tools": {
-        "write_file": true,
-        "edit_file": false
-      }
-    }  
-  }
-}
-
 Clean up MCP servers UX (limit width of tools column, show text with "show raw")
 - Consider tabs with config, tools, logs (like ToolVault)
 
 We might need some way to force reload of the MCP server (to force reload of the a2a-mcp servers agents)
-
-## Agent Definiton
-
-AgentMetadata has been expanded to cover AgentCard:
-- name 
-- version
-- description
-- provider (organization/url)
-- iconUrl
-- documentationUrl
-- skills (id, name, description, tags, examples)
-- mode (interactive/autonomous) - computed property based on truthy "skills" attribute value (which even if empty array, indicates autonomous)
 
 ## A2A Server for TeamSark Agent(s)
 
@@ -195,7 +154,7 @@ We also saw that when the tool descriptions had output schema and we didn't retu
 
 ### Agent type constraints
 
-Done: Agent Mode is available as property (truthy skills attribute means autonomous)
+Agent Mode is available as property (truthy skills attribute means autonomous) [done]
 
 Implement constraints of agent in chat session based on interactive/autonomous
 - Autonomous
@@ -213,6 +172,14 @@ Implement constraints of agent in chat session based on interactive/autonomous
 
 A TeamSpark Workbench tab providing a better UX for a2a-mcp
 
+Current Implementation [done]
+- Shown when a2a-mcp server is installed, hidden otherwise
+- Delegates server management to a2a-mcp
+- Provides discovery, inspection, and test of A2A servers
+  - Shows details (AgentCard) of configured agents (including metadata, icon, docs link, skills details, etc)
+  - Lets you test agents interactively
+
+Future (maybe?):
 - Enable/Disable
   - When we enable orchestration
     - Install a2a-mcp server if not installed (later)
@@ -225,8 +192,6 @@ A TeamSpark Workbench tab providing a better UX for a2a-mcp
   - Insert after system prompt in context
 - Manages config of MCP server (agents) - add/remove/delete
   - Agents are file or URL paths
-- Shows details (AgentCard) of configured agents (including metadata, icon, docs link, skills details, etc)
-- Lets you test agents interactively
 
 ## Sample agent card
 
