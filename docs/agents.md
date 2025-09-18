@@ -111,6 +111,36 @@ Agent Orchestration
 Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
 - Not really related to agent work - but would be nice to support ToolVault to process agent calls
 
+"mcpServers": {
+  "filesystem": {
+    "type": "stdio",
+    "command": "npx",
+    "args": [
+      "-y",
+      "@modelcontextprotocol/server-filesystem",
+      "/Users/bob/Documents/GitHub/teamspark-workbench-www"
+    ],
+    "toolPermissionRequired": {
+      "default": true,
+      "tools": {
+        "write_file": {
+          "permission": "required"
+        },
+        "edit_file": {
+          "permission": "not_required"
+        }
+      }
+    },
+    "toolEnabled": {
+      "serverDefault": true,
+      "tools": {
+        "write_file": true,
+        "edit_file": false
+      }
+    }  
+  }
+}
+
 Add "disabled" flag to MCP server and to individual MCP tools
 - Need to provided UX for both, with serialization
   - Display tool-level "disabled" in tool list
@@ -193,7 +223,7 @@ Implement constraints of agent (chat session?) based on interactive/autonomous
 A TeamSpark Workbench tab providing a better UX for a2a-mcp
 
 - Enabled/Disabled (installs MCP server when enabled, removes when disabled)
-  - We may added enabled/disable support for servers and do that instead to preserve config
+  - We may add enabled/disable support for servers and do that instead to preserve config
 - Orchestration Prompt (?)
   - Insert after system prompt in context
 - Manages config of MCP server (agents) - add/remove/delete

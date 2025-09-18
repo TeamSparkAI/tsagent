@@ -1,6 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types";
 
-import { CallToolResultWithElapsedTime } from "../mcp/types";
+import { CallToolResultWithElapsedTime, isToolAvailable } from "../mcp/types";
 import { ChatSession } from "../types/chat";
 import { Agent } from "../types/agent";
 
@@ -27,10 +27,20 @@ export class ProviderHelper {
         const mcpClients = await agent.getAllMcpClients();
         for (const [clientName, client] of Object.entries(mcpClients)) {
             try {
-                const clientTools = client.serverTools.map(tool => ({
+                // Get server config to check availability
+                const serverConfig = agent.getMcpServer(clientName)?.config;
+                
+                // Filter tools based on availability (enabled tool from enabled server)
+                const availableTools = client.serverTools.filter(tool => {
+                    if (!serverConfig) return true; // No config = all tools available
+                    return isToolAvailable(serverConfig, tool.name);
+                });
+                
+                const clientTools = availableTools.map(tool => ({
                     ...tool,
                     name: `${clientName}_${tool.name}`
                 }));
+                
                 allTools.push(...clientTools);
             } catch (error) {
                 throw new Error(`Error getting tools from server ${clientName}: ${error instanceof Error ? error.message : String(error)}`);

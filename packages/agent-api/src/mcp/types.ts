@@ -30,10 +30,16 @@ export interface ServerPermissionConfig {
     toolPermissions?: Record<string, ToolPermissionConfig>;
 }
 
+// Server-level enabled/disabled settings
+export interface ServerEnabledConfig {
+    serverDefault: boolean;
+    tools?: Record<string, boolean>;
+}
+
 export type McpConfigFileServerConfig = 
-  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; permissions?: ServerPermissionConfig }
-  | { type: 'sse'; url: string; headers?: Record<string, string>; permissions?: ServerPermissionConfig }
-  | { type: 'internal'; tool: 'rules' | 'references'; permissions?: ServerPermissionConfig };
+  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; permissions?: ServerPermissionConfig; toolEnabled?: ServerEnabledConfig }
+  | { type: 'sse'; url: string; headers?: Record<string, string>; permissions?: ServerPermissionConfig; toolEnabled?: ServerEnabledConfig }
+  | { type: 'internal'; tool: 'rules' | 'references'; permissions?: ServerPermissionConfig; toolEnabled?: ServerEnabledConfig };
 
 export interface McpConfig {
   name: string;
@@ -51,6 +57,61 @@ export function determineServerType(config: Omit<McpConfigFileServerConfig, 'typ
   if ('url' in config) return 'sse';
   if ('tool' in config) return 'internal';
   throw new Error('Invalid server configuration');
+}
+
+// Helper functions for enabled/disabled settings
+
+/**
+ * Checks if a server default is enabled in the configuration (for UX editing)
+ * @param config Server configuration
+ * @returns true if server default is enabled (defaults to true if not specified)
+ */
+export function isToolEnabledServerDefaultEnabled(config: McpConfigFileServerConfig): boolean {
+  // Default to true if toolEnabled property is missing or serverDefault is missing/true
+  return config.toolEnabled?.serverDefault !== false;
+}
+
+/**
+ * Gets the tool enabled state for UX editing (three states: server_default, enabled, disabled)
+ * @param config Server configuration
+ * @param toolName Name of the tool to check
+ * @returns 'server_default', 'enabled', or 'disabled'
+ */
+export function getToolEnabledState(config: McpConfigFileServerConfig, toolName: string): 'server_default' | 'enabled' | 'disabled' {
+  // If no tool-specific config, it's using server default
+  if (!config.toolEnabled?.tools || !(toolName in config.toolEnabled.tools)) {
+    return 'server_default';
+  }
+  
+  // Return the explicit tool setting
+  return config.toolEnabled.tools[toolName] ? 'enabled' : 'disabled';
+}
+
+/**
+ * Checks if a tool is enabled in the configuration (for runtime logic)
+ * @param config Server configuration
+ * @param toolName Name of the tool to check
+ * @returns true if tool is enabled (uses server default if not specified)
+ */
+export function isToolEnabled(config: McpConfigFileServerConfig, toolName: string): boolean {
+  // If no tool-specific config, use server default
+  if (!config.toolEnabled?.tools || !(toolName in config.toolEnabled.tools)) {
+    return isToolEnabledServerDefaultEnabled(config);
+  }
+  
+  // Return the explicit tool setting
+  return config.toolEnabled.tools[toolName];
+}
+
+/**
+ * Checks if a tool is actually available to the LLM (enabled tool)
+ * @param config Server configuration
+ * @param toolName Name of the tool to check
+ * @returns true if tool is available (tool is enabled)
+ */
+export function isToolAvailable(config: McpConfigFileServerConfig, toolName: string): boolean {
+  // Tool is available if it's enabled (either explicitly or via server default)
+  return isToolEnabled(config, toolName);
 }
 
 export interface ToolParameter {
