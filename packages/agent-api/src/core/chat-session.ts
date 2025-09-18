@@ -3,7 +3,7 @@ import { Provider, ProviderType } from '../providers/types';
 import { Agent, populateModelFromSettings } from '../types/agent';
 import { Logger } from '../types/common';
 import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
-import { TOOL_PERMISSION_NOT_REQUIRED, TOOL_PERMISSION_REQUIRED } from '../mcp/types';
+import { isToolPermissionRequired } from '../mcp/types';
 
 export class ChatSessionImpl implements ChatSession {
   private _id: string;
@@ -380,37 +380,19 @@ export class ChatSessionImpl implements ChatSession {
       this.logger.info(`Tool ${toolId} - permission always required for all tools, returning true`);
       return true;
     } else if (this.toolPermission === SESSION_TOOL_PERMISSION_NEVER) {
-              this.logger.info(`Tool ${toolId} - permission never required for all tools, returning false`);
+      this.logger.info(`Tool ${toolId} - permission never required for all tools, returning false`);
       return false;
     } else { // SESSION_TOOL_PERMISSION_TOOL
-              this.logger.info(`Tool ${toolId} - permission tool required, checking server config`);
+      this.logger.info(`Tool ${toolId} - permission tool required, checking server config`);
       // Check the permission required for the tool
       const serverConfig = this.agent.getMcpServer(serverId)?.config;
       if (!serverConfig) {
         throw new Error(`Attempted to check permission for non-existent server: ${serverId}`);
       }
 
-      if (serverConfig.permissions?.toolPermissions) {
-        const toolConfig = serverConfig.permissions.toolPermissions[toolId];
-        if (toolConfig) {
-          if (toolConfig.permission === TOOL_PERMISSION_REQUIRED) {
-            this.logger.info(`Tool ${toolId} - specific tool permission required, returning true`);
-            return true;
-          } else if (toolConfig.permission === TOOL_PERMISSION_NOT_REQUIRED) {
-                          this.logger.info(`Tool ${toolId} - specific tool permission not required, returning false`);
-            return false;
-          }
-        }
-
-        // If tool config either didn't exist, or was not one of the non-default values, we fall through to here and get the server default
-        if (serverConfig.permissions.defaultPermission === TOOL_PERMISSION_REQUIRED) {
-          this.logger.info(`Tool ${toolId} - server default permission required, returning true`);
-          return true;
-        } else {
-                      this.logger.info(`Tool ${toolId} - server default permission not required, returning false`);
-          return false;
-        }
-      }
+      const required = isToolPermissionRequired(serverConfig, toolId);
+      this.logger.info(`Tool ${toolId} - permission ${required ? 'required' : 'not required'}, returning ${required}`);
+      return required;
     }
 
     // If the above logic fails to deliver a defintive result, then we default to always requiring tool approval

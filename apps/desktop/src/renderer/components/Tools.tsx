@@ -3,7 +3,9 @@ import type {
     McpConfig, 
     ServerDefaultPermission, 
     ToolPermissionSetting,
-    Tool
+    Tool,
+    ServerToolEnabledConfig,
+    ServerToolPermissionRequiredConfig
 } from "agent-api";
 import { 
     SERVER_PERMISSION_REQUIRED,
@@ -11,6 +13,8 @@ import {
     TOOL_PERMISSION_SERVER_DEFAULT,
     TOOL_PERMISSION_REQUIRED,
     TOOL_PERMISSION_NOT_REQUIRED,
+    isToolPermissionServerDefaultRequired,
+    getToolPermissionState,
     isToolEnabledServerDefaultEnabled,
     isToolEnabled,
     isToolAvailable,
@@ -143,15 +147,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
 
     // Add permission state
     const [defaultPermission, setDefaultPermission] = useState<ServerDefaultPermission>(
-        server?.config.permissions?.defaultPermission || SERVER_PERMISSION_REQUIRED
-    );
-    const [toolPermissions, setToolPermissions] = useState<Record<string, ToolPermissionSetting>>(
-        server?.config.permissions?.toolPermissions ? 
-            Object.entries(server.config.permissions.toolPermissions).reduce((acc, [toolName, config]) => {
-                acc[toolName] = config.permission;
-                return acc;
-            }, {} as Record<string, ToolPermissionSetting>)
-        : {}
+        server?.config ? isToolPermissionServerDefaultRequired(server.config) ? SERVER_PERMISSION_REQUIRED : SERVER_PERMISSION_NOT_REQUIRED : SERVER_PERMISSION_REQUIRED
     );
 
     // Server default enabled state
@@ -347,14 +343,11 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             configObj.type = 'stdio';
                         }
                         
-                        // Add permissions to the config
+                        // Add toolPermissionRequired to the config (preserve existing tool settings)
                         if (configObj) {
-                            configObj.permissions = {
-                                defaultPermission,
-                                toolPermissions: Object.entries(toolPermissions).reduce((acc, [toolName, permission]) => {
-                                    acc[toolName] = { permission };
-                                    return acc;
-                                }, {} as Record<string, { permission: ToolPermissionSetting }>)
+                            configObj.toolPermissionRequired = {
+                                serverDefault: defaultPermission === SERVER_PERMISSION_REQUIRED,
+                                tools: server?.config.toolPermissionRequired?.tools
                             };
                         }
                         
@@ -404,14 +397,11 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     configObj.type = 'stdio';
                 }
                 
-                // Add permissions to the config
+                // Add toolPermissionRequired to the config (preserve existing tool settings)
                 if (configObj) {
-                    configObj.permissions = {
-                        defaultPermission,
-                        toolPermissions: Object.entries(toolPermissions).reduce((acc, [toolName, permission]) => {
-                            acc[toolName] = { permission };
-                            return acc;
-                        }, {} as Record<string, { permission: ToolPermissionSetting }>)
+                    configObj.toolPermissionRequired = {
+                        serverDefault: defaultPermission === SERVER_PERMISSION_REQUIRED,
+                        tools: server?.config.toolPermissionRequired?.tools
                     };
                 }
                 
@@ -447,13 +437,10 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 // Parse the environment JSON
                 let envObject = JSON.parse(env);
                 
-                // Create the base server config object with permissions
-                const permissions = {
-                    defaultPermission,
-                    toolPermissions: Object.entries(toolPermissions).reduce((acc, [toolName, permission]) => {
-                        acc[toolName] = { permission };
-                        return acc;
-                    }, {} as Record<string, { permission: ToolPermissionSetting }>)
+                // Build toolPermissionRequired from current UI state (preserve existing tool settings)
+                const toolPermissionRequired = {
+                    serverDefault: defaultPermission === SERVER_PERMISSION_REQUIRED,
+                    tools: server?.config.toolPermissionRequired?.tools
                 };
 
                 // Create the toolEnabled settings (preserve existing tool settings)
@@ -470,7 +457,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             args: argsArray.filter(arg => arg.trim() !== ''),
                             env: Object.keys(JSON.parse(env)).length > 0 ? JSON.parse(env) : undefined,
                             cwd: cwd && cwd.trim() !== '' ? cwd.trim() : undefined,
-                            permissions,
+                            toolPermissionRequired,
                             toolEnabled
                         }
                         : serverType === 'sse'
@@ -478,13 +465,13 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             type: 'sse',
                             url,
                             headers: Object.keys(headers).length > 0 ? headers : undefined,
-                            permissions,
+                            toolPermissionRequired,
                             toolEnabled
                         }
                         : {
                             type: 'internal',
                             tool: internalTool,
-                            permissions,
+                            toolPermissionRequired,
                             toolEnabled
                         }
                 };
@@ -1272,13 +1259,21 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             ...selectedServer,
             config: {
                 ...selectedServer.config,
-                permissions: {
-                    defaultPermission: selectedServer.config.permissions?.defaultPermission || SERVER_PERMISSION_REQUIRED,
-                    toolPermissions: {
-                        ...selectedServer.config.permissions?.toolPermissions,
-                        [selectedTool.name]: { permission }
+                toolPermissionRequired: (() => {
+                    const existing = selectedServer.config.toolPermissionRequired || {} as ServerToolPermissionRequiredConfig;
+                    const nextTools = { ...(existing.tools || {}) } as Record<string, boolean>;
+                    if (permission === TOOL_PERMISSION_SERVER_DEFAULT) {
+                        // Remove from overrides to use server default
+                        delete nextTools[selectedTool.name];
+                    } else {
+                        // Set explicit override
+                        nextTools[selectedTool.name] = permission === TOOL_PERMISSION_REQUIRED;
                     }
-                }
+                    return {
+                        serverDefault: typeof existing.serverDefault === 'boolean' ? existing.serverDefault : true,
+                        tools: Object.keys(nextTools).length > 0 ? nextTools : undefined
+                    };
+                })()
             }
         };
         
@@ -1322,7 +1317,8 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     // Load tool permission when tool is selected
     useEffect(() => {
         if (selectedTool && selectedServer) {
-            const permission = selectedServer.config.permissions?.toolPermissions?.[selectedTool.name]?.permission || TOOL_PERMISSION_SERVER_DEFAULT;
+            const permissionState = getToolPermissionState(selectedServer.config, selectedTool.name);
+            const permission = permissionState === 'required' ? TOOL_PERMISSION_REQUIRED : permissionState === 'not_required' ? TOOL_PERMISSION_NOT_REQUIRED : TOOL_PERMISSION_SERVER_DEFAULT;
             setSelectedToolPermission(permission);
             
             // Initialize tool enabled state (get the three-state value)
@@ -1489,7 +1485,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                             style={{ width: '100%', padding: '4px 8px' }}
                                         >
                                             <option value={TOOL_PERMISSION_SERVER_DEFAULT}>
-                                                Use Server Default ({selectedServer.config.permissions?.defaultPermission === SERVER_PERMISSION_REQUIRED ? 'Approval Required' : 'Approval Not Required'})
+                                                Use Server Default ({selectedServer.config.toolPermissionRequired?.serverDefault !== false ? 'Approval Required' : 'Approval Not Required'})
                                             </option>
                                             <option value={TOOL_PERMISSION_REQUIRED}>Always Required</option>
                                             <option value={TOOL_PERMISSION_NOT_REQUIRED}>Never Required</option>

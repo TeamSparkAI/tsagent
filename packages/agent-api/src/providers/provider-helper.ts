@@ -1,6 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types";
 
-import { CallToolResultWithElapsedTime, isToolAvailable } from "../mcp/types";
+import { CallToolResultWithElapsedTime, isToolAvailable, isToolPermissionRequired } from "../mcp/types";
 import { ChatSession } from "../types/chat";
 import { Agent } from "../types/agent";
 
@@ -22,7 +22,7 @@ export class ProviderHelper {
         return name.substring(firstUnderscoreIndex + 1);
     }
 
-    static async getAllTools(agent: Agent): Promise<Tool[]> {
+    static async getAllTools(agent: Agent, session: ChatSession): Promise<Tool[]> {
         const allTools: Tool[] = [];
         const mcpClients = await agent.getAllMcpClients();
         for (const [clientName, client] of Object.entries(mcpClients)) {
@@ -36,7 +36,26 @@ export class ProviderHelper {
                     return isToolAvailable(serverConfig, tool.name);
                 });
                 
-                const clientTools = availableTools.map(tool => ({
+                // Additional filtering for autonomous mode based on permissions
+                let filteredTools = availableTools;
+                if (agent.mode === 'autonomous') {
+                    const sessionState = session.getState();
+                    if (sessionState.toolPermission === 'always') {
+                        // Always require permission = no tools qualify for autonomous use
+                        filteredTools = [];
+                    } else if (sessionState.toolPermission === 'never') {
+                        // Never require permission = all available tools qualify
+                        filteredTools = availableTools;
+                    } else { // 'tool'
+                        // Defer to individual tool permission settings
+                        filteredTools = availableTools.filter(tool => {
+                            if (!serverConfig) return true; // No config = tool available
+                            return !isToolPermissionRequired(serverConfig, tool.name);
+                        });
+                    }
+                }
+                
+                const clientTools = filteredTools.map(tool => ({
                     ...tool,
                     name: `${clientName}_${tool.name}`
                 }));

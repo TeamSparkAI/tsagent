@@ -81,7 +81,7 @@ export class OllamaProvider implements Provider {
       this.logger.info('Generating response with Ollama');
 
       // Convert our tools into an array of whatever Ollama expects 
-      const tools: OllamaTool[] = (await ProviderHelper.getAllTools(this.agent)).map((tool: Tool) => {
+      const tools: OllamaTool[] = (await ProviderHelper.getAllTools(this.agent, session)).map((tool: Tool) => {
         const properties: Record<string, any> = {};
         
         // Convert properties safely with type checking

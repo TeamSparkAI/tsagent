@@ -92,7 +92,7 @@ export class ClaudeProvider implements Provider {
     try {
       this.logger.info('Generating response with Claude');
 
-      const tools = (await ProviderHelper.getAllTools(this.agent)).map((tool: Tool) => {
+      const tools = (await ProviderHelper.getAllTools(this.agent, session)).map((tool: Tool) => {
         return {
           name: tool.name,
           description: tool.description,

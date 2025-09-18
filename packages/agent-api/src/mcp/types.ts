@@ -21,25 +21,22 @@ export const TOOL_PERMISSION_NOT_REQUIRED = 'not_required';
 export type ServerDefaultPermission = typeof SERVER_PERMISSION_REQUIRED | typeof SERVER_PERMISSION_NOT_REQUIRED;
 export type ToolPermissionSetting = typeof TOOL_PERMISSION_SERVER_DEFAULT | typeof TOOL_PERMISSION_REQUIRED | typeof TOOL_PERMISSION_NOT_REQUIRED;
 
-export interface ToolPermissionConfig {
-    permission: ToolPermissionSetting;
-}
 
-export interface ServerPermissionConfig {
-    defaultPermission: ServerDefaultPermission;
-    toolPermissions?: Record<string, ToolPermissionConfig>;
+export interface ServerToolPermissionRequiredConfig {
+  serverDefault: boolean; // true => required, false => not required
+  tools?: Record<string, boolean>; // true => required, false => not required; absence => use server default
 }
 
 // Server-level enabled/disabled settings
-export interface ServerEnabledConfig {
+export interface ServerToolEnabledConfig {
     serverDefault: boolean;
     tools?: Record<string, boolean>;
 }
 
 export type McpConfigFileServerConfig = 
-  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; permissions?: ServerPermissionConfig; toolEnabled?: ServerEnabledConfig }
-  | { type: 'sse'; url: string; headers?: Record<string, string>; permissions?: ServerPermissionConfig; toolEnabled?: ServerEnabledConfig }
-  | { type: 'internal'; tool: 'rules' | 'references'; permissions?: ServerPermissionConfig; toolEnabled?: ServerEnabledConfig };
+  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; toolEnabled?: ServerToolEnabledConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
+  | { type: 'sse'; url: string; headers?: Record<string, string>; toolEnabled?: ServerToolEnabledConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
+  | { type: 'internal'; tool: 'rules' | 'references'; toolEnabled?: ServerToolEnabledConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig };
 
 export interface McpConfig {
   name: string;
@@ -112,6 +109,45 @@ export function isToolEnabled(config: McpConfigFileServerConfig, toolName: strin
 export function isToolAvailable(config: McpConfigFileServerConfig, toolName: string): boolean {
   // Tool is available if it's enabled (either explicitly or via server default)
   return isToolEnabled(config, toolName);
+}
+
+// Helper functions for permission required (new serialization)
+
+/**
+ * Checks if the server default is required for tools (permissions)
+ * @returns true if server default is required (defaults to true if not specified)
+ */
+export function isToolPermissionServerDefaultRequired(config: McpConfigFileServerConfig): boolean {
+  if (config.toolPermissionRequired && typeof config.toolPermissionRequired.serverDefault === 'boolean') {
+    return config.toolPermissionRequired.serverDefault;
+  }
+  // Default to required
+  return true;
+}
+
+/**
+ * Gets the tool permission state for UX (three states: server_default, required, not_required)
+ */
+export function getToolPermissionState(
+  config: McpConfigFileServerConfig,
+  toolName: string
+): 'server_default' | 'required' | 'not_required' {
+  const overrides = config.toolPermissionRequired?.tools;
+  if (overrides && toolName in overrides) {
+    return overrides[toolName] ? 'required' : 'not_required';
+  }
+  return 'server_default';
+}
+
+/**
+ * Determines if a specific tool is required, honoring overrides and server default
+ */
+export function isToolPermissionRequired(config: McpConfigFileServerConfig, toolName: string): boolean {
+  const overrides = config.toolPermissionRequired?.tools;
+  if (overrides && toolName in overrides) {
+    return !!overrides[toolName];
+  }
+  return isToolPermissionServerDefaultRequired(config);
 }
 
 export interface ToolParameter {

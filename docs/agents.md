@@ -111,6 +111,9 @@ Agent Orchestration
 Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
 - Not really related to agent work - but would be nice to support ToolVault to process agent calls
 
+Reworked tool permission and added tool enabled (similar implementation, with server default and tool overrides).  Modified chat session
+getAllTools() to filter based on enabled tools, and when in autonomous mode, only tools that don't require permission.
+
 "mcpServers": {
   "filesystem": {
     "type": "stdio",
@@ -121,14 +124,10 @@ Move MCP server config (including permissions, etc) into mcp.json file (so it wi
       "/Users/bob/Documents/GitHub/teamspark-workbench-www"
     ],
     "toolPermissionRequired": {
-      "default": true,
+      "serverDefault": true,
       "tools": {
-        "write_file": {
-          "permission": "required"
-        },
-        "edit_file": {
-          "permission": "not_required"
-        }
+        "write_file": true,
+        "edit_file": false
       }
     },
     "toolEnabled": {
@@ -140,14 +139,6 @@ Move MCP server config (including permissions, etc) into mcp.json file (so it wi
     }  
   }
 }
-
-Add "disabled" flag to MCP server and to individual MCP tools
-- Need to provided UX for both, with serialization
-  - Display tool-level "disabled" in tool list
-  - UX to enabled/disable all tools (to make it easier to handle large tool lists)
-- Need to obey when building tools list
-  - Only collect non-disbled tools from non-disabled servers
-  - If "autonomous" further filter to only allow tools that don't require permission
 
 Clean up MCP servers UX (limit width of tools column, show text with "show raw")
 - Consider tabs with config, tools, logs (like ToolVault)
@@ -208,12 +199,12 @@ Agent Mode is available as property (truthy skills attribute means autonomous)
 
 Implement constraints of agent (chat session?) based on interactive/autonomous
 - Autonomous
-  - Only present tools that don't require approval
+  - Only present tools that don't require approval [done]
   - Immutable rules/references (suppress internal tools that mutate them - is that enough?)
+    - We can disable to mutating tools by config now if we want
   - Session doesn't include history on request
   - Response filters out tool calls
 - We could just:
-  - Parameterize tools approval availability and immutable rules/refs (together or separately)
   - Have the a2a_server use a new session per call/message (should do that anyway), so it will have no history
     - Do we also want to make sure that when using autonomous agent interactively (test/dev) that it doesn't maintain chat history?
   - Have the a2a_server strip out the tool call results
@@ -222,8 +213,14 @@ Implement constraints of agent (chat session?) based on interactive/autonomous
 
 A TeamSpark Workbench tab providing a better UX for a2a-mcp
 
-- Enabled/Disabled (installs MCP server when enabled, removes when disabled)
-  - We may add enabled/disable support for servers and do that instead to preserve config
+- Enable/Disable
+  - When we enable orchestration
+    - Install a2a-mcp server if not installed (later)
+    - On a2a-mcp server we set enabled serverDefault to true and clear tool overrides
+    - We set disabled on rules/references mutating tools (create, update, delete, exclude)
+  - When we disable orchestration
+    - On a2a-mcp server we set enabled serverDefault to false and clear tool overrides (effectivly disabling a2a-mcp)
+    - We clear enabled on rules/references mutating tools (create, update, delete, exclude) in case we previously disabled them
 - Orchestration Prompt (?)
   - Insert after system prompt in context
 - Manages config of MCP server (agents) - add/remove/delete

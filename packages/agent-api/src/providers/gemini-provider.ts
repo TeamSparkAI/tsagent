@@ -190,7 +190,7 @@ export class GeminiProvider implements Provider {
     }
 
     var modelTools: GeminiTool | undefined = undefined;
-    const tools = await ProviderHelper.getAllTools(this.agent);
+    const tools = await ProviderHelper.getAllTools(this.agent, session);
     if (tools.length > 0) {
       modelTools = this.convertMCPToolsToGeminiTool(tools);
     }
