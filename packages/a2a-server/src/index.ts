@@ -100,6 +100,7 @@ interface A2AServerInstance {
   agent: Agent;
   a2aApp: A2AExpressApp;
   pathSegment: string;
+  agentCard: AgentCard;
 }
 
 export class MultiA2AServer {
@@ -219,6 +220,13 @@ export class MultiA2AServer {
     }
   }
 
+  private updateAgentCardUrls(actualPort: number): void {
+    for (const [pathSegment, instance] of this.agents.entries()) {
+      // Update the agent card URL with the actual port
+      instance.agentCard.url = `http://localhost:${actualPort}/agents/${pathSegment}`;
+    }
+  }
+
   private async createA2AInstance(agent: Agent, pathSegment: string): Promise<A2AServerInstance> {
     const agentMetadata = agent.getMetadata();
     
@@ -256,7 +264,7 @@ export class MultiA2AServer {
     const requestHandler = new DefaultRequestHandler(agentCard, taskStore, executor);
     const a2aApp = new A2AExpressApp(requestHandler);
 
-    return { agent, a2aApp, pathSegment };
+    return { agent, a2aApp, pathSegment, agentCard };
   }
 
   private mountAgentRoutes(pathSegment: string, instance: A2AServerInstance): void {
@@ -306,6 +314,9 @@ export class MultiA2AServer {
         // Get the actual port (in case port 0 was used for dynamic assignment)
         const actualPort = (this.server.address() as any)?.port || this.port;
         this.actualPort = actualPort;
+        
+        // Update agent card URLs with the actual port
+        this.updateAgentCardUrls(actualPort);
         
         const discoveryUrl = `http://localhost:${actualPort}/agents`;
         const agents = Array.from(this.agents.entries()).map(([pathSegment, instance]) => ({
@@ -389,6 +400,7 @@ export class A2AServer {
   private actualPort: number | null = null;
   private server: any = null;
   private isShuttingDown = false;
+  private agentCard!: AgentCard;
 
   constructor(agentPath: string, private port: number = 4000) {
     this.logger = new ConsoleLogger();
@@ -420,7 +432,7 @@ export class A2AServer {
 
   private setupApp(): void {
     // Create agent card using metadata when available
-    const agentCard: AgentCard = {
+    this.agentCard = {
       name: this.agent.name,
       description: this.agentMetadata?.description || this.agent.description || 'Agent powered by agent-api',
       version: this.agentMetadata?.version || '1.0.0',
@@ -438,13 +450,13 @@ export class A2AServer {
 
     // Add optional fields if they exist in metadata
     if (this.agentMetadata?.iconUrl) {
-      agentCard.iconUrl = this.agentMetadata.iconUrl;
+      this.agentCard.iconUrl = this.agentMetadata.iconUrl;
     }
     if (this.agentMetadata?.documentationUrl) {
-      agentCard.documentationUrl = this.agentMetadata.documentationUrl;
+      this.agentCard.documentationUrl = this.agentMetadata.documentationUrl;
     }
     if (this.agentMetadata?.provider) {
-      agentCard.provider = this.agentMetadata.provider;
+      this.agentCard.provider = this.agentMetadata.provider;
     }
 
     // Create executor and task store
@@ -452,7 +464,7 @@ export class A2AServer {
     const taskStore = new InMemoryTaskStore();
 
     // Create request handler
-    const requestHandler = new DefaultRequestHandler(agentCard, taskStore, executor);
+    const requestHandler = new DefaultRequestHandler(this.agentCard, taskStore, executor);
 
     // Create A2A Express app
     this.app = new A2AExpressApp(requestHandler);
@@ -505,6 +517,9 @@ export class A2AServer {
         // Get the actual port (in case port 0 was used for dynamic assignment)
         const actualPort = (this.server.address() as any)?.port || this.port;
         this.actualPort = actualPort;
+        
+        // Update agent card URL with the actual port
+        this.agentCard.url = `http://localhost:${actualPort}`;
         
         const baseUrl = `http://localhost:${actualPort}`;
 
