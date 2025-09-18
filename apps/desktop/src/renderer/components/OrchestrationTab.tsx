@@ -63,10 +63,7 @@ export const OrchestrationTab: React.FC<TabProps> = ({ id, activeTabId, name, ty
       setServers(serverConfigs);
       
       // Find a2a-mcp server
-      const a2aServerConfig = serverConfigs.find(server => 
-        server.name.toLowerCase().includes('a2a') || 
-        server.name.toLowerCase().includes('orchestration')
-      );
+      const a2aServerConfig = serverConfigs.find(server => server.name === 'a2a-mcp');
       
       if (a2aServerConfig) {
         setA2aServer(a2aServerConfig);

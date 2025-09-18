@@ -101,6 +101,14 @@ const api: API = {
   offAgentSwitched: (listener: (event: any, data: any) => void) => {
     ipcRenderer.removeListener('agent:switched', listener);
   },
+  onServerConfigChanged: (callback: (data: { action: string, serverName: string }) => void) => {
+    const wrappedCallback = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('server-config-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offServerConfigChanged: (listener: (event: any, data: any) => void) => {
+    ipcRenderer.removeListener('server-config-changed', listener);
+  },
 
   // LLM Providers (new methods for model picker)
   getProviderInfo: (provider: LLMType) => ipcRenderer.invoke('llm:get-provider-info', provider),

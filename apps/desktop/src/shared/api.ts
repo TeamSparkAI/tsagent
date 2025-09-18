@@ -101,6 +101,8 @@ export interface API {
   agentExists: (path: string) => Promise<boolean>;
   onAgentSwitched: (callback: (data: { windowId: string, agentPath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
   offAgentSwitched: (listener: (event: any, data: any) => void) => void;
+  onServerConfigChanged: (callback: (data: { action: string, serverName: string }) => void) => (event: any, data: any) => void;
+  offServerConfigChanged: (listener: (event: any, data: any) => void) => void;
 
   // App details
   getAppDetails: () => Promise<{ isPackaged: boolean }>;

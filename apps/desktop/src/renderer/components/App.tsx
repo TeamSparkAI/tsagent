@@ -25,6 +25,65 @@ export const App: React.FC = () => {
   const [tabs, setTabs] = useState<TabInstance[]>([]);
   const [activeTabId, setActiveTabId] = useState<string | null>(null);
   const [hasAgent, setHasAgent] = useState<boolean>(false);
+  const [hasA2aMcpServer, setHasA2aMcpServer] = useState<boolean>(false);
+
+  // Check for a2a-mcp server
+  const checkA2aMcpServer = async () => {
+    try {
+      const serverConfigs = await window.api.getServerConfigs();
+      log.info(`[APP] Found ${serverConfigs.length} server configs:`, serverConfigs.map(s => s.name));
+      
+      const hasA2a = serverConfigs.some(server => server.name === 'a2a-mcp');
+      setHasA2aMcpServer(hasA2a);
+      log.info(`[APP] a2a-mcp server ${hasA2a ? 'found' : 'not found'}`);
+      
+      if (!hasA2a) {
+        log.info(`[APP] Available server names: ${serverConfigs.map(s => `"${s.name}"`).join(', ')}`);
+      }
+      
+      return hasA2a;
+    } catch (error) {
+      log.error('[APP] Error checking for a2a-mcp server:', error);
+      setHasA2aMcpServer(false);
+      return false;
+    }
+  };
+
+  // Add or remove orchestration tab without rebuilding all tabs
+  const updateOrchestrationTab = async (currentTabs?: TabInstance[]) => {
+    log.info('[APP] updateOrchestrationTab called');
+    const hasA2a = await checkA2aMcpServer();
+    const tabsToCheck = currentTabs || tabs;
+    const currentHasOrchestration = tabsToCheck.some(tab => tab.type === 'orchestration');
+    
+    log.info(`[APP] hasA2a: ${hasA2a}, currentHasOrchestration: ${currentHasOrchestration}`);
+    log.info(`[APP] Current tabs: ${tabsToCheck.map(t => t.type).join(', ')}`);
+    
+    if (hasA2a && !currentHasOrchestration) {
+      // Add orchestration tab after tools tab
+      const toolsIndex = tabsToCheck.findIndex(tab => tab.type === 'tools');
+      log.info(`[APP] Tools tab index: ${toolsIndex}`);
+      if (toolsIndex !== -1) {
+        const newTabs = [...tabsToCheck];
+        newTabs.splice(toolsIndex + 1, 0, {
+          id: uuidv4(),
+          type: 'orchestration',
+          title: 'Orchestration'
+        });
+        setTabs(newTabs);
+        log.info('[APP] Added orchestration tab');
+      } else {
+        log.warn('[APP] Tools tab not found, cannot add orchestration tab');
+      }
+    } else if (!hasA2a && currentHasOrchestration) {
+      // Remove orchestration tab
+      const newTabs = tabsToCheck.filter(tab => tab.type !== 'orchestration');
+      setTabs(newTabs);
+      log.info('[APP] Removed orchestration tab');
+    } else {
+      log.info('[APP] No orchestration tab changes needed');
+    }
+  };
 
   // Define checkAgent function outside useEffect so it can be called directly
   const checkAgent = async () => {
@@ -46,7 +105,8 @@ export const App: React.FC = () => {
       
       // If an agent is selected, replace all tabs
       if (isRegistered) {
-        log.info('[APP] Creating all tabs for agent');
+        log.info('[APP] Creating all tabs for agent - this should trigger orchestration tab check');
+        
         const allTabs = [
           {
             id: uuidv4(),
@@ -77,11 +137,6 @@ export const App: React.FC = () => {
             id: uuidv4(),
             type: 'tools',
             title: 'Tools'
-          },
-          {
-            id: uuidv4(),
-            type: 'orchestration',
-            title: 'Orchestration'
           },
           {
             id: uuidv4(),
@@ -133,15 +188,42 @@ export const App: React.FC = () => {
     };
     
     log.info('[APP] Setting up agent:switched event listener');
-    const listener = window.api.onAgentSwitched(handleAgentSwitched);
+    const agentListener = window.api.onAgentSwitched(handleAgentSwitched);
+    
+    // Listen for server configuration changes
+    const handleServerConfigChanged = async (data: { action: string, serverName: string }) => {
+      log.info('[APP] Server config changed:', data);
+      if (data.serverName === 'a2a-mcp') {
+        log.info('[APP] a2a-mcp server changed, updating orchestration tab');
+        // Use current tabs state to avoid stale closure
+        setTabs(currentTabs => {
+          updateOrchestrationTab(currentTabs);
+          return currentTabs; // Return unchanged, updateOrchestrationTab will call setTabs
+        });
+      }
+    };
+    
+    const serverListener = window.api.onServerConfigChanged(handleServerConfigChanged);
     
     return () => {
-      if (listener) {
+      if (agentListener) {
         log.info('[APP] Cleaning up agent:switched event listener');
-        window.api.offAgentSwitched(listener);
+        window.api.offAgentSwitched(agentListener);
+      }
+      if (serverListener) {
+        log.info('[APP] Cleaning up server-config-changed event listener');
+        window.api.offServerConfigChanged(serverListener);
       }
     };
   }, []); // Empty dependency array to avoid circular dependency
+
+  // Check for a2a-mcp server when tabs are set and we have an agent
+  useEffect(() => {
+    if (hasAgent && tabs.length > 0) {
+      log.info('[APP] Tabs set, checking for a2a-mcp server');
+      updateOrchestrationTab();
+    }
+  }, [hasAgent, tabs]); // Watch for changes to hasAgent and tabs array
 
   const handleAddTab = (type: string) => {
     if (type !== 'chat') return; // Only allow creating new chat tabs
