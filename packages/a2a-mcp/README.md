@@ -1,14 +1,14 @@
 # A2A MCP Server
 
-An MCP (Model Context Protocol) server that bridges to A2A servers via the A2A client. This server allows MCP clients to interact with A2A servers through standardized MCP tools.
+An MCP (Model Context Protocol) server that bridges to A2A (Agent-to-Agent) servers. This server allows MCP clients to discover and interact with A2A agents through standardized MCP tools.
 
 ## Features
 
-- MCP protocol compliance
-- Bridge to A2A servers
-- Chat functionality
-- Health check tools
-- Agent information tools
+- **MCP Protocol Compliance**: Full MCP server implementation with proper tool schemas
+- **A2A Server Connection**: Connect to external A2A servers via HTTP endpoints
+- **Embedded Agent Support**: Run local agents directly using file paths (via a2a-server)
+- **Agent Discovery**: Automatically discover and list available A2A agents
+- **Message Routing**: Send messages to specific agents by ID
 
 ## Installation
 
@@ -18,11 +18,17 @@ npm install
 
 ## Usage
 
-### As an MCP Server
+### Command Line
 
 ```bash
-# Run the MCP server
-npx a2a-mcp
+# Connect to external A2A servers
+npx a2a-mcp http://localhost:4000 http://localhost:4001
+
+# Run with local agent files (embedded mode)
+npx a2a-mcp ./agent1 ./agent2
+
+# Mix of HTTP and file paths
+npx a2a-mcp http://remote-agent.com ./local-agent
 ```
 
 ### Programmatically
@@ -30,46 +36,124 @@ npx a2a-mcp
 ```typescript
 import { A2AMCPServer } from 'a2a-mcp';
 
-const server = new A2AMCPServer();
+// Connect to external A2A servers
+const server = new A2AMCPServer(['http://localhost:4000', 'http://localhost:4001']);
 await server.start();
 ```
 
-## Available Tools
+## Available MCP Tools
 
-### a2a_chat
-Send a message to an A2A server and get a response.
+### a2a_list_agents
+List all available A2A agents and their capabilities.
+
+**Parameters:** None
+
+**Returns:**
+```json
+{
+  "agents": [
+    {
+      "agentId": "agent_001",
+      "name": "Agent Name",
+      "description": "Agent description",
+      "version": "1.0.0",
+      "url": "http://localhost:4000",
+      "provider": {
+        "organization": "Organization Name",
+        "url": "https://organization.com"
+      },
+      "iconUrl": "https://example.com/icon.png",
+      "documentationUrl": "https://docs.example.com",
+      "skills": [
+        {
+          "id": "skill-id",
+          "name": "Skill Name",
+          "description": "Skill description",
+          "examples": ["example1", "example2"],
+          "inputModes": ["text", "image"],
+          "outputModes": ["text"],
+          "tags": ["tag1", "tag2"]
+        }
+      ],
+      "capabilities": {
+        "streaming": true,
+        "pushNotifications": false,
+        "stateTransitionHistory": false
+      }
+    }
+  ]
+}
+```
+
+### a2a_send_message
+Send a message to a specific A2A agent.
 
 **Parameters:**
-- `message` (required): The message to send to the A2A server
-- `serverUrl` (optional): The URL of the A2A server (default: http://localhost:3000)
-- `sessionId` (optional): Session ID for maintaining conversation context
+- `agentId` (required): The unique ID of the A2A agent (from `a2a_list_agents`)
+- `message` (required): The message to send to the agent
 
-### a2a_health_check
-Check the health status of an A2A server.
+**Returns:**
+```json
+{
+  "response": "Agent response text",
+  "taskId": "task-id-if-applicable",
+  "status": "completed|unknown"
+}
+```
 
-**Parameters:**
-- `serverUrl` (optional): The URL of the A2A server (default: http://localhost:3000)
+## How It Works
 
-### a2a_agent_info
-Get information about the agent running on an A2A server.
+### External A2A Servers
+When you provide HTTP URLs (e.g., `http://localhost:4000`), the server:
+1. Connects to the A2A server endpoint
+2. Fetches the agent card from `/.well-known/agent-card.json`
+3. Creates an A2A client for communication
+4. Maps the agent to a unique ID for MCP tool calls
 
-**Parameters:**
-- `serverUrl` (optional): The URL of the A2A server (default: http://localhost:3000)
+### Embedded Agents
+When you provide file paths (e.g., `./agent`), the server:
+1. Starts an embedded A2A server using the `a2a-server` package
+2. Loads agents from the specified file paths
+3. Creates HTTP endpoints for the embedded agents
+4. Treats them the same as external servers
 
 ## Example MCP Client Usage
 
 ```typescript
-// List available tools
-const tools = await client.listTools();
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
-// Send a chat message
+// Connect to the MCP server
+const transport = new StdioClientTransport({
+  command: 'npx',
+  args: ['a2a-mcp', 'http://localhost:4000']
+});
+
+const client = new Client({
+  name: 'a2a-client',
+  version: '1.0.0'
+}, {
+  capabilities: {}
+});
+
+await client.connect(transport);
+
+// List available agents
+const agents = await client.callTool({
+  name: 'a2a_list_agents',
+  arguments: {}
+});
+
+// Send a message to an agent
 const response = await client.callTool({
-  name: 'a2a_chat',
+  name: 'a2a_send_message',
   arguments: {
-    message: 'Hello, how are you?',
-    serverUrl: 'http://localhost:3000'
+    agentId: 'agent_001',
+    message: 'Hello, how are you?'
   }
 });
+
+console.log(response);
 ```
 
 ## Development
@@ -84,12 +168,3 @@ npm run dev
 # Run tests
 npm test
 ```
-
-## Configuration
-
-The server can be configured by setting environment variables:
-
-- `A2A_SERVER_URL`: Default A2A server URL (default: http://localhost:3000)
-- `MCP_SERVER_NAME`: MCP server name (default: a2a-mcp)
-- `MCP_SERVER_VERSION`: MCP server version (default: 1.0.0)
-
