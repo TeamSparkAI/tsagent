@@ -3,13 +3,11 @@ import * as path from 'path';
 import { ProviderType as LLMType, ProviderType } from 'agent-api';
 import log from 'electron-log';
 import * as fs from 'fs';
-import { setupCLI } from '../cli/cli';
 import { McpConfig } from 'agent-api';
 import { AgentsManager } from './agents-manager';
 import { agentExists, loadAgent, createAgent, cloneAgent } from 'agent-api/runtime';
 import { Agent } from 'agent-api';
 import { ElectronLoggerAdapter } from './logger-adapter';
-import chalk from 'chalk';
 import { SessionToolPermission, SETTINGS_KEY_THEME, ChatMessage } from 'agent-api';
 
 const __dirname = path.dirname(__filename);
@@ -190,150 +188,94 @@ function createApplicationMenu() {
 }
 
 async function startApp() {
-  if (process.argv.includes('--cli')) {
-    initializeLogging(false);
+  // Set app name before anything else
+  process.env.ELECTRON_APP_NAME = PRODUCT_NAME;
+  app.setName(PRODUCT_NAME);
 
-    // -- agent (path) the agent directory or file (tspark.json), defaults to cwd
-    // -- create (bool) indicates whether the path should be created if it doesn't exist
-    //
-    let agentPath = process.cwd();
-    let create = false;
-    for (let i = 0; i < process.argv.length; i++) {
-      if (process.argv[i] === '--agent') {
-        // Resolve agent path relative to cwd (unless it's an absolute path)
-        agentPath = path.resolve(process.argv[i + 1]);
-      } else if (process.argv[i] === '--create') {
-        create = true;
-      }
-    }
+  initializeLogging(true);
 
-    const logger = new ElectronLoggerAdapter();
-    let agent: Agent | null = null;
-    
-    if (create) {
-      try {
-        agent = await createAgent(agentPath, logger);
-        console.log(chalk.green(`Created new agent at: ${agentPath}`));
-      } catch (error) {
-        console.log(chalk.red(`Failed to create agent: ${error}`));
-        process.exit(1);
-      }
-    } else {
-      try {
-        // First check if agent exists
-        if (!(await agentExists(agentPath))) {
-          console.log(chalk.red(`${PRODUCT_NAME} failed to locate agent (tspark.json) in directory: `), agentPath);
-          console.log(chalk.dim('  Use '), chalk.bold('--agent <path>'), chalk.dim(' absolute or relative path to a agent directory (where tspark.json will be found or created)'));
-          console.log(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new agent in the specified directory, or current working directory if agent path not specified'));
-          process.exit(1);
-        }
-        
-        // Agent exists, try to load it
-        agent = await loadAgent(agentPath, logger);
-      } catch (error) {
-        console.log(chalk.red(`Error loading agent: ${error instanceof Error ? error.message : 'Unknown error'}`));
-        process.exit(1);
-      }
-    }
+  // Create application menu
+  createApplicationMenu();
 
-    let version = "unknown";
-    if (app) {
-      version = app.getVersion();
-    } else if (process.env.npm_package_version) {
-      version = process.env.npm_package_version;
-    }
-
-    setupCLI(agent, version);
+  // Implement single instance lock
+  const gotTheLock = app.requestSingleInstanceLock();
+  if (!gotTheLock) {
+    log.info('Another instance is already running, quitting this instance');
+    app.quit();
+    return;
   } else {
-    // Set app name before anything else
-    process.env.ELECTRON_APP_NAME = PRODUCT_NAME;
-    app.setName(PRODUCT_NAME);
-
-    initializeLogging(true);
-
-    // Create application menu
-    createApplicationMenu();
-
-    // Implement single instance lock
-    const gotTheLock = app.requestSingleInstanceLock();
-    if (!gotTheLock) {
-      log.info('Another instance is already running, quitting this instance');
-      app.quit();
-      return;
-    } else {
-      // We're the first instance, set up the second-instance handler
-      app.on('second-instance', (event, commandLine, workingDirectory) => {
-        log.info('Second instance launched, focusing existing window');
-        // Someone tried to run a second instance, we should focus our window.
-        if (mainWindow) {
-          if (mainWindow.isMinimized()) {
-            mainWindow.restore();
-          }
-          mainWindow.focus();
+    // We're the first instance, set up the second-instance handler
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+      log.info('Second instance launched, focusing existing window');
+      // Someone tried to run a second instance, we should focus our window.
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
         }
-      });
-    }
+        mainWindow.focus();
+      }
+    });
+  }
 
-    let mainWindow: BrowserWindow | null = null;
+  let mainWindow: BrowserWindow | null = null;
 
-    // Move initialization into the ready event
-    app.whenReady().then(async () => {
-      log.info('App ready, starting initialization');
-      await initializeAgentManager();
-      log.info('Initialization complete, creating window');
+  // Move initialization into the ready event
+  app.whenReady().then(async () => {
+    log.info('App ready, starting initialization');
+    await initializeAgentManager();
+    log.info('Initialization complete, creating window');
 
-      // If agent path on command line, open that agent 
-      const filteredArgs = process.argv.slice(2).filter(arg => !arg.startsWith('-'));
-      const agentPath = filteredArgs.length > 0 ? filteredArgs[0] : null;
-      
-      if (agentPath) {
-        log.info(`Opening agent from command line: ${agentPath}`);
+    // If agent path on command line, open that agent 
+    const filteredArgs = process.argv.slice(2).filter(arg => !arg.startsWith('-'));
+    const agentPath = filteredArgs.length > 0 ? filteredArgs[0] : null;
+    
+    if (agentPath) {
+      log.info(`Opening agent from command line: ${agentPath}`);
+      const logger = new ElectronLoggerAdapter();
+      const agent = await loadAgent(agentPath, logger);
+      if (!agent) {
+        log.error('Failed to find agent (tspark.json) in directory provide on launch command line: ', agentPath);
+        // !!! Ideally we should show the user this message in the UX
+        mainWindow = await createWindow();
+      } else {
+        mainWindow = await createWindow(agent);
+      }
+    } else {
+      // Else if there is a most recently used agent, open that 
+      const mostRecentlyUsedAgent = agentsManager.getRecentAgents(); // !!! Should this be agentsManager.getLastActiveAgent()?
+      if (mostRecentlyUsedAgent.length > 0) {
+        log.info(`Opening most recently used agent: ${mostRecentlyUsedAgent[0]}`);
         const logger = new ElectronLoggerAdapter();
-        const agent = await loadAgent(agentPath, logger);
+        const agent = await loadAgent(mostRecentlyUsedAgent[0], logger);
         if (!agent) {
-          log.error('Failed to find agent (tspark.json) in directory provide on launch command line: ', agentPath);
+          log.error('Failed to find agent (tspark.json) in most recently used directory: ', mostRecentlyUsedAgent[0]);
           // !!! Ideally we should show the user this message in the UX
           mainWindow = await createWindow();
         } else {
           mainWindow = await createWindow(agent);
         }
       } else {
-        // Else if there is a most recently used agent, open that 
-        const mostRecentlyUsedAgent = agentsManager.getRecentAgents(); // !!! Should this be agentsManager.getLastActiveAgent()?
-        if (mostRecentlyUsedAgent.length > 0) {
-          log.info(`Opening most recently used agent: ${mostRecentlyUsedAgent[0]}`);
-          const logger = new ElectronLoggerAdapter();
-          const agent = await loadAgent(mostRecentlyUsedAgent[0], logger);
-          if (!agent) {
-            log.error('Failed to find agent (tspark.json) in most recently used directory: ', mostRecentlyUsedAgent[0]);
-            // !!! Ideally we should show the user this message in the UX
-            mainWindow = await createWindow();
-          } else {
-            mainWindow = await createWindow(agent);
-          }
-        } else {
-          log.info('No most recently used agent, creating new window with no agent');
-          mainWindow = await createWindow();
-        }
-      }
-
-      // Set up IPC handlers after potential agent initialization
-      setupIpcHandlers(mainWindow);
-    });
-
-    // Add a small delay before quitting to ensure cleanup
-    app.on('window-all-closed', () => {
-      setTimeout(() => {
-        app.quit();
-      }, 100);
-    });
-
-    app.on('activate', async () => {
-      if (mainWindow === null) {
+        log.info('No most recently used agent, creating new window with no agent');
         mainWindow = await createWindow();
       }
-    });
-  }
+    }
+
+    // Set up IPC handlers after potential agent initialization
+    setupIpcHandlers(mainWindow);
+  });
+
+  // Add a small delay before quitting to ensure cleanup
+  app.on('window-all-closed', () => {
+    setTimeout(() => {
+      app.quit();
+    }, 100);
+  });
+
+  app.on('activate', async () => {
+    if (mainWindow === null) {
+      mainWindow = await createWindow();
+    }
+  });
 }
 
 function setupIpcHandlers(mainWindow: BrowserWindow | null) {
