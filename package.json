@@ -3,7 +3,12 @@
   "version": "1.2.0",
   "private": true,
   "scripts": {
-    "build": "cd apps/desktop && npm run build",
-    "start": "cd apps/desktop && npm run start"
+    "build": "npm run build:desktop && npm run build:cli",
+    "build:desktop": "cd apps/desktop && npm run build",
+    "build:cli": "cd apps/cli && npm run build",
+    "start:desktop": "cd apps/desktop && npm run start",
+    "start:cli": "cd apps/cli && npm run start",
+    "dev:desktop": "cd apps/desktop && npm run watch",
+    "dev:cli": "cd apps/cli && npm run dev"
   }
 }
