@@ -136,5 +136,5 @@ By contributing to TSAgent, you agree that your contributions will be licensed u
 
 ## Questions?
 
-- Join our [GitHub Discussions](https://github.com/teamspark/tsagent/discussions)
-- Open an [issue](https://github.com/teamspark/tsagent/issues)
+- Join our [GitHub Discussions](https://github.com/TeamSparkAI/tsagent/discussions)
+- Open an [issue](https://github.com/TeamSparkAI/tsagent/issues)

@@ -154,5 +154,5 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ## Support
 
-- **Issues**: [GitHub Issues](https://github.com/teamspark/tsagent/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/teamspark/tsagent/discussions)
+- **Issues**: [GitHub Issues](https://github.com/TeamSparkAI/tsagent/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/TeamSparkAI/tsagent/discussions)
