@@ -8,6 +8,7 @@
     "email": "support@teamspark.ai"
   },
   "homepage": "https://teamspark.ai",
+  "license": "MIT",
   "main": "dist/main.js",
   "scripts": {
     "start": "npm run build && electron . --ignore-certificate-errors",

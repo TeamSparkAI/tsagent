@@ -19,6 +19,7 @@
       ]
     }
   },
+  "license": "MIT",
   "scripts": {
     "build": "npx tsc",
     "dev": "npx tsx src/cli.ts",

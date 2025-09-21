@@ -23,6 +23,7 @@
       ]
     }
   },
+  "license": "MIT",
 
   "scripts": {
     "build": "npm run build:esm && npm run build:cjs",

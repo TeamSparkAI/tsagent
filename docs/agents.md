@@ -11,7 +11,7 @@ We could also return an in memory Agent that had a pluggable serialization strat
 
 ## Agents
 
-agents.json (in app files directory) - list of recent agents (GUI app only)
+agents.json (in app files directory) - list of recent agents (used by GUI app only)
 
 ## Agent
 
@@ -25,7 +25,7 @@ tspark.json - in root of agent
     "lastAccessed": "2025-04-07T17:32:29.081Z",
     "version": "1.0.0"
   },
-  "settings": {s
+  "settings": {
     "maxChatTurns": "10",
     "maxOutputTokens": "1000",
     "temperature": "0.5",
@@ -231,6 +231,5 @@ Future (maybe?):
         "Show me a map visualizing all coffee shops within a 1-mile radius of my current location."
       ]
     }
-  ],
   ]
 }

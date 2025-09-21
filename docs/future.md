@@ -2,7 +2,7 @@
 
 ## Chat
 
-Support non-text message types (mainly images?)
+Support multi-model (non-text) types - images, videos?
 
 ## Model abstraction
 
@@ -14,7 +14,7 @@ Build db of provider/model pricing
 - Complicated as this is constantly changes, no automated way to get prices
 - Allow user to set/override (they may have more current data or specialized pricing)
 
-Compute pricer per session (running total) and most recent message
+Compute price per session (running total) and most recent message
 
 Collect token usage over time (maybe by session) so you can see monthly or lifetime totals.
 
@@ -25,22 +25,12 @@ This can be trick on a given chat session if you switch models mid-session
 
 ## Tool functionality
 
-mcp client can specify cwd to stdio transport (agent implications?)
-
-To run MCP test app: npx @modelcontextprotocol/inspector
-
 Support for other MCP functionality:
 - Resources
 - Resource templates
 - Prompts
-- Tools
 
 "History" for each tool call that shows JSON request (tool name, params) and response
-
-## Tool enable/disable
-
-Allow tool set to be enabled/disabled
-- Make sure LLMs gettings tools only get enabled tools
 
 ## Selective Tool Usage
 
@@ -107,8 +97,6 @@ List of installable tools
 - url
 - defaultConfig
 
-Starting list:
-
 ### Add Tool
 
 Show available tools to install (icon/name/desc), with "Custom" as the first option
@@ -121,5 +109,3 @@ When one is picked, go to add/edit modal in add mode populated with metadata
 
 Installed tool maintains link to metadata tool it was installed from
 - Can get icon/url from there (display only, default icon if no icon)
-
-Requires permission: yes/no (if yes, prompt will be as below: Allow once, Allow for this chat, Deny)

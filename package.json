@@ -2,6 +2,7 @@
   "name": "teamspark-workbench",
   "version": "1.2.0",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "build": "npm run build:desktop && npm run build:cli",
     "build:desktop": "cd apps/desktop && npm run build",

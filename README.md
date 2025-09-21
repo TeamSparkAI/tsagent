@@ -1,110 +1,158 @@
-# TeamSpark AI Workbench
+# TSAgent: TypeScript Agent Platform
 
-## About
+**TSAgent** is an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. It provides a complete ecosystem from no-code agent creation to production-ready agent servers.
 
-TeamSpark AI Workbench is a powerful development environment for AI and machine learning projects.  It is a local client
-application providing a graphical interface and a command-line (terminal) interface on Mac, Linux, and Windows.
+## What is TSAgent?
 
-## Features
+TSAgent is a comprehensive platform that enables developers to:
 
-TeamSpark AI Workbench supports:
-- Many LLM providers and their models, including:
-  - Anthropic/Claude
-  - OpenAI/ChatGPT
-  - Google/Gemini
-  - AWS Bedrock
-  - Ollama
-- References (memory)
-- Rules (prompt guidance)
-- Usage of tools via MCP (supporing thousands of available tools)
-- Chat sessions where you can select and configure models, control reference and rule usage (context), and use tools.
+- **Build Agents**: Create AI agents through a no-code interface, with TypeScript integration for custom functionality
+- **Manage Context**: Use references (memory, ground truth) and rules (prompt guidance) to give agents persistent knowledge
+- **Integrate Tools**: Connect thousands of tools via the Model Context Protocol (MCP)
+- **Orchestrate Workflows**: Chain agents together using the A2A (Agent-to-Agent) protocol
+- **Deploy at Scale**: Expose agents as A2A endpoints or embed them in applications
 
-TeamSpark AI Workbench also includes internal tools that allow models to directly interact with references and tools, meaning
-the models can build and update their own references and rules (allowing them to "remember" and "learn").
+## Key Features
 
-## CLI Mode
+- **No-Code Agent Creation**: Build sophisticated agents through a visual interface without writing code
+- **TypeScript Integration**: Use TSAgent APIs in your TypeScript applications to drive agents or add agent functionality
+- **Multi-Provider Support**: Works with all major LLM providers, cloud, hosted, and local (OpenAI, Anthropic, Google, AWS Bedrock, Ollama)
+- **Agent Orchestration**: Built-in A2A protocol support for agent-to-agent communication
+- **Desktop & CLI**: Both graphical and command-line interfaces for different workflows
+- **Extensible**: Plugin architecture for custom providers and tools
+- **Production Ready**: A2A server for exposing agents as HTTP APIs
 
-When building and running locally, you can launch the CLI with `npm run cli`
+## Platform Components
 
-When running installed builds, see below...
+| Component | Package Name | Delivery Method | Command Line | Description |
+|-----------|-------------|-----------------|--------------|-------------|
+| **Core API** | `@tsagent/core` | TypeScript Library | *(library only)* | TypeScript agent framework with LLM providers, MCP integration, agent lifecycle |
+| **Foundry** | *(no npm package)* | Desktop App | `tsagent` | No-code desktop application for creating, testing, and managing agents |
+| **CLI** | `@tsagent/cli` | CLI Tool | `tsagent-cli` | Command-line interface for agent operations and automation |
+| **A2A Server** | `@tsagent/server` | API/CLI | `tsagent-server` | A2A protocol server for exposing agents as HTTP endpoints |
+| **A2A Orchestrator** | `@tsagent/orchestrator` | MCP Server | `tsagent-orchestrator` | MCP server for orchestrating A2A agent servers |
 
-### MacOS
+## Installation
 
-On **MacOS** installed releases, there is a shell script provided to launch the CLI called `tspark.sh`.  You may run this directly,
-or create a symlink to it for conveninence:
-
-```bash
-/Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh
-```
-
-or create a symlink:
+### CLI and Developer Tools (NPM Packages)
 
 ```bash
-ln -s /Applications/TeamSpark\ AI\ Workbench.app/Contents/Resources/tspark.sh ~/.local/bin/tspark
+# Install all developer tools
+npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/orchestrator
+
+# Or install individual components
+npm install @tsagent/core  # Just the TypeScript library
+npm install @tsagent/cli   # Just the CLI tool
 ```
 
-then just:
-
-```bash
-tspark
-```
-
-### Linux
-
-On **Linux** installed releases, TeamSpark AI Workbench is launched via `teamspark-workbench`.  You may run in CLI mode by appending `--cli`.  
-
-```bash
-teamspark-workbench --cli
-```
-
-There is also a CLI launcher called `tspark.sh`.  You may run this directly, or create a symlink to it for convenience:
-
-```bash
-/opt/TeamSpark\ AI\ Workbench.app/tspark.sh
-```
-
-or create a symlink:
-
-```bash
-sudo ln -s /opt/TeamSpark\ AI\ Workbench.app/tspark.sh /usr/bin/tspark
-```
-
-then just:
-
-```bash
-tspark
-```
-
-### CLI Agent
-
-You should either run the command line app in a directory containing an agent, or pass it an agent location via 
-the `--agent` argument. To create a new agent in current (or provided) agent directory, use the `--create` 
-argument. Running the cli without an agent will provide the above agent guidance and exit.
-
-## Website
-
-For more information about TeamSpark AI Workbench, visit our [official website](http://www.teamspark.ai).
-
-## Download
+### Desktop App (Download)
 
 Download the pre-built installer for your platform:
 
-- [macOS (Intel)](https://storage.googleapis.com/teamspark-workbench/TeamSpark%20AI%20Workbench-latest.dmg)
-- [macOS (Apple Silicon)](https://storage.googleapis.com/teamspark-workbench/TeamSpark%20AI%20Workbench-latest-arm64.dmg)
+- [macOS (Intel)](https://storage.googleapis.com/teamspark-workbench/TSAgent-Foundry-latest.dmg)
+- [macOS (Apple Silicon)](https://storage.googleapis.com/teamspark-workbench/TSAgent-Foundry-latest-arm64.dmg)
 - [Linux (Debian/Ubuntu)](https://storage.googleapis.com/teamspark-workbench/teamspark-workbench_latest_amd64.deb)
-- [Linux (AppImage)](https://storage.googleapis.com/teamspark-workbench/TeamSpark%20AI%20Workbench-latest.AppImage)
+- [Linux (AppImage)](https://storage.googleapis.com/teamspark-workbench/TSAgent-Foundry-latest.AppImage)
+
+## Quick Start
+
+### Create Your First Agent
+
+```bash
+# Launch the desktop app (after downloading and installing)
+tsagent
+
+# Or create an agent via CLI by either running the CLI in the directory of the desired agent (or new agent)
+# or passing the agent directory to the CLI as the --agent argument.  Use --create to create a new agent.
+npx @tsagent/cli --agent ./my-agent --create
+```
+
+### Use Agents Programmatically
+
+```typescript
+import { Agent } from '@tsagent/core';
+
+// Load an existing agent
+const agent = new Agent('./my-agent');
+await agent.load();
+
+// Chat with the agent
+const response = await agent.chat('Hello, how can you help me?');
+console.log(response);
+```
+
+### Deploy Agents as Services
+
+```bash
+# Start an A2A server
+npx @tsagent/server /path/to/agent --port 3000
+# or if installed globally
+tsagent-server /path/to/agent --port 3000
+
+# Your agent is now available at http://localhost:3000
+```
+
+## Agent Types
+
+TSAgent supports two types of agents:
+
+- **Interactive Agents**: Maintain conversation history and can ask for user permission to use tools
+- **Autonomous Agents**: Process requests independently and return complete results without user interaction
+
+## No-Code vs TypeScript Integration
+
+### No-Code Agent Creation
+- **Visual Interface**: Build agents through the Foundry desktop app
+- **Configuration-Based**: Define agent behavior through prompts, rules, and references
+- **Tool Integration**: Connect to thousands of MCP-compatible tools without coding
+- **Provider Management**: Configure LLM providers through the UI
+
+### TypeScript Integration
+- **API Access**: Use the `@tsagent/core` library to programmatically manage agents from your TypeScript applications
+- **Application Integration**: Add agent functionality to existing TypeScript applications
+- **Custom Tools**: Build custom MCP servers in TypeScript
+- **Agent Orchestration**: Create complex workflows using the A2A protocol
+
+## Architecture
+
+```
+ ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+ │   Foundry       │    │   CLI           │    │   TypeScript    │
+ │   (Desktop)     │    │   (Terminal)    │    │   Integration   │
+ └─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+           │                      │                      │
+           └──────────────────────┼──────────────────────┘
+                                  │
+                    ┌─────────────┴─────────────┐
+                    │      @tsagent/core        │
+                    │    (Agent Framework)      │
+                    └─────────────┬─────────────┘
+                                  │
+                ┌─────────────────┼─────────────────┐
+                │                 │                 │
+        ┌───────┴───────┐ ┌───────┴───────┐ ┌───────┴───────┐
+        │ A2A Server    │ │ A2A Orchestr. │ │ MCP Tools     │
+        │ (HTTP API)    │ │ (MCP Server)  │ │ (Integration) │
+        └───────────────┘ └───────────────┘ └───────────────┘
+```
+
+## Development Workflow
+
+1. **Create Agent**: Use Foundry desktop app for no-code agent creation
+2. **Test Agent**: Chat with your agent to refine its behavior
+3. **Extend with Code**: Use TypeScript integration for custom functionality
+4. **Deploy**: Expose agents as HTTP endpoints or embed in applications
+5. **Orchestrate**: Chain agents together using the A2A protocol
 
 ## License
 
-This repository is licensed under the [Creative Commons Attribution-NonCommercial-NoDerivatives 4.0 International License](https://creativecommons.org/licenses/by-nc-nd/4.0/).
+This project is licensed under the MIT License - see the [LICENSE](LICENSE.md) file for details.
 
-## License
+## Contributing
 
-This repository is licensed under the Business Software License.
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
 
-License Terms: The Business Software License allows the work to be viewed and inspected, and used for personal, non-commercial purposes,
-but it is not an open source license in the traditional sense. 
+## Support
 
-For more information, see the [Business Software License Agreement](LICENSE.md).
-
-For commercial use licensing, please contact support@teamspark.ai.
+- **Issues**: [GitHub Issues](https://github.com/teamspark/tsagent/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/teamspark/tsagent/discussions)
