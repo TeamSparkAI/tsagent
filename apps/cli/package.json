@@ -15,7 +15,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@tsagent/core": "file:../../packages/agent-api",
+    "@tsagent/core": "^1.2.0",
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "ora": "^5.4.1",
