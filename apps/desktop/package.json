@@ -1,5 +1,5 @@
 {
-  "name": "desktop",
+  "name": "tsagent-foundry",
   "productName": "TsAgent Foundry",
   "version": "1.2.0",
   "description": "Agent builder application supporting multi-LLMs, tool calling, and agent orchestration",
@@ -117,7 +117,8 @@
       ],
       "icon": "build/icon.png",
       "category": "Development",
-      "executableName": "tsagent-foundry"
+      "executableName": "tsagent-foundry",
+      "packageName": "tsagent-foundry"
     },
     "files": [
       "dist/**/*",
