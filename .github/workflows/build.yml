@@ -15,9 +15,6 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install agent-api dependencies
-        run: cd packages/agent-api && npm ci
-
       - name: Install desktop dependencies
         run: cd apps/desktop && npm ci
 
