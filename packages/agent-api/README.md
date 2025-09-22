@@ -21,15 +21,19 @@ npm install @tsagent/core
 ### Basic Agent Usage
 
 ```typescript
-import { Agent } from '@tsagent/core';
+import { loadAgent } from '@tsagent/core/runtime';
+
+const logger = console as any; // Any object with info/debug/error is fine
 
 // Load an existing agent
-const agent = new Agent('./my-agent');
-await agent.load();
+const agent = await loadAgent('./my-agent', logger);
 
-// Chat with the agent
-const response = await agent.chat('Hello, how can you help me?');
-console.log(response);
+// Create a chat session
+const session = agent.createChatSession('session-1');
+
+// Send a message
+const result = await session.handleMessage('Hello, how can you help me?');
+console.log(result.updates[1].modelReply);
 ```
 
 ### Create a New Agent
@@ -37,11 +41,14 @@ console.log(response);
 ```typescript
 import { createAgent } from '@tsagent/core/runtime';
 
+const logger = console as any;
+
 // Create a new agent
-await createAgent('./new-agent', {
-  name: 'My Assistant',
-  description: 'A helpful AI assistant',
-  prompt: 'You are a helpful assistant...'
+await createAgent('./new-agent', logger, {
+  metadata: {
+    name: 'My Assistant',
+    description: 'A helpful AI assistant'
+  }
 });
 ```
 
@@ -78,58 +85,45 @@ await createAgent('./new-agent', {
 ### Core Classes
 
 #### `Agent`
-The main agent class for managing AI agents.
+The main agent interface for managing AI agents. Obtain instances via runtime functions (`loadAgent` / `createAgent`), not via `new`.
 
 ```typescript
-class Agent {
-  constructor(agentPath: string);
-  load(): Promise<void>;
-  chat(message: string): Promise<string>;
-  chatStream(message: string): AsyncGenerator<string>;
-  save(): Promise<void>;
-  getConfig(): AgentConfig;
-  setConfig(config: Partial<AgentConfig>): void;
-}
+// Obtained from runtime, supports chat sessions among other capabilities
+agent.createChatSession(id: string, options?: ChatSessionOptions): ChatSession;
+agent.getChatSession(id: string): ChatSession | null;
+agent.getAllChatSessions(): ChatSession[];
+agent.deleteChatSession(id: string): Promise<boolean>;
 ```
 
 #### `ChatSession`
 Manages chat sessions and conversation history.
 
 ```typescript
-class ChatSession {
-  constructor(agent: Agent);
-  sendMessage(message: string): Promise<ChatMessage>;
-  sendMessageStream(message: string): AsyncGenerator<ChatMessage>;
-  getHistory(): ChatMessage[];
-  clearHistory(): void;
-}
+// Create via: const session = agent.createChatSession('session-1', options)
+session.handleMessage(message: string | ChatMessage): Promise<MessageUpdate>;
+session.getState(): ChatState;
+session.clearModel(): MessageUpdate;
+session.switchModel(modelType: ProviderType, modelId: string): MessageUpdate;
+session.addReference(name: string): boolean;
+session.removeReference(name: string): boolean;
+session.addRule(name: string): boolean;
+session.removeRule(name: string): boolean;
 ```
 
 ### Provider Management
 
 ```typescript
-import { ProviderFactory } from '@tsagent/core';
-
-// Get available providers
-const providers = ProviderFactory.getAvailableProviders();
-
-// Create a provider instance
-const openaiProvider = ProviderFactory.createProvider('openai', {
-  apiKey: 'your-api-key'
-});
+// From an Agent instance
+const providersInfo = agent.getAvailableProvidersInfo();
+const models = await agent.getProviderModels('openai');
 ```
 
 ### MCP Integration
 
 ```typescript
-import { MCPClientManager } from '@tsagent/core';
-
-// Connect to MCP servers
-const mcpManager = new MCPClientManager();
-await mcpManager.addServer('http://localhost:3000');
-
-// Get available tools
-const tools = await mcpManager.getTools();
+// Via the Agent instance
+const clients = await agent.getAllMcpClients();
+const client = await agent.getMcpClient('filesystem');
 ```
 
 ## Agent Configuration
@@ -138,64 +132,59 @@ Agents are configured using a `tsagent.json` file:
 
 ```json
 {
-  "name": "My Assistant",
-  "description": "A helpful AI assistant",
-  "version": "1.0.0",
+  "metadata": {
+    "name": "xxxx",
+    "description": "xxxx",
+    "version": "1.0.1",
+    "skills": [],
+    "iconUrl": "xxxx",
+    "documentationUrl": "xxxx",
+    "provider": {
+      "organization": "xxxx",
+      "url": "xxxx"
+    },
+    "created": "2025-04-07T17:32:29.081Z",
+    "lastAccessed": "2025-04-07T17:32:29.081Z",
+    "version": "1.0.0"
+  },
+  "settings": {
+    "maxChatTurns": "10",
+    "maxOutputTokens": "1000",
+    "temperature": "0.5",
+    "topP": "0.5",
+    "maxTurns": "25",
+    "mostRecentModel": "gemini:gemini-2.0-flash"
+  },
   "providers": {
+    "anthropic": {
+      "ANTHROPIC_API_KEY": "xxxxx"
+    },
+    "gemini": {
+      "GOOGLE_API_KEY": "xxxxx"
+    },
     "openai": {
-      "apiKey": "your-api-key",
-      "defaultModel": "gpt-4"
+      "OPENAI_API_KEY": "xxxxx"
+    },
+    "bedrock": {
+      "BEDROCK_ACCESS_KEY_ID": "xxxxx",
+      "BEDROCK_SECRET_ACCESS_KEY": "xxxxx"
+    },
+    "ollama": {
+      "OLLAMA_HOST": "xxxxx" (optional)
     }
   },
-  "mcpServers": [
-    {
-      "name": "filesystem",
+  "mcpServers": {
+    "filesystem": {
+      "type": "stdio",
       "command": "npx",
-      "args": ["@modelcontextprotocol/server-filesystem", "/path/to/files"]
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "./test_files"
+      ]
     }
-  ],
-  "settings": {
-    "temperature": 0.7,
-    "maxTokens": 2000,
-    "toolPermission": "ask"
   }
 }
-```
-
-## Advanced Usage
-
-### Custom Providers
-
-```typescript
-import { BaseProvider } from '@tsagent/core';
-
-class CustomProvider extends BaseProvider {
-  async generateResponse(messages: ChatMessage[]): Promise<string> {
-    // Your custom implementation
-    return "Custom response";
-  }
-}
-
-// Register the provider
-ProviderFactory.registerProvider('custom', CustomProvider);
-```
-
-### Tool Integration
-
-```typescript
-import { ToolCall } from '@tsagent/core';
-
-// Handle tool calls in your agent
-agent.onToolCall = async (toolCall: ToolCall) => {
-  switch (toolCall.name) {
-    case 'search':
-      return await searchWeb(toolCall.arguments.query);
-    case 'calculate':
-      return await calculate(toolCall.arguments.expression);
-    default:
-      throw new Error(`Unknown tool: ${toolCall.name}`);
-  }
-};
 ```
 
 ## TypeScript Support
@@ -223,12 +212,6 @@ import type {
 ```bash
 # Build the package
 npm run build
-
-# Run tests
-npm test
-
-# Run in development mode
-npm run dev
 ```
 
 ## License

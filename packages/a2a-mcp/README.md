@@ -1,6 +1,8 @@
 # @tsagent/orchestrator
 
-An MCP (Model Context Protocol) server that bridges to A2A (Agent-to-Agent) servers. This server allows MCP clients to discover and interact with A2A agents through standardized MCP tools.
+An MCP (Model Context Protocol) server that allows an agent to delegate to one or more sub-agent A2A (Agent-to-Agent) servers. This server allows MCP clients to discover and interact with A2A agents through standardized MCP tools.
+
+While this MCP server was designed with TsAgent in mind, it can be used by any agent (TsAgent or otherwise) that supports MCP to allow it to interact with A2A servers (or directly with TsAgent agents).
 
 ## About TSAgent
 

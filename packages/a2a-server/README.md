@@ -15,7 +15,7 @@ This package is part of **TSAgent**, an open-source TypeScript-first platform fo
 - **A2A Protocol Compliance**: Full implementation of the A2A protocol specification
 - **Single & Multi-Agent Support**: Run one or multiple agents simultaneously
 - **Agent Card Generation**: Automatic generation of agent cards from agent metadata
-- **Streaming Support**: Real-time message streaming with Server-Sent Events
+- **Streaming Support**: [Future] Real-time message streaming with Server-Sent Events
 - **Graceful Shutdown**: Proper cleanup and resource management
 - **CLI Interface**: Command-line interface for easy server management
 
