@@ -49,10 +49,10 @@ npm install @tsagent/cli   # Just the CLI tool
 
 Download the pre-built installer for your platform:
 
-- [macOS (Intel)](https://storage.googleapis.com/tsagent/TSAgent%20Foundry-latest.dmg)
-- [macOS (Apple Silicon)](https://storage.googleapis.com/tsagent/TSAgent%20Foundry-latest-arm64.dmg)
+- [macOS (Intel)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest.dmg)
+- [macOS (Apple Silicon)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest-arm64.dmg)
 - [Linux (Debian/Ubuntu)](https://storage.googleapis.com/tsagent/tsagent-foundry_latest_amd64.deb)
-- [Linux (AppImage)](https://storage.googleapis.com/tsagent/TSAgent%20Foundry-latest.AppImage)
+- [Linux (AppImage)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest.AppImage)
 
 ## Quick Start
 
