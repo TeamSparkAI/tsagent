@@ -2,47 +2,12 @@ name: Build
 
 on:
   workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version number (e.g., 1.0.0)'
-        required: true
-        type: string
 
 jobs:
-  update-version:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    outputs:
-      version_commit: ${{ steps.version.outputs.commit }}
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: Update version
-        id: version
-        run: |
-          npm version ${{ github.event.inputs.version }} --no-git-tag-version
-          cd apps/desktop && npm version ${{ github.event.inputs.version }} --no-git-tag-version
-          cd ../..
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git add package.json apps/desktop/package.json
-          git commit -m "Update version to ${{ github.event.inputs.version }}"
-          git push
-          echo "commit=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
-
   build-mac:
-    needs: update-version
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.update-version.outputs.version_commit }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -91,12 +56,9 @@ jobs:
             apps/desktop/release/*.zip
 
   build-linux:
-    needs: update-version
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: ${{ needs.update-version.outputs.version_commit }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4

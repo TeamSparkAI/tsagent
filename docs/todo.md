@@ -15,6 +15,12 @@ Build, test/validate, publish cli, a2a-server (including validating a2a-server i
 Change dependency in a2a-mcp to use @tsagent/server
 Build, test/validate, publish a2a-mcp (validating MCP server in use)
 
+## Launch
+
+Website update
+LinkedIn post
+Videos?
+
 ## Project - switch to pnpm 
 
 When the agent-api was broken out into its own package we adopted npm workspaces (which we use with some success in ToolVault).
