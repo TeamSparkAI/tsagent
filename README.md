@@ -49,7 +49,7 @@ Download the pre-built installer for your platform:
 
 ### Create Your First Agent
 
-Launch the desktop app (after downloading and installing)
+Launch the TsAgent Foundry desktop app (after downloading and installing)
 
 Or create an agent via CLI by either running the CLI in the directory of the desired agent (or new agent)
 or passing the agent directory to the CLI as the `--agent` argument.  Use `--create` to create a new agent.
@@ -61,15 +61,17 @@ npx @tsagent/cli --agent ./my-agent --create
 ### Use Agents Programmatically
 
 ```typescript
-import { Agent } from '@tsagent/core';
+import { loadAgent } from '@tsagent/core';
 
 // Load an existing agent
-const agent = new Agent('./my-agent');
-await agent.load();
+const agent = await loadAgent('./my-agent', logger);
 
-// Chat with the agent
-const response = await agent.chat('Hello, how can you help me?');
-console.log(response);
+// Create a chat session
+const session = agent.createChatSession('session-1');
+
+// Send a message
+const response = await session.handleMessage('Hello, how can you help me?');
+console.log(response.updates[1].modelReply);
 ```
 
 ### Deploy Agents as Services
