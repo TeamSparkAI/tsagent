@@ -121,5 +121,5 @@ jobs:
         uses: google-github-actions/upload-cloud-storage@v2
         with:
           path: release
-          destination: teamspark-workbench
+          destination: tsagent
           parent: false
