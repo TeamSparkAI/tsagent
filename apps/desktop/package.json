@@ -117,8 +117,7 @@
       ],
       "icon": "build/icon.png",
       "category": "Development",
-      "executableName": "tsagent-foundry",
-      "packageName": "tsagent-foundry"
+      "executableName": "tsagent-foundry"
     },
     "files": [
       "dist/**/*",
