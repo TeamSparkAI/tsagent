@@ -3,6 +3,10 @@
     "target": "ES2022",
     "module": "CommonJS",
     "moduleResolution": "node",
+    "baseUrl": ".",
+    "paths": {
+      "@modelcontextprotocol/sdk/types": ["./node_modules/@modelcontextprotocol/sdk/dist/cjs/types"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

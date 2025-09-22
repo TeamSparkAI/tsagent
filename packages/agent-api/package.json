@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/core",
-  "version": "1.2.0",
+  "version": "1.2.3",
   "description": "Typescript API for agents",
   "type": "module",
   "exports": {
@@ -40,7 +40,7 @@
     "@aws-sdk/client-bedrock": "^3.787.0",
     "@aws-sdk/client-bedrock-runtime": "^3.785.0",
     "@google/genai": "^1.14.0",
-    "@modelcontextprotocol/sdk": "^1.7.0",
+    "@modelcontextprotocol/sdk": "^1.18.1",
     "ollama": "^0.5.14",
     "openai": "^4.89.0"
   },
