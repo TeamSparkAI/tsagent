@@ -1,8 +1,8 @@
 {
   "name": "desktop",
-  "productName": "TeamSpark AI Workbench",
+  "productName": "TsAgent Foundry",
   "version": "1.2.0",
-  "description": "Multi-LLM Chat Application",
+  "description": "Agent builder application supporting multi-LLMs, tool calling, and agent orchestration",
   "author": {
     "name": "TeamSpark",
     "email": "support@teamspark.ai"
@@ -42,7 +42,7 @@
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@types/uuid": "^10.0.0",
-    "agent-api": "file:../../packages/agent-api",
+    "@tsagent/core": "file:../../packages/agent-api",
     "dotenv": "^16.4.7",
     "electron-log": "^5.3.2",
     "js-yaml": "^4.1.0",
@@ -56,7 +56,7 @@
   },
   "build": {
     "appId": "ai.teamspark.workbench",
-    "productName": "TeamSpark AI Workbench",
+    "productName": "TsAgent Foundry",
     "afterPack": "./build/afterPack.js",
     "electronVersion": "28.0.0",
     "mac": {
@@ -117,7 +117,7 @@
       ],
       "icon": "build/icon.png",
       "category": "Development",
-      "executableName": "teamspark-workbench"
+      "executableName": "tsagent-foundry"
     },
     "files": [
       "dist/**/*",

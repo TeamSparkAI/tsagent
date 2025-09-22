@@ -1,6 +1,14 @@
-# A2A MCP Server
+# @tsagent/orchestrator
 
 An MCP (Model Context Protocol) server that bridges to A2A (Agent-to-Agent) servers. This server allows MCP clients to discover and interact with A2A agents through standardized MCP tools.
+
+## About TSAgent
+
+This package is part of **TSAgent**, an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. 
+
+- **Main Project**: [TSAgent Repository](https://github.com/TeamSparkAI/tsagent)
+- **Documentation**: [Full Documentation](https://github.com/TeamSparkAI/tsagent#readme)
+- **Issues & Support**: [GitHub Issues](https://github.com/TeamSparkAI/tsagent/issues)
 
 ## Features
 
@@ -13,7 +21,7 @@ An MCP (Model Context Protocol) server that bridges to A2A (Agent-to-Agent) serv
 ## Installation
 
 ```bash
-npm install
+npm install @tsagent/orchestrator
 ```
 
 ## Usage
@@ -22,19 +30,19 @@ npm install
 
 ```bash
 # Connect to external A2A servers
-npx a2a-mcp http://localhost:4000 http://localhost:4001
+npx @tsagent/orchestrator http://localhost:4000 http://localhost:4001
 
 # Run with local agent files (embedded mode)
-npx a2a-mcp ./agent1 ./agent2
+npx @tsagent/orchestrator ./agent1 ./agent2
 
 # Mix of HTTP and file paths
-npx a2a-mcp http://remote-agent.com ./local-agent
+npx @tsagent/orchestrator http://remote-agent.com ./local-agent
 ```
 
 ### Programmatically
 
 ```typescript
-import { A2AMCPServer } from 'a2a-mcp';
+import { A2AMCPServer } from '@tsagent/orchestrator';
 
 // Connect to external A2A servers
 const server = new A2AMCPServer(['http://localhost:4000', 'http://localhost:4001']);
@@ -126,7 +134,7 @@ import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
 // Connect to the MCP server
 const transport = new StdioClientTransport({
   command: 'npx',
-  args: ['a2a-mcp', 'http://localhost:4000']
+  args: ['@tsagent/orchestrator', 'http://localhost:4000']
 });
 
 const client = new Client({
@@ -156,6 +164,12 @@ const response = await client.callTool({
 console.log(response);
 ```
 
+## Related Packages
+
+- `@tsagent/core` - Core TypeScript agent framework
+- `@tsagent/cli` - Command-line interface for agent operations
+- `@tsagent/server` - A2A protocol server for exposing agents as HTTP endpoints
+
 ## Development
 
 ```bash
@@ -168,3 +182,7 @@ npm run dev
 # Run tests
 npm test
 ```
+
+## License
+
+MIT License - see [LICENSE](https://github.com/TeamSparkAI/tsagent/blob/main/LICENSE.md) for details.

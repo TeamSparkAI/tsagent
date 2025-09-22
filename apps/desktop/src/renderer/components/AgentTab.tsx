@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TabProps } from '../types/TabProps';
 import type { AgentWindow } from '../../main/agents-manager';
-import { AgentMetadata } from 'agent-api';
+import { AgentMetadata } from '@tsagent/core';
 import log from 'electron-log';
 import './AgentTab.css';
 
@@ -477,12 +477,12 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
         <div className="about-content">
           <p><strong>Manage Your Agents and Windows</strong></p>
           <p>
-            All activity in TeamSpark AI Workbench takes place in an agent.  An agent can be any folder you choose, which will then be used to store your
+            All activity in this application takes place in an agent.  An agent can be any folder you choose, which will then be used to store your
             prompt, settings, providers, references, rules, and tools.  You can use one agent for everything, or you can make agents for different
             projects to organize your work.
           </p>
           <p>
-            If you are running TeamSpark AI Workbench for first time, select Create Agent below, then select a new or empty folder to serve as your first agent.
+            If you are running this application for first time, select Create Agent below, then select a new or empty folder to serve as your first agent.
           </p>
         </div>
       </div>

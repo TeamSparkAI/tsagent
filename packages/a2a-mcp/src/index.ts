@@ -7,7 +7,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { A2AClient } from '@a2a-js/sdk/client';
 import { v4 as uuidv4 } from 'uuid';
-import { MultiA2AServer } from 'a2a-server';
+import { MultiA2AServer } from '@tsagent/server';
 
 interface AgentEndpoint {
   originalUri: string;    // Original URI (for logging/debugging)
@@ -54,7 +54,7 @@ export class A2AMCPServer {
   constructor(uris: string[] = []) {
     this.server = new Server(
       {
-        name: 'a2a-mcp',
+        name: '@tsagent/orchestrator',
         version: '1.0.0',
       },
       {
@@ -98,7 +98,7 @@ export class A2AMCPServer {
 
   private async startEmbeddedServer(filePaths: string[]): Promise<void> {
     try {
-      console.error(`Starting embedded A2A server with ${filePaths.length} file-based agents...`);
+      console.error(`Starting embedded @tsagent/server with ${filePaths.length} file-based agents...`);
       this.embeddedServer = new MultiA2AServer(0); // Dynamic port
       
       // Register all file-based agents
@@ -118,9 +118,9 @@ export class A2AMCPServer {
         });
       }
       
-      console.error(`Embedded A2A server started on port ${result.port} with ${result.agents.length} agents`);
+      console.error(`Embedded @tsagent/server started on port ${result.port} with ${result.agents.length} agents`);
     } catch (error) {
-      console.error('Failed to start embedded A2A server:', error);
+      console.error('Failed to start embedded @tsagent/server:', error);
       // Continue with HTTP-only agents
     }
   }
@@ -130,9 +130,9 @@ export class A2AMCPServer {
       try {
         await this.embeddedServer.shutdown();
         this.embeddedServer = null;
-        console.error('Embedded A2A server shutdown complete');
+        console.error('Embedded @tsagent/server shutdown complete');
       } catch (error) {
-        console.error('Error shutting down embedded A2A server:', error);
+        console.error('Error shutting down embedded @tsagent/server:', error);
       }
     }
   }
@@ -285,7 +285,7 @@ export class A2AMCPServer {
       }
     }
 
-    console.error('A2A MCP Server agents:', { agents });
+    console.error('@tsagent/orchestrator agents:', { agents });
 
     // Because we provide outputSchema for the tools, we are required to produce structuredContent that fulfills that schema
     // (some models will produce an error if there is an outputSchema and no structuredContent).  In practice, some models do
@@ -331,7 +331,7 @@ export class A2AMCPServer {
       this.clients.set(endpoint, client);
     }
     
-    console.error('Sending message to A2A MCP Server client:', { client });
+    console.error('Sending message to @tsagent/orchestrator client:', { client });
 
     try {
       // Send message to agent
@@ -349,7 +349,7 @@ export class A2AMCPServer {
       let taskId = '';
       let status = 'unknown';
 
-      console.error('A2A MCP Server response:', JSON.stringify(response, null, 2));
+      console.error('@tsagent/orchestrator response:', JSON.stringify(response, null, 2));
       
       // Extract the actual result from the JSON-RPC response
       const result = 'result' in response ? response.result : null;
@@ -436,7 +436,7 @@ export class A2AMCPServer {
       console.error(`Received ${signal}, shutting down gracefully...`);
       try {
         await this.shutdownEmbeddedServer();
-        console.error('A2A MCP Server shutdown complete');
+        console.error('@tsagent/orchestrator shutdown complete');
       } catch (error) {
         console.error('Error during shutdown:', error);
       }
@@ -449,7 +449,7 @@ export class A2AMCPServer {
     // Start MCP server
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('A2A MCP Server running on stdio');
+    console.error('@tsagent/orchestrator running on stdio');
   }
 }
 
@@ -461,7 +461,7 @@ if (!uris) {
   process.exit(1);
 }
 
-console.error('A2A MCP Server starting with URIs:', uris);
+console.error('@tsagent/orchestrator starting with URIs:', uris);
 
 const server = new A2AMCPServer(uris);
 server.start().catch(console.error);

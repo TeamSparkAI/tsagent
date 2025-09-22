@@ -3,6 +3,7 @@ import { Rule } from '../types/rules';
 import { Reference } from '../types/references';
 import { McpConfig } from '../mcp/types';
 import { Agent, AgentConfig } from '../types/agent';
+import { AGENT_FILE_NAME } from '../index';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
@@ -45,7 +46,7 @@ export interface AgentStrategy {
 }
 
 export class FileBasedAgentStrategy implements AgentStrategy {
-  private static readonly AGENT_FILE_NAME = 'tspark.json';
+  public static readonly AGENT_FILE_NAME = AGENT_FILE_NAME;
   private static readonly SYSTEM_PROMPT_FILE_NAME = 'prompt.md';
   private static readonly RULE_FILE_EXTENSION = '.mdt';
   private static readonly REFERENCE_FILE_EXTENSION = '.mdt';

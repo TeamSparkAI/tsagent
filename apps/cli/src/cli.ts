@@ -4,6 +4,8 @@ import { read } from 'read';
 import path from 'path';
 import * as fs from 'fs';
 
+import { PRODUCT_NAME } from './main.js';
+
 import { 
   Agent, 
   ChatMessage, 
@@ -33,7 +35,7 @@ import {
   SETTINGS_KEY_TOP_P, 
   SETTINGS_DEFAULT_TOP_P,
   populateModelFromSettings
-} from 'agent-api';
+} from '@tsagent/core';
 
 import { WinstonLoggerAdapter } from './logger.js';
 
@@ -194,7 +196,7 @@ const isProviderInstalled = (agent: Agent, providerName: string): boolean => {
 
 export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAdapter) {
   // Get version from package.json
-  console.log(chalk.green(`Welcome to TeamSpark AI Workbench CLI v${version}!`));
+  console.log(chalk.green(`Welcome to ${PRODUCT_NAME} v${version}!`));
   showHelp();
 
   const updatedMostRecentProvider = async (provider: ProviderType, modelId: string) => {
@@ -646,7 +648,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           currentProvider = chatSession.getState().currentModelProvider;
           currentModelId = chatSession.getState().currentModelId;
           console.log(chalk.green('Chat history cleared'));
-          console.log(chalk.green('Welcome to TeamSpark AI Workbench CLI!'));
+          console.log(chalk.green(`Welcome to ${PRODUCT_NAME}!`));
           break;
 
         case COMMANDS.AGENT:

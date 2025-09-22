@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { ProviderType } from 'agent-api';
-import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from 'agent-api';
+import { ProviderType } from '@tsagent/core';
+import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
 import log from 'electron-log';
 
 // Import provider logos

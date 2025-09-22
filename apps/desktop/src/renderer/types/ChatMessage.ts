@@ -1,4 +1,4 @@
-import { ModelReply, ToolCallDecision } from 'agent-api';
+import { ModelReply, ToolCallDecision } from '@tsagent/core';
 
 // This is the "Renderer" chat message
 export interface RendererChatMessage {

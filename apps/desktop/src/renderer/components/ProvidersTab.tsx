@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
-import { ProviderType } from 'agent-api';
-import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from 'agent-api';
+import { ProviderType } from '@tsagent/core';
+import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
 import { AboutView } from './AboutView';
 import log from 'electron-log';
 

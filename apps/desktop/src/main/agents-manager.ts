@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { BrowserWindow } from 'electron';
 import { EventEmitter } from 'events';
-import { Agent, Logger } from 'agent-api';
+import { Agent, Logger } from '@tsagent/core';
 import { ElectronLoggerAdapter } from './logger-adapter';
 
 // Electron-specific interface for window management

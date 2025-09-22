@@ -2,6 +2,7 @@
 
 import { A2AServer, MultiA2AServer } from './index';
 import { ConsoleLogger } from './logger';
+import { AGENT_FILE_NAME } from '@tsagent/core';
 
 interface CliOptions {
   agentPaths: string[];
@@ -41,10 +42,10 @@ function parseArgs(args: string[]): CliOptions {
 
 function showHelp(): void {
   console.log(`
-A2A Server - Simple A2A protocol server for agent-api agents
+@tsagent/server - Simple A2A protocol server for @tsagent/core agents
 
 Usage:
-  a2a-server <agent-path> [agent-path...] [options]
+  tsagent-server <agent-path> [agent-path...] [options]
 
 Arguments:
   agent-path          Path to the agent directory (at least one required)
@@ -55,19 +56,19 @@ Options:
 
 Examples:
   # Single agent (backward compatible)
-  a2a-server /path/to/my-agent
+  tsagent-server /path/to/my-agent
   
   # Multiple agents
-  a2a-server /path/to/agent1 /path/to/agent2 /path/to/agent3
+  tsagent-server /path/to/agent1 /path/to/agent2 /path/to/agent3
   
   # Multiple agents with custom port
-  a2a-server --port 3000 /path/to/agent1 /path/to/agent2
+  tsagent-server --port 3000 /path/to/agent1 /path/to/agent2
   
   # Single agent with custom port
-  a2a-server /path/to/my-agent --port 5000
+  tsagent-server /path/to/my-agent --port 5000
 
 The agent directory should contain:
-  - tspark.json (agent configuration)
+  - ${AGENT_FILE_NAME} (agent configuration)
   - prompt.md (system prompt)
   - rules/ (optional rules directory)
   - refs/ (optional references directory)
@@ -103,7 +104,7 @@ async function main(): Promise<void> {
   let isShuttingDown = false;
   
   try {
-    logger.info(`Starting A2A Server...`);
+    logger.info(`Starting @tsagent/server...`);
     logger.info(`Agent paths: ${options.agentPaths.join(', ')}`);
     logger.info(`Port: ${options.port}`);
 
@@ -114,7 +115,7 @@ async function main(): Promise<void> {
       const result = await server.start();
       
       // Display agent URLs
-      console.log('\n🚀 A2A Server Started Successfully!');
+      console.log('\n🚀 @tsagent/server Started Successfully!');
       console.log('═'.repeat(50));
       console.log(`📡 Server running on port: ${result.port}`);
       console.log(`🤖 Agent: ${(server as A2AServer)['agent'].name}`);
@@ -133,7 +134,7 @@ async function main(): Promise<void> {
       const result = await (server as MultiA2AServer).start();
       
       // Display agent URLs
-      console.log('\n🚀 Multi-A2A Server Started Successfully!');
+      console.log('\n🚀 @tsagent/server (multi) Started Successfully!');
       console.log('═'.repeat(50));
       console.log(`📡 Server running on port: ${result.port}`);
       console.log(`🔍 Discovery endpoint: ${result.discoveryUrl}`);

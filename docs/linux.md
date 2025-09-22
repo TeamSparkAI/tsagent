@@ -1,4 +1,4 @@
-# TeamSpark on linux
+# TsAgent on linux
 
 Because of a sandboxing issue on linux:
 
@@ -9,5 +9,3 @@ https://github.com/electron-userland/electron-builder/issues/3872
 We have to use an afterPath script to:
 - Rename our app to .bin
 - Create a shell script with the app name that runs the .bin with the --no-sandbox flag
-
-There's a similar tspark.sh that runs the app in CLI mode (also with --no-sandbox)

@@ -1,9 +1,9 @@
-# Teamspark AI Workbench Agents
+# TsAgent Agents
 
 ## Agent functionality
 
 We now have agent-api where all of our agent functionality lives.  The current implementation is FileSystemAgent which
-works off of the tspark.json file and other related files in the agent directory.  It should be pretty easy to create
+works off of the tsagent.json file and other related files in the agent directory.  It should be pretty easy to create
 an ephemeral agent (that just manages everything in memory, with no serialization - the client just loads it on create,
 and is free to interrogate its contents and save if desired).
 
@@ -15,7 +15,7 @@ agents.json (in app files directory) - list of recent agents (used by GUI app on
 
 ## Agent
 
-tspark.json - in root of agent
+tsagent.json - in root of agent
 
 {
   "metadata": {
@@ -83,8 +83,8 @@ https://github.com/a2aproject/A2A
 https://a2a-protocol.org/latest/
 
 Goals
-- Allow TeamSpark agents to be able to orchestrate other agents (TeamSpark or otherwise) via A2A
-- Allow TeamSpark agents to be served via A2A and usable by an agent supporting A2A (TeamSpark or otherwise)
+- Allow TsAgent agents to be able to orchestrate other agents (TsAgent or otherwise) via A2A
+- Allow TsAgent agents to be served via A2A and usable by an agent supporting A2A (TsAgent or otherwise)
 
 Agents can be one of:
 - Interactive
@@ -108,7 +108,7 @@ Agent Orchestration
 
 ## MCP Server Updates
 
-Later: Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TeamSpark and anything that supports that file/format)
+Later: Move MCP server config (including permissions, etc) into mcp.json file (so it will work with TsAgent and anything that supports that file/format)
 - Not really related to agent work - but would be nice to support ToolVault to process agent calls
 
 Clean up MCP servers UX (limit width of tools column, show text with "show raw")
@@ -120,12 +120,12 @@ We might need some way to force reload of the MCP server (to force reload of the
 
 Package: a2a-server
   
-Command line app and API launcher to expose TeamSpark agent(s) as A2A server(s)
+Command line app and API launcher to expose TsAgent agent(s) as A2A server(s)
 
 - Command line app takes one or more dir/file paths and optional port
   - Future: Agent path optional, uses cwd if not specified
 - AgentCard produced from agent metadata
-- Bridge A2A server (Express app) to TeamSpark agent(s)
+- Bridge A2A server (Express app) to TsAgent agent(s)
 - If multiple agents, each will be served at unique route (logged from CLI and available from start() via API)
 
 ## A2A Orchestration MCP server
@@ -136,8 +136,8 @@ MCP server that implements A2A orchestration of A2A servers
 
 - Takes list of A2A servers as config
   - http:// or https:// uri endpoints for A2A servers
-  - file:// uri for TeamSpark agents (or non-uri which will be treated as file path)
-- TeamSpark agents (if any) will be run in a single embedded a2a-server (at unique paths) and presented as A2A servers
+  - file:// uri for TsAgent agents (or non-uri which will be treated as file path)
+- TsAgent agents (if any) will be run in a single embedded a2a-server (at unique paths) and presented as A2A servers
 - We manage the lifecycle of the embedded a2a-server (server orderly shutdown when MCP server shuts down)
 - Implements list_agents, call_agent
 
@@ -170,7 +170,7 @@ Implement constraints of agent in chat session based on interactive/autonomous
 
 ### Orchestration UX
 
-A TeamSpark Workbench tab providing a better UX for a2a-mcp
+A TsAgrnt Foundry tab providing a better UX for a2a-mcp
 
 Current Implementation [done]
 - Shown when a2a-mcp server is installed, hidden otherwise

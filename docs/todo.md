@@ -1,4 +1,19 @@
-# TeamSpark AI Workbench
+# TsAgent Foundry
+
+## Pre-publish README review
+
+Revew all README docs
+Add screen shots for foundry and cli, anything else?
+In top-level readme, distinguish between agent features and platform features (currently kind of mixed together)
+
+## Publishing strategy
+
+Publish @tsagent/core
+Change dependencies in desktop, cli, and a2a-server projects to use @tsagent/core
+Test TsAgent Foundry build from GHA, install
+Build, test/validate, publish cli, a2a-server (including validating a2a-server in use by MCP server)
+Change dependency in a2a-mcp to use @tsagent/server
+Build, test/validate, publish a2a-mcp (validating MCP server in use)
 
 ## Project - switch to pnpm 
 

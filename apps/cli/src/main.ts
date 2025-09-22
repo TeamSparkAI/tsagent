@@ -3,19 +3,20 @@
 import { program } from 'commander';
 import path from 'path';
 import chalk from 'chalk';
-import { agentExists, loadAgent, createAgent } from 'agent-api/runtime';
-import { Agent } from 'agent-api';
+import { agentExists, loadAgent, createAgent } from '@tsagent/core/runtime';
+import { Agent } from '@tsagent/core';
+import { AGENT_FILE_NAME } from '@tsagent/core';
 import { WinstonLoggerAdapter } from './logger.js';
 import { setupCLI } from './cli.js';
 
-const PRODUCT_NAME = 'TeamSpark AI Workbench CLI';
+export const PRODUCT_NAME = 'TsAgent CLI';
 
 async function main() {
   const logger = new WinstonLoggerAdapter();
   
   program
-    .name('tspark')
-    .description('TeamSpark AI Workbench CLI')
+    .name('tsagent')
+    .description(PRODUCT_NAME)
     .version('1.2.0')
     .option('--agent <path>', 'Agent directory path (defaults to current working directory)')
     .option('--create', 'Create new agent if it doesn\'t exist')
@@ -29,7 +30,7 @@ async function main() {
     logger.setLevel('debug');
   }
 
-  logger.info('Starting TeamSpark AI Workbench CLI');
+  logger.info(`Starting ${PRODUCT_NAME}`);
 
   // Determine agent path
   let agentPath = process.cwd();
@@ -56,8 +57,8 @@ async function main() {
     try {
       // First check if agent exists
       if (!(await agentExists(agentPath))) {
-        console.log(chalk.red(`${PRODUCT_NAME} failed to locate agent (tspark.json) in directory: `), agentPath);
-        console.log(chalk.dim('  Use '), chalk.bold('--agent <path>'), chalk.dim(' absolute or relative path to a agent directory (where tspark.json will be found or created)'));
+        console.log(chalk.red(`${PRODUCT_NAME} failed to locate agent (${AGENT_FILE_NAME}) in directory: `), agentPath);
+        console.log(chalk.dim('  Use '), chalk.bold('--agent <path>'), chalk.dim(` absolute or relative path to a agent directory (where ${AGENT_FILE_NAME} will be found or created)`));
         console.log(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new agent in the specified directory, or current working directory if agent path not specified'));
         logger.error(`Agent not found at path: ${agentPath}`);
         process.exit(1);

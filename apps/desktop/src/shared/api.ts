@@ -1,9 +1,9 @@
-import { Rule, Reference } from 'agent-api';
-import { McpConfig, CallToolResultWithElapsedTime } from 'agent-api';
-import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from 'agent-api';
+import { Rule, Reference } from '@tsagent/core';
+import { McpConfig, CallToolResultWithElapsedTime } from '@tsagent/core';
+import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from '@tsagent/core';
 import { AgentWindow } from '../main/agents-manager';
-import { ProviderType } from 'agent-api';
-import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from 'agent-api';
+import { ProviderType } from '@tsagent/core';
+import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 
 export interface API {

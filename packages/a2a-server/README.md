@@ -1,6 +1,14 @@
-# A2A Server
+# @tsagent/server
 
-An A2A (Agent-to-Agent) server implementation that wraps agents created with the agent-api package. This server provides HTTP endpoints following the A2A protocol specification, enabling agent-to-agent communication through a standardized REST API.
+An A2A (Agent-to-Agent) server implementation that wraps agents created with the @tsagent/core package. This server provides HTTP endpoints following the A2A protocol specification, enabling agent-to-agent communication through a standardized REST API.
+
+## About TSAgent
+
+This package is part of **TSAgent**, an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. 
+
+- **Main Project**: [TSAgent Repository](https://github.com/TeamSparkAI/tsagent)
+- **Documentation**: [Full Documentation](https://github.com/TeamSparkAI/tsagent#readme)
+- **Issues & Support**: [GitHub Issues](https://github.com/TeamSparkAI/tsagent/issues)
 
 ## Features
 
@@ -14,7 +22,7 @@ An A2A (Agent-to-Agent) server implementation that wraps agents created with the
 ## Installation
 
 ```bash
-npm install
+npm install @tsagent/server
 ```
 
 ## Usage
@@ -23,19 +31,19 @@ npm install
 
 ```bash
 # Single agent (backward compatible)
-npx a2a-server /path/to/my-agent
+npx @tsagent/server /path/to/my-agent
 
 # Multiple agents
-npx a2a-server /path/to/agent1 /path/to/agent2 /path/to/agent3
+npx @tsagent/server /path/to/agent1 /path/to/agent2 /path/to/agent3
 
 # Multiple agents with custom port
-npx a2a-server --port 3000 /path/to/agent1 /path/to/agent2
+npx @tsagent/server --port 3000 /path/to/agent1 /path/to/agent2
 
 # Single agent with custom port
-npx a2a-server /path/to/my-agent --port 5000
+npx @tsagent/server /path/to/my-agent --port 5000
 
 # Show help
-npx a2a-server --help
+npx @tsagent/server --help
 ```
 
 ### Programmatically
@@ -43,7 +51,7 @@ npx a2a-server --help
 #### Single Agent Server
 
 ```typescript
-import { A2AServer } from 'a2a-server';
+import { A2AServer } from '@tsagent/server';
 
 // Create and start a server for a single agent
 const server = new A2AServer('/path/to/agent', 4000);
@@ -55,7 +63,7 @@ console.log('A2A Server started on port 4000');
 #### Multi-Agent Server
 
 ```typescript
-import { MultiA2AServer } from 'a2a-server';
+import { MultiA2AServer } from '@tsagent/server';
 
 // Create a multi-agent server
 const server = new MultiA2AServer();
@@ -74,7 +82,7 @@ Each agent directory should contain:
 
 ```
 /path/to/agent/
-├── tspark.json          # Agent configuration
+├── tsagent.json         # Agent configuration
 ├── prompt.md            # System prompt
 ├── rules/               # Optional rules directory
 │   ├── rule1.md
@@ -102,7 +110,7 @@ When running multiple agents, each agent has its own path:
 ## CLI Options
 
 ```bash
-Usage: a2a-server <agent-path> [agent-path...] [options]
+Usage: @tsagent/server <agent-path> [agent-path...] [options]
 
 Arguments:
   agent-path          Path to the agent directory (at least one required)
@@ -118,7 +126,7 @@ Options:
 
 ```bash
 # Start server with a single agent
-npx a2a-server ./my-agent --port 4000
+npx @tsagent/server ./my-agent --port 4000
 
 # The agent will be available at:
 # - http://localhost:4000/.well-known/agent-card.json
@@ -128,7 +136,7 @@ npx a2a-server ./my-agent --port 4000
 
 ```bash
 # Start server with multiple agents
-npx a2a-server ./assistant-agent ./coding-agent ./research-agent --port 4000
+npx @tsagent/server ./assistant-agent ./coding-agent ./research-agent --port 4000
 
 # Each agent will be available at:
 # - http://localhost:4000/agents/assistant-agent/.well-known/agent-card.json
@@ -146,6 +154,12 @@ curl http://localhost:4000/agents
 curl http://localhost:4000/agents/my-agent/.well-known/agent-card.json
 ```
 
+## Related Packages
+
+- `@tsagent/core` - Core TypeScript agent framework
+- `@tsagent/cli` - Command-line interface for agent operations
+- `@tsagent/orchestrator` - MCP server for orchestrating A2A agent servers
+
 ## Development
 
 ```bash
@@ -161,3 +175,7 @@ npm test
 # Start server for testing
 npm start
 ```
+
+## License
+
+MIT License - see [LICENSE](https://github.com/TeamSparkAI/tsagent/blob/main/LICENSE.md) for details.

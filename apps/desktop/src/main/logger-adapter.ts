@@ -1,5 +1,5 @@
 import log from 'electron-log';
-import type { Logger } from 'agent-api';
+import type { Logger } from '@tsagent/core';
 
 /**
  * Adapter to bridge electron-log to the AgentAPI Logger interface

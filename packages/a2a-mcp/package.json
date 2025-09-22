@@ -1,7 +1,7 @@
 {
-  "name": "a2a-mcp",
-  "version": "1.0.0",
-  "description": "MCP server that bridges to A2A servers via the A2A client",
+  "name": "@tsagent/orchestrator",
+  "version": "1.2.0",
+  "description": "MCP server that bridges to @tsagent/server instances via the A2A client",
   "type": "module",
   "exports": {
     ".": "./dist/index.js"
@@ -26,7 +26,7 @@
     "@a2a-js/sdk": "^0.3.4",
     "@modelcontextprotocol/sdk": "^1.7.0",
     "uuid": "^11.1.0",
-    "a2a-server": "file:../a2a-server"
+    "@tsagent/server": "file:../a2a-server"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

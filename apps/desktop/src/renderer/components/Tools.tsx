@@ -6,7 +6,7 @@ import type {
     Tool,
     ServerToolEnabledConfig,
     ServerToolPermissionRequiredConfig
-} from "agent-api";
+} from "@tsagent/core";
 import { 
     SERVER_PERMISSION_REQUIRED,
     SERVER_PERMISSION_NOT_REQUIRED,
@@ -19,7 +19,7 @@ import {
     isToolEnabled,
     isToolAvailable,
     getToolEnabledState
-} from "agent-api";
+} from "@tsagent/core";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';

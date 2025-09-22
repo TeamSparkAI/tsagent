@@ -1,11 +1,11 @@
 {
-  "name": "tspark-cli",
+  "name": "@tsagent/cli",
   "version": "1.2.0",
-  "description": "TeamSpark AI Workbench CLI",
+  "description": "TsAgent CLI",
   "type": "module",
   "main": "dist/main.js",
   "bin": {
-    "tspark": "./dist/main.js"
+    "tsagent-cli": "./dist/main.js"
   },
   "scripts": {
     "start": "tsx src/main.ts",
@@ -15,7 +15,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "agent-api": "file:../../packages/agent-api",
+    "@tsagent/core": "file:../../packages/agent-api",
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "ora": "^5.4.1",

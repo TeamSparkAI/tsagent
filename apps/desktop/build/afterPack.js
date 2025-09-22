@@ -12,7 +12,7 @@ const afterPackHook = async params => {
         );
 
         // Read the launcher script content
-        const launcherScriptPath = path.join(__dirname, 'linux/teamspark-launcher.sh');
+        const launcherScriptPath = path.join(__dirname, 'linux/tsagent-launcher.sh');
         let launcherScript;
         try {
             launcherScript = await fs.readFile(launcherScriptPath, 'utf8');
@@ -32,14 +32,8 @@ const afterPackHook = async params => {
             // Write the GUI launcher script
             await fs.writeFile(executable, launcherScript);
             await fs.chmod(executable, 0o755);
-
-            // Make a tspark shell script file in the same directory as the executable (adding --cli)
-            const tsparkScriptPath = path.join(params.appOutDir, 'tspark.sh');
-            const tsparkScript = launcherScript.replace(/--no-sandbox/g, '--no-sandbox --cli');
-            await fs.writeFile(tsparkScriptPath, tsparkScript);
-            await fs.chmod(tsparkScriptPath, 0o755);
                         
-            log.info('Linux launcher scripts created successfully');
+            log.info('Linux launcher script created successfully');
         } catch (e) {
             log.error('failed to create launcher scripts: ' + e.message);
             throw new Error('Failed to create launcher scripts');
@@ -48,12 +42,19 @@ const afterPackHook = async params => {
         log.info('Creating MacOS CLI script');
         
         // Copy CLI script to Resources directory
-        const cliScriptPath = path.join(params.appOutDir, 'TeamSpark AI Workbench.app/Contents/Resources/tspark.sh');
-        const cliScriptSource = path.join(__dirname, 'darwin/tspark.sh');
-        
+        const cliScriptPath = path.join(params.appOutDir, `${params.packager.appInfo.productName}.app/Contents/Resources/tsagent.sh`);
+        const cliScriptSource = path.join(__dirname, 'darwin/tsagent.sh');
+
         try {
-            // Copy the script and make it executable
-            await fs.copyFile(cliScriptSource, cliScriptPath);
+            // Read and modify the source script first
+            let cliScriptContents = await fs.readFile(cliScriptSource, 'utf8');
+            // Replace the placeholders with actual values
+            cliScriptContents = cliScriptContents
+                .replace('${params.packager.appInfo.productName}', params.packager.appInfo.productName)
+                .replace('${params.packager.executableName}', params.packager.executableName);
+            
+            // Write the modified content to destination
+            await fs.writeFile(cliScriptPath, cliScriptContents);
             await fs.chmod(cliScriptPath, 0o755);            
             log.info('MacOS CLI script installed at %s', cliScriptPath);
         } catch (e) {

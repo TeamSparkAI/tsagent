@@ -62,7 +62,7 @@ export class ChatSessionImpl implements ChatSession {
       ...(options.initialMessages || []),
       {
         role: 'system',
-        content: `Welcome to TeamSpark AI Workbench! ${modelDescription}`
+        content: `Welcome to TsAgent! ${modelDescription}`
       }
     ];
 

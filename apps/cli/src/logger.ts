@@ -1,5 +1,5 @@
 import winston from 'winston';
-import type { Logger } from 'agent-api';
+import type { Logger } from '@tsagent/core';
 
 /**
  * Winston-based logger adapter for the CLI application
@@ -28,7 +28,7 @@ export class WinstonLoggerAdapter implements Logger {
         */
         // File transport with rotation
         new winston.transports.File({ 
-          filename: 'tspark-cli.log',
+          filename: 'tsagent-cli.log',
           maxsize: 10 * 1024 * 1024, // 10MB
           maxFiles: 5,
           format: winston.format.combine(
@@ -38,7 +38,7 @@ export class WinstonLoggerAdapter implements Logger {
         }),
         // Error file transport
         new winston.transports.File({ 
-          filename: 'tspark-cli-error.log',
+          filename: 'tsagent-cli-error.log',
           level: 'error',
           maxsize: 10 * 1024 * 1024, // 10MB
           maxFiles: 5,

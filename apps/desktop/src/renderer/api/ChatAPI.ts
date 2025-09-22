@@ -1,7 +1,7 @@
-import { ProviderType } from 'agent-api';
-import type { ProviderModel as ILLMModel } from 'agent-api';
+import { ProviderType } from '@tsagent/core';
+import type { ProviderModel as ILLMModel } from '@tsagent/core';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ChatMessage, MessageUpdate, ModelReply } from 'agent-api';
+import { ChatMessage, MessageUpdate, ModelReply } from '@tsagent/core';
 import log from 'electron-log';
 
 export class ChatAPI {

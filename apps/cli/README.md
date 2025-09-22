@@ -1,6 +1,14 @@
-# TeamSpark AI Workbench CLI
+# @tsagent/cli
 
-A command-line interface for the TeamSpark AI Workbench, providing full access to AI agents, providers, and tools through an interactive terminal interface.
+A command-line interface for TSAgent, providing full access to AI agents, providers, and tools through an interactive terminal interface.
+
+## About TSAgent
+
+This package is part of **TSAgent**, an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. 
+
+- **Main Project**: [TSAgent Repository](https://github.com/TeamSparkAI/tsagent)
+- **Documentation**: [Full Documentation](https://github.com/TeamSparkAI/tsagent#readme)
+- **Issues & Support**: [GitHub Issues](https://github.com/TeamSparkAI/tsagent/issues)
 
 ## Features
 
@@ -15,12 +23,22 @@ A command-line interface for the TeamSpark AI Workbench, providing full access t
 
 ## Installation
 
-### From Source
+```bash
+npm install @tsagent/cli
+```
+
+### Global Installation
+
+```bash
+npm install -g @tsagent/cli
+```
+
+### Development
 
 ```bash
 # Clone the repository
-git clone <repository-url>
-cd teamspark-workbench
+git clone https://github.com/TeamSparkAI/tsagent.git
+cd tsagent
 
 # Install dependencies
 npm install
@@ -28,13 +46,6 @@ npm install
 # Build the CLI
 npm run build:cli
 
-# Run the CLI
-npm run start:cli
-```
-
-### Development
-
-```bash
 # Run in development mode
 npm run dev:cli
 ```
@@ -45,19 +56,22 @@ npm run dev:cli
 
 ```bash
 # Start CLI with agent in current directory
-tspark
+npx @tsagent/cli
+
+# Or if installed globally
+tsagent-cli
 
 # Start CLI with specific agent path
-tspark --agent /path/to/agent
+npx @tsagent/cli --agent /path/to/agent
 
 # Create new agent
-tspark --create
+npx @tsagent/cli --create
 
 # Create new agent in specific directory
-tspark --agent /path/to/new/agent --create
+npx @tsagent/cli --agent /path/to/new/agent --create
 
 # Enable verbose logging
-tspark --verbose
+npx @tsagent/cli --verbose
 ```
 
 ### Command Line Options
@@ -107,7 +121,7 @@ Once in the CLI, you can use the following commands:
 
 ### Agent Configuration
 
-Agents are configured using a `tspark.json` file in the agent directory. This file contains:
+Agents are configured using a `tsagent.json` file in the agent directory. This file contains:
 
 - Agent metadata (name, description, etc.)
 - Provider configurations
@@ -120,8 +134,8 @@ Agents are configured using a `tspark.json` file in the agent directory. This fi
 The CLI uses Winston for logging with the following features:
 
 - Console output with colorized formatting
-- File logging to `tspark-cli.log`
-- Error logging to `tspark-cli-error.log`
+- File logging to `cli.log`
+- Error logging to `cli-error.log`
 - Log rotation (10MB max file size, 5 files max)
 - Configurable log levels
 
@@ -159,9 +173,15 @@ npm run watch
 npm test
 ```
 
+## Related Packages
+
+- `@tsagent/core` - Core TypeScript agent framework
+- `@tsagent/server` - A2A protocol server for exposing agents as HTTP endpoints
+- `@tsagent/orchestrator` - MCP server for orchestrating A2A agent servers
+
 ## Dependencies
 
-- **agent-api**: Core agent functionality
+- **@tsagent/core**: Core agent functionality
 - **chalk**: Terminal colors
 - **commander**: Command line argument parsing
 - **ora**: Loading spinners
@@ -170,4 +190,4 @@ npm test
 
 ## License
 
-MIT License - see LICENSE.md for details.
+MIT License - see [LICENSE](https://github.com/TeamSparkAI/tsagent/blob/main/LICENSE.md) for details.

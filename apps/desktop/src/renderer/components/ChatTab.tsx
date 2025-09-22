@@ -1,15 +1,15 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChatAPI } from '../api/ChatAPI';
-import { ProviderType } from 'agent-api';
+import { ProviderType } from '@tsagent/core';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from 'agent-api';
+import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from '@tsagent/core';
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
-import type { ProviderModel as ILLMModel } from 'agent-api';
-import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MOST_RECENT_MODEL, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from 'agent-api';
+import type { ProviderModel as ILLMModel } from '@tsagent/core';
+import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MOST_RECENT_MODEL, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '@tsagent/core';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -18,8 +18,8 @@ import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
-import { ChatState } from 'agent-api';
-import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from 'agent-api';
+import { ChatState } from '@tsagent/core';
+import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from '@tsagent/core';
 
 interface ClientChatState {
   messages: (RendererChatMessage & { modelReply?: ModelReply })[];
@@ -1437,7 +1437,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                               {!isLoading && (
                                 <>
                                   <div className="warning-message">
-                                    <strong>Warning:</strong>&nbsp;Malicious MCP Servers or conversation content could potentially trick TeamSpark AI Workbench into attempting harmful actions through your installed tools.
+                                    <strong>Warning:</strong>&nbsp;Malicious MCP Servers or conversation content could potentially trick your agent into attempting harmful actions through your installed tools.
                                   </div>
                                   <div className="warning-text">
                                     <strong>Review each action carefully before approving</strong>

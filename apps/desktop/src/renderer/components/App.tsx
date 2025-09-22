@@ -27,23 +27,33 @@ export const App: React.FC = () => {
   const [hasAgent, setHasAgent] = useState<boolean>(false);
   const [hasA2aMcpServer, setHasA2aMcpServer] = useState<boolean>(false);
 
-  // Check for a2a-mcp server
+  // Check for @tsagent/orchestrator server by server version
   const checkA2aMcpServer = async () => {
     try {
       const serverConfigs = await window.api.getServerConfigs();
       log.info(`[APP] Found ${serverConfigs.length} server configs:`, serverConfigs.map(s => s.name));
       
-      const hasA2a = serverConfigs.some(server => server.name === 'a2a-mcp');
-      setHasA2aMcpServer(hasA2a);
-      log.info(`[APP] a2a-mcp server ${hasA2a ? 'found' : 'not found'}`);
-      
-      if (!hasA2a) {
-        log.info(`[APP] Available server names: ${serverConfigs.map(s => `"${s.name}"`).join(', ')}`);
+      // Check each server's version to find the orchestrator
+      for (const serverConfig of serverConfigs) {
+        try {
+          const clientInfo = await window.api.getMCPClient(serverConfig.name);
+          if (clientInfo.serverVersion?.name === '@tsagent/orchestrator') {
+            log.info(`[APP] @tsagent/orchestrator server found as "${serverConfig.name}"`);
+            setHasA2aMcpServer(true);
+            return true;
+          }
+        } catch (error) {
+          // Server might not be running, skip it
+          log.debug(`[APP] Could not connect to server "${serverConfig.name}":`, error);
+          continue;
+        }
       }
       
-      return hasA2a;
+      log.info(`[APP] @tsagent/orchestrator server not found`);
+      setHasA2aMcpServer(false);
+      return false;
     } catch (error) {
-      log.error('[APP] Error checking for a2a-mcp server:', error);
+      log.error('[APP] Error checking for @tsagent/orchestrator server:', error);
       setHasA2aMcpServer(false);
       return false;
     }
@@ -193,8 +203,10 @@ export const App: React.FC = () => {
     // Listen for server configuration changes
     const handleServerConfigChanged = async (data: { action: string, serverName: string }) => {
       log.info('[APP] Server config changed:', data);
-      if (data.serverName === 'a2a-mcp') {
-        log.info('[APP] a2a-mcp server changed, updating orchestration tab');
+      // Check if any server is now the orchestrator (since server names can be anything)
+      const hasOrchestrator = await checkA2aMcpServer();
+      if (hasOrchestrator) {
+        log.info('[APP] Orchestrator server detected, updating orchestration tab');
         // Use current tabs state to avoid stale closure
         setTabs(currentTabs => {
           updateOrchestrationTab(currentTabs);
@@ -220,7 +232,7 @@ export const App: React.FC = () => {
   // Check for a2a-mcp server when tabs are set and we have an agent
   useEffect(() => {
     if (hasAgent && tabs.length > 0) {
-      log.info('[APP] Tabs set, checking for a2a-mcp server');
+      log.info('[APP] Tabs set, checking for @tsagent/orchestrator server');
       updateOrchestrationTab();
     }
   }, [hasAgent, tabs]); // Watch for changes to hasAgent and tabs array

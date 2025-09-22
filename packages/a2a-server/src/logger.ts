@@ -1,4 +1,4 @@
-import { Logger } from 'agent-api';
+import { Logger } from '@tsagent/core';
 
 export class ConsoleLogger implements Logger {
   info(message: string, ...args: any[]): void {

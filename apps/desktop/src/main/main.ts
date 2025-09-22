@@ -1,20 +1,21 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import * as path from 'path';
-import { ProviderType as LLMType, ProviderType } from 'agent-api';
+import { ProviderType as LLMType, ProviderType } from '@tsagent/core';
 import log from 'electron-log';
 import * as fs from 'fs';
-import { McpConfig } from 'agent-api';
+import { McpConfig } from '@tsagent/core';
 import { AgentsManager } from './agents-manager';
-import { agentExists, loadAgent, createAgent, cloneAgent } from 'agent-api/runtime';
-import { Agent } from 'agent-api';
+import { agentExists, loadAgent, createAgent, cloneAgent } from '@tsagent/core/runtime';
+import { Agent } from '@tsagent/core';
+import { AGENT_FILE_NAME } from '@tsagent/core';
 import { ElectronLoggerAdapter } from './logger-adapter';
-import { SessionToolPermission, SETTINGS_KEY_THEME, ChatMessage } from 'agent-api';
+import { SessionToolPermission, SETTINGS_KEY_THEME, ChatMessage } from '@tsagent/core';
 
 const __dirname = path.dirname(__filename);
 
 // Declare managers and paths
 let agentsManager: AgentsManager;
-const PRODUCT_NAME = 'TeamSpark AI Workbench';
+const PRODUCT_NAME = 'TsAgent Foundry';
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
 
 async function createWindow(agent?: Agent): Promise<BrowserWindow> {
@@ -94,7 +95,7 @@ function initializeLogging(isElectron: boolean) {
   if (isElectron) {
     log.initialize({ preload: true }); // Required to wire up the renderer (will crash the CLI)
     const userDataPath = app.getPath('userData');
-    log.transports.file.resolvePathFn = () => path.join(userDataPath, `tspark.log`);
+    log.transports.file.resolvePathFn = () => path.join(userDataPath, `tsagent.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
     log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
     log.transports.file.level = 'info';
@@ -105,7 +106,7 @@ function initializeLogging(isElectron: boolean) {
     }
     log.info(`App starting v${app.getVersion()} (${process.argv[0]})...`);
   } else {
-    log.transports.file.resolvePathFn = () => path.join(process.cwd(), `tspark-console.log`);
+    log.transports.file.resolvePathFn = () => path.join(process.cwd(), `tsagent-console.log`);
     log.transports.file.format = '[{y}-{m}-{d} {h}:{i}:{s}] [{level}] {text}';
     log.transports.file.maxSize = 1024 * 1024 * 10; // 10MB
     log.transports.file.level = 'info';
@@ -149,7 +150,7 @@ async function showLicenseAgreement() {
       type: 'info',
       buttons: ['OK'],
       title: 'License Agreement',
-      message: 'TeamSpark AI Workbench License Agreement',
+      message: `${PRODUCT_NAME} License Agreement`,
       detail: formattedText,
       noLink: true
     });
@@ -162,7 +163,7 @@ async function showLicenseAgreement() {
 function createApplicationMenu() {
   const template: MenuItemConstructorOptions[] = [
     {
-      label: 'TeamSpark AI Workbench',
+      label: PRODUCT_NAME,
       submenu: [
         { role: 'about' },
         { type: 'separator' },
@@ -234,7 +235,7 @@ async function startApp() {
       const logger = new ElectronLoggerAdapter();
       const agent = await loadAgent(agentPath, logger);
       if (!agent) {
-        log.error('Failed to find agent (tspark.json) in directory provide on launch command line: ', agentPath);
+        log.error(`Failed to find agent (${AGENT_FILE_NAME}) in directory provide on launch command line: `, agentPath);
         // !!! Ideally we should show the user this message in the UX
         mainWindow = await createWindow();
       } else {
@@ -248,7 +249,7 @@ async function startApp() {
         const logger = new ElectronLoggerAdapter();
         const agent = await loadAgent(mostRecentlyUsedAgent[0], logger);
         if (!agent) {
-          log.error('Failed to find agent (tspark.json) in most recently used directory: ', mostRecentlyUsedAgent[0]);
+          log.error(`Failed to find agent (${AGENT_FILE_NAME}) in most recently used directory: `, mostRecentlyUsedAgent[0]);
           // !!! Ideally we should show the user this message in the UX
           mainWindow = await createWindow();
         } else {
@@ -537,7 +538,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
-      // !!! This is ugly (rendered code can't import ProviderType from agent-api)
+      // !!! This is ugly (rendered code can't import ProviderType from @tsagent/core)
       const result = session.switchModel(modelType as any, modelId);
       return { 
         success: true,
@@ -998,7 +999,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const agent = await loadAgent(filePath, logger);
     if (!agent) {
       // This is a directory the user just picked, so it should always be a valid agent
-      log.error('Failed to find agent (tspark.json) in directory provided: ', filePath);
+      log.error(`Failed to find agent (${AGENT_FILE_NAME}) in directory provided: `, filePath);
       // !!! Ideally we should show the user this message in the UX
       return null;
     }
@@ -1030,7 +1031,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     // Always create a new window
     if (!agent) {
       // This is a directory the user just picked, so it should always be a valid agent
-      log.error('Failed to find agent (tspark.json) in directory provided: ', filePath);
+      log.error(`Failed to find agent (${AGENT_FILE_NAME}) in directory provided: `, filePath);
       // !!! Ideally we should show the user this message in the UX
       return null;
     }
@@ -1106,7 +1107,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       const logger = new ElectronLoggerAdapter();
       const agent = await loadAgent(agentPath, logger);
       if (!agent) {
-        log.error('[AGENT SWITCH] Failed to find agent (tspark.json) in directory provided: ', agentPath);
+        log.error(`[AGENT SWITCH] Failed to find agent (${AGENT_FILE_NAME}) in directory provided: `, agentPath);
         // !!! Ideally we should show the user this message in the UX
         return false;
       }

@@ -81,3 +81,6 @@ export {
 
 // Export function to populate model from settings
 export { populateModelFromSettings } from './types/agent';
+
+// Export agent filename constant
+export const AGENT_FILE_NAME = 'tsagent.json';

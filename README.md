@@ -49,10 +49,10 @@ npm install @tsagent/cli   # Just the CLI tool
 
 Download the pre-built installer for your platform:
 
-- [macOS (Intel)](https://storage.googleapis.com/teamspark-workbench/TSAgent-Foundry-latest.dmg)
-- [macOS (Apple Silicon)](https://storage.googleapis.com/teamspark-workbench/TSAgent-Foundry-latest-arm64.dmg)
-- [Linux (Debian/Ubuntu)](https://storage.googleapis.com/teamspark-workbench/teamspark-workbench_latest_amd64.deb)
-- [Linux (AppImage)](https://storage.googleapis.com/teamspark-workbench/TSAgent-Foundry-latest.AppImage)
+- [macOS (Intel)](https://storage.googleapis.com/tsagent-foundry/TSAgent-Foundry-latest.dmg)
+- [macOS (Apple Silicon)](https://storage.googleapis.com/tsagent-foundry/TSAgent-Foundry-latest-arm64.dmg)
+- [Linux (Debian/Ubuntu)](https://storage.googleapis.com/tsagent-foundry/teamspark-foundry_latest_amd64.deb)
+- [Linux (AppImage)](https://storage.googleapis.com/tsagent-foundry/TSAgent-Foundry-latest.AppImage)
 
 ## Quick Start
 

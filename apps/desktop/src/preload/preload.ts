@@ -1,9 +1,9 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { API } from '../shared/api';
 import log from 'electron-log';
-import { ProviderType as LLMType } from 'agent-api';
+import { ProviderType as LLMType } from '@tsagent/core';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
-import { ChatMessage } from 'agent-api';
+import { ChatMessage } from '@tsagent/core';
 
 const api: API = {
   // Rules management

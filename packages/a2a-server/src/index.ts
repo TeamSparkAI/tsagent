@@ -7,8 +7,8 @@ import {
 } from '@a2a-js/sdk/server';
 import { A2AExpressApp } from '@a2a-js/sdk/server/express';
 import { AgentCard, Message } from '@a2a-js/sdk';
-import { Agent } from 'agent-api';
-import { loadAgent } from 'agent-api/runtime';
+import { Agent } from '@tsagent/core';
+import { loadAgent } from '@tsagent/core/runtime';
 import { ConsoleLogger } from './logger';
 import express from 'express';
 import { v4 as uuidv4 } from 'uuid';
@@ -36,7 +36,7 @@ export class SimpleAgentExecutor implements AgentExecutor {
     // Handle the message
     const response = await chatSession.handleMessage(messageText);
 
-    console.error('A2A Server response:', JSON.stringify(response, null, 2));
+    console.error('@tsagent/server response:', JSON.stringify(response, null, 2));
 
     /* Response example:
     {
@@ -233,7 +233,7 @@ export class MultiA2AServer {
     // Create agent card with updated URL
     const agentCard: AgentCard = {
       name: agent.name,
-      description: agentMetadata?.description || agent.description || 'Agent powered by agent-api',
+      description: agentMetadata?.description || agent.description || 'Agent powered by @tsagent/core',
       version: agentMetadata?.version || '1.0.0',
       protocolVersion: '1.0.0',
       url: `http://localhost:${this.port}/agents/${pathSegment}`,
@@ -325,7 +325,7 @@ export class MultiA2AServer {
           baseUrl: `http://localhost:${actualPort}/agents/${pathSegment}`
         }));
 
-        this.logger.info(`Multi-A2A Server running on port ${actualPort}`);
+        this.logger.info(`@tsagent/server (multi) running on port ${actualPort}`);
         this.logger.info(`Discovery endpoint: ${discoveryUrl}`);
         
         // Log all registered agents
@@ -378,10 +378,10 @@ export class MultiA2AServer {
     this.isShuttingDown = true;
 
     return new Promise((resolve) => {
-      this.logger.info('Shutting down Multi-A2A Server...');
+      this.logger.info('Shutting down @tsagent/server (multi)...');
       
       this.server.close(() => {
-        this.logger.info('Multi-A2A Server shutdown complete');
+        this.logger.info('@tsagent/server (multi) shutdown complete');
         this.server = null;
         this.actualPort = null;
         this.isShuttingDown = false; // Reset flag for potential restart
@@ -434,7 +434,7 @@ export class A2AServer {
     // Create agent card using metadata when available
     this.agentCard = {
       name: this.agent.name,
-      description: this.agentMetadata?.description || this.agent.description || 'Agent powered by agent-api',
+      description: this.agentMetadata?.description || this.agent.description || 'Agent powered by @tsagent/core',
       version: this.agentMetadata?.version || '1.0.0',
       protocolVersion: '1.0.0',
       url: `http://localhost:${this.port}`,
@@ -523,7 +523,7 @@ export class A2AServer {
         
         const baseUrl = `http://localhost:${actualPort}`;
 
-        this.logger.info(`A2A Server running on port ${actualPort}`);
+        this.logger.info(`@tsagent/server (single) running on port ${actualPort}`);
         this.logger.info(`Base URL: ${baseUrl}`);
         this.logger.info(`Agent card: ${baseUrl}/.well-known/agent-card.json`);
         
@@ -563,10 +563,10 @@ export class A2AServer {
     this.isShuttingDown = true;
 
     return new Promise((resolve) => {
-      this.logger.info('Shutting down A2A Server...');
+      this.logger.info('Shutting down @tsagent/server (single)...');
       
       this.server.close(() => {
-        this.logger.info('A2A Server shutdown complete');
+        this.logger.info('@tsagent/server (single) shutdown complete');
         this.server = null;
         this.actualPort = null;
         this.isShuttingDown = false; // Reset flag for potential restart

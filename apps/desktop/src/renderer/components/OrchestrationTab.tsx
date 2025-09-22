@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
-import { McpConfig } from 'agent-api';
+import { McpConfig } from '@tsagent/core';
 import log from 'electron-log';
 import './OrchestrationTab.css';
 
@@ -54,6 +54,23 @@ export const OrchestrationTab: React.FC<TabProps> = ({ id, activeTabId, name, ty
     }
   }, [id, activeTabId]);
 
+  // Helper function to find orchestrator server by version
+  const findOrchestratorServer = async (serverConfigs: any[]) => {
+    for (const serverConfig of serverConfigs) {
+      try {
+        const clientInfo = await window.api.getMCPClient(serverConfig.name);
+        if (clientInfo.serverVersion?.name === '@tsagent/orchestrator') {
+          return serverConfig;
+        }
+      } catch (error) {
+        // Server might not be running, skip it
+        log.debug(`Could not connect to server "${serverConfig.name}":`, error);
+        continue;
+      }
+    }
+    return null;
+  };
+
   const loadServers = async () => {
     try {
       setIsLoading(true);
@@ -62,14 +79,14 @@ export const OrchestrationTab: React.FC<TabProps> = ({ id, activeTabId, name, ty
       const serverConfigs = await window.api.getServerConfigs();
       setServers(serverConfigs);
       
-      // Find a2a-mcp server
-      const a2aServerConfig = serverConfigs.find(server => server.name === 'a2a-mcp');
+      // Find orchestrator server by checking server version
+      const a2aServerConfig = await findOrchestratorServer(serverConfigs);
       
       if (a2aServerConfig) {
         setA2aServer(a2aServerConfig);
         await loadAgents(a2aServerConfig.name);
       } else {
-        setError('No a2a-mcp server found. Please configure an a2a-mcp server in the Tools tab.');
+        setError('No @tsagent/orchestrator server found. Please configure an @tsagent/orchestrator server in the Tools tab.');
         setAgents([]);
       }
     } catch (err) {
@@ -155,11 +172,11 @@ export const OrchestrationTab: React.FC<TabProps> = ({ id, activeTabId, name, ty
             <div>
               <p>
                 <strong>Agent Orchestration</strong> allows you to discover, manage, and interact with A2A (Agent-to-Agent) agents 
-                through the a2a-mcp server. This enables you to coordinate multiple AI agents and leverage their specialized capabilities.
+                through the @tsagent/orchestrator server. This enables you to coordinate multiple AI agents and leverage their specialized capabilities.
               </p>
               
               <p>
-                This tab will be present when the a2a-mcp server is installed in this agent to allow you to discover, inspect, and test the agents it provides.
+                This tab will be present when the @tsagent/orchestrator server is installed in this agent to allow you to discover, inspect, and test the agents it provides.
               </p>
 
               {a2aServer && (
@@ -351,7 +368,7 @@ export const OrchestrationTab: React.FC<TabProps> = ({ id, activeTabId, name, ty
             )}
             {!a2aServer && (
               <div className="no-items-message">
-                No a2a-mcp server configured
+                No @tsagent/orchestrator server configured
               </div>
             )}
           </div>
