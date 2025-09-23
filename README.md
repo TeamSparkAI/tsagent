@@ -29,6 +29,15 @@ TsAgent is a comprehensive platform that enables anyone to:
 
 ## Installation
 
+### TsAgent Foundry - Desktop Application
+
+Download the pre-built installer for your platform:
+
+- [macOS (Intel)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest.dmg)
+- [macOS (Apple Silicon)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest-arm64.dmg)
+- [Linux (Debian/Ubuntu)](https://storage.googleapis.com/tsagent/tsagent-foundry_latest_amd64.deb)
+- [Linux (AppImage)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest.AppImage)
+
 ### TsAgent CLI and Developer Tools (NPM Packages)
 
 ```bash
@@ -39,15 +48,6 @@ npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/orchestrator
 npm install @tsagent/core  # Just the TypeScript library
 npm install @tsagent/cli   # Just the CLI tool
 ```
-
-### TsAgent Foundry - Desktop Application
-
-Download the pre-built installer for your platform:
-
-- [macOS (Intel)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest.dmg)
-- [macOS (Apple Silicon)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest-arm64.dmg)
-- [Linux (Debian/Ubuntu)](https://storage.googleapis.com/tsagent/tsagent-foundry_latest_amd64.deb)
-- [Linux (AppImage)](https://storage.googleapis.com/tsagent/TsAgent%20Foundry-latest.AppImage)
 
 ## Quick Start
 
