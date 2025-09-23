@@ -1,4 +1,4 @@
-# TsAgent: TypeScript Agent Platform
+# TsAgent: The TypeScript Agent Platform
 
 **TsAgent** is an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. It provides a complete ecosystem from desktop and CLI apps for no-code agent creation, to production-ready agent servers, all supported by TypeScript APIs.
 
