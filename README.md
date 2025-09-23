@@ -1,13 +1,13 @@
-# TSAgent: TypeScript Agent Platform
+# TsAgent: TypeScript Agent Platform
 
-**TSAgent** is an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. It provides a complete ecosystem from desktop and CLI apps for no-code agent creation to production-ready agent servers, all supported by TypeScript APIs.
+**TsAgent** is an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. It provides a complete ecosystem from desktop and CLI apps for no-code agent creation, to production-ready agent servers, all supported by TypeScript APIs.
 
-## What is TSAgent?
+## What is TsAgent?
 
-TSAgent is a comprehensive platform that enables anyone to:
+TsAgent is a comprehensive platform that enables anyone to:
 
 - **Build Agents**: Create no-code AI agents through a visual interface (Foundry), CLI, or via API
-- **Support Any Provider**: Works with all major LLM providers, cloud, hosted, and local (OpenAI, Anthropic, Google, AWS Bedrock, Ollama)
+- **Support Any Provider**: Work with all major LLM providers, cloud, hosted, and local (OpenAI, Anthropic, Google, AWS Bedrock, Ollama)
 - **Manage Context**: Use references (memory, ground truth) and rules (prompt guidance) to give agents persistent knowledge
 - **Integrate Tools**: Connect thousands of tools via Model Context Protocol (MCP) support
 - **Orchestrate Workflows**: Chain agents together using the A2A (Agent-to-Agent) protocol
@@ -25,7 +25,7 @@ TSAgent is a comprehensive platform that enables anyone to:
 
 ## Installation
 
-### CLI and Developer Tools (NPM Packages)
+### TsAgent CLI and Developer Tools (NPM Packages)
 
 ```bash
 # Install all developer tools
@@ -87,7 +87,7 @@ tsagent-server /path/to/agent --port 3000
 
 ## Agent Types
 
-TSAgent supports two types of agents:
+TsAgent supports two types of agents:
 
 - **Interactive Agents**: Maintain conversation history and can ask for user permission to use tools
 - **Autonomous Agents**: Process requests independently and return complete results without user interaction
@@ -113,13 +113,14 @@ Also, any agent can orchestrate other agents (whether it is interactive or auton
                         │                   │             |
                 ┌───────┴───────┐   ┌───────┴───────┐     |
                 │ MCP Tools     │   | A2A Orchestr. ├─────┘
-                | (MCP Servers) │   │ (MCP Server ) │
+                | (MCP Servers) │   │ (MCP Server)  │
                 └───────────────┘   └───────────────┘
 ```
 
 ## Development Workflow
 
 1. **Create Agent**: Use TsAgent Foundry desktop app or CLI for no-code agent creation
+2. **Build Agent**: Write prompts, engineer context (rules/references), and add relevant MCP tools
 2. **Test Agent**: Chat with your agent to refine its behavior
 3. **Orchestrate**: Chain agents together using the A2A protocol
 4. **Deploy**: Embed agents in applications via the `@tsagent\core` API or expose agents as A2A servers
