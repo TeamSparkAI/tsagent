@@ -23,6 +23,10 @@ TsAgent is a comprehensive platform that enables anyone to:
 | **A2A Server** | `@tsagent/server` | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
 | **A2A Orchestrator** | `@tsagent/orchestrator` | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
 
+| TsAgent Foundry | TsAgent CLI |
+|-----------------|-------------|
+| [![TsAgent Foundry](docs/images/desktop_sm.png)](docs/images/desktop.png) | [![TsAgent CLI](docs/images/cli_sm.png)](docs/images/cli.png) |
+
 ## Installation
 
 ### TsAgent CLI and Developer Tools (NPM Packages)
