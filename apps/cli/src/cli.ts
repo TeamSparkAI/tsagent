@@ -174,7 +174,7 @@ function getToolPermissionValue(agent: Agent, key: string, defaultValue: Session
 
 function getProviderByName(name: string): ProviderType | undefined {
   const providerType = Object.values(ProviderType).find(
-    p => p.toLowerCase() === name.toLowerCase()
+    (p: ProviderType) => p.toLowerCase() === name.toLowerCase()
   );
   return providerType;
 }
@@ -271,13 +271,13 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           if (args.length === 0) {
             const installedProviders = agent.getInstalledProviders();
             const availableProviders = agent.getAvailableProviders();
-            const nonInstalledProviders = availableProviders.filter(p => !installedProviders.includes(p));
+            const nonInstalledProviders = availableProviders.filter((p: ProviderType) => !installedProviders.includes(p));
             
             if (installedProviders.length === 0) {
               console.log(chalk.cyan('No providers installed'));
             } else {
               console.log(chalk.cyan(`Providers installed and available:`));
-              installedProviders.forEach(provider => {
+              installedProviders.forEach((provider: ProviderType) => {
                 const indicator = provider === currentProvider ? chalk.green('* ') : '  ';
                 const providerInfo = agent.getProviderInfo(provider);
                 console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo.name}`));
@@ -287,7 +287,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               console.log(chalk.cyan('No providers available to install'));
             } else {
               console.log(chalk.cyan(`Providers available to install:`));
-              nonInstalledProviders.forEach(provider => {
+              nonInstalledProviders.forEach((provider: ProviderType) => {
                 const providerInfo = agent.getProviderInfo(provider);
                 console.log(chalk.yellow(`  ${provider}: ${providerInfo.name}`));
               });
@@ -363,7 +363,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               let modelDescription = '';
               if (modelId) {
                 // validate modelId is a valid model for the provider
-                const model = models.find(m => m.id.toLowerCase() === modelId.toLowerCase());
+                const model = models.find((m: any) => m.id.toLowerCase() === modelId.toLowerCase());
                 if (model) {
                   currentModelId = model.id;
                   modelDescription = `specified model: ${model.name}`;
@@ -421,11 +421,11 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           const models = await agent.getProviderModels(currentProvider);
           const modelName = args[0];
           if (modelName) {
-            const model = models.find((m) => m.id.toLowerCase() === modelName.toLowerCase());
+            const model = models.find((m: any) => m.id.toLowerCase() === modelName.toLowerCase());
             if (model && currentProvider) {
               currentModelId = model.id;
-              chatSession.switchModel(currentProvider, currentModelId);
-              await updatedMostRecentProvider(currentProvider, currentModelId);
+              chatSession.switchModel(currentProvider, currentModelId!);
+              await updatedMostRecentProvider(currentProvider, currentModelId!);
               console.log(chalk.green(`Switched to ${modelName} on ${currentProvider}`));
             } else {
               console.log(chalk.red('Model not found by name:'), chalk.yellow(modelName));
@@ -532,21 +532,21 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           // Session totals
           console.log(chalk.cyan('  Session Totals:'));
           
-          const userMessages = chatSession.getState().messages.filter(msg => msg.role === 'user').length;
+          const userMessages = chatSession.getState().messages.filter((msg: any) => msg.role === 'user').length;
           console.log(`    User Messages: ${chalk.yellow(userMessages)}`);
           
           // Calculate AI responses (turns)
           const aiResponses = chatSession.getState().messages
-            .filter(msg => msg.role === 'assistant')
-            .reduce((total, msg) => total + (('modelReply' in msg) ? msg.modelReply.turns.length : 0), 0);
+            .filter((msg: any) => msg.role === 'assistant')
+            .reduce((total: number, msg: any) => total + (('modelReply' in msg) ? msg.modelReply.turns.length : 0), 0);
           console.log(`    AI Responses (Turns): ${chalk.yellow(aiResponses)}`);
           
           // Calculate total input tokens
           const totalInputTokens = chatSession.getState().messages
-            .filter(msg => msg.role === 'assistant')
-            .reduce((total, msg) => {
+            .filter((msg: any) => msg.role === 'assistant')
+            .reduce((total: number, msg: any) => {
               if ('modelReply' in msg) {
-                return total + msg.modelReply.turns.reduce((turnTotal, turn) => 
+                return total + msg.modelReply.turns.reduce((turnTotal: number, turn: any) => 
                   turnTotal + (turn.inputTokens || 0), 0);
               }
               return total;
@@ -555,10 +555,10 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           
           // Calculate total output tokens
           const totalOutputTokens = chatSession.getState().messages
-            .filter(msg => msg.role === 'assistant')
-            .reduce((total, msg) => {
+            .filter((msg: any) => msg.role === 'assistant')
+            .reduce((total: number, msg: any) => {
               if ('modelReply' in msg) {
-                return total + msg.modelReply.turns.reduce((turnTotal, turn) => 
+                return total + msg.modelReply.turns.reduce((turnTotal: number, turn: any) => 
                   turnTotal + (turn.outputTokens || 0), 0);
               }
               return total;
@@ -568,7 +568,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           // Last message stats
           console.log(chalk.cyan('\n  Last Message:'));
           
-          const aiMessages = chatSession.getState().messages.filter(msg => msg.role === 'assistant');
+          const aiMessages = chatSession.getState().messages.filter((msg: any) => msg.role === 'assistant');
           if (aiMessages.length > 0) {
             // Get the last AI message
             const lastMessage = [...aiMessages]
@@ -585,17 +585,17 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               console.log(`    AI Response Turns: ${chalk.yellow(responseTurns)}`);
               
               // Count tool calls
-              const toolCalls = lastMessage.modelReply.turns.reduce((total, turn) => 
+              const toolCalls = lastMessage.modelReply.turns.reduce((total: number, turn: any) => 
                 total + (turn.toolCalls?.length || 0), 0);
               console.log(`    Tool Calls: ${chalk.yellow(toolCalls)}`);
               
               // Calculate input tokens for last message
-              const inputTokens = lastMessage.modelReply.turns.reduce((total, turn) => 
+              const inputTokens = lastMessage.modelReply.turns.reduce((total: number, turn: any) => 
                 total + (turn.inputTokens || 0), 0);
               console.log(`    Input Tokens: ${chalk.yellow(inputTokens.toLocaleString())}`);
               
               // Calculate output tokens for last message
-              const outputTokens = lastMessage.modelReply.turns.reduce((total, turn) => 
+              const outputTokens = lastMessage.modelReply.turns.reduce((total: number, turn: any) => 
                 total + (turn.outputTokens || 0), 0);
               console.log(`    Output Tokens: ${chalk.yellow(outputTokens.toLocaleString())}`);
             }
@@ -617,7 +617,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           if (allRules.length === 0) {
             console.log(chalk.yellow('No rules available.'));
           } else {
-            allRules.forEach(rule => {
+            allRules.forEach((rule: any) => {
               const isActive = chatSession.getState().rules.includes(rule.name);
               const marker = isActive ? '*' : '-';
               console.log(`${marker} ${rule.name} (priority: ${rule.priorityLevel})${!rule.enabled ? ' [disabled]' : ''}`);
@@ -633,7 +633,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           if (allReferences.length === 0) {
             console.log(chalk.yellow('No references available.'));
           } else {
-            allReferences.forEach(reference => {
+            allReferences.forEach((reference: any) => {
               const isActive = chatSession.getState().references.includes(reference.name);
               const marker = isActive ? '*' : '-';
               console.log(`${marker} ${reference.name} (priority: ${reference.priorityLevel})${!reference.enabled ? ' [disabled]' : ''}`);

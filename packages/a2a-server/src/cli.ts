@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-import { A2AServer, MultiA2AServer } from './index';
-import { ConsoleLogger } from './logger';
 import { AGENT_FILE_NAME } from '@tsagent/core';
+
+import { A2AServer, MultiA2AServer } from './index.js';
+import { ConsoleLogger } from './logger.js';
 
 interface CliOptions {
   agentPaths: string[];
@@ -190,10 +191,8 @@ async function main(): Promise<void> {
   }
 }
 
-// Run the CLI if this file is executed directly
-if (import.meta.url === `file://${process.argv[1]}`) {
-  main().catch((error) => {
-    console.error('Unhandled error:', error);
-    process.exit(1);
-  });
-}
+// Run the CLI
+main().catch((error) => {
+  console.error('Unhandled error:', error);
+  process.exit(1);
+});

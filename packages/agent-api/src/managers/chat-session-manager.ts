@@ -1,8 +1,23 @@
-import { ChatSessionImpl } from '../core/chat-session';
-import { ChatSession, ChatSessionOptions, ChatSessionOptionsWithRequiredSettings } from '../types/chat';
-import { ChatSessionManager } from './types';
-import { Agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL, SessionToolPermission, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
-import { Logger } from '../types/common';
+import { ChatSessionImpl } from '../core/chat-session.js';
+import { ChatSession, ChatSessionOptions, ChatSessionOptionsWithRequiredSettings } from '../types/chat.js';
+import { ChatSessionManager } from './types.js';
+import { 
+  Agent, 
+  SETTINGS_KEY_MAX_CHAT_TURNS, 
+  SETTINGS_DEFAULT_MAX_CHAT_TURNS, 
+  SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
+  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, 
+  SETTINGS_KEY_TEMPERATURE, 
+  SETTINGS_DEFAULT_TEMPERATURE, 
+  SETTINGS_KEY_TOP_P, 
+  SETTINGS_DEFAULT_TOP_P, 
+  SESSION_TOOL_PERMISSION_KEY, 
+  SESSION_TOOL_PERMISSION_TOOL, 
+  SessionToolPermission, 
+  SESSION_TOOL_PERMISSION_ALWAYS, 
+  SESSION_TOOL_PERMISSION_NEVER 
+} from '../types/agent.js';
+import { Logger } from '../types/common.js';
 
 export class ChatSessionManagerImpl implements ChatSessionManager {
   private agent: Agent;

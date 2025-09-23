@@ -1,8 +1,8 @@
-import { Reference, Rule } from '..';
-import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types';
-import { McpClient, McpConfig } from '../mcp/types';
-import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types';
-import { ChatSession, ChatSessionOptions } from './chat';
+import { Reference, Rule } from '../index.js';
+import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types.js';
+import { McpClient, McpConfig } from '../mcp/types.js';
+import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
+import { ChatSession, ChatSessionOptions } from './chat.js';
 
 export const SETTINGS_KEY_MAX_CHAT_TURNS = 'maxChatTurns';
 export const SETTINGS_KEY_MAX_OUTPUT_TOKENS = 'maxOutputTokens';

@@ -1,5 +1,5 @@
-import { Agent } from '../types/agent';
-import { ChatSession, ChatMessage, ToolCallRequest, ToolCallResult } from '../types/chat';
+import { Agent } from '../types/agent.js';
+import { ChatSession, ChatMessage, ToolCallRequest, ToolCallResult } from '../types/chat.js';
 
 // Provider types
 export enum ProviderType {
@@ -65,4 +65,4 @@ export interface ModelReply {
 }
 
 // Re-export types from chat for convenience (used by Providers)
-export type { Turn, ToolCallRequest, ToolCallResult } from '../types/chat';
+export type { Turn, ToolCallRequest, ToolCallResult } from '../types/chat.js';

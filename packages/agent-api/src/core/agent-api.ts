@@ -1,5 +1,7 @@
 import * as path from 'path';
-import * as fs from 'fs';
+import { v4 as uuidv4 } from 'uuid';
+import { EventEmitter } from 'events';
+
 import { Agent, AgentConfig, AgentSettings,
   SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_CHAT_TURNS, 
   SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
@@ -9,21 +11,19 @@ import { Agent, AgentConfig, AgentSettings,
   SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL,
   AgentMetadata,
   AgentMode
-} from '../types/agent';
-import { Logger } from '../types/common';
-import { RulesManager } from '../managers/rules-manager';
-import { ReferencesManager } from '../managers/references-manager';
-import { McpServerManagerImpl } from '../managers/mcp-server-manager';
-import { ChatSessionManagerImpl } from '../managers/chat-session-manager';
-import { MCPClientManagerImpl } from '../mcp/client-manager';
-import { v4 as uuidv4 } from 'uuid';
-import { McpClient, MCPClientManager, McpConfig } from '../mcp/types';
-import { EventEmitter } from 'events';
-import { ProviderFactory } from '../providers/provider-factory';
-import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types';
-import { Reference, Rule } from '..';
-import { ChatSession, ChatSessionOptions } from '../types/chat';
-import { AgentStrategy, FileBasedAgentStrategy } from './agent-strategy';
+} from '../types/agent.js';
+import { Logger } from '../types/common.js';
+import { RulesManager } from '../managers/rules-manager.js';
+import { ReferencesManager } from '../managers/references-manager.js';
+import { McpServerManagerImpl } from '../managers/mcp-server-manager.js';
+import { ChatSessionManagerImpl } from '../managers/chat-session-manager.js';
+import { MCPClientManagerImpl } from '../mcp/client-manager.js';
+import { McpClient, MCPClientManager, McpConfig } from '../mcp/types.js';
+import { ProviderFactory } from '../providers/provider-factory.js';
+import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
+import { Reference, Rule } from '../index.js';
+import { ChatSession, ChatSessionOptions } from '../types/chat.js';
+import { AgentStrategy, FileBasedAgentStrategy } from './agent-strategy.js';
 
 // The idea behind the agent strategy is that you might want to serialize agents differenty (for example, in a database for an 
 // online service), or you might want to be able to create ephemral agents where you can set their state however you want and use

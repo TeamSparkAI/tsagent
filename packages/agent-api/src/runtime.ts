@@ -1,9 +1,9 @@
 // Runtime exports (not pure JS, requires node.js runtime)
 
-import type { Logger } from './types/common';
-import type { AgentConfig, Agent } from './types/agent';
-import { FileBasedAgentFactory } from './core/agent-api';
-import { FileBasedAgentStrategy } from './core/agent-strategy';
+import type { Logger } from './types/common.js';
+import type { AgentConfig, Agent } from './types/agent.js';
+import { FileBasedAgentFactory } from './core/agent-api.js';
+import { FileBasedAgentStrategy } from './core/agent-strategy.js';
 
 // Factory functions
 export const createAgent = async (path: string, logger: Logger, data?: Partial<AgentConfig>): Promise<Agent> => FileBasedAgentFactory.createAgent(path, logger, data);

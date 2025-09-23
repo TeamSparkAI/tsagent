@@ -2,15 +2,15 @@ import {
   Provider, 
   ProviderType, 
   ProviderInfo
-} from './types';
-import { Agent } from '../types/agent';
-import { Logger } from '../types/common';
-import { TestProvider } from './test-provider';
-import { BedrockProvider } from './bedrock-provider';
-import { ClaudeProvider } from './claude-provider';
-import { OpenAIProvider } from './openai-provider';
-import { GeminiProvider } from './gemini-provider';
-import { OllamaProvider } from './ollama-provider';
+} from './types.js';
+import { Agent } from '../types/agent.js';
+import { Logger } from '../types/common.js';
+import { TestProvider } from './test-provider.js';
+import { BedrockProvider } from './bedrock-provider.js';
+import { ClaudeProvider } from './claude-provider.js';
+import { OpenAIProvider } from './openai-provider.js';
+import { GeminiProvider } from './gemini-provider.js';
+import { OllamaProvider } from './ollama-provider.js';
 
 export class ProviderFactory {
   private agent: Agent;

@@ -1,12 +1,14 @@
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+
 import OpenAI from 'openai';
-import { Tool } from "@modelcontextprotocol/sdk/types";
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat';
-import { ModelReply, Turn } from './types';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
-import { Agent } from '../types/agent';
-import { Logger } from '../types/common';
-import { ProviderHelper } from './provider-helper';
+
+import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat.js';
+import { ModelReply, Turn } from './types.js';
+import { Agent } from '../types/agent.js';
+import { Logger } from '../types/common.js';
+import { ProviderHelper } from './provider-helper.js';
 
 export class OpenAIProvider implements Provider {
   private readonly agent: Agent;

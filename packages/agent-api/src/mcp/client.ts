@@ -1,12 +1,13 @@
-import { McpClient, McpConfig } from './types';
-import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse';
-import { Client } from '@modelcontextprotocol/sdk/client/index';
-import { CallToolResult, ClientResultSchema, Tool } from "@modelcontextprotocol/sdk/types";
-import { CallToolResultWithElapsedTime } from './types';
-import { Transport } from '@modelcontextprotocol/sdk/shared/transport';
-import { ChatSession } from '../types/chat';
-import { Logger } from '../types/common';
+import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
+import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+
+import { McpClient, McpConfig } from './types.js';
+import { CallToolResultWithElapsedTime } from './types.js';
+import { ChatSession } from '../types/chat.js';
+import { Logger } from '../types/common.js';
 
 export abstract class McpClientBase {
     protected mcp: Client;

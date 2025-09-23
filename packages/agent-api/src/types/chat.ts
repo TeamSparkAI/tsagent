@@ -1,5 +1,11 @@
-import { ModelReply, Provider, ProviderType } from '../providers/types';
-import { SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TOP_P, SessionToolPermission, SETTINGS_KEY_TEMPERATURE, SESSION_TOOL_PERMISSION_KEY } from './agent';
+import { ModelReply, Provider, ProviderType } from '../providers/types.js';
+import { 
+  SETTINGS_KEY_MAX_CHAT_TURNS, 
+  SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
+  SETTINGS_KEY_TOP_P, SessionToolPermission, 
+  SETTINGS_KEY_TEMPERATURE, 
+  SESSION_TOOL_PERMISSION_KEY 
+} from './agent.js';
 
 // These represent the Electron-side chat history (requests and responses)
 

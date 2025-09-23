@@ -1,3 +1,8 @@
+import express from 'express';
+import { v4 as uuidv4 } from 'uuid';
+import * as crypto from 'crypto';
+import * as path from 'path';
+
 import { 
   AgentExecutor, 
   RequestContext, 
@@ -9,11 +14,8 @@ import { A2AExpressApp } from '@a2a-js/sdk/server/express';
 import { AgentCard, Message } from '@a2a-js/sdk';
 import { Agent } from '@tsagent/core';
 import { loadAgent } from '@tsagent/core/runtime';
-import { ConsoleLogger } from './logger';
-import express from 'express';
-import { v4 as uuidv4 } from 'uuid';
-import * as crypto from 'crypto';
-import * as path from 'path';
+
+import { ConsoleLogger } from './logger.js';
 
 export class SimpleAgentExecutor implements AgentExecutor {
   constructor(private agent: Agent, private logger: ConsoleLogger) {}

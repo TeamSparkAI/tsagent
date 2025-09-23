@@ -2,18 +2,18 @@
 // Runtime code (that requires node.js) is exported from './runtime'
 
 // Export agent types
-export type { Agent, AgentConfig, AgentMetadata, AgentSkill, SessionToolPermission } from './types/agent';
+export type { Agent, AgentConfig, AgentMetadata, AgentSkill, SessionToolPermission } from './types/agent.js';
 
 // Export common types
-export type { Logger } from './types/common';
+export type { Logger } from './types/common.js';
 
 // Export provider types
-export { ProviderType } from './providers/types';
-export type { ProviderInfo, ProviderModel, ModelReply } from './providers/types';
+export { ProviderType } from './providers/types.js';
+export type { ProviderInfo, ProviderModel, ModelReply } from './providers/types.js';
 
 // Export rule and reference types
-export type { Rule } from './types/rules';
-export type { Reference } from './types/references';
+export type { Rule } from './types/rules.js';
+export type { Reference } from './types/references.js';
 
 // Export chat types
 export { 
@@ -30,7 +30,7 @@ export {
   TOOL_CALL_DECISION_ALLOW_SESSION, 
   TOOL_CALL_DECISION_ALLOW_ONCE, 
   TOOL_CALL_DECISION_DENY
- } from './types/chat';
+ } from './types/chat.js';
 
 // Export MCP types and constants 
 export { 
@@ -57,7 +57,7 @@ export {
   isToolEnabled,
   isToolAvailable,
   getToolEnabledState
-} from './mcp/types';
+} from './mcp/types.js';
 
 // Export constants that are needed by implementation
 export {
@@ -77,10 +77,10 @@ export {
   SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
   SETTINGS_DEFAULT_TEMPERATURE,
   SETTINGS_DEFAULT_TOP_P
-} from './types/agent';
+} from './types/agent.js';
 
 // Export function to populate model from settings
-export { populateModelFromSettings } from './types/agent';
+export { populateModelFromSettings } from './types/agent.js';
 
 // Export agent filename constant
 export const AGENT_FILE_NAME = 'tsagent.json';

@@ -1,8 +1,8 @@
-import { Rule } from '../types/rules';
-import { Reference } from '../types/references';
-import { ProviderType, ProviderInfo, Provider, ProviderModel } from '../providers/types';
-import { McpConfig } from '../mcp/types';
-import { ChatSession, ChatMessage, ChatSessionOptions } from '../types/chat';
+import { Rule } from '../types/rules.js';
+import { Reference } from '../types/references.js';
+import { ProviderType, ProviderInfo, Provider, ProviderModel } from '../providers/types.js';
+import { McpConfig } from '../mcp/types.js';
+import { ChatSession, ChatMessage, ChatSessionOptions } from '../types/chat.js';
 
 // Manager interfaces
 

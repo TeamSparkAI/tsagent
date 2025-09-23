@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
-import { Rule } from '../types/rules';
-import { Logger } from '../types/common';
-import { AgentStrategy } from '../core/agent-strategy';
+import { Rule } from '../types/rules.js';
+import { Logger } from '../types/common.js';
+import { AgentStrategy } from '../core/agent-strategy.js';
 
 export class RulesManager extends EventEmitter {
   private rules: Rule[] = [];

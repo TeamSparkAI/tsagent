@@ -5,6 +5,7 @@
     "moduleResolution": "node",
     "outDir": "./dist/esm",
     "rootDir": "./src",
+    "baseUrl": ".",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

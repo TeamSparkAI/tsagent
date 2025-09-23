@@ -2,9 +2,13 @@
   "compilerOptions": {
     "target": "ES2022",
     "module": "ES2022",
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "outDir": "./dist",
     "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@a2a-js/sdk/*": ["./node_modules/@a2a-js/sdk/dist/*"]
+    },
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,

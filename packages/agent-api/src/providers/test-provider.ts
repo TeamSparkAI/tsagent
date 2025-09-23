@@ -1,8 +1,8 @@
-import { ChatMessage, ChatSession } from '../types/chat';
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
-import { ModelReply } from './types';
-import { Agent } from '../types/agent';
-import { Logger } from '../types/common';
+import { ChatMessage, ChatSession } from '../types/chat.js';
+import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
+import { ModelReply } from './types.js';
+import { Agent } from '../types/agent.js';
+import { Logger } from '../types/common.js';
 
 export class TestProvider implements Provider {
   private readonly agent: Agent;

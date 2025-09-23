@@ -1,12 +1,13 @@
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types';
+import { Tool } from '@modelcontextprotocol/sdk/types.js';
+
 import Anthropic from '@anthropic-ai/sdk';
-import { Tool } from '@modelcontextprotocol/sdk/types';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat';
-import { ModelReply, Turn } from './types';
-import { Agent } from '../types/agent';
-import { Logger } from '../types/common';
-import { ProviderHelper } from './provider-helper';
+
+import { ModelReply, Provider, ProviderModel, ProviderType, ProviderInfo, Turn } from './types.js';
+import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat.js';
+import { Agent } from '../types/agent.js';
+import { Logger } from '../types/common.js';
+import { ProviderHelper } from './provider-helper.js';
 
 export class ClaudeProvider implements Provider {
   private readonly agent: Agent;

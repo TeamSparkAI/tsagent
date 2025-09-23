@@ -1,7 +1,7 @@
 {
   "name": "tsagent-foundry",
   "productName": "TsAgent Foundry",
-  "version": "1.2.0",
+  "version": "1.2.7",
   "description": "Agent builder application supporting multi-LLMs, tool calling, and agent orchestration",
   "author": {
     "name": "TeamSpark",
@@ -41,7 +41,7 @@
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@types/uuid": "^10.0.0",
-    "@tsagent/core": "^1.2.2",
+    "@tsagent/core": "^1.2.7",
     "dotenv": "^16.4.7",
     "electron-log": "^5.3.2",
     "js-yaml": "^4.1.0",

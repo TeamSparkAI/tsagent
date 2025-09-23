@@ -1,11 +1,11 @@
-import { McpClient, McpConfig } from './types';
-import { McpClientSse, McpClientStdio } from './client';
-import { Logger } from '../types/common';
-import { Agent } from '../types/agent'
-import { McpClientInternalRules } from './client-rules';
-import { McpClientInternalReferences } from './client-references';
-import { SETTINGS_KEY_SYSTEM_PATH } from '../types/agent';
-import { MCPClientManager } from './types';
+import { McpClient, McpConfig } from './types.js';
+import { McpClientSse, McpClientStdio } from './client.js';
+import { Logger } from '../types/common.js';
+import { Agent } from '../types/agent.js'
+import { McpClientInternalRules } from './client-rules.js';
+import { McpClientInternalReferences } from './client-references.js';
+import { SETTINGS_KEY_SYSTEM_PATH } from '../types/agent.js';
+import { MCPClientManager } from './types.js';
 
 export class MCPClientManagerImpl implements MCPClientManager {
     private clients: Map<string, McpClient>;

@@ -1,3 +1,9 @@
+#!/usr/bin/env node
+
+import { A2AClient } from '@a2a-js/sdk/client';
+import { v4 as uuidv4 } from 'uuid';
+import { MultiA2AServer } from '@tsagent/server';
+
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
@@ -5,9 +11,6 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
-import { A2AClient } from '@a2a-js/sdk/client';
-import { v4 as uuidv4 } from 'uuid';
-import { MultiA2AServer } from '@tsagent/server';
 
 interface AgentEndpoint {
   originalUri: string;    // Original URI (for logging/debugging)

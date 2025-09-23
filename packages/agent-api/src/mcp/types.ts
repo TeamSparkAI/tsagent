@@ -1,7 +1,6 @@
+import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 
-import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types";
-import { ChatSession } from "../types/chat";
-import { Agent } from "../types/agent";
+import { ChatSession } from "../types/chat.js";
 
 // Re-export the imported types
 export { CallToolResult, Tool };

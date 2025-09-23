@@ -1,7 +1,7 @@
 import { EventEmitter } from 'events';
-import { Reference } from '../types/references';
-import { Logger } from '../types/common';
-import { AgentStrategy } from '../core/agent-strategy';
+import { Reference } from '../types/references.js';
+import { Logger } from '../types/common.js';
+import { AgentStrategy } from '../core/agent-strategy.js';
 
 export class ReferencesManager extends EventEmitter {
   private references: Reference[] = [];

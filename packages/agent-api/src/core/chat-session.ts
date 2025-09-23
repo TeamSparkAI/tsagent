@@ -1,9 +1,9 @@
-import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession, ChatSessionOptionsWithRequiredSettings } from '../types/chat';
-import { Provider, ProviderType } from '../providers/types';
-import { Agent, populateModelFromSettings } from '../types/agent';
-import { Logger } from '../types/common';
-import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent';
-import { isToolPermissionRequired } from '../mcp/types';
+import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession, ChatSessionOptionsWithRequiredSettings } from '../types/chat.js';
+import { Provider, ProviderType } from '../providers/types.js';
+import { Agent, populateModelFromSettings } from '../types/agent.js';
+import { Logger } from '../types/common.js';
+import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent.js';
+import { isToolPermissionRequired } from '../mcp/types.js';
 
 export class ChatSessionImpl implements ChatSession {
   private _id: string;

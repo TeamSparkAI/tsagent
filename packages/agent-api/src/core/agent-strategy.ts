@@ -1,14 +1,14 @@
-import { ProviderType } from '../providers/types';
-import { Rule } from '../types/rules';
-import { Reference } from '../types/references';
-import { McpConfig } from '../mcp/types';
-import { Agent, AgentConfig } from '../types/agent';
-import { AGENT_FILE_NAME } from '../index';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
-import { Logger } from '../types/common';
-import { AgentImpl } from './agent-api';
+import { ProviderType } from '../providers/types.js';
+import { Rule } from '../types/rules.js';
+import { Reference } from '../types/references.js';
+import { McpConfig } from '../mcp/types.js';
+import { Agent, AgentConfig } from '../types/agent.js';
+import { AGENT_FILE_NAME } from '../index.js';
+import { Logger } from '../types/common.js';
+import { AgentImpl } from './agent-api.js';
 
 export interface AgentStrategy {
   // Agent lifecycle

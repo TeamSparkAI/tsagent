@@ -1,10 +1,10 @@
-import { Tool } from "@modelcontextprotocol/sdk/types";
-import { CallToolResultWithElapsedTime, McpClient } from "./types";
-import { Logger } from '../types/common';
-import { ReferencesManager } from '../managers/types';
-import { ChatSession } from "../types/chat";
-import { Reference } from "../types/references";
-import { Agent } from "../types/agent";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
+
+import { CallToolResultWithElapsedTime, McpClient } from "./types.js";
+import { Logger } from '../types/common.js';
+import { ChatSession } from "../types/chat.js";
+import { Reference } from "../types/references.js";
+import { Agent } from "../types/agent.js";
 
 /**
  * Interface for reference arguments with all fields optional

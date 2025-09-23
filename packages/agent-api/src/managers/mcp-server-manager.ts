@@ -1,8 +1,7 @@
-import { McpServerManager } from './types';
-import { Agent } from '../types/agent';
-import { Logger } from '../types/common';
-import { MCPClientManager, McpConfig, McpConfigFileServerConfig } from '../mcp/types';
-import { AgentImpl } from '../core/agent-api';
+import { McpServerManager } from './types.js';
+import { Logger } from '../types/common.js';
+import { MCPClientManager, McpConfig, McpConfigFileServerConfig } from '../mcp/types.js';
+import { AgentImpl } from '../core/agent-api.js';
 
 export class McpServerManagerImpl implements McpServerManager {
   private agent: AgentImpl;

@@ -1,8 +1,8 @@
-import { Tool } from "@modelcontextprotocol/sdk/types";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
-import { CallToolResultWithElapsedTime, isToolAvailable, isToolPermissionRequired } from "../mcp/types";
-import { ChatSession } from "../types/chat";
-import { Agent } from "../types/agent";
+import { CallToolResultWithElapsedTime, isToolAvailable, isToolPermissionRequired } from "../mcp/types.js";
+import { ChatSession } from "../types/chat.js";
+import { Agent } from "../types/agent.js";
 
 export class ProviderHelper {
 

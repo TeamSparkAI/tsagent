@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/cli",
-  "version": "1.2.0",
+  "version": "1.2.7",
   "description": "TsAgent CLI",
   "type": "module",
   "main": "dist/main.js",
@@ -15,7 +15,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@tsagent/core": "^1.2.0",
+    "@tsagent/core": "^1.2.7",
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "ora": "^5.4.1",
