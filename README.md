@@ -1,5 +1,5 @@
 [![npm version](https://img.shields.io/npm/v/@tsagent/core.svg)](https://www.npmjs.com/package/@tsagent/core)
-[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/TeamSparkAI/toolvault/blob/main/LICENSE.md)
+[![License](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/TeamSparkAI/tsagent/blob/main/LICENSE.md)
 [![GitHub stars](https://img.shields.io/github/stars/TeamSparkAI/tsagent.svg)](https://github.com/TeamSparkAI/tsagent/stargazers)
 [![Discord](https://img.shields.io/discord/1401626396584968234?label=Discord&logo=discord)](https://discord.gg/Z2dh4ATXnB)
 
