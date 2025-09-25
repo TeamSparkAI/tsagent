@@ -25,11 +25,11 @@ TsAgent is a comprehensive platform that enables anyone to:
 
 | Component | Package Name | Delivery Method | Description |
 |-----------|-------------|-----------------|-------------|
-| **Core API** | `@tsagent/core` | TypeScript Library | TypeScript agent framework for building, testing, and running agents programmatically |
+| **Core API** | [`@tsagent/core`](https://www.npmjs.com/package/@tsagent/core) | TypeScript Library | TypeScript agent framework for building, testing, and running agents programmatically |
 | **Foundry** | *(no npm package)* | Desktop App | No-code desktop application for creating, testing, and managing agents |
-| **CLI** | `@tsagent/cli` | CLI Tool | Command-line interface for agent operations and automation <br>`tsagent-cli` |
-| **A2A Server** | `@tsagent/server` | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
-| **A2A Orchestrator** | `@tsagent/orchestrator` | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
+| **CLI** | [`@tsagent/cli`](https://www.npmjs.com/package/@tsagent/cli) | CLI Tool | Command-line interface for agent operations and automation <br>`tsagent-cli` |
+| **A2A Server** | [`@tsagent/server`](https://www.npmjs.com/package/@tsagent/server) | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
+| **A2A Orchestrator** | [`@tsagent/orchestrator`](https://www.npmjs.com/package/@tsagent/orchestrator) | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
 
 | TsAgent Foundry | TsAgent CLI |
 |-----------------|-------------|
