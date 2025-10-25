@@ -84,7 +84,12 @@ export const RulesModal: React.FC<RulesModalProps> = ({
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Manage Rules</h2>
+          <div>
+            <h2>Manage Rules</h2>
+            <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: 'var(--text-secondary)' }}>
+              Manage which rules are available to the current chat session context
+            </p>
+          </div>
           <button className="close-button" onClick={onClose}>×</button>
         </div>
         

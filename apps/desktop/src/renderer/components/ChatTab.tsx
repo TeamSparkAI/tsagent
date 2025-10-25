@@ -85,6 +85,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [isNewSession, setIsNewSession] = useState(true);
+  const [expandedToolServers, setExpandedToolServers] = useState<Set<string>>(new Set());
   const [chatSettings, setChatSettings] = useState<ChatSettings>({
     maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
     maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
@@ -667,6 +668,18 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     });
   };
 
+  const toggleToolServer = (serverName: string) => {
+    setExpandedToolServers(prev => {
+      const next = new Set(prev);
+      if (next.has(serverName)) {
+        next.delete(serverName);
+      } else {
+        next.add(serverName);
+      }
+      return next;
+    });
+  };
+
   const toggleContextPanel = () => {
     setShowContextPanel(!showContextPanel);
     setShowStatsPanel(false);
@@ -1135,22 +1148,67 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                 </button>
               </div>
               {activeTools.length === 0 && <p>No active tools</p>}
-              <ul className="context-list">
-                {availableTools
-                  .filter(tool => activeTools.some(active => active.serverName === tool.serverName && active.toolName === tool.toolName))
-                  .sort((a, b) => {
-                    if (a.serverName !== b.serverName) {
-                      return a.serverName.localeCompare(b.serverName);
+              {(() => {
+                const toolsByServer: Record<string, typeof availableTools> = {};
+                availableTools.forEach(tool => {
+                  if (activeTools.some(active => active.serverName === tool.serverName && active.toolName === tool.toolName)) {
+                    if (!toolsByServer[tool.serverName]) {
+                      toolsByServer[tool.serverName] = [];
                     }
-                    return a.toolName.localeCompare(b.toolName);
-                  })
-                  .map(tool => (
-                    <li key={`${tool.serverName}:${tool.toolName}`} className="context-item">
-                      <span className="server">{tool.serverName}</span>
-                      <span className="name" title={tool.description}>{tool.toolName}</span>
-                    </li>
-                  ))}
-              </ul>
+                    toolsByServer[tool.serverName].push(tool);
+                  }
+                });
+
+                return Object.keys(toolsByServer).length > 0 && (
+                  <ul className="context-list" style={{ margin: 0, padding: 0 }}>
+                    {Object.keys(toolsByServer).sort().map(serverName => {
+                      const serverTools = toolsByServer[serverName].sort((a, b) => a.toolName.localeCompare(b.toolName));
+                      const allServerTools = availableTools.filter(t => t.serverName === serverName);
+                      const isExpanded = expandedToolServers.has(serverName);
+                      const counts = {
+                        active: serverTools.length,
+                        total: allServerTools.length
+                      };
+                      
+                      return (
+                        <li key={serverName} style={{ listStyle: 'none', marginBottom: '8px' }}>
+                          <div 
+                            style={{ 
+                              cursor: 'pointer', 
+                              padding: '4px 8px', 
+                              backgroundColor: 'var(--background-secondary)',
+                              borderRadius: '4px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '8px'
+                            }}
+                            onClick={() => toggleToolServer(serverName)}
+                          >
+                            <span style={{ fontSize: '12px' }}>{isExpanded ? '▼' : '▶'}</span>
+                            <span style={{ fontWeight: 'bold' }}>{serverName}</span>
+                            <span style={{ fontSize: '12px', color: 'var(--text-secondary)' }}>
+                              {counts.active === counts.total ? (
+                                `(all ${counts.active} tools)`
+                              ) : (
+                                `(${counts.active} of ${counts.total} tools)`
+                              )}
+                            </span>
+                          </div>
+                          {isExpanded && (
+                            <ul style={{ margin: '4px 0 0 20px', padding: 0 }}>
+                              {serverTools.map(tool => (
+                                <li key={`${tool.serverName}:${tool.toolName}`} className="context-item">
+                                  <span className="name" title={tool.description}>{tool.toolName}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                );
+              })()}
             </div>
           </div>
         </div>
