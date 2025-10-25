@@ -429,6 +429,18 @@ export class McpClientInternalSupervision implements McpClient {
             }
         },
         {
+            name: "supervised_modify_response",
+            description: "Modify the supervised agent's response",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    content: { type: "string", description: "New response content" },
+                    reason: { type: "string", description: "Reason for modification" }
+                },
+                required: ["content", "reason"]
+            }
+        },
+        {
             name: "supervised_allow_message",
             description: "Allow the current message to proceed unchanged",
             inputSchema: {
@@ -660,6 +672,9 @@ export class McpClientInternalSupervision implements McpClient {
                 case "supervised_modify_message":
                     result = this.modifyMessage(args?.content as string, args?.reason as string);
                     break;
+                case "supervised_modify_response":
+                    result = this.modifyResponse(args?.content as string, args?.reason as string);
+                    break;
                 case "supervised_allow_message":
                     result = this.allowMessage(args?.reason as string);
                     break;
@@ -728,8 +743,81 @@ export class McpClientInternalSupervision implements McpClient {
     }
 
     private modifyMessage(content: string, reason: string): any {
-        // TODO: Implement modifying message
-        return { success: true, message: "Message modified", content, reason };
+        if (!this.supervisedSession) {
+            throw new Error('No supervised session bound');
+        }
+        
+        const state = this.supervisedSession.getState();
+        const messages = state.messages;
+        
+        if (messages.length === 0) {
+            throw new Error('No messages to modify');
+        }
+        
+        // Modify the last message in place
+        const lastMessage = messages[messages.length - 1];
+        
+        if (typeof lastMessage === 'string') {
+            // Replace string message with modified content
+            (this.supervisedSession as any).messages[messages.length - 1] = content;
+        } else if (lastMessage.role === 'user' || lastMessage.role === 'system' || lastMessage.role === 'error') {
+            // Modify the content of the last user/system/error message
+            (this.supervisedSession as any).messages[messages.length - 1] = {
+                ...lastMessage,
+                content: content
+            };
+        } else {
+            throw new Error('Cannot modify message of this type');
+        }
+        
+        return { success: true, message: "Message modified", reason };
+    }
+    
+    private modifyResponse(content: string, reason: string): any {
+        if (!this.supervisedSession) {
+            throw new Error('No supervised session bound');
+        }
+        
+        const state = this.supervisedSession.getState();
+        const messages = state.messages;
+        
+        if (messages.length === 0) {
+            throw new Error('No messages to modify');
+        }
+        
+        // Find and modify the last assistant message
+        for (let i = messages.length - 1; i >= 0; i--) {
+            const message = messages[i];
+            
+            if (typeof message !== 'string' && message.role === 'assistant' && 'modelReply' in message) {
+                // Modify the assistant's response content
+                if (message.modelReply && message.modelReply.turns.length > 0) {
+                    (this.supervisedSession as any).messages[i] = {
+                        ...message,
+                        modelReply: {
+                            ...message.modelReply,
+                            turns: [
+                                {
+                                    ...message.modelReply.turns[0],
+                                    message: content
+                                }
+                            ]
+                        }
+                    };
+                } else {
+                    (this.supervisedSession as any).messages[i] = {
+                        ...message,
+                        modelReply: {
+                            timestamp: Date.now(),
+                            turns: [{ message: content }]
+                        }
+                    };
+                }
+                return { success: true, message: "Response modified", reason };
+            }
+        }
+        
+        throw new Error('No assistant message found in response to modify');
     }
 
     private allowMessage(reason: string): any {

@@ -281,94 +281,41 @@ The supervision client (`client-supervision.ts`) imports these shared functions 
 
 Supervised versions of tools (e.g., `supervised_listRules`, `supervised_includeRule`) behave identically to their self-service counterparts (e.g., `listRules`, `includeRule`), with the only difference being the context (supervised agent/session vs supervisor agent/session).
 
-## Implementation Gaps and Future Work
+## Future Enhancements
 
-Based on the original supervision.md specification, the following features are not yet implemented:
+Based on the original supervision.md specification, the following features remain to be implemented:
 
-### **Missing Core Features**
+### **System Prompt Modification**
+- **Status**: Not implemented
+- **Gap**: No tools or API for supervisors to modify agent system prompt during runtime
+- **Effort**: Medium - Requires new supervision tools
 
-#### 1. **System Prompt Modification**
-- **Specification**: Supervisors should be able to modify the system prompt
-- **Current Status**: Not implemented - supervisors can only modify messages and responses
-- **Gap**: No mechanism to update the agent's system prompt during runtime
-
-#### 2. **References Management**
-- **Specification**: Supervisors should be able to add/modify/remove references
-- **Current Status**: Not implemented - no reference manipulation capabilities
-- **Gap**: No way for supervisors to dynamically update agent knowledge base
-
-#### 3. **Rules Management**
-- **Specification**: Supervisors should be able to modify agent rules
-- **Current Status**: Not implemented - no rule manipulation capabilities
-- **Gap**: No way for supervisors to update agent behavior rules
-
-#### 4. **Tools Management**
-- **Specification**: Supervisors should be able to modify agent tools
-- **Current Status**: Not implemented - no tool manipulation capabilities
-- **Gap**: No way for supervisors to add/remove/modify agent capabilities
-
-#### 5. **Conversation Context Access**
-- **Specification**: Supervisors should have full access to conversation context and history
-- **Current Status**: ✅ **IMPLEMENTED** - Supervisors receive full ChatSession object with complete context
-- **Implementation**: Supervisors get access to session.rules, session.references, session.messages, session.agent, and prepared messages array
-
-### **Missing Advanced Features**
-
-#### 6. **Multiple Message Testing**
-- **Specification**: Supervisors can send multiple messages to test and tune the executor agent
-- **Current Status**: Not implemented - supervisors can only process single messages
+### **Multiple Message Testing**
+- **Status**: Not implemented  
 - **Gap**: No mechanism for supervisors to send multiple test messages
+- **Effort**: High - Requires architectural changes to supervision flow
 
-#### 7. **Multiple Response Options**
-- **Specification**: Supervisors can send multiple responses to users and receive selection feedback
-- **Current Status**: Not implemented - supervisors can only modify single responses
-- **Gap**: No support for presenting multiple response options to users
+### **Multiple Response Options**
+- **Status**: Not implemented
+- **Gap**: No support for presenting multiple responses to users
+- **Effort**: High - Requires changes to conversation flow and UI
 
-#### 8. **Conversation Replay and Mutation**
-- **Specification**: Supervisors can replay conversation steps after mutating context
-- **Current Status**: Not implemented - no replay or mutation testing capabilities
-- **Gap**: No way to test context changes by replaying conversations
+### **Conversation Replay and Mutation**
+- **Status**: Not implemented
+- **Gap**: No replay or mutation testing capabilities
+- **Effort**: High - Requires new testing infrastructure
 
-#### 9. **Passive Observation Mode**
-- **Specification**: Supervisors can be passed entire conversations after the fact
-- **Current Status**: Not implemented - supervisors only work in real-time
-- **Gap**: No support for post-conversation analysis and processing
+### **Passive Observation Mode**
+- **Status**: Not implemented
+- **Gap**: Supervisors only work in real-time, no post-conversation analysis
+- **Effort**: Medium - Requires post-processing analysis mode
 
-#### 10. **Supervisor Agent Capabilities**
-- **Specification**: Supervisors can be agents themselves with their own system prompts, rules, references, and tools
-- **Current Status**: Partially implemented - supervisors can be agents but lack the specified tool capabilities
-- **Gap**: No tools for supervisors to modify executor agent context
+### **Message Supervision Actions**
+- **Status**: Partially implemented
+- **Gap**: Tools defined but return placeholders (`supervised_block_message`, `supervised_modify_message`, `supervised_allow_message`, `supervised_request_human_review`)
+- **Effort**: Medium - Requires changes to chat session runtime to intercept/modify/block messages
 
-### **Permission System Gaps**
-
-#### 11. **Context Modification Permissions**
-- **Specification**: Permissions should control what supervisors can modify in executor agent state
-- **Current Status**: Basic permissions exist but don't cover all specified capabilities
-- **Gap**: Missing permissions for system prompt, references, rules, and tools modification
-
-### **Integration Gaps**
-
-#### 12. **External System Integration**
-- **Specification**: Collection agents should write to external systems (logs, data stores, OpenTelemetry)
-- **Current Status**: Basic collection implemented but no external system integration
+### **External System Integration**
+- **Status**: Basic collection implemented
 - **Gap**: No built-in support for external logging, monitoring, or data export
-
-### **Priority for Implementation**
-
-**High Priority:**
-1. ✅ Conversation context access (full history, summarizations) - **COMPLETED**
-2. System prompt modification
-3. References and rules management
-
-**Medium Priority:**
-4. Tools management
-5. Multiple message testing
-6. Enhanced permission system
-
-**Low Priority:**
-7. Multiple response options
-8. Conversation replay and mutation
-9. Passive observation mode
-10. External system integration
-
-These gaps represent significant opportunities to enhance the supervision system to fully meet the original specification while maintaining the current simplified architecture.
+- **Effort**: Medium - Requires integration with logging/monitoring infrastructure
