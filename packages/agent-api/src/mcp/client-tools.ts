@@ -153,103 +153,56 @@ export class McpClientInternalTools implements McpClient {
             
             switch (tool.name) {
             case "listTools":
-                result = await this.listTools();
+                result = await implementListTools(this.agent);
                 break;
             case "getTool":
-                result = await this.getTool(args?.serverName as string, args?.toolName as string);
+                result = await implementGetTool(this.agent, args?.serverName as string, args?.toolName as string);
                 break;
             case "listContextTools": {
                 if (!session) {
                     throw new Error(`Chat session not found`);
                 }
-                
-                const includedTools = session.getIncludedTools();
-                result = { tools: includedTools };
+                result = await implementListContextTools(session);
                 break;
             }
             case "includeTool": {
                 if (!session) {
                     throw new Error(`Chat session not found`);
                 }
-                
-                const success = await session.addTool(args?.serverName as string, args?.toolName as string);
-                result = {
-                    success,
-                    message: success 
-                        ? `Tool '${args?.serverName}:${args?.toolName}' included in context`
-                        : `Tool '${args?.serverName}:${args?.toolName}' was already in context`
-                };
+                result = await implementIncludeTool(session, args?.serverName as string, args?.toolName as string);
                 break;
             }
             case "excludeTool": {
                 if (!session) {
                     throw new Error(`Chat session not found`);
                 }
-                
-                const success = session.removeTool(args?.serverName as string, args?.toolName as string);
-                result = {
-                    success,
-                    message: success 
-                        ? `Tool '${args?.serverName}:${args?.toolName}' excluded from context`
-                        : `Tool '${args?.serverName}:${args?.toolName}' was not in context`
-                };
+                result = await implementExcludeTool(session, args?.serverName as string, args?.toolName as string);
                 break;
             }
             case "setToolIncludeMode":
-                result = await this.setToolIncludeMode(args?.serverName as string, args?.toolName as string, args?.mode as string);
+                result = await implementSetToolIncludeMode(this.agent, args?.serverName as string, args?.toolName as string, args?.mode as string);
                 break;
             case "listToolServers":
-                result = await this.listToolServers();
+                result = await implementListToolServers(this.agent);
                 break;
             case "getToolServer":
-                result = await this.getToolServer(args?.name as string);
+                result = await implementGetToolServer(this.agent, args?.name as string);
                 break;
             case "setServerIncludeMode":
-                result = await this.setServerIncludeMode(args?.name as string, args?.mode as string);
+                result = await implementSetServerIncludeMode(this.agent, args?.name as string, args?.mode as string);
                 break;
             case "includeToolServer": {
                 if (!session) {
                     throw new Error(`Chat session not found`);
                 }
-                
-                const mcpClients = await this.agent.getAllMcpClients();
-                const client = mcpClients[args?.name as string];
-                
-                if (!client) {
-                    throw new Error(`Server '${args?.name}' not found`);
-                }
-                
-                // Include all tools from the server
-                let includedCount = 0;
-                for (const tool of client.serverTools) {
-                    const success = await session.addTool(args?.name as string, tool.name);
-                    if (success) includedCount++;
-                }
-                
-                result = {
-                    success: true,
-                    message: `Server '${args?.name}' included with ${includedCount} tools added to context`
-                };
+                result = await implementIncludeToolServer(this.agent, session, args?.name as string);
                 break;
             }
             case "excludeToolServer": {
                 if (!session) {
                     throw new Error(`Chat session not found`);
                 }
-                
-                const includedTools = session.getIncludedTools();
-                const serverTools = includedTools.filter(tool => tool.serverName === args?.name);
-                
-                let excludedCount = 0;
-                for (const tool of serverTools) {
-                    const success = session.removeTool(tool.serverName, tool.toolName);
-                    if (success) excludedCount++;
-                }
-                
-                result = {
-                    success: true,
-                    message: `Server '${args?.name}' excluded with ${excludedCount} tools removed from context`
-                };
+                result = await implementExcludeToolServer(session, args?.name as string);
                 break;
             }
             default:
@@ -287,162 +240,223 @@ export class McpClientInternalTools implements McpClient {
     }
 
     // Tool implementation methods
-    private async listTools(): Promise<any> {
-        try {
-            const mcpClients = await this.agent.getAllMcpClients();
-            const allTools: Array<{serverName: string, toolName: string, description: string}> = [];
-            
-            for (const [serverName, client] of Object.entries(mcpClients)) {
-                for (const tool of client.serverTools) {
-                    allTools.push({
-                        serverName,
-                        toolName: tool.name,
-                        description: tool.description || ''
-                    });
-                }
-            }
-            
-            return { tools: allTools };
-        } catch (error) {
-            throw new Error(`Error listing tools: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
+    // These methods are now exported and called directly from callTool
+}
 
-    private async getTool(serverName: string, toolName: string): Promise<any> {
-        try {
-            const mcpClients = await this.agent.getAllMcpClients();
-            const client = mcpClients[serverName];
-            
-            if (!client) {
-                throw new Error(`Server '${serverName}' not found`);
-            }
-            
-            const tool = client.serverTools.find((t: any) => t.name === toolName);
-            if (!tool) {
-                throw new Error(`Tool '${toolName}' not found in server '${serverName}'`);
-            }
-            
-            return {
-                serverName,
-                toolName: tool.name,
-                description: tool.description,
-                inputSchema: tool.inputSchema
-            };
-        } catch (error) {
-            throw new Error(`Error getting tool: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
+// ========================================
+// Exported Implementation Functions
+// ========================================
 
-
-    private async setToolIncludeMode(serverName: string, toolName: string, mode: string): Promise<any> {
-        if (!['always', 'manual', 'agent'].includes(mode)) {
-            throw new Error(`Invalid include mode: ${mode}. Must be 'always', 'manual', or 'agent'`);
+export async function implementListTools(agent: Agent): Promise<any> {
+    try {
+        const mcpClients = await agent.getAllMcpClients();
+        const allTools: Array<{serverName: string, toolName: string, description: string}> = [];
+        
+        for (const [serverName, client] of Object.entries(mcpClients)) {
+            for (const tool of client.serverTools) {
+                allTools.push({
+                    serverName,
+                    toolName: tool.name,
+                    description: tool.description || ''
+                });
+            }
         }
         
-        try {
-            const mcpServers = await this.agent.getAllMcpServers();
-            const server = mcpServers[serverName];
-            
-            if (!server) {
-                throw new Error(`Server '${serverName}' not found`);
-            }
-            
-            // Update the server config with the new tool include mode
-            const updatedConfig = {
-                ...server.config,
-                toolInclude: {
-                    serverDefault: server.config.toolInclude?.serverDefault || 'manual',
-                    tools: {
-                        ...server.config.toolInclude?.tools,
-                        [toolName]: mode as 'always' | 'manual' | 'agent'
-                    }
-                }
-            };
-            
-            // Save the updated configuration
-            this.agent.saveMcpServer({ ...server, config: updatedConfig });
-            
-            return {
-                success: true,
-                message: `Tool '${serverName}:${toolName}' include mode set to '${mode}'`
-            };
-        } catch (error) {
-            throw new Error(`Error setting tool include mode: ${error instanceof Error ? error.message : String(error)}`);
-        }
+        return { tools: allTools };
+    } catch (error) {
+        throw new Error(`Error listing tools: ${error instanceof Error ? error.message : String(error)}`);
     }
+}
 
-    private async listToolServers(): Promise<any> {
-        try {
-            const mcpClients = await this.agent.getAllMcpClients();
-            const servers = Object.entries(mcpClients).map(([name, client]) => ({
-                name,
-                type: 'mcp', // MCP clients are all of type 'mcp'
-                toolCount: client.serverTools.length,
-                serverDefault: 'manual' // Default for now, could be enhanced later
-            }));
-            
-            return { servers };
-        } catch (error) {
-            throw new Error(`Error listing tool servers: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
-
-    private async getToolServer(name: string): Promise<any> {
-        try {
-            const mcpClients = await this.agent.getAllMcpClients();
-            const client = mcpClients[name];
-            
-            if (!client) {
-                throw new Error(`Server '${name}' not found`);
-            }
-            
-            return {
-                name,
-                type: 'mcp', // MCP clients are all of type 'mcp'
-                toolCount: client.serverTools.length,
-                serverDefault: 'manual', // Default for now, could be enhanced later
-                tools: client.serverTools.map((tool: any) => ({
-                    name: tool.name,
-                    description: tool.description
-                }))
-            };
-        } catch (error) {
-            throw new Error(`Error getting tool server: ${error instanceof Error ? error.message : String(error)}`);
-        }
-    }
-
-    private async setServerIncludeMode(name: string, mode: string): Promise<any> {
-        if (!['always', 'manual', 'agent'].includes(mode)) {
-            throw new Error(`Invalid include mode: ${mode}. Must be 'always', 'manual', or 'agent'`);
+export async function implementGetTool(agent: Agent, serverName: string, toolName: string): Promise<any> {
+    try {
+        const mcpClients = await agent.getAllMcpClients();
+        const client = mcpClients[serverName];
+        
+        if (!client) {
+            throw new Error(`Server '${serverName}' not found`);
         }
         
-        try {
-            const mcpServers = await this.agent.getAllMcpServers();
-            const server = mcpServers[name];
-            
-            if (!server) {
-                throw new Error(`Server '${name}' not found`);
-            }
-            
-            // Update the server config with the new server default include mode
-            const updatedConfig = {
-                ...server.config,
-                toolInclude: {
-                    ...server.config.toolInclude,
-                    serverDefault: mode as 'always' | 'manual' | 'agent'
-                }
-            };
-            
-            // Save the updated configuration
-            this.agent.saveMcpServer({ ...server, config: updatedConfig });
-            
-            return {
-                success: true,
-                message: `Server '${name}' include mode set to '${mode}'`
-            };
-        } catch (error) {
-            throw new Error(`Error setting server include mode: ${error instanceof Error ? error.message : String(error)}`);
+        const tool = client.serverTools.find((t: any) => t.name === toolName);
+        if (!tool) {
+            throw new Error(`Tool '${toolName}' not found in server '${serverName}'`);
         }
+        
+        return {
+            serverName,
+            toolName: tool.name,
+            description: tool.description,
+            inputSchema: tool.inputSchema
+        };
+    } catch (error) {
+        throw new Error(`Error getting tool: ${error instanceof Error ? error.message : String(error)}`);
     }
+}
 
+export async function implementListContextTools(session: ChatSession): Promise<any> {
+    const includedTools = session.getIncludedTools();
+    return { tools: includedTools };
+}
+
+export async function implementIncludeTool(session: ChatSession, serverName: string, toolName: string): Promise<any> {
+    const success = await session.addTool(serverName, toolName);
+    return {
+        success,
+        message: success 
+            ? `Tool '${serverName}:${toolName}' included in context`
+            : `Tool '${serverName}:${toolName}' was already in context`
+    };
+}
+
+export async function implementExcludeTool(session: ChatSession, serverName: string, toolName: string): Promise<any> {
+    const success = session.removeTool(serverName, toolName);
+    return {
+        success,
+        message: success 
+            ? `Tool '${serverName}:${toolName}' excluded from context`
+            : `Tool '${serverName}:${toolName}' was not in context`
+    };
+}
+
+export async function implementSetToolIncludeMode(agent: Agent, serverName: string, toolName: string, mode: string): Promise<any> {
+    if (!['always', 'manual', 'agent'].includes(mode)) {
+        throw new Error(`Invalid include mode: ${mode}. Must be 'always', 'manual', or 'agent'`);
+    }
+    
+    try {
+        const mcpServers = await agent.getAllMcpServers();
+        const server = mcpServers[serverName];
+        
+        if (!server) {
+            throw new Error(`Server '${serverName}' not found`);
+        }
+        
+        const updatedConfig = {
+            ...server.config,
+            toolInclude: {
+                serverDefault: server.config.toolInclude?.serverDefault || 'manual',
+                tools: {
+                    ...server.config.toolInclude?.tools,
+                    [toolName]: mode as 'always' | 'manual' | 'agent'
+                }
+            }
+        };
+        
+        agent.saveMcpServer({ ...server, config: updatedConfig });
+        
+        return {
+            success: true,
+            message: `Tool '${serverName}:${toolName}' include mode set to '${mode}'`
+        };
+    } catch (error) {
+        throw new Error(`Error setting tool include mode: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+export async function implementListToolServers(agent: Agent): Promise<any> {
+    try {
+        const mcpClients = await agent.getAllMcpClients();
+        const servers = Object.entries(mcpClients).map(([name, client]) => ({
+            name,
+            type: 'mcp',
+            toolCount: client.serverTools.length,
+            serverDefault: 'manual'
+        }));
+        
+        return { servers };
+    } catch (error) {
+        throw new Error(`Error listing tool servers: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+export async function implementGetToolServer(agent: Agent, name: string): Promise<any> {
+    try {
+        const mcpClients = await agent.getAllMcpClients();
+        const client = mcpClients[name];
+        
+        if (!client) {
+            throw new Error(`Server '${name}' not found`);
+        }
+        
+        return {
+            name,
+            type: 'mcp',
+            toolCount: client.serverTools.length,
+            serverDefault: 'manual',
+            tools: client.serverTools.map((tool: any) => ({
+                name: tool.name,
+                description: tool.description
+            }))
+        };
+    } catch (error) {
+        throw new Error(`Error getting tool server: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+export async function implementSetServerIncludeMode(agent: Agent, name: string, mode: string): Promise<any> {
+    if (!['always', 'manual', 'agent'].includes(mode)) {
+        throw new Error(`Invalid include mode: ${mode}. Must be 'always', 'manual', or 'agent'`);
+    }
+    
+    try {
+        const mcpServers = await agent.getAllMcpServers();
+        const server = mcpServers[name];
+        
+        if (!server) {
+            throw new Error(`Server '${name}' not found`);
+        }
+        
+        const updatedConfig = {
+            ...server.config,
+            toolInclude: {
+                ...server.config.toolInclude,
+                serverDefault: mode as 'always' | 'manual' | 'agent'
+            }
+        };
+        
+        agent.saveMcpServer({ ...server, config: updatedConfig });
+        
+        return {
+            success: true,
+            message: `Server '${name}' include mode set to '${mode}'`
+        };
+    } catch (error) {
+        throw new Error(`Error setting server include mode: ${error instanceof Error ? error.message : String(error)}`);
+    }
+}
+
+export async function implementIncludeToolServer(agent: Agent, session: ChatSession, serverName: string): Promise<any> {
+    const mcpClients = await agent.getAllMcpClients();
+    const client = mcpClients[serverName];
+    
+    if (!client) {
+        throw new Error(`Server '${serverName}' not found`);
+    }
+    
+    let includedCount = 0;
+    for (const tool of client.serverTools) {
+        const success = await session.addTool(serverName, tool.name);
+        if (success) includedCount++;
+    }
+    
+    return {
+        success: true,
+        message: `Server '${serverName}' included with ${includedCount} tools added to context`
+    };
+}
+
+export async function implementExcludeToolServer(session: ChatSession, serverName: string): Promise<any> {
+    const includedTools = session.getIncludedTools();
+    const serverTools = includedTools.filter(tool => tool.serverName === serverName);
+    
+    let excludedCount = 0;
+    for (const tool of serverTools) {
+        const success = session.removeTool(tool.serverName, tool.toolName);
+        if (success) excludedCount++;
+    }
+    
+    return {
+        success: true,
+        message: `Server '${serverName}' excluded with ${excludedCount} tools removed from context`
+    };
 }

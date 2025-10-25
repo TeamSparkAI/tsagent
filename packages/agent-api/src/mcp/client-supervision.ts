@@ -7,6 +7,47 @@ import { Rule } from "../types/rules.js";
 import { Reference } from "../types/references.js";
 import { Agent } from "../types/agent.js";
 
+// Import shared implementation functions
+import {
+    validateRuleArgs,
+    implementCreateRule,
+    implementGetRule,
+    implementUpdateRule,
+    implementDeleteRule,
+    implementListRules,
+    implementListContextRules,
+    implementIncludeRule,
+    implementExcludeRule,
+    type RuleArgs
+} from './client-rules.js';
+
+import {
+    validateReferenceArgs,
+    implementCreateReference,
+    implementGetReference,
+    implementUpdateReference,
+    implementDeleteReference,
+    implementListReferences,
+    implementListContextReferences,
+    implementIncludeReference,
+    implementExcludeReference,
+    type ReferenceArgs
+} from './client-references.js';
+
+import {
+    implementListTools,
+    implementGetTool,
+    implementListContextTools,
+    implementIncludeTool,
+    implementExcludeTool,
+    implementSetToolIncludeMode,
+    implementListToolServers,
+    implementGetToolServer,
+    implementSetServerIncludeMode,
+    implementIncludeToolServer,
+    implementExcludeToolServer
+} from './client-tools.js';
+
 /**
  * Internal MCP client for supervision tools
  * Provides tools for supervisor agents to monitor and modify supervised agents
@@ -453,12 +494,25 @@ export class McpClientInternalSupervision implements McpClient {
         this.supervisedSession = session;
     }
 
+    /**
+     * Get the supervised agent from the supervised session
+     */
+    private get supervisedAgent(): Agent {
+        if (!this.supervisedSession) {
+            throw new Error("No supervised session set");
+        }
+        return (this.supervisedSession as any).agent;
+    }
+
     async callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {
         const startTime = Date.now();
         
         if (!this.supervisedSession) {
             throw new Error("No supervised session set. Call setSupervisedSession() first.");
         }
+
+        const supervisedAgent = this.supervisedAgent;
+        const supervisedSession = this.supervisedSession;
 
         try {
             let result: any;
@@ -475,94 +529,131 @@ export class McpClientInternalSupervision implements McpClient {
                     result = this.getSupervisedSessionData('references');
                     break;
                 case "supervised_get_available_tools":
-                    result = this.getSupervisedSessionTools();
+                    result = this.getSupervisedSessionTools(supervisedSession);
                     break;
                 case "supervised_get_session_stats":
                     result = this.getSupervisedSessionStats();
                     break;
                 
-                // Rules Management Tools
-                case "supervised_listRules":
-                    result = this.listSupervisedRules();
+                // Rules Management Tools - use shared implementations
+                case "supervised_listRules": {
+                    result = implementListRules(supervisedAgent);
                     break;
-                case "supervised_getRule":
-                    result = this.getSupervisedRule(args?.name as string);
+                }
+                case "supervised_getRule": {
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    result = implementGetRule(supervisedAgent, validatedArgs.name!);
                     break;
-                case "supervised_createRule":
-                    result = this.createSupervisedRule(args);
+                }
+                case "supervised_createRule": {
+                    const validatedArgs = validateRuleArgs(args, ["name", "text"]);
+                    result = await implementCreateRule(supervisedAgent, validatedArgs);
                     break;
-                case "supervised_updateRule":
-                    result = this.updateSupervisedRule(args);
+                }
+                case "supervised_updateRule": {
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    result = await implementUpdateRule(supervisedAgent, validatedArgs);
                     break;
-                case "supervised_deleteRule":
-                    result = this.deleteSupervisedRule(args?.name as string);
+                }
+                case "supervised_deleteRule": {
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    result = await implementDeleteRule(supervisedAgent, validatedArgs.name!);
                     break;
-                case "supervised_includeRule":
-                    result = this.includeSupervisedRule(args?.name as string);
+                }
+                case "supervised_includeRule": {
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    result = implementIncludeRule(supervisedSession, validatedArgs.name!);
                     break;
-                case "supervised_excludeRule":
-                    result = this.excludeSupervisedRule(args?.name as string);
+                }
+                case "supervised_excludeRule": {
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    result = implementExcludeRule(supervisedSession, validatedArgs.name!);
                     break;
+                }
                 
-                // References Management Tools
-                case "supervised_listReferences":
-                    result = this.listSupervisedReferences();
+                // References Management Tools - use shared implementations
+                case "supervised_listReferences": {
+                    result = implementListReferences(supervisedAgent);
                     break;
-                case "supervised_getReference":
-                    result = this.getSupervisedReference(args?.name as string);
+                }
+                case "supervised_getReference": {
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    result = implementGetReference(supervisedAgent, validatedArgs.name!);
                     break;
-                case "supervised_createReference":
-                    result = this.createSupervisedReference(args);
+                }
+                case "supervised_createReference": {
+                    const validatedArgs = validateReferenceArgs(args, ["name", "text"]);
+                    result = await implementCreateReference(supervisedAgent, validatedArgs);
                     break;
-                case "supervised_updateReference":
-                    result = this.updateSupervisedReference(args);
+                }
+                case "supervised_updateReference": {
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    result = await implementUpdateReference(supervisedAgent, validatedArgs);
                     break;
-                case "supervised_deleteReference":
-                    result = this.deleteSupervisedReference(args?.name as string);
+                }
+                case "supervised_deleteReference": {
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    result = await implementDeleteReference(supervisedAgent, validatedArgs.name!);
                     break;
-                case "supervised_includeReference":
-                    result = this.includeSupervisedReference(args?.name as string);
+                }
+                case "supervised_includeReference": {
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    result = implementIncludeReference(supervisedSession, validatedArgs.name!);
                     break;
-                case "supervised_excludeReference":
-                    result = this.excludeSupervisedReference(args?.name as string);
+                }
+                case "supervised_excludeReference": {
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    result = implementExcludeReference(supervisedSession, validatedArgs.name!);
                     break;
+                }
                 
-                // Tool Context Management Tools
-                case "supervised_listTools":
-                    result = this.listSupervisedTools();
+                // Tool Context Management Tools - use shared implementations
+                case "supervised_listTools": {
+                    result = await implementListTools(supervisedAgent);
                     break;
-                case "supervised_getTool":
-                    result = this.getSupervisedTool(args?.serverName as string, args?.toolName as string);
+                }
+                case "supervised_getTool": {
+                    result = await implementGetTool(supervisedAgent, args?.serverName as string, args?.toolName as string);
                     break;
-                case "supervised_listContextTools":
-                    result = this.listSupervisedContextTools();
+                }
+                case "supervised_listContextTools": {
+                    result = await implementListContextTools(supervisedSession);
                     break;
-                case "supervised_includeTool":
-                    result = this.includeSupervisedTool(args?.serverName as string, args?.toolName as string);
+                }
+                case "supervised_includeTool": {
+                    result = await implementIncludeTool(supervisedSession, args?.serverName as string, args?.toolName as string);
                     break;
-                case "supervised_excludeTool":
-                    result = this.excludeSupervisedTool(args?.serverName as string, args?.toolName as string);
+                }
+                case "supervised_excludeTool": {
+                    result = await implementExcludeTool(supervisedSession, args?.serverName as string, args?.toolName as string);
                     break;
-                case "supervised_setToolIncludeMode":
-                    result = this.setSupervisedToolIncludeMode(args?.serverName as string, args?.toolName as string, args?.mode as string);
+                }
+                case "supervised_setToolIncludeMode": {
+                    result = await implementSetToolIncludeMode(supervisedAgent, args?.serverName as string, args?.toolName as string, args?.mode as string);
                     break;
-                case "supervised_listToolServers":
-                    result = this.listSupervisedToolServers();
+                }
+                case "supervised_listToolServers": {
+                    result = await implementListToolServers(supervisedAgent);
                     break;
-                case "supervised_getToolServer":
-                    result = this.getSupervisedToolServer(args?.serverName as string);
+                }
+                case "supervised_getToolServer": {
+                    result = await implementGetToolServer(supervisedAgent, args?.serverName as string);
                     break;
-                case "supervised_setServerIncludeMode":
-                    result = this.setSupervisedServerIncludeMode(args?.serverName as string, args?.mode as string);
+                }
+                case "supervised_setServerIncludeMode": {
+                    result = await implementSetServerIncludeMode(supervisedAgent, args?.serverName as string, args?.mode as string);
                     break;
-                case "supervised_includeToolServer":
-                    result = this.includeSupervisedToolServer(args?.serverName as string);
+                }
+                case "supervised_includeToolServer": {
+                    result = await implementIncludeToolServer(supervisedAgent, supervisedSession, args?.serverName as string);
                     break;
-                case "supervised_excludeToolServer":
-                    result = this.excludeSupervisedToolServer(args?.serverName as string);
+                }
+                case "supervised_excludeToolServer": {
+                    result = await implementExcludeToolServer(supervisedSession, args?.serverName as string);
                     break;
+                }
                 
-                // Supervision Tools
+                // Supervision Methods
                 case "supervised_block_message":
                     result = this.blockMessage(args?.reason as string);
                     break;
@@ -595,7 +686,7 @@ export class McpClientInternalSupervision implements McpClient {
         }
     }
 
-    // Data Access Methods
+    // Data Access Methods (keep as is)
     private getSupervisedSessionData(type: 'messages' | 'rules' | 'references'): any {
         if (!this.supervisedSession) return null;
         
@@ -612,9 +703,10 @@ export class McpClientInternalSupervision implements McpClient {
         }
     }
 
-    private getSupervisedSessionTools(): any {
-        // TODO: Implement getting available tools from supervised session
-        return { tools: [] };
+    private async getSupervisedSessionTools(session: ChatSession): Promise<any> {
+        // Access agent property from ChatSessionImpl
+        const agent = (session as any).agent as Agent;
+        return await implementListTools(agent);
     }
 
     private getSupervisedSessionStats(): any {
@@ -626,153 +718,10 @@ export class McpClientInternalSupervision implements McpClient {
             messageCount: state.messages.length,
             ruleCount: state.rules.length,
             referenceCount: state.references.length,
-            // Add more stats as needed
         };
     }
 
-    // Rules Management Methods
-    private listSupervisedRules(): any {
-        if (!this.supervisedSession) return [];
-        const state = this.supervisedSession.getState();
-        return state.rules;
-    }
-
-    private getSupervisedRule(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement getting specific rule
-        return null;
-    }
-
-    private createSupervisedRule(args: any): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement creating rule in supervised agent
-        return { success: true, message: "Rule created" };
-    }
-
-    private updateSupervisedRule(args: any): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement updating rule in supervised agent
-        return { success: true, message: "Rule updated" };
-    }
-
-    private deleteSupervisedRule(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement deleting rule from supervised agent
-        return { success: true, message: "Rule deleted" };
-    }
-
-    private includeSupervisedRule(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement including rule in supervised session
-        return { success: true, message: "Rule included" };
-    }
-
-    private excludeSupervisedRule(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement excluding rule from supervised session
-        return { success: true, message: "Rule excluded" };
-    }
-
-    // References Management Methods
-    private listSupervisedReferences(): any {
-        if (!this.supervisedSession) return [];
-        const state = this.supervisedSession.getState();
-        return state.references;
-    }
-
-    private getSupervisedReference(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement getting specific reference
-        return null;
-    }
-
-    private createSupervisedReference(args: any): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement creating reference in supervised agent
-        return { success: true, message: "Reference created" };
-    }
-
-    private updateSupervisedReference(args: any): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement updating reference in supervised agent
-        return { success: true, message: "Reference updated" };
-    }
-
-    private deleteSupervisedReference(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement deleting reference from supervised agent
-        return { success: true, message: "Reference deleted" };
-    }
-
-    private includeSupervisedReference(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement including reference in supervised session
-        return { success: true, message: "Reference included" };
-    }
-
-    private excludeSupervisedReference(name: string): any {
-        if (!this.supervisedSession) return null;
-        // TODO: Implement excluding reference from supervised session
-        return { success: true, message: "Reference excluded" };
-    }
-
-    // Tool Context Management Methods
-    private listSupervisedTools(): any {
-        // TODO: Implement getting available tools from supervised agent
-        return { tools: [] };
-    }
-
-    private getSupervisedTool(serverName: string, toolName: string): any {
-        // TODO: Implement getting specific tool from supervised agent
-        return null;
-    }
-
-    private listSupervisedContextTools(): any {
-        // TODO: Implement getting tools in context from supervised session
-        return { tools: [] };
-    }
-
-    private includeSupervisedTool(serverName: string, toolName: string): any {
-        // TODO: Implement including tool in supervised session context
-        return { success: true, message: "Tool included" };
-    }
-
-    private excludeSupervisedTool(serverName: string, toolName: string): any {
-        // TODO: Implement excluding tool from supervised session context
-        return { success: true, message: "Tool excluded" };
-    }
-
-    private setSupervisedToolIncludeMode(serverName: string, toolName: string, mode: string): any {
-        // TODO: Implement setting tool include mode in supervised agent
-        return { success: true, message: "Tool include mode set" };
-    }
-
-    private listSupervisedToolServers(): any {
-        // TODO: Implement listing tool servers from supervised agent
-        return { servers: [] };
-    }
-
-    private getSupervisedToolServer(serverName: string): any {
-        // TODO: Implement getting tool server information from supervised agent
-        return null;
-    }
-
-    private setSupervisedServerIncludeMode(serverName: string, mode: string): any {
-        // TODO: Implement setting server include mode in supervised agent
-        return { success: true, message: "Server include mode set" };
-    }
-
-    private includeSupervisedToolServer(serverName: string): any {
-        // TODO: Implement including tool server in supervised session context
-        return { success: true, message: "Tool server included" };
-    }
-
-    private excludeSupervisedToolServer(serverName: string): any {
-        // TODO: Implement excluding tool server from supervised session context
-        return { success: true, message: "Tool server excluded" };
-    }
-
-    // Supervision Methods
+    // Supervision Methods (keep TODOs as they are agent-specific)
     private blockMessage(reason: string): any {
         // TODO: Implement blocking message
         return { success: true, message: "Message blocked", reason };

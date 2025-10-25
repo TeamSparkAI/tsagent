@@ -9,7 +9,7 @@ import { Agent } from "../types/agent.js";
 /**
  * Interface for rule arguments with all fields optional
  */
-interface RuleArgs {
+export interface RuleArgs {
     name?: string;
     description?: string;
     priorityLevel?: number;
@@ -177,75 +177,6 @@ export class McpClientInternalRules implements McpClient {
         this.logger = logger;
     }
 
-    /**
-     * Validates rule arguments, ensuring each field has the correct type if present.
-     * @param args User-provided arguments
-     * @param requiredFields Array of field names that are required
-     * @returns Validated arguments typed as RuleArgs
-     * @throws Error if any field has an invalid type or if a required field is missing
-     */
-    private validateRuleArgs(args?: Record<string, unknown>, requiredFields: string[] = []): RuleArgs {
-        if (!args) {
-            if (requiredFields.length > 0) {
-                throw new Error(`Missing required arguments: ${requiredFields.join(', ')}`);
-            }
-            return {};
-        }
-
-        // Check that all required fields are present
-        const missingFields = requiredFields.filter(field => !(field in args));
-        if (missingFields.length > 0) {
-            throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
-        }
-
-        // Validate the types of any provided arguments and assign to typed result
-        const validated: RuleArgs = {};
-
-        if ('name' in args) {
-            if (typeof args.name !== 'string') {
-                throw new Error('Rule name must be a string');
-            }
-            validated.name = args.name;
-        }
-
-        if ('description' in args) {
-            if (typeof args.description !== 'string') {
-                throw new Error('Rule description must be a string');
-            }
-            validated.description = args.description;
-        }
-
-        if ('priorityLevel' in args) {
-            if (typeof args.priorityLevel !== 'number' || isNaN(args.priorityLevel)) {
-                throw new Error('Rule priorityLevel must be a number');
-            }
-            validated.priorityLevel = args.priorityLevel;
-        }
-
-        if ('enabled' in args) {
-            if (typeof args.enabled !== 'boolean') {
-                throw new Error('Rule enabled must be a boolean');
-            }
-            validated.enabled = args.enabled;
-        }
-
-        if ('text' in args) {
-            if (typeof args.text !== 'string') {
-                throw new Error('Rule text must be a string');
-            }
-            validated.text = args.text;
-        }
-
-        if ('include' in args) {
-            if (typeof args.include !== 'string' || !['always', 'manual', 'agent'].includes(args.include)) {
-                throw new Error('Rule include must be one of: always, manual, agent');
-            }
-            validated.include = args.include as 'always' | 'manual' | 'agent';
-        }
-
-        return validated;
-    }
-
     async connect(): Promise<boolean> {
         return true;
     }
@@ -272,36 +203,17 @@ export class McpClientInternalRules implements McpClient {
         try {
             switch (tool.name) {
                 case "createRule": {
-                    const validatedArgs = this.validateRuleArgs(args, ["name", "text"]);
-                    
-                    // Create a rule with defaults for any missing fields
-                    const newRule: Rule = {
-                        name: validatedArgs.name!,
-                        description: validatedArgs.description || "",
-                        priorityLevel: validatedArgs.priorityLevel ?? 500,
-                        enabled: validatedArgs.enabled ?? true,
-                        text: validatedArgs.text!,
-                        include: validatedArgs.include || 'manual'
-                    };
-                    
-                    this.agent.addRule(newRule);
-                    
+                    const validatedArgs = validateRuleArgs(args, ["name", "text"]);
+                    const message = await implementCreateRule(this.agent, validatedArgs);
                     return {
-                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" created successfully` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "getRule": {
-                    const validatedArgs = this.validateRuleArgs(args, ["name"]);
-                    
-                    const rules = this.agent.getAllRules();
-                    const rule = rules.find((r: Rule) => r.name === validatedArgs.name);
-                    
-                    if (!rule) {
-                        throw new Error(`Rule "${validatedArgs.name}" not found`);
-                    }
-                    
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    const rule = implementGetRule(this.agent, validatedArgs.name!);
                     return {
                         content: [{ type: "text", text: JSON.stringify(rule, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
@@ -309,54 +221,29 @@ export class McpClientInternalRules implements McpClient {
                 }
 
                 case "updateRule": {
-                    const validatedArgs = this.validateRuleArgs(args, ["name"]);                    
-                    
-                    const existingRules = this.agent.getAllRules();
-                    const existingRule = existingRules.find((r: Rule) => r.name === validatedArgs.name);
-                    
-                    if (!existingRule) {
-                        throw new Error(`Rule "${validatedArgs.name}" not found`);
-                    }
-                    
-                    // Create updated rule by combining existing rule with validated updates
-                    const updatedRule: Rule = {
-                        name: existingRule.name,
-                        description: validatedArgs.description ?? existingRule.description,
-                        priorityLevel: validatedArgs.priorityLevel ?? existingRule.priorityLevel,
-                        enabled: validatedArgs.enabled ?? existingRule.enabled,
-                        text: validatedArgs.text ?? existingRule.text,
-                        include: validatedArgs.include ?? existingRule.include
-                    };
-                    
-                    this.agent.addRule(updatedRule);
-                    
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    const message = await implementUpdateRule(this.agent, validatedArgs);
                     return {
-                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" updated successfully` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "deleteRule": {
-                    const validatedArgs = this.validateRuleArgs(args, ["name"]);                    
-                    
-                    this.agent.deleteRule(validatedArgs.name!);
-                    
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
+                    const message = await implementDeleteRule(this.agent, validatedArgs.name!);
                     return {
-                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" deleted successfully` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "listRules": {
-                    const allRules = this.agent.getAllRules();
-                    
-                    // Create a new array with the text field omitted from each rule
-                    const rulesWithoutText = allRules.map(rule => {
-                        // Destructure to omit the text field
+                    const allRules = implementListRules(this.agent);
+                    const rulesWithoutText = allRules.map((rule: Rule) => {
                         const { text, ...ruleWithoutText } = rule;
                         return ruleWithoutText;
                     });
-                    
                     return {
                         content: [{ type: "text", text: JSON.stringify(rulesWithoutText, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
@@ -367,9 +254,7 @@ export class McpClientInternalRules implements McpClient {
                     if (!session) {
                         throw new Error(`Chat session not found`);
                     }
-                    
-                    const contextRules = session.getState().rules;
-                    
+                    const contextRules = implementListContextRules(session);
                     return {
                         content: [{ type: "text", text: JSON.stringify(contextRules, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
@@ -377,31 +262,25 @@ export class McpClientInternalRules implements McpClient {
                 }
 
                 case "includeRule": {
-                    const validatedArgs = this.validateRuleArgs(args, ["name"]);
-
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
                     if (!session) {
                         throw new Error(`Chat session not found`);
                     }
-                    
-                    session.addRule(validatedArgs.name!);
-                    
+                    const message = implementIncludeRule(session, validatedArgs.name!);
                     return {
-                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" successfully included in chat session` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "excludeRule": {
-                    const validatedArgs = this.validateRuleArgs(args, ["name"]);
-
+                    const validatedArgs = validateRuleArgs(args, ["name"]);
                     if (!session) {
                         throw new Error(`Chat session not found`);
                     }
-                    
-                    session.removeRule(validatedArgs.name!);
-                    
+                    const message = implementExcludeRule(session, validatedArgs.name!);
                     return {
-                        content: [{ type: "text", text: `Rule "${validatedArgs.name}" successfully excluded from chat session` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
@@ -422,4 +301,184 @@ export class McpClientInternalRules implements McpClient {
     async ping(): Promise<{ elapsedTimeMs: number }> {
         return { elapsedTimeMs: 0 };
     }
+}
+
+// ========================================
+// Exported Implementation Functions
+// These functions implement the core logic and can be reused by supervision tools
+// ========================================
+
+/**
+ * Validates rule arguments, ensuring each field has the correct type if present.
+ * @param args User-provided arguments
+ * @param requiredFields Array of field names that are required
+ * @returns Validated arguments typed as RuleArgs
+ * @throws Error if any field has an invalid type or if a required field is missing
+ */
+export function validateRuleArgs(args?: Record<string, unknown>, requiredFields: string[] = []): RuleArgs {
+    if (!args) {
+        if (requiredFields.length > 0) {
+            throw new Error(`Missing required arguments: ${requiredFields.join(', ')}`);
+        }
+        return {};
+    }
+
+    // Check that all required fields are present
+    const missingFields = requiredFields.filter(field => !(field in args));
+    if (missingFields.length > 0) {
+        throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
+    }
+
+    const validated: RuleArgs = {};
+
+    if ('name' in args) {
+        if (typeof args.name !== 'string') {
+            throw new Error('Rule name must be a string');
+        }
+        validated.name = args.name;
+    }
+
+    if ('description' in args) {
+        if (typeof args.description !== 'string') {
+            throw new Error('Rule description must be a string');
+        }
+        validated.description = args.description;
+    }
+
+    if ('priorityLevel' in args) {
+        if (typeof args.priorityLevel !== 'number' || isNaN(args.priorityLevel)) {
+            throw new Error('Rule priorityLevel must be a number');
+        }
+        validated.priorityLevel = args.priorityLevel;
+    }
+
+    if ('enabled' in args) {
+        if (typeof args.enabled !== 'boolean') {
+            throw new Error('Rule enabled must be a boolean');
+        }
+        validated.enabled = args.enabled;
+    }
+
+    if ('text' in args) {
+        if (typeof args.text !== 'string') {
+            throw new Error('Rule text must be a string');
+        }
+        validated.text = args.text;
+    }
+
+    if ('include' in args) {
+        if (typeof args.include !== 'string' || !['always', 'manual', 'agent'].includes(args.include)) {
+            throw new Error('Rule include must be one of: always, manual, agent');
+        }
+        validated.include = args.include as 'always' | 'manual' | 'agent';
+    }
+
+    return validated;
+}
+
+/**
+ * Implementation for creating a rule
+ */
+export async function implementCreateRule(agent: Agent, args: RuleArgs): Promise<string> {
+    const newRule: Rule = {
+        name: args.name!,
+        description: args.description || "",
+        priorityLevel: args.priorityLevel ?? 500,
+        enabled: args.enabled ?? true,
+        text: args.text!,
+        include: args.include || 'manual'
+    };
+    
+    await agent.addRule(newRule);
+    return `Rule "${args.name}" created successfully`;
+}
+
+/**
+ * Implementation for getting a rule
+ */
+export function implementGetRule(agent: Agent, ruleName: string): Rule {
+    const rule = agent.getRule(ruleName);
+    if (!rule) {
+        throw new Error(`Rule "${ruleName}" not found`);
+    }
+    return rule;
+}
+
+/**
+ * Implementation for updating a rule
+ */
+export async function implementUpdateRule(agent: Agent, args: RuleArgs): Promise<string> {
+    const existingRule = agent.getRule(args.name!);
+    if (!existingRule) {
+        throw new Error(`Rule "${args.name}" not found`);
+    }
+    
+    const updatedRule: Rule = {
+        name: existingRule.name,
+        description: args.description ?? existingRule.description,
+        priorityLevel: args.priorityLevel ?? existingRule.priorityLevel,
+        enabled: args.enabled ?? existingRule.enabled,
+        text: args.text ?? existingRule.text,
+        include: args.include ?? existingRule.include
+    };
+    
+    await agent.addRule(updatedRule);
+    return `Rule "${args.name}" updated successfully`;
+}
+
+/**
+ * Implementation for deleting a rule
+ */
+export async function implementDeleteRule(agent: Agent, ruleName: string): Promise<string> {
+    const success = await agent.deleteRule(ruleName);
+    if (!success) {
+        throw new Error(`Rule "${ruleName}" not found`);
+    }
+    return `Rule "${ruleName}" deleted successfully`;
+}
+
+/**
+ * Implementation for listing all rules
+ */
+export function implementListRules(agent: Agent): Rule[] {
+    return agent.getAllRules();
+}
+
+/**
+ * Implementation for listing rules in context
+ */
+export function implementListContextRules(session: ChatSession): string[] {
+    return session.getState().rules;
+}
+
+/**
+ * Implementation for including a rule in session context
+ */
+export function implementIncludeRule(session: ChatSession, ruleName: string): string {
+    if (!session) {
+        throw new Error('Chat session not found');
+    }
+    
+    const success = session.addRule(ruleName);
+    if (!success) {
+        throw new Error(`Rule "${ruleName}" could not be added to session context`);
+    }
+    
+    return `Rule "${ruleName}" successfully included in chat session`;
+}
+
+/**
+ * Implementation for excluding a rule from session context
+ */
+export function implementExcludeRule(session: ChatSession, ruleName: string): string {
+    if (!session) {
+        throw new Error('Chat session not found');
+    }
+    
+    const success = session.removeRule(ruleName);
+    if (!success) {
+        throw new Error(`Rule "${ruleName}" could not be removed from session context`);
+    }
+    
+    return `Rule "${ruleName}" successfully excluded from chat session`;
 }

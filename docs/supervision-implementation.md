@@ -258,6 +258,29 @@ This implementation provides a robust foundation for agent supervision while mai
 - Clear separation between request and response processing
 - Explicit modification notifications without payload comparison
 
+## Supervision Tools Architecture
+
+The supervision tools (used by agent-based supervisors) leverage a shared implementation architecture to avoid code duplication and ensure consistency.
+
+### Shared Implementation Pattern
+
+Each internal MCP client (`client-rules.ts`, `client-references.ts`, `client-tools.ts`) exports its implementation functions that can be reused by the supervision client:
+
+- **Rules Management**: Export functions like `implementListRules`, `implementIncludeRule`, `implementExcludeRule`, etc.
+- **References Management**: Export functions like `implementListReferences`, `implementIncludeReference`, etc.
+- **Tools Management**: Export functions like `implementListTools`, `implementIncludeTool`, etc.
+
+The supervision client (`client-supervision.ts`) imports these shared functions and calls them with the supervised agent/session context. This ensures that:
+
+1. **No Code Duplication**: Implementation exists once in each specialized client
+2. **Consistency**: Supervision tools behave identically to self-service tools
+3. **Maintainability**: Bug fixes in one place automatically fix both contexts
+4. **Domain Ownership**: Rule logic stays in `client-rules.ts`, reference logic in `client-references.ts`, tool logic in `client-tools.ts`
+
+### Tool Parity
+
+Supervised versions of tools (e.g., `supervised_listRules`, `supervised_includeRule`) behave identically to their self-service counterparts (e.g., `listRules`, `includeRule`), with the only difference being the context (supervised agent/session vs supervisor agent/session).
+
 ## Implementation Gaps and Future Work
 
 Based on the original supervision.md specification, the following features are not yet implemented:

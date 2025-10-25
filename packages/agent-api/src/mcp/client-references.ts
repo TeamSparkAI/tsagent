@@ -9,7 +9,7 @@ import { Agent } from "../types/agent.js";
 /**
  * Interface for reference arguments with all fields optional
  */
-interface ReferenceArgs {
+export interface ReferenceArgs {
     name?: string;
     description?: string;
     priorityLevel?: number;
@@ -177,75 +177,6 @@ export class McpClientInternalReferences implements McpClient {
         this.logger = logger;
     }
 
-    /**
-     * Validates reference arguments, ensuring each field has the correct type if present.
-     * @param args User-provided arguments
-     * @param requiredFields Array of field names that are required
-     * @returns Validated arguments typed as ReferenceArgs
-     * @throws Error if any field has an invalid type or if a required field is missing
-     */
-    private validateReferenceArgs(args?: Record<string, unknown>, requiredFields: string[] = []): ReferenceArgs {
-        if (!args) {
-            if (requiredFields.length > 0) {
-                throw new Error(`Missing required arguments: ${requiredFields.join(', ')}`);
-            }
-            return {};
-        }
-
-        // Check that all required fields are present
-        const missingFields = requiredFields.filter(field => !(field in args));
-        if (missingFields.length > 0) {
-            throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
-        }
-
-        // Validate the types of any provided arguments and assign to typed result
-        const validated: ReferenceArgs = {};
-
-        if ('name' in args) {
-            if (typeof args.name !== 'string') {
-                throw new Error('Reference name must be a string');
-            }
-            validated.name = args.name;
-        }
-
-        if ('description' in args) {
-            if (typeof args.description !== 'string') {
-                throw new Error('Reference description must be a string');
-            }
-            validated.description = args.description;
-        }
-
-        if ('priorityLevel' in args) {
-            if (typeof args.priorityLevel !== 'number' || isNaN(args.priorityLevel)) {
-                throw new Error('Reference priorityLevel must be a number');
-            }
-            validated.priorityLevel = args.priorityLevel;
-        }
-
-        if ('enabled' in args) {
-            if (typeof args.enabled !== 'boolean') {
-                throw new Error('Reference enabled must be a boolean');
-            }
-            validated.enabled = args.enabled;
-        }
-
-        if ('text' in args) {
-            if (typeof args.text !== 'string') {
-                throw new Error('Reference text must be a string');
-            }
-            validated.text = args.text;
-        }
-
-        if ('include' in args) {
-            if (typeof args.include !== 'string' || !['always', 'manual', 'agent'].includes(args.include)) {
-                throw new Error('Reference include must be one of: always, manual, agent');
-            }
-            validated.include = args.include as 'always' | 'manual' | 'agent';
-        }
-
-        return validated;
-    }
-
     async connect(): Promise<boolean> {
         return true;
     }
@@ -272,36 +203,17 @@ export class McpClientInternalReferences implements McpClient {
         try {
             switch (tool.name) {
                 case "createReference": {
-                    const validatedArgs = this.validateReferenceArgs(args, ["name", "text"]);
-                    
-                    // Create a reference with defaults for any missing fields
-                    const newReference: Reference = {
-                        name: validatedArgs.name!,
-                        description: validatedArgs.description || "",
-                        priorityLevel: validatedArgs.priorityLevel ?? 500,
-                        enabled: validatedArgs.enabled ?? true,
-                        text: validatedArgs.text!,
-                        include: validatedArgs.include || 'manual'
-                    };
-                    
-                    this.agent.addReference(newReference);
-                    
+                    const validatedArgs = validateReferenceArgs(args, ["name", "text"]);
+                    const message = await implementCreateReference(this.agent, validatedArgs);
                     return {
-                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" created successfully` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "getReference": {
-                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
-                    
-                    const references = this.agent.getAllReferences();
-                    const reference = references.find((r: Reference) => r.name === validatedArgs.name);
-                    
-                    if (!reference) {
-                        throw new Error(`Reference "${validatedArgs.name}" not found`);
-                    }
-                    
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    const reference = implementGetReference(this.agent, validatedArgs.name!);
                     return {
                         content: [{ type: "text", text: JSON.stringify(reference, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
@@ -309,54 +221,29 @@ export class McpClientInternalReferences implements McpClient {
                 }
 
                 case "updateReference": {
-                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
-                    
-                    const existingReferences = this.agent.getAllReferences();
-                    const existingReference = existingReferences.find((r: Reference) => r.name === validatedArgs.name);
-                    
-                    if (!existingReference) {
-                        throw new Error(`Reference "${validatedArgs.name}" not found`);
-                    }
-                    
-                    // Create updated reference by combining existing reference with validated updates
-                    const updatedReference: Reference = {
-                        name: existingReference.name,
-                        description: validatedArgs.description ?? existingReference.description,
-                        priorityLevel: validatedArgs.priorityLevel ?? existingReference.priorityLevel,
-                        enabled: validatedArgs.enabled ?? existingReference.enabled,
-                        text: validatedArgs.text ?? existingReference.text,
-                        include: validatedArgs.include ?? existingReference.include
-                    };
-                    
-                    this.agent.addReference(updatedReference);
-                    
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    const message = await implementUpdateReference(this.agent, validatedArgs);
                     return {
-                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" updated successfully` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "deleteReference": {
-                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
-                    
-                    this.agent.deleteReference(validatedArgs.name!);
-                    
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
+                    const message = await implementDeleteReference(this.agent, validatedArgs.name!);
                     return {
-                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" deleted successfully` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "listReferences": {
-                    const allReferences = this.agent.getAllReferences();
-                    
-                    // Create a new array with the text field omitted from each reference
-                    const referencesWithoutText = allReferences.map(reference => {
-                        // Destructure to omit the text field
+                    const allReferences = implementListReferences(this.agent);
+                    const referencesWithoutText = allReferences.map((reference: Reference) => {
                         const { text, ...referenceWithoutText } = reference;
                         return referenceWithoutText;
                     });
-                    
                     return {
                         content: [{ type: "text", text: JSON.stringify(referencesWithoutText, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
@@ -367,9 +254,7 @@ export class McpClientInternalReferences implements McpClient {
                     if (!session) {
                         throw new Error(`Chat session not found`);
                     }
-                    
-                    const contextReferences = session.getState().references;
-                    
+                    const contextReferences = implementListContextReferences(session);
                     return {
                         content: [{ type: "text", text: JSON.stringify(contextReferences, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
@@ -377,31 +262,25 @@ export class McpClientInternalReferences implements McpClient {
                 }
 
                 case "includeReference": {
-                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
-
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
                     if (!session) {
                         throw new Error(`Chat session not found`);
                     }
-                    
-                    session.addReference(validatedArgs.name!);
-                    
+                    const message = implementIncludeReference(session, validatedArgs.name!);
                     return {
-                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" successfully included in chat session` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
 
                 case "excludeReference": {
-                    const validatedArgs = this.validateReferenceArgs(args, ["name"]);
-
+                    const validatedArgs = validateReferenceArgs(args, ["name"]);
                     if (!session) {
                         throw new Error(`Chat session not found`);
                     }
-                    
-                    session.removeReference(validatedArgs.name!);
-                    
+                    const message = implementExcludeReference(session, validatedArgs.name!);
                     return {
-                        content: [{ type: "text", text: `Reference "${validatedArgs.name}" successfully excluded from chat session` }],
+                        content: [{ type: "text", text: message }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
@@ -421,4 +300,159 @@ export class McpClientInternalReferences implements McpClient {
     async ping(): Promise<{ elapsedTimeMs: number }> {
         return { elapsedTimeMs: 0 };
     }
+}
+
+// ========================================
+// Exported Implementation Functions
+// These functions implement the core logic and can be reused by supervision tools
+// ========================================
+
+/**
+ * Validates reference arguments, ensuring each field has the correct type if present.
+ * @param args User-provided arguments
+ * @param requiredFields Array of field names that are required
+ * @returns Validated arguments typed as ReferenceArgs
+ * @throws Error if any field has an invalid type or if a required field is missing
+ */
+export function validateReferenceArgs(args?: Record<string, unknown>, requiredFields: string[] = []): ReferenceArgs {
+    if (!args) {
+        if (requiredFields.length > 0) {
+            throw new Error(`Missing required arguments: ${requiredFields.join(', ')}`);
+        }
+        return {};
+    }
+
+    const missingFields = requiredFields.filter(field => !(field in args));
+    if (missingFields.length > 0) {
+        throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
+    }
+
+    const validated: ReferenceArgs = {};
+
+    if ('name' in args) {
+        if (typeof args.name !== 'string') {
+            throw new Error('Reference name must be a string');
+        }
+        validated.name = args.name;
+    }
+
+    if ('description' in args) {
+        if (typeof args.description !== 'string') {
+            throw new Error('Reference description must be a string');
+        }
+        validated.description = args.description;
+    }
+
+    if ('priorityLevel' in args) {
+        if (typeof args.priorityLevel !== 'number' || isNaN(args.priorityLevel)) {
+            throw new Error('Reference priorityLevel must be a number');
+        }
+        validated.priorityLevel = args.priorityLevel;
+    }
+
+    if ('enabled' in args) {
+        if (typeof args.enabled !== 'boolean') {
+            throw new Error('Reference enabled must be a boolean');
+        }
+        validated.enabled = args.enabled;
+    }
+
+    if ('text' in args) {
+        if (typeof args.text !== 'string') {
+            throw new Error('Reference text must be a string');
+        }
+        validated.text = args.text;
+    }
+
+    if ('include' in args) {
+        if (typeof args.include !== 'string' || !['always', 'manual', 'agent'].includes(args.include)) {
+            throw new Error('Reference include must be one of: always, manual, agent');
+        }
+        validated.include = args.include as 'always' | 'manual' | 'agent';
+    }
+
+    return validated;
+}
+
+export async function implementCreateReference(agent: Agent, args: ReferenceArgs): Promise<string> {
+    const newReference: Reference = {
+        name: args.name!,
+        description: args.description || "",
+        priorityLevel: args.priorityLevel ?? 500,
+        enabled: args.enabled ?? true,
+        text: args.text!,
+        include: args.include || 'manual'
+    };
+    
+    await agent.addReference(newReference);
+    return `Reference "${args.name}" created successfully`;
+}
+
+export function implementGetReference(agent: Agent, referenceName: string): Reference {
+    const reference = agent.getReference(referenceName);
+    if (!reference) {
+        throw new Error(`Reference "${referenceName}" not found`);
+    }
+    return reference;
+}
+
+export async function implementUpdateReference(agent: Agent, args: ReferenceArgs): Promise<string> {
+    const existingReference = agent.getReference(args.name!);
+    if (!existingReference) {
+        throw new Error(`Reference "${args.name}" not found`);
+    }
+    
+    const updatedReference: Reference = {
+        name: existingReference.name,
+        description: args.description ?? existingReference.description,
+        priorityLevel: args.priorityLevel ?? existingReference.priorityLevel,
+        enabled: args.enabled ?? existingReference.enabled,
+        text: args.text ?? existingReference.text,
+        include: args.include ?? existingReference.include
+    };
+    
+    await agent.addReference(updatedReference);
+    return `Reference "${args.name}" updated successfully`;
+}
+
+export async function implementDeleteReference(agent: Agent, referenceName: string): Promise<string> {
+    const success = await agent.deleteReference(referenceName);
+    if (!success) {
+        throw new Error(`Reference "${referenceName}" not found`);
+    }
+    return `Reference "${referenceName}" deleted successfully`;
+}
+
+export function implementListReferences(agent: Agent): Reference[] {
+    return agent.getAllReferences();
+}
+
+export function implementListContextReferences(session: ChatSession): string[] {
+    return session.getState().references;
+}
+
+export function implementIncludeReference(session: ChatSession, referenceName: string): string {
+    if (!session) {
+        throw new Error('Chat session not found');
+    }
+    
+    const success = session.addReference(referenceName);
+    if (!success) {
+        throw new Error(`Reference "${referenceName}" could not be added to session context`);
+    }
+    
+    return `Reference "${referenceName}" successfully included in chat session`;
+}
+
+export function implementExcludeReference(session: ChatSession, referenceName: string): string {
+    if (!session) {
+        throw new Error('Chat session not found');
+    }
+    
+    const success = session.removeReference(referenceName);
+    if (!success) {
+        throw new Error(`Reference "${referenceName}" could not be removed from session context`);
+    }
+    
+    return `Reference "${referenceName}" successfully excluded from chat session`;
 } 
