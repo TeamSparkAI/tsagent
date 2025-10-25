@@ -59,9 +59,13 @@ const COMMANDS = {
   AGENT: '/agent'
 };
 
-async function toolsCommand(agent: Agent, logger: WinstonLoggerAdapter) {
+async function toolsCommand(agent: Agent, chatSession: any, logger: WinstonLoggerAdapter) {
   try {
     console.log('Checking available tools on MCP servers...\n');
+
+    // Get active tools in session context
+    const activeTools = chatSession.getIncludedTools();
+    const activeToolSet = new Set(activeTools.map((t: any) => `${t.serverName}:${t.toolName}`));
 
     // Get all server configurations
     const mcpServers = await agent.getAllMcpServers();
@@ -80,13 +84,16 @@ async function toolsCommand(agent: Agent, logger: WinstonLoggerAdapter) {
         console.log('No tools available');
       } else {
         mcpClient.serverTools.forEach((tool: Tool) => {
+          const toolKey = `${serverName}:${tool.name}`;
+          const isActive = activeToolSet.has(toolKey);
+          const marker = isActive ? chalk.green('* ') : chalk.dim('- ');
           const toolName = chalk.yellow(tool.name);
           const description = tool.description || 'No description';
           
           // Format description: max 80 chars, proper word wrap with indentation
           if (description.length > 80) {
             const firstLine = description.substring(0, 80).split(' ').slice(0, -1).join(' ');
-            console.log(`- ${toolName}`);
+            console.log(`${marker}${toolName}`);
             console.log(`    ${firstLine}`);
             
             // Get the rest of the description
@@ -110,7 +117,7 @@ async function toolsCommand(agent: Agent, logger: WinstonLoggerAdapter) {
               startIndex = endIndex + 1;
             }
           } else {
-            console.log(`- ${toolName}: ${description}`);
+            console.log(`${marker}${toolName}: ${description}`);
           }
         });
       }
@@ -136,8 +143,14 @@ function showHelp() {
   console.log(chalk.yellow('  /settings reset') + ' - Reset settings to agent defaults');
   console.log(chalk.yellow('  /settings save') + ' - Save current settings as agent defaults');
   console.log(chalk.yellow('  /tools') + ' - List available tools from all configured MCP servers');
+  console.log(chalk.yellow('  /tools include --server <name> [--tool <name>]') + ' - Include tool(s) in session context');
+  console.log(chalk.yellow('  /tools exclude --server <name> [--tool <name>]') + ' - Exclude tool(s) from session context');
   console.log(chalk.yellow('  /rules') + ' - List all rules (* active, - inactive)');
+  console.log(chalk.yellow('  /rules include <name>') + ' - Include rule in session context');
+  console.log(chalk.yellow('  /rules exclude <name>') + ' - Exclude rule from session context');
   console.log(chalk.yellow('  /references') + ' - List all references (* active, - inactive)');
+  console.log(chalk.yellow('  /references include <name>') + ' - Include reference in session context');
+  console.log(chalk.yellow('  /references exclude <name>') + ' - Exclude reference from session context');
   console.log(chalk.yellow('  /stats') + ' - Display statistics for the current chat session');
   console.log(chalk.yellow('  /agent') + ' - Display the current agent path');
   console.log(chalk.yellow('  /clear') + ' - Clear the chat history');
@@ -607,38 +620,202 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           break;
 
         case COMMANDS.TOOLS:
-          await toolsCommand(agent, logger);
+          if (args.length === 0) {
+            await toolsCommand(agent, chatSession, logger);
+          } else if (args[0] === 'include') {
+            let serverName: string | undefined;
+            let toolName: string | undefined;
+            
+            // Parse --server and --tool flags
+            for (let i = 1; i < args.length; i++) {
+              if (args[i] === '--server' && i + 1 < args.length) {
+                serverName = args[i + 1];
+                i++;
+              } else if (args[i] === '--tool' && i + 1 < args.length) {
+                toolName = args[i + 1];
+                i++;
+              }
+            }
+            
+            if (!serverName) {
+              console.log(chalk.red('Server name is required. Use --server <name>'));
+              break;
+            }
+            
+            if (toolName) {
+              // Include specific tool
+              try {
+                const success = await chatSession.addTool(serverName, toolName);
+                if (success) {
+                  console.log(chalk.green(`Tool "${serverName}:${toolName}" included in session context`));
+                } else {
+                  console.log(chalk.yellow(`Tool "${serverName}:${toolName}" is already in session context`));
+                }
+              } catch (error) {
+                console.log(chalk.red(`Error including tool: ${error}`));
+              }
+            } else {
+              // Include all tools for server
+              try {
+                const mcpClient = await agent.getMcpClient(serverName);
+                if (!mcpClient) {
+                  console.log(chalk.red(`Server not found or not connected: ${serverName}`));
+                  break;
+                }
+                
+                let count = 0;
+                for (const tool of mcpClient.serverTools) {
+                  const success = await chatSession.addTool(serverName, tool.name);
+                  if (success) count++;
+                }
+                console.log(chalk.green(`Included ${count} tools from server "${serverName}"`));
+              } catch (error) {
+                console.log(chalk.red(`Error including tools: ${error}`));
+              }
+            }
+          } else if (args[0] === 'exclude') {
+            let serverName: string | undefined;
+            let toolName: string | undefined;
+            
+            // Parse --server and --tool flags
+            for (let i = 1; i < args.length; i++) {
+              if (args[i] === '--server' && i + 1 < args.length) {
+                serverName = args[i + 1];
+                i++;
+              } else if (args[i] === '--tool' && i + 1 < args.length) {
+                toolName = args[i + 1];
+                i++;
+              }
+            }
+            
+            if (!serverName) {
+              console.log(chalk.red('Server name is required. Use --server <name>'));
+              break;
+            }
+            
+            if (toolName) {
+              // Exclude specific tool
+              const success = chatSession.removeTool(serverName, toolName);
+              if (success) {
+                console.log(chalk.green(`Tool "${serverName}:${toolName}" excluded from session context`));
+              } else {
+                console.log(chalk.yellow(`Tool "${serverName}:${toolName}" is not in session context`));
+              }
+            } else {
+              // Exclude all tools for server
+              const activeTools = chatSession.getIncludedTools();
+              const serverTools = activeTools.filter(t => t.serverName === serverName);
+              
+              let count = 0;
+              for (const tool of serverTools) {
+                const success = chatSession.removeTool(tool.serverName, tool.toolName);
+                if (success) count++;
+              }
+              console.log(chalk.green(`Excluded ${count} tools from server "${serverName}"`));
+            }
+          } else {
+            console.log(chalk.red(`Unknown command: /tools ${args[0]}`));
+            console.log(chalk.cyan('Use "/tools include --server <name> [--tool <name>]" or "/tools exclude --server <name> [--tool <name>]"'));
+          }
           break;
 
         case COMMANDS.RULES:
-          // Show all rules with asterisk for active ones and dash for inactive ones
-          const allRules = agent.getAllRules();
-          console.log(chalk.cyan('\nRules:'));
-          if (allRules.length === 0) {
-            console.log(chalk.yellow('No rules available.'));
+          if (args.length === 0) {
+            // Show all rules with asterisk for active ones and dash for inactive ones
+            const allRules = agent.getAllRules();
+            console.log(chalk.cyan('\nRules:'));
+            if (allRules.length === 0) {
+              console.log(chalk.yellow('No rules available.'));
+            } else {
+              allRules.forEach((rule: any) => {
+                const isActive = chatSession.getState().rules.includes(rule.name);
+                const marker = isActive ? chalk.green('* ') : chalk.dim('- ');
+                console.log(`${marker}${chalk.yellow(rule.name)} (priority: ${rule.priorityLevel})${!rule.enabled ? ' [disabled]' : ''}`);
+              });
+              console.log('');
+            }
+          } else if (args[0] === 'include') {
+            const ruleName = args[1];
+            if (ruleName) {
+              const rule = agent.getRule(ruleName);
+              if (rule) {
+                const success = chatSession.addRule(ruleName);
+                if (success) {
+                  console.log(chalk.green(`Rule "${ruleName}" included in session context`));
+                } else {
+                  console.log(chalk.yellow(`Rule "${ruleName}" is already in session context`));
+                }
+              } else {
+                console.log(chalk.red(`Rule not found: ${ruleName}`));
+              }
+            } else {
+              console.log(chalk.red('No rule name provided'));
+            }
+          } else if (args[0] === 'exclude') {
+            const ruleName = args[1];
+            if (ruleName) {
+              const success = chatSession.removeRule(ruleName);
+              if (success) {
+                console.log(chalk.green(`Rule "${ruleName}" excluded from session context`));
+              } else {
+                console.log(chalk.yellow(`Rule "${ruleName}" is not in session context`));
+              }
+            } else {
+              console.log(chalk.red('No rule name provided'));
+            }
           } else {
-            allRules.forEach((rule: any) => {
-              const isActive = chatSession.getState().rules.includes(rule.name);
-              const marker = isActive ? '*' : '-';
-              console.log(`${marker} ${rule.name} (priority: ${rule.priorityLevel})${!rule.enabled ? ' [disabled]' : ''}`);
-            });
-            console.log('');
+            console.log(chalk.red(`Unknown command: /rules ${args[0]}`));
+            console.log(chalk.cyan('Use "/rules include <name>" or "/rules exclude <name>"'));
           }
           break;
 
         case COMMANDS.REFERENCES:
-          // Show all references with asterisk for active ones and dash for inactive ones
-          const allReferences = agent.getAllReferences();
-          console.log(chalk.cyan('\nReferences:'));
-          if (allReferences.length === 0) {
-            console.log(chalk.yellow('No references available.'));
+          if (args.length === 0) {
+            // Show all references with asterisk for active ones and dash for inactive ones
+            const allReferences = agent.getAllReferences();
+            console.log(chalk.cyan('\nReferences:'));
+            if (allReferences.length === 0) {
+              console.log(chalk.yellow('No references available.'));
+            } else {
+              allReferences.forEach((reference: any) => {
+                const isActive = chatSession.getState().references.includes(reference.name);
+                const marker = isActive ? chalk.green('* ') : chalk.dim('- ');
+                console.log(`${marker}${chalk.yellow(reference.name)} (priority: ${reference.priorityLevel})${!reference.enabled ? ' [disabled]' : ''}`);
+              });
+              console.log('');
+            }
+          } else if (args[0] === 'include') {
+            const referenceName = args[1];
+            if (referenceName) {
+              const reference = agent.getReference(referenceName);
+              if (reference) {
+                const success = chatSession.addReference(referenceName);
+                if (success) {
+                  console.log(chalk.green(`Reference "${referenceName}" included in session context`));
+                } else {
+                  console.log(chalk.yellow(`Reference "${referenceName}" is already in session context`));
+                }
+              } else {
+                console.log(chalk.red(`Reference not found: ${referenceName}`));
+              }
+            } else {
+              console.log(chalk.red('No reference name provided'));
+            }
+          } else if (args[0] === 'exclude') {
+            const referenceName = args[1];
+            if (referenceName) {
+              const success = chatSession.removeReference(referenceName);
+              if (success) {
+                console.log(chalk.green(`Reference "${referenceName}" excluded from session context`));
+              } else {
+                console.log(chalk.yellow(`Reference "${referenceName}" is not in session context`));
+              }
+            } else {
+              console.log(chalk.red('No reference name provided'));
+            }
           } else {
-            allReferences.forEach((reference: any) => {
-              const isActive = chatSession.getState().references.includes(reference.name);
-              const marker = isActive ? '*' : '-';
-              console.log(`${marker} ${reference.name} (priority: ${reference.priorityLevel})${!reference.enabled ? ' [disabled]' : ''}`);
-            });
-            console.log('');
+            console.log(chalk.red(`Unknown command: /references ${args[0]}`));
+            console.log(chalk.cyan('Use "/references include <name>" or "/references exclude <name>"'));
           }
           break;
 

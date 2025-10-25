@@ -8,7 +8,8 @@
     "tsagent-cli": "./dist/main.js"
   },
   "scripts": {
-    "start": "tsx src/main.ts",
+    "start": "tsx src/main.ts --",
+    "start:cli": "tsx src/main.ts",
     "build": "cd ../../packages/agent-api && npm run build && cd ../../apps/cli && rm -rf dist && tsc -p tsconfig.json",
     "dev": "tsx src/main.ts",
     "watch": "tsc -w -p tsconfig.json",
