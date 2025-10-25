@@ -3,6 +3,9 @@ import { ProvidersManager, McpServerManager, ChatSessionManager } from '../manag
 import { McpClient, McpConfig } from '../mcp/types.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
 import { ChatSession, ChatSessionOptions } from './chat.js';
+import { SupervisionManager, Supervisor, SupervisorConfig } from './supervision.js';
+
+export { SupervisorConfig };
 
 export const SETTINGS_KEY_MAX_CHAT_TURNS = 'maxChatTurns';
 export const SETTINGS_KEY_MAX_OUTPUT_TOKENS = 'maxOutputTokens';
@@ -91,13 +94,28 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
 
   // MCP Client access methods
   getAllMcpClients(): Promise<Record<string, McpClient>>;
+  getAllMcpClientsSync(): Record<string, McpClient>;
   getMcpClient(name: string): Promise<McpClient | undefined>;
+  
+  // Internal methods for MCP server access
+  getAgentMcpServers(): Record<string, any> | null;
 
   // ChatSessionManager methods
   getAllChatSessions(): ChatSession[];
   getChatSession(sessionId: string): ChatSession | null;
   createChatSession(sessionId: string, options?: ChatSessionOptions): ChatSession;
   deleteChatSession(sessionId: string): Promise<boolean>;
+
+  // Supervision management
+  getSupervisionManager(): SupervisionManager | null;
+  setSupervisionManager(supervisionManager: SupervisionManager): void;
+  addSupervisor(supervisor: Supervisor): Promise<void>;
+  removeSupervisor(supervisorId: string): Promise<void>;
+  getSupervisor(supervisorId: string): Supervisor | null;
+  getAllSupervisors(): Supervisor[];
+  
+  // Supervisor configuration access (read-only)
+  getSupervisorConfigs(): SupervisorConfig[];
 }
 
 // This is a subset of the AgentSkill interface from the A2A protocol
@@ -139,6 +157,7 @@ export interface AgentConfig {
   settings: AgentSettings;
   providers?: Record<string, any>;
   mcpServers?: Record<string, any>;
+  supervisors?: SupervisorConfig[];
 }
 
 function getProviderByName(name: string): ProviderType | undefined {

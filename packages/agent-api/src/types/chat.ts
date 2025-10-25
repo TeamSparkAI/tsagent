@@ -37,6 +37,7 @@ export interface ChatState {
   currentModelId?: string;
   references: string[];
   rules: string[];
+  tools: Array<{serverName: string, toolName: string}>;
   maxChatTurns: number;
   maxOutputTokens: number;
   temperature: number;
@@ -122,6 +123,10 @@ export interface ChatSession {
 
   addRule(ruleName: string): boolean;
   removeRule(ruleName: string): boolean;
+
+  addTool(serverName: string, toolName: string): Promise<boolean>;
+  removeTool(serverName: string, toolName: string): boolean;
+  getIncludedTools(): Array<{serverName: string, toolName: string}>;
 
   toolIsApprovedForSession(serverId: string, toolId: string): void;
   isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean>;

@@ -20,6 +20,10 @@ import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import { ChatState } from '@tsagent/core';
 import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from '@tsagent/core';
+import { ReferencesModal } from './ReferencesModal';
+import { RulesModal } from './RulesModal';
+import { ToolsModal } from './ToolsModal';
+import './Modal.css';
 
 interface ClientChatState {
   messages: (RendererChatMessage & { modelReply?: ModelReply })[];
@@ -68,13 +72,18 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const [expandedToolCalls, setExpandedToolCalls] = useState<Set<string>>(new Set());
   const [activeReferences, setActiveReferences] = useState<string[]>([]);
   const [activeRules, setActiveRules] = useState<string[]>([]);
+  const [activeTools, setActiveTools] = useState<{serverName: string, toolName: string}[]>([]);
   const [availableReferences, setAvailableReferences] = useState<{name: string, description: string, priorityLevel: number}[]>([]);
   const [availableRules, setAvailableRules] = useState<{name: string, description: string, priorityLevel: number}[]>([]);
+  const [availableTools, setAvailableTools] = useState<{serverName: string, toolName: string, description: string}[]>([]);
   const [showContextPanel, setShowContextPanel] = useState(false);
   const [showModelPickerPanel, setShowModelPickerPanel] = useState<boolean>(false);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [models, setModels] = useState<ILLMModel[]>([]);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
+  const [showReferencesModal, setShowReferencesModal] = useState(false);
+  const [showRulesModal, setShowRulesModal] = useState(false);
+  const [showToolsModal, setShowToolsModal] = useState(false);
   const [isNewSession, setIsNewSession] = useState(true);
   const [chatSettings, setChatSettings] = useState<ChatSettings>({
     maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
@@ -231,6 +240,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             // Update the context data
             setActiveReferences(state.references || []);
             setActiveRules(state.rules || []);
+            setActiveTools(state.tools || []);
 
             // Update the chat settings
             setChatSettings({
@@ -245,6 +255,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             
             setIsInitialized(true);
 
+
             // Only show model picker if no model was specified
             setShowModelPickerPanel(!modelProvider);
           }
@@ -255,13 +266,34 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       
       initModel();
       
-      // Load available references and rules for context panel
+      // Load available references, rules, and tools for context panel
       const loadAvailableContext = async () => {
         try {
           const refs = await window.api.getReferences();
           const rules = await window.api.getRules();
+          const tools = await window.api.getServerConfigs();
           setAvailableReferences(refs.map(ref => ({ name: ref.name, description: ref.description, priorityLevel: ref.priorityLevel })));
           setAvailableRules(rules.map(rule => ({ name: rule.name, description: rule.description, priorityLevel: rule.priorityLevel })));
+          
+          // Load tools from all MCP servers
+          const allTools: {serverName: string, toolName: string, description: string}[] = [];
+          for (const server of tools) {
+            try {
+              const client = await window.api.getMCPClient(server.name);
+              if (client && client.serverTools) {
+                for (const tool of client.serverTools) {
+                  allTools.push({
+                    serverName: server.name,
+                    toolName: tool.name,
+                    description: tool.description || ''
+                  });
+                }
+              }
+            } catch (error) {
+              log.warn(`Failed to load tools from server ${server.name}:`, error);
+            }
+          }
+          setAvailableTools(allTools);
         } catch (error) {
           log.error('Error loading available context:', error);
         }
@@ -517,8 +549,10 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       if (chatApiRef.current) {
         const refs = await chatApiRef.current.getActiveReferences();
         const rules = await chatApiRef.current.getActiveRules();
+        const tools = await chatApiRef.current.getActiveTools();
         setActiveReferences(refs);
         setActiveRules(rules);
+        setActiveTools(tools);
       }
     } catch (error) {
       log.error('Failed to get response:', error);
@@ -665,51 +699,29 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
     log.debug(`Settings panel ${!showSettingsPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
 
-  const addReference = async (referenceName: string) => {
-    if (chatApiRef.current) {
-      const success = await chatApiRef.current.addReference(referenceName);
-      if (success) {
-        const refs = await chatApiRef.current.getActiveReferences();
-        setActiveReferences(refs);
-      }
-    }
-  };
-
-  const removeReference = async (referenceName: string) => {
-    if (chatApiRef.current) {
-      const success = await chatApiRef.current.removeReference(referenceName);
-      if (success) {
-        const refs = await chatApiRef.current.getActiveReferences();
-        setActiveReferences(refs);
-      }
-    }
-  };
-
-  const addRule = async (ruleName: string) => {
-    if (chatApiRef.current) {
-      const success = await chatApiRef.current.addRule(ruleName);
-      if (success) {
-        const rules = await chatApiRef.current.getActiveRules();
-        setActiveRules(rules);
-      }
-    }
-  };
-
-  const removeRule = async (ruleName: string) => {
-    if (chatApiRef.current) {
-      const success = await chatApiRef.current.removeRule(ruleName);
-      if (success) {
-        const rules = await chatApiRef.current.getActiveRules();
-        setActiveRules(rules);
-      }
-    }
-  };
 
   const handleSettingsChange = async (newSettings: typeof chatSettings) => {
     setChatSettings(newSettings);
     if (chatApiRef.current) {
       await chatApiRef.current.updateSettings(newSettings);
       log.info('Chat settings updated');
+    }
+  };
+
+  const refreshContextData = async () => {
+    if (chatApiRef.current) {
+      try {
+        const [refs, rules, tools] = await Promise.all([
+          chatApiRef.current.getActiveReferences(),
+          chatApiRef.current.getActiveRules(),
+          chatApiRef.current.getActiveTools()
+        ]);
+        setActiveReferences(refs);
+        setActiveRules(rules);
+        setActiveTools(tools);
+      } catch (error) {
+        log.error('Error refreshing context data:', error);
+      }
     }
   };
 
@@ -950,6 +962,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         >
           Context
         </button>
+        
       </div>
       
       {showModelPickerPanel && (
@@ -1059,7 +1072,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         <div id="context-panel">
           <div className="context-column">
             <div className="context-section">
-              <h3>Active References</h3>
+              <div className="context-section-header">
+                <h3>Active References</h3>
+                <button className="btn edit-button" onClick={() => setShowReferencesModal(true)}>
+                  Edit
+                </button>
+              </div>
               {activeReferences.length === 0 && <p>No active references</p>}
               <ul className="context-list">
                 {availableReferences
@@ -1074,33 +1092,6 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                     <li key={ref.name} className="context-item">
                       <span className="priority">{ref.priorityLevel.toString().padStart(3, '0')}</span>
                       <span className="name" title={ref.description}>{ref.name}</span>
-                      <div className="actions">
-                        <button className="btn remove-button" onClick={() => removeReference(ref.name)}>Remove</button>
-                      </div>
-                    </li>
-                  ))}
-              </ul>
-            </div>
-            
-            <div className="context-section">
-              <h3>Available References</h3>
-              {availableReferences.filter(ref => !activeReferences.includes(ref.name)).length === 0 && <p>No references available</p>}
-              <ul className="context-list">
-                {availableReferences
-                  .filter(ref => !activeReferences.includes(ref.name))
-                  .sort((a, b) => {
-                    if (a.priorityLevel !== b.priorityLevel) {
-                      return a.priorityLevel - b.priorityLevel;
-                    }
-                    return a.name.localeCompare(b.name);
-                  })
-                  .map(ref => (
-                    <li key={ref.name} className="context-item">
-                      <span className="priority">{ref.priorityLevel.toString().padStart(3, '0')}</span>
-                      <span className="name" title={ref.description}>{ref.name}</span>
-                      <div className="actions">
-                        <button className="btn add-button" onClick={() => addReference(ref.name)}>Add</button>
-                      </div>
                     </li>
                   ))}
               </ul>
@@ -1109,7 +1100,12 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           
           <div className="context-column">
             <div className="context-section">
-              <h3>Active Rules</h3>
+              <div className="context-section-header">
+                <h3>Active Rules</h3>
+                <button className="btn edit-button" onClick={() => setShowRulesModal(true)}>
+                  Edit
+                </button>
+              </div>
               {activeRules.length === 0 && <p>No active rules</p>}
               <ul className="context-list">
                 {availableRules
@@ -1124,33 +1120,34 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
                     <li key={rule.name} className="context-item">
                       <span className="priority">{rule.priorityLevel.toString().padStart(3, '0')}</span>
                       <span className="name" title={rule.description}>{rule.name}</span>
-                      <div className="actions">
-                        <button className="btn remove-button" onClick={() => removeRule(rule.name)}>Remove</button>
-                      </div>
                     </li>
                   ))}
               </ul>
             </div>
-            
+          </div>
+          
+          <div className="context-column">
             <div className="context-section">
-              <h3>Available Rules</h3>
-              {availableRules.filter(rule => !activeRules.includes(rule.name)).length === 0 && <p>No rules available</p>}
+              <div className="context-section-header">
+                <h3>Active Tools</h3>
+                <button className="btn edit-button" onClick={() => setShowToolsModal(true)}>
+                  Edit
+                </button>
+              </div>
+              {activeTools.length === 0 && <p>No active tools</p>}
               <ul className="context-list">
-                {availableRules
-                  .filter(rule => !activeRules.includes(rule.name))
+                {availableTools
+                  .filter(tool => activeTools.some(active => active.serverName === tool.serverName && active.toolName === tool.toolName))
                   .sort((a, b) => {
-                    if (a.priorityLevel !== b.priorityLevel) {
-                      return a.priorityLevel - b.priorityLevel;
+                    if (a.serverName !== b.serverName) {
+                      return a.serverName.localeCompare(b.serverName);
                     }
-                    return a.name.localeCompare(b.name);
+                    return a.toolName.localeCompare(b.toolName);
                   })
-                  .map(rule => (
-                    <li key={rule.name} className="context-item">
-                      <span className="priority">{rule.priorityLevel.toString().padStart(3, '0')}</span>
-                      <span className="name" title={rule.description}>{rule.name}</span>
-                      <div className="actions">
-                        <button className="btn add-button" onClick={() => addRule(rule.name)}>Add</button>
-                      </div>
+                  .map(tool => (
+                    <li key={`${tool.serverName}:${tool.toolName}`} className="context-item">
+                      <span className="server">{tool.serverName}</span>
+                      <span className="name" title={tool.description}>{tool.toolName}</span>
                     </li>
                   ))}
               </ul>
@@ -1167,6 +1164,30 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           />
         </div>
       )}
+      
+      <ReferencesModal
+        isOpen={showReferencesModal}
+        onClose={() => setShowReferencesModal(false)}
+        chatApi={chatApiRef.current}
+        tabId={id}
+        onContextChange={refreshContextData}
+      />
+      
+      <RulesModal
+        isOpen={showRulesModal}
+        onClose={() => setShowRulesModal(false)}
+        chatApi={chatApiRef.current}
+        tabId={id}
+        onContextChange={refreshContextData}
+      />
+      
+      <ToolsModal
+        isOpen={showToolsModal}
+        onClose={() => setShowToolsModal(false)}
+        chatApi={chatApiRef.current}
+        tabId={id}
+        onContextChange={refreshContextData}
+      />
       
       <div id="chat-container" 
         ref={chatContainerRef}

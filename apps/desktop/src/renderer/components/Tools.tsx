@@ -4,7 +4,7 @@ import type {
     ServerDefaultPermission, 
     ToolPermissionSetting,
     Tool,
-    ServerToolEnabledConfig,
+    ServerToolIncludeConfig,
     ServerToolPermissionRequiredConfig
 } from "@tsagent/core";
 import { 
@@ -15,10 +15,12 @@ import {
     TOOL_PERMISSION_NOT_REQUIRED,
     isToolPermissionServerDefaultRequired,
     getToolPermissionState,
-    isToolEnabledServerDefaultEnabled,
-    isToolEnabled,
-    isToolAvailable,
-    getToolEnabledState
+    getToolIncludeServerDefault,
+    getToolIncludeMode,
+    getToolEffectiveIncludeMode,
+    isToolInContext,
+    isToolAvailableForManual,
+    isToolAvailableForAgent
 } from "@tsagent/core";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
@@ -112,7 +114,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     });
     
     // For internal tool settings, only initialize them if effectiveType is 'internal'
-    const [internalTool, setInternalTool] = useState<'rules' | 'references'>(() => {
+    const [internalTool, setInternalTool] = useState<'rules' | 'references' | 'supervision' | 'tools'>(() => {
         if (effectiveType === 'internal' && server?.config) {
             return (server.config as any).tool || 'rules';
         }
@@ -150,9 +152,9 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         server?.config ? isToolPermissionServerDefaultRequired(server.config) ? SERVER_PERMISSION_REQUIRED : SERVER_PERMISSION_NOT_REQUIRED : SERVER_PERMISSION_REQUIRED
     );
 
-    // Server default enabled state
-    const [serverDefaultEnabled, setServerDefaultEnabled] = useState<boolean>(
-        server?.config.toolEnabled?.serverDefault !== false // Default to true if not specified
+    // Server default include mode
+    const [serverDefaultIncludeMode, setServerDefaultIncludeMode] = useState<'always' | 'manual' | 'agent'>(
+        server?.config.toolInclude?.serverDefault || 'always'
     );
 
     // Log initial state values
@@ -443,10 +445,11 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     tools: server?.config.toolPermissionRequired?.tools
                 };
 
-                // Create the toolEnabled settings (preserve existing tool settings)
-                const toolEnabled = serverDefaultEnabled ? 
-                    (server?.config.toolEnabled?.tools ? { serverDefault: true, tools: server.config.toolEnabled.tools } : undefined) :
-                    { serverDefault: false, tools: server?.config.toolEnabled?.tools };
+                // Create the toolInclude settings (preserve existing tool settings)
+                const toolInclude = {
+                    serverDefault: serverDefaultIncludeMode,
+                    tools: server?.config.toolInclude?.tools
+                };
 
                 const serverConfig: McpConfig = {
                     name,
@@ -458,7 +461,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             env: Object.keys(JSON.parse(env)).length > 0 ? JSON.parse(env) : undefined,
                             cwd: cwd && cwd.trim() !== '' ? cwd.trim() : undefined,
                             toolPermissionRequired,
-                            toolEnabled
+                            toolInclude
                         }
                         : serverType === 'sse'
                         ? {
@@ -466,13 +469,13 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             url,
                             headers: Object.keys(headers).length > 0 ? headers : undefined,
                             toolPermissionRequired,
-                            toolEnabled
+                            toolInclude
                         }
                         : {
                             type: 'internal',
                             tool: internalTool,
                             toolPermissionRequired,
-                            toolEnabled
+                            toolInclude
                         }
                 };
                 onSave(serverConfig);
@@ -713,11 +716,13 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             <label style={{ fontWeight: 'bold' }}>Tool:</label>
                             <select 
                                 value={internalTool}
-                                onChange={(e) => setInternalTool(e.target.value as 'rules' | 'references')}
+                                onChange={(e) => setInternalTool(e.target.value as 'rules' | 'references' | 'supervision' | 'tools')}
                                 style={{ width: 'auto', padding: '4px 8px' }}
                             >
                                 <option value="rules">Rules</option>
                                 <option value="references">References</option>
+                                <option value="supervision">Supervision</option>
+                                <option value="tools">Tools</option>
                             </select>
                         </>
                     )}
@@ -769,13 +774,14 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         <label style={{ fontWeight: 'bold', alignSelf: 'start', paddingTop: '8px' }}>Server Default:</label>
                         <div>
                             <select
-                                value={serverDefaultEnabled ? 'true' : 'false'}
-                                onChange={(e) => setServerDefaultEnabled(e.target.value === 'true')}
+                                value={serverDefaultIncludeMode}
+                                onChange={(e) => setServerDefaultIncludeMode(e.target.value as 'always' | 'manual' | 'agent')}
                             >
-                                <option value="true">Enabled</option>
-                                <option value="false">Disabled</option>
+                                <option value="always">Always</option>
+                                <option value="manual">Manual</option>
+                                <option value="agent">Agent</option>
                             </select>
-                            <p><i>Individual tools may override the default enabled setting for this server</i></p>
+                            <p><i>Individual tools may override the default include mode for this server</i></p>
                         </div>
                     </>
 
@@ -965,7 +971,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [currentErrorAnalysis, setCurrentErrorAnalysis] = useState<ErrorAnalysis | null>(null);
     const [currentErrorLog, setCurrentErrorLog] = useState<string[]>([]);
     const [selectedToolPermission, setSelectedToolPermission] = useState<ToolPermissionSetting>(TOOL_PERMISSION_SERVER_DEFAULT);
-    const [selectedToolEnabled, setSelectedToolEnabled] = useState<'server_default' | 'enabled' | 'disabled'>('server_default');
+    const [selectedToolEnabled, setSelectedToolEnabled] = useState<'server_default' | 'always' | 'manual' | 'agent'>('server_default');
 
     useEffect(() => {
         loadServers();
@@ -1282,28 +1288,28 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         setSelectedServer(updatedServer);
     };
 
-    const handleToolEnabledChange = async (enabledState: 'server_default' | 'enabled' | 'disabled') => {
+    const handleToolEnabledChange = async (includeMode: 'server_default' | 'always' | 'manual' | 'agent') => {
         if (!selectedTool || !selectedServer) return;
         
-        setSelectedToolEnabled(enabledState);
+        setSelectedToolEnabled(includeMode);
         
         // Update the server config
-        let updatedTools = { ...selectedServer.config.toolEnabled?.tools };
+        let updatedTools = { ...selectedServer.config.toolInclude?.tools };
         
-        if (enabledState === 'server_default') {
+        if (includeMode === 'server_default') {
             // Remove the tool from the tools object to use server default
             delete updatedTools[selectedTool.name];
         } else {
-            // Set explicit boolean value
-            updatedTools[selectedTool.name] = enabledState === 'enabled';
+            // Set explicit include mode value
+            updatedTools[selectedTool.name] = includeMode;
         }
         
         const updatedServer = {
             ...selectedServer,
             config: {
                 ...selectedServer.config,
-                toolEnabled: {
-                    serverDefault: selectedServer.config.toolEnabled?.serverDefault !== false, // Default to true
+                toolInclude: {
+                    serverDefault: selectedServer.config.toolInclude?.serverDefault || 'always',
                     tools: updatedTools
                 }
             }
@@ -1321,9 +1327,9 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             const permission = permissionState === 'required' ? TOOL_PERMISSION_REQUIRED : permissionState === 'not_required' ? TOOL_PERMISSION_NOT_REQUIRED : TOOL_PERMISSION_SERVER_DEFAULT;
             setSelectedToolPermission(permission);
             
-            // Initialize tool enabled state (get the three-state value)
-            const enabledState = getToolEnabledState(selectedServer.config, selectedTool.name);
-            setSelectedToolEnabled(enabledState);
+            // Initialize tool include mode (get the four-state value)
+            const includeMode = getToolIncludeMode(selectedServer.config, selectedTool.name);
+            setSelectedToolEnabled(includeMode);
         }
     }, [selectedTool, selectedServer]);
 
@@ -1450,7 +1456,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                                                 <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{tool.name}</h3>
-                                                {!isToolAvailable(selectedServer.config, tool.name) && (
+                                                {!isToolInContext(selectedServer.config, tool.name) && (
                                                     <span style={{ 
                                                         padding: '2px 6px', 
                                                         backgroundColor: '#ff4444',
@@ -1493,17 +1499,18 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     </div>
 
                                     <div style={{ marginBottom: '20px' }}>
-                                        <h3 style={{ marginBottom: '10px' }}>Tool Enabled:</h3>
+                                        <h3 style={{ marginBottom: '10px' }}>Tool Include:</h3>
                                         <select
                                             value={selectedToolEnabled}
-                                            onChange={(e) => handleToolEnabledChange(e.target.value as 'server_default' | 'enabled' | 'disabled')}
+                                            onChange={(e) => handleToolEnabledChange(e.target.value as 'server_default' | 'always' | 'manual' | 'agent')}
                                             style={{ width: '100%', padding: '4px 8px' }}
                                         >
                                             <option value="server_default">
-                                                Use Server Default ({isToolEnabledServerDefaultEnabled(selectedServer.config) ? 'Enabled' : 'Disabled'})
+                                                Use Server Default ({getToolIncludeServerDefault(selectedServer.config)})
                                             </option>
-                                            <option value="enabled">Always Enabled</option>
-                                            <option value="disabled">Always Disabled</option>
+                                            <option value="always">Always</option>
+                                            <option value="manual">Manual</option>
+                                            <option value="agent">Agent</option>
                                         </select>
                                     </div>
 

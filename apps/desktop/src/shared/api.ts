@@ -26,6 +26,8 @@ export interface API {
   removeChatReference: (tabId: string, referenceName: string) => Promise<boolean>;
   addChatRule: (tabId: string, ruleName: string) => Promise<boolean>;
   removeChatRule: (tabId: string, ruleName: string) => Promise<boolean>;
+  addChatTool: (tabId: string, serverName: string, toolName: string) => Promise<boolean>;
+  removeChatTool: (tabId: string, serverName: string, toolName: string) => Promise<boolean>;
 
   // LLM Provider methods for model picker
   getProviderInfo: (provider: ProviderType) => Promise<LLMProviderInfo>;

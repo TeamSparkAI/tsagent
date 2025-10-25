@@ -70,6 +70,13 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
 
     // Create new ChatSession instance
     const session = new ChatSessionImpl(this.agent, sessionId, optionsWithRequiredSettings, this.logger);
+    
+    // Set supervision manager if available
+    const supervisionManager = this.agent.getSupervisionManager();
+    if (supervisionManager) {
+      session.setSupervisionManager(supervisionManager);
+    }
+    
     this.sessions.set(session.id, session);
     
     this.logger.info(`Created new chat session for tab ${session.id} with model ${session.currentProvider}`);

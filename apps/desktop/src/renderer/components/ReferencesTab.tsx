@@ -219,7 +219,7 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
             // Check if there's already a reference with this name (excluding the current one being edited)
             const existingReference = references.find(r => 
                 r.name === reference.name && 
-                (!editingReference || r.name !== editingReference.name)
+                (editingReference ? r.name !== editingReference.name : true)
             );
             
             if (existingReference) {

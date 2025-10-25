@@ -196,6 +196,24 @@ export class ChatAPI {
     }
   }
 
+  public async addTool(serverName: string, toolName: string): Promise<boolean> {
+    try {
+      return await window.api.addChatTool(this.tabId, serverName, toolName);
+    } catch (error) {
+      log.error(`Error adding tool '${serverName}:${toolName}' to chat:`, error);
+      return false;
+    }
+  }
+
+  public async removeTool(serverName: string, toolName: string): Promise<boolean> {
+    try {
+      return await window.api.removeChatTool(this.tabId, serverName, toolName);
+    } catch (error) {
+      log.error(`Error removing tool '${serverName}:${toolName}' from chat:`, error);
+      return false;
+    }
+  }
+
   public async getActiveReferences(): Promise<string[]> {
     // This requires refreshing the state first to ensure we have the latest data
     // Return the references from the latest state
@@ -222,6 +240,21 @@ export class ChatAPI {
       return state.rules;
     } catch (error) {
       log.error('Error getting active rules:', error);
+      return [];
+    }
+  }
+
+  public async getActiveTools(): Promise<{serverName: string, toolName: string}[]> {
+    // This requires refreshing the state first to ensure we have the latest data
+    // Return the tools from the latest state
+    try {
+      const state = await window.api.getChatState(this.tabId);
+      if (!state) {
+        throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
+      }
+      return state.tools || [];
+    } catch (error) {
+      log.error('Error getting active tools:', error);
       return [];
     }
   }

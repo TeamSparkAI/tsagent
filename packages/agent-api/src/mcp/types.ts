@@ -26,16 +26,16 @@ export interface ServerToolPermissionRequiredConfig {
   tools?: Record<string, boolean>; // true => required, false => not required; absence => use server default
 }
 
-// Server-level enabled/disabled settings
-export interface ServerToolEnabledConfig {
-    serverDefault: boolean;
-    tools?: Record<string, boolean>;
+// Server-level include mode settings
+export interface ServerToolIncludeConfig {
+    serverDefault: 'always' | 'manual' | 'agent';
+    tools?: Record<string, 'always' | 'manual' | 'agent'>;
 }
 
 export type McpConfigFileServerConfig = 
-  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; toolEnabled?: ServerToolEnabledConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
-  | { type: 'sse'; url: string; headers?: Record<string, string>; toolEnabled?: ServerToolEnabledConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
-  | { type: 'internal'; tool: 'rules' | 'references'; toolEnabled?: ServerToolEnabledConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig };
+  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
+  | { type: 'sse'; url: string; headers?: Record<string, string>; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
+  | { type: 'internal'; tool: 'rules' | 'references' | 'supervision' | 'tools'; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig };
 
 export interface McpConfig {
   name: string;
@@ -55,59 +55,78 @@ export function determineServerType(config: Omit<McpConfigFileServerConfig, 'typ
   throw new Error('Invalid server configuration');
 }
 
-// Helper functions for enabled/disabled settings
+// Helper functions for include mode settings
 
 /**
- * Checks if a server default is enabled in the configuration (for UX editing)
+ * Gets the server default include mode in the configuration
  * @param config Server configuration
- * @returns true if server default is enabled (defaults to true if not specified)
+ * @returns 'always' | 'manual' | 'agent' (defaults to 'always' if not specified)
  */
-export function isToolEnabledServerDefaultEnabled(config: McpConfigFileServerConfig): boolean {
-  // Default to true if toolEnabled property is missing or serverDefault is missing/true
-  return config.toolEnabled?.serverDefault !== false;
+export function getToolIncludeServerDefault(config: McpConfigFileServerConfig): 'always' | 'manual' | 'agent' {
+  return config.toolInclude?.serverDefault || 'always';
 }
 
 /**
- * Gets the tool enabled state for UX editing (three states: server_default, enabled, disabled)
+ * Gets the tool include mode for UX editing (three states: server_default, always, manual, agent)
  * @param config Server configuration
  * @param toolName Name of the tool to check
- * @returns 'server_default', 'enabled', or 'disabled'
+ * @returns 'server_default', 'always', 'manual', or 'agent'
  */
-export function getToolEnabledState(config: McpConfigFileServerConfig, toolName: string): 'server_default' | 'enabled' | 'disabled' {
+export function getToolIncludeMode(config: McpConfigFileServerConfig, toolName: string): 'server_default' | 'always' | 'manual' | 'agent' {
   // If no tool-specific config, it's using server default
-  if (!config.toolEnabled?.tools || !(toolName in config.toolEnabled.tools)) {
+  if (!config.toolInclude?.tools || !(toolName in config.toolInclude.tools)) {
     return 'server_default';
   }
   
   // Return the explicit tool setting
-  return config.toolEnabled.tools[toolName] ? 'enabled' : 'disabled';
+  return config.toolInclude.tools[toolName];
 }
 
 /**
- * Checks if a tool is enabled in the configuration (for runtime logic)
+ * Gets the effective include mode for a tool (resolves server_default to actual mode)
  * @param config Server configuration
  * @param toolName Name of the tool to check
- * @returns true if tool is enabled (uses server default if not specified)
+ * @returns 'always', 'manual', or 'agent'
  */
-export function isToolEnabled(config: McpConfigFileServerConfig, toolName: string): boolean {
-  // If no tool-specific config, use server default
-  if (!config.toolEnabled?.tools || !(toolName in config.toolEnabled.tools)) {
-    return isToolEnabledServerDefaultEnabled(config);
+export function getToolEffectiveIncludeMode(config: McpConfigFileServerConfig, toolName: string): 'always' | 'manual' | 'agent' {
+  const toolMode = getToolIncludeMode(config, toolName);
+  if (toolMode === 'server_default') {
+    return getToolIncludeServerDefault(config);
   }
-  
-  // Return the explicit tool setting
-  return config.toolEnabled.tools[toolName];
+  return toolMode;
 }
 
 /**
- * Checks if a tool is actually available to the LLM (enabled tool)
+ * Checks if a tool should be included in context (for runtime logic)
  * @param config Server configuration
  * @param toolName Name of the tool to check
- * @returns true if tool is available (tool is enabled)
+ * @returns true if tool should be included in context
  */
-export function isToolAvailable(config: McpConfigFileServerConfig, toolName: string): boolean {
-  // Tool is available if it's enabled (either explicitly or via server default)
-  return isToolEnabled(config, toolName);
+export function isToolInContext(config: McpConfigFileServerConfig, toolName: string): boolean {
+  const mode = getToolEffectiveIncludeMode(config, toolName);
+  return mode === 'always';
+}
+
+/**
+ * Checks if a tool is available for manual inclusion
+ * @param config Server configuration
+ * @param toolName Name of the tool to check
+ * @returns true if tool is available for manual inclusion
+ */
+export function isToolAvailableForManual(config: McpConfigFileServerConfig, toolName: string): boolean {
+  const mode = getToolEffectiveIncludeMode(config, toolName);
+  return mode === 'manual' || mode === 'always';
+}
+
+/**
+ * Checks if a tool is available for agent-controlled inclusion
+ * @param config Server configuration
+ * @param toolName Name of the tool to check
+ * @returns true if tool is available for agent-controlled inclusion
+ */
+export function isToolAvailableForAgent(config: McpConfigFileServerConfig, toolName: string): boolean {
+  const mode = getToolEffectiveIncludeMode(config, toolName);
+  return mode === 'agent' || mode === 'manual' || mode === 'always';
 }
 
 // Helper functions for permission required (new serialization)
@@ -171,5 +190,6 @@ export interface MCPClientManager {
   unloadMcpClient(name: string): Promise<void>;
   unloadMcpClients(): Promise<void>;
   getAllMcpClients(): Promise<Record<string, McpClient>>;
+  getAllMcpClientsSync(): Record<string, McpClient>;
   getMcpClient(name: string): Promise<McpClient | undefined>;
 }

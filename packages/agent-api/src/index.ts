@@ -43,7 +43,7 @@ export {
   MCPClientManager,
   ServerDefaultPermission,
   ToolPermissionSetting,
-  ServerToolEnabledConfig,
+  ServerToolIncludeConfig,
   ServerToolPermissionRequiredConfig,
   SERVER_PERMISSION_REQUIRED,
   SERVER_PERMISSION_NOT_REQUIRED,
@@ -53,10 +53,12 @@ export {
   isToolPermissionServerDefaultRequired,
   getToolPermissionState,
   isToolPermissionRequired,
-  isToolEnabledServerDefaultEnabled,
-  isToolEnabled,
-  isToolAvailable,
-  getToolEnabledState
+  getToolIncludeServerDefault,
+  getToolIncludeMode,
+  getToolEffectiveIncludeMode,
+  isToolInContext,
+  isToolAvailableForManual,
+  isToolAvailableForAgent
 } from './mcp/types.js';
 
 // Export constants that are needed by implementation

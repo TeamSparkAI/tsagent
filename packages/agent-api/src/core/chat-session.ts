@@ -3,7 +3,8 @@ import { Provider, ProviderType } from '../providers/types.js';
 import { Agent, populateModelFromSettings } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent.js';
-import { isToolPermissionRequired } from '../mcp/types.js';
+import { isToolPermissionRequired, getToolEffectiveIncludeMode, getToolIncludeServerDefault } from '../mcp/types.js';
+import { SupervisionManager, RequestSupervisionResult, ResponseSupervisionResult } from '../types/supervision.js';
 
 export class ChatSessionImpl implements ChatSession {
   private _id: string;
@@ -15,12 +16,14 @@ export class ChatSessionImpl implements ChatSession {
   agent: Agent;
   rules: string[] = [];
   references: string[] = [];
+  tools: Array<{serverName: string, toolName: string}> = [];
   maxChatTurns: number;
   maxOutputTokens: number;
   temperature: number;
   topP: number;
   toolPermission: SessionToolPermission;
   private approvedTools: Map<string, Set<string>> = new Map();
+  private supervisionManager?: SupervisionManager;
 
   constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, private logger: Logger) {
     this._id = id;
@@ -80,12 +83,19 @@ export class ChatSessionImpl implements ChatSession {
       }
     } 
 
+    // Add "always" include tools to the session
+    this.initializeAlwaysIncludeTools();
+
     this.logger.info(`Created new chat session with name ${this.agent.name} at path ${this.agent.path}`);    
     this.logger.info(`Created new chat session with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
   }
 
   get id(): string {
     return this._id;
+  }
+
+  setSupervisionManager(supervisionManager: SupervisionManager): void {
+    this.supervisionManager = supervisionManager;
   }
 
   getState(): ChatState {
@@ -96,6 +106,7 @@ export class ChatSessionImpl implements ChatSession {
       currentModelId: this.currentModelId,
       references: [...this.references],
       rules: [...this.rules],
+      tools: [...this.tools],
       maxChatTurns: this.maxChatTurns,
       maxOutputTokens: this.maxOutputTokens,
       temperature: this.temperature,
@@ -201,30 +212,107 @@ export class ChatSessionImpl implements ChatSession {
     this.messages.push(message);
     messages.push(message);
 
+    // Apply supervision with full context right before model call
+    if (this.supervisionManager) {
+      try {
+        const result = await this.supervisionManager.processRequest(
+          this, 
+          messages  // Pass the full context that will be sent to the model
+        );
+        
+        // Handle the supervision result
+        if (result.action === 'block') {
+          const reason = result.reasons?.join('; ') || 'No reason provided';
+          this.logger.warn(`Message blocked by supervisor: ${reason}`);
+          return {
+            updates: [{
+              role: 'error',
+              content: `Message blocked: ${reason}`
+            }],
+            lastSyncId: this.lastSyncId,
+            references: [...this.references],
+            rules: [...this.rules]
+          };
+        }
+        
+        // Use the final message (modified or original)
+        if (result.action === 'modify' && result.finalMessage) {
+          message = result.finalMessage;
+          // Update the messages array with the modified message
+          messages[messages.length - 1] = result.finalMessage;
+          this.logger.info(`Message modified by supervisor: ${result.reasons?.join('; ') || 'No reason provided'}`);
+        } else if (result.action === 'allow' && result.finalMessage) {
+          message = result.finalMessage;
+          messages[messages.length - 1] = result.finalMessage;
+        }
+      } catch (error) {
+        this.logger.error('Error in supervision system:', error);
+        // Continue with original message if supervision fails
+      }
+    }
+
     try {
       // Log the model being used for this request
       this.logger.info(`Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
-      const response = await this.provider.generateResponse(this, messages);
-      if (!response) {
+      const modelResponse = await this.provider.generateResponse(this, messages);
+      if (!modelResponse) {
         throw new Error(`Failed to generate response from ${this.currentProvider}`);
       }
 
-      this.logger.debug('All turns', JSON.stringify(response.turns, null, 2));
+      this.logger.debug('All turns', JSON.stringify(modelResponse.turns, null, 2));
 
       const replyMessage = {
         role: 'assistant' as const,
-        modelReply: response
+        modelReply: modelResponse
       };
       
       this.messages.push(replyMessage);
       this.lastSyncId++;
       
-      return {
+      let response: MessageUpdate = {
         updates: [message, replyMessage],
         lastSyncId: this.lastSyncId,
         references: [...this.references],
         rules: [...this.rules]
       };
+
+      // Apply supervision to response if available
+      if (this.supervisionManager) {
+        try {
+          const result = await this.supervisionManager.processResponse(
+            this,
+            response
+          );
+          
+          if (result.action === 'block') {
+            // If response is blocked, return error
+            const reason = result.reasons?.join('; ') || 'Response blocked by supervisor';
+            this.logger.warn(`Response blocked by supervisor: ${reason}`);
+            return {
+              updates: [{
+                role: 'error',
+                content: `Response blocked: ${reason}`
+              }],
+              lastSyncId: this.lastSyncId,
+              references: [...this.references],
+              rules: [...this.rules]
+            };
+          }
+          
+          // Use the final response (modified or original)
+          if (result.action === 'modify' && result.finalResponse) {
+            response = result.finalResponse;
+            this.logger.info(`Response modified by supervisor: ${result.reasons?.join('; ') || 'No reason provided'}`);
+          } else if (result.action === 'allow' && result.finalResponse) {
+            response = result.finalResponse;
+          }
+        } catch (error) {
+          this.logger.error('Error in supervision response processing:', error);
+          // Continue with original response if supervision fails
+        }
+      }
+      
+      return response;
     } catch (error) {
       this.logger.error(`Error handling message in session:`, error);
       throw error;
@@ -357,6 +445,83 @@ export class ChatSessionImpl implements ChatSession {
     this.logger.info(`Removed rule '${ruleName}' from chat session`);
     return true;
   }
+
+  async addTool(serverName: string, toolName: string): Promise<boolean> {
+    // Check if tool is already in context
+    if (this.tools.some(tool => tool.serverName === serverName && tool.toolName === toolName)) {
+      return false; // Already exists
+    }
+    
+    // Validate tool exists in the server
+    try {
+      const mcpClients = await this.agent.getAllMcpClients();
+      const client = mcpClients[serverName];
+      if (!client) {
+        this.logger.warn(`Attempted to add tool from non-existent server: ${serverName}`);
+        return false;
+      }
+      
+      const tool = client.serverTools.find((t: any) => t.name === toolName);
+      if (!tool) {
+        this.logger.warn(`Attempted to add non-existent tool: ${serverName}:${toolName}`);
+        return false;
+      }
+      
+      this.tools.push({ serverName, toolName });
+      this.lastSyncId++;
+      this.logger.info(`Added tool '${serverName}:${toolName}' to chat session`);
+      return true;
+    } catch (error) {
+      this.logger.error(`Error adding tool '${serverName}:${toolName}' to chat session:`, error);
+      return false;
+    }
+  }
+
+  removeTool(serverName: string, toolName: string): boolean {
+    const index = this.tools.findIndex(tool => tool.serverName === serverName && tool.toolName === toolName);
+    if (index === -1) {
+      return false; // Doesn't exist
+    }
+    
+    this.tools.splice(index, 1);
+    this.lastSyncId++;
+    this.logger.info(`Removed tool '${serverName}:${toolName}' from chat session`);
+    return true;
+  }
+
+  getIncludedTools(): Array<{serverName: string, toolName: string}> {
+    return [...this.tools];
+  }
+
+  private initializeAlwaysIncludeTools(): void {
+    try {
+      // Get server configs synchronously - clients should be preloaded
+      const mcpServers = this.agent.getAgentMcpServers();
+      if (!mcpServers) return;
+      
+      for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
+        // Check if server default is 'always'
+        const serverDefault = getToolIncludeServerDefault(serverConfig as any);
+        if (serverDefault === 'always') {
+          // Get the client for this server to access its tools
+          const mcpClients = this.agent.getAllMcpClientsSync();
+          const client = mcpClients[serverName];
+          if (client && client.serverTools) {
+            for (const tool of client.serverTools) {
+              if (getToolEffectiveIncludeMode(serverConfig as any, tool.name) === 'always') {
+                this.tools.push({ serverName, toolName: tool.name });
+                this.logger.info(`Added always-include tool '${serverName}:${tool.name}' to session`);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      this.logger.warn('Error initializing always-include tools:', error);
+    }
+  }
+
+
 
   toolIsApprovedForSession(serverId: string, toolId: string) {
     let serverApprovedTools = this.approvedTools.get(serverId);

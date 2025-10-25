@@ -10,7 +10,8 @@ import { Agent, AgentConfig, AgentSettings,
   SETTINGS_KEY_THEME,
   SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL,
   AgentMetadata,
-  AgentMode
+  AgentMode,
+  SupervisorConfig
 } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { RulesManager } from '../managers/rules-manager.js';
@@ -18,6 +19,9 @@ import { ReferencesManager } from '../managers/references-manager.js';
 import { McpServerManagerImpl } from '../managers/mcp-server-manager.js';
 import { ChatSessionManagerImpl } from '../managers/chat-session-manager.js';
 import { MCPClientManagerImpl } from '../mcp/client-manager.js';
+import { SupervisionManagerImpl } from '../managers/supervision-manager.js';
+import { SupervisorFactory } from '../supervisors/supervisor-factory.js';
+import { SupervisionManager, Supervisor } from '../types/supervision.js';
 import { McpClient, MCPClientManager, McpConfig } from '../mcp/types.js';
 import { ProviderFactory } from '../providers/provider-factory.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
@@ -48,6 +52,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   public readonly references: ReferencesManager;
   public readonly mcpServers: McpServerManagerImpl;
   private readonly mcpManager: MCPClientManager;
+  private _supervisionManager?: SupervisionManagerImpl;
 
   // Agent interface properties
   get id(): string { return this._id; }
@@ -115,6 +120,9 @@ export class AgentImpl  extends EventEmitter implements Agent {
 
     await this.references.loadReferences(this._strategy);
     await this.rules.loadRules(this._strategy);
+
+    // Preload MCP clients so they're available for sessions
+    await this.preloadMcpClients();
 
     this.logger.info(`[AGENT] Agent loaded successfully, theme: ${this._agentData?.settings?.[SETTINGS_KEY_THEME]}`);
   }
@@ -364,6 +372,9 @@ export class AgentImpl  extends EventEmitter implements Agent {
   getAllMcpClients(): Promise<Record<string, McpClient>> {
     return this.mcpManager.getAllMcpClients();
   }
+  getAllMcpClientsSync(): Record<string, McpClient> {
+    return this.mcpManager.getAllMcpClientsSync();
+  }
   getMcpClient(name: string): Promise<McpClient | undefined> {
     return this.mcpManager.getMcpClient(name);
   }
@@ -383,6 +394,71 @@ export class AgentImpl  extends EventEmitter implements Agent {
   deleteChatSession(sessionId: string): Promise<boolean> {
     return this.chatSessions.deleteChatSession(sessionId);
   }
+
+  // Supervision management methods
+  getSupervisionManager(): SupervisionManager | null {
+    return this._supervisionManager || null;
+  }
+
+  setSupervisionManager(supervisionManager: SupervisionManager): void {
+    this._supervisionManager = supervisionManager as SupervisionManagerImpl;
+  }
+
+  async addSupervisor(supervisor: Supervisor): Promise<void> {
+    if (!this._supervisionManager) {
+      this._supervisionManager = new SupervisionManagerImpl(this.logger);
+    }
+    await this._supervisionManager.addSupervisor(supervisor);
+  }
+
+  async removeSupervisor(supervisorId: string): Promise<void> {
+    if (this._supervisionManager) {
+      await this._supervisionManager.removeSupervisor(supervisorId);
+    }
+  }
+
+  getSupervisor(supervisorId: string): Supervisor | null {
+    return this._supervisionManager?.getSupervisor(supervisorId) || null;
+  }
+
+  getAllSupervisors(): Supervisor[] {
+    return this._supervisionManager?.getAllSupervisors() || [];
+  }
+  
+  getSupervisorConfigs(): SupervisorConfig[] {
+    return this._agentData?.supervisors || [];
+  }
+  
+  /**
+   * Load supervisors from agent configuration
+   */
+  async loadSupervisorsFromConfig(): Promise<void> {
+    const supervisorConfigs = this._agentData?.supervisors;
+    if (!supervisorConfigs || supervisorConfigs.length === 0) {
+      return;
+    }
+    
+    
+    for (const config of supervisorConfigs) {
+      try {
+        const supervisor = SupervisorFactory.createSupervisor(config, this.logger);
+        await this.addSupervisor(supervisor);
+        this.logger.info(`Loaded supervisor: ${config.name} (${config.id})`);
+      } catch (error) {
+        this.logger.error(`Failed to load supervisor ${config.id}: ${error}`);
+      }
+    }
+  }
+
+  private async preloadMcpClients(): Promise<void> {
+    try {
+      this.logger.info(`[AGENT] Preloading MCP clients...`);
+      await this.mcpManager.getAllMcpClients();
+      this.logger.info(`[AGENT] MCP clients preloaded successfully`);
+    } catch (error) {
+      this.logger.warn(`[AGENT] Error preloading MCP clients:`, error);
+    }
+  }
 }
 
 export class FileBasedAgentFactory {
@@ -397,6 +473,10 @@ export class FileBasedAgentFactory {
       const strategy = new FileBasedAgentStrategy(normalizedPath, logger);
       const agent = new AgentImpl(strategy, logger);
       await agent.load();
+      
+      // Load supervisors from configuration
+      await agent.loadSupervisorsFromConfig();
+      
       return agent;
     }
   

@@ -241,7 +241,7 @@ export class OpenAIProvider implements Provider {
 
       // this.logger.info('Starting OpenAI Provider with messages:', JSON.stringify(turnMessages, null, 2));
 
-      const tools = await ProviderHelper.getAllTools(this.agent, session);
+      const tools = await ProviderHelper.getIncludedTools(this.agent, session);
       const functions = tools.map(tool => this.convertMCPToolToOpenAIFunction(tool));
 
       const state = session.getState();

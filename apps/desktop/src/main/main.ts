@@ -499,6 +499,44 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
+  ipcMain.handle('chat:add-tool', (event, tabId: string, serverName: string, toolName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
+    }
+    try {
+      const session = agent.getChatSession(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return session.addTool(serverName, toolName);
+    } catch (error) {
+      log.error(`Error adding tool '${serverName}:${toolName}' to chat session:`, error);
+      throw error;
+    }
+  });
+
+  ipcMain.handle('chat:remove-tool', (event, tabId: string, serverName: string, toolName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return false;
+    }
+    try {
+      const session = agent.getChatSession(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      return session.removeTool(serverName, toolName);
+    } catch (error) {
+      log.error(`Error removing tool '${serverName}:${toolName}' from chat session:`, error);
+      throw error;
+    }
+  });
+
 
   ipcMain.handle('chat:clear-model', (event, tabId: string) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();

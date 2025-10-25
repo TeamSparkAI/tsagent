@@ -225,7 +225,7 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
             // Check if there's already a rule with this name (excluding the current one being edited)
             const existingRule = rules.find(r => 
                 r.name === rule.name && 
-                (!editingRule || r.name !== editingRule.name)
+                (editingRule ? r.name !== editingRule.name : true)
             );
             
             if (existingRule) {

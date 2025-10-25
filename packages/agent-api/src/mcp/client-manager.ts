@@ -4,6 +4,8 @@ import { Logger } from '../types/common.js';
 import { Agent } from '../types/agent.js'
 import { McpClientInternalRules } from './client-rules.js';
 import { McpClientInternalReferences } from './client-references.js';
+import { McpClientInternalSupervision } from './client-supervision.js';
+import { McpClientInternalTools } from './client-tools.js';
 import { SETTINGS_KEY_SYSTEM_PATH } from '../types/agent.js';
 import { MCPClientManager } from './types.js';
 
@@ -69,6 +71,10 @@ export class MCPClientManagerImpl implements MCPClientManager {
                 client = new McpClientInternalRules(agent, this.logger);
             } else if (config.tool === 'references') {
                 client = new McpClientInternalReferences(agent, this.logger);
+            } else if (config.tool === 'supervision') {
+                client = new McpClientInternalSupervision(agent, this.logger);
+            } else if (config.tool === 'tools') {
+                client = new McpClientInternalTools(agent);
             } else {
                 throw new Error(`Unknown internal server tool: ${config.tool} for server: ${serverName}`);
             }
@@ -136,6 +142,14 @@ export class MCPClientManagerImpl implements MCPClientManager {
             }
         }
         
+        return result;
+    }
+
+    getAllMcpClientsSync(): Record<string, McpClient> {
+        const result: Record<string, McpClient> = {};
+        for (const [serverName, client] of this.clients) {
+            result[serverName] = client;
+        }
         return result;
     }
 

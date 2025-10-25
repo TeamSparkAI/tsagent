@@ -134,6 +134,15 @@ export class McpClientInternalReferences implements McpClient {
             }
         },
         {
+            name: "listContextReferences",
+            description: "List references currently in the chat session context",
+            inputSchema: {
+                type: "object",
+                properties: {},
+                required: []
+            }
+        },
+        {
             name: "includeReference",
             description: "Include (add) a reference in the current chat session context",
             inputSchema: {
@@ -350,6 +359,19 @@ export class McpClientInternalReferences implements McpClient {
                     
                     return {
                         content: [{ type: "text", text: JSON.stringify(referencesWithoutText, null, 2) }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+
+                case "listContextReferences": {
+                    if (!session) {
+                        throw new Error(`Chat session not found`);
+                    }
+                    
+                    const contextReferences = session.getState().references;
+                    
+                    return {
+                        content: [{ type: "text", text: JSON.stringify(contextReferences, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }

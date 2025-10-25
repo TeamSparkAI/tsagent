@@ -56,6 +56,8 @@ const api: API = {
   removeChatReference: (tabId: string, referenceName: string) => ipcRenderer.invoke('chat:remove-reference', tabId, referenceName),
   addChatRule: (tabId: string, ruleName: string) => ipcRenderer.invoke('chat:add-rule', tabId, ruleName),
   removeChatRule: (tabId: string, ruleName: string) => ipcRenderer.invoke('chat:remove-rule', tabId, ruleName),
+  addChatTool: (tabId: string, serverName: string, toolName: string) => ipcRenderer.invoke('chat:add-tool', tabId, serverName, toolName),
+  removeChatTool: (tabId: string, serverName: string, toolName: string) => ipcRenderer.invoke('chat:remove-tool', tabId, serverName, toolName),
   
   // Settings API
   getSettingsValue: (key: string) => ipcRenderer.invoke('get-settings-value', key),

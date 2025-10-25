@@ -36,8 +36,13 @@ export class RulesManager extends EventEmitter {
       await strategy.addRule(rule);
     }
 
-    // Update the rules list
-    this.rules.push(rule);
+    // Update the rules list - replace existing rule if it exists, otherwise add new one
+    const existingIndex = this.rules.findIndex(r => r.name === rule.name);
+    if (existingIndex >= 0) {
+      this.rules[existingIndex] = rule;
+    } else {
+      this.rules.push(rule);
+    }
     this.sortRules();
     
     // Emit change event

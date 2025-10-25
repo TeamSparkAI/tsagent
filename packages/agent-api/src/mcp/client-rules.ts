@@ -160,6 +160,15 @@ export class McpClientInternalRules implements McpClient {
                 properties: {},
                 required: []
             }
+        },
+        {
+            name: "listContextRules",
+            description: "List rules currently in the chat session context",
+            inputSchema: {
+                type: "object",
+                properties: {},
+                required: []
+            }
         }
     ];
 
@@ -350,6 +359,19 @@ export class McpClientInternalRules implements McpClient {
                     
                     return {
                         content: [{ type: "text", text: JSON.stringify(rulesWithoutText, null, 2) }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+
+                case "listContextRules": {
+                    if (!session) {
+                        throw new Error(`Chat session not found`);
+                    }
+                    
+                    const contextRules = session.getState().rules;
+                    
+                    return {
+                        content: [{ type: "text", text: JSON.stringify(contextRules, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }

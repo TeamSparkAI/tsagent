@@ -1,0 +1,182 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  width: 80vw;
+  height: 80vh;
+  max-width: 800px;
+  max-height: 600px;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px;
+  border-bottom: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  border-radius: 8px 8px 0 0;
+}
+
+.modal-header h2 {
+  margin: 0;
+  color: #333;
+  font-size: 20px;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: #666;
+  padding: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.close-button:hover {
+  background-color: #e9ecef;
+  color: #333;
+}
+
+.modal-content {
+  flex: 1;
+  padding: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: #666;
+  font-size: 16px;
+}
+
+/* References, Rules, Tools Lists */
+.references-list,
+.rules-list,
+.tools-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.reference-item,
+.rule-item,
+.tool-item {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  margin-bottom: 8px;
+  background: white;
+  transition: all 0.2s ease;
+}
+
+.reference-item.active,
+.rule-item.active,
+.tool-item.active {
+  border-color: #007bff;
+  background: #f0f8ff;
+}
+
+.reference-item-header,
+.rule-item-header,
+.tool-item-header {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  gap: 8px;
+}
+
+.priority {
+  font-size: 12px;
+  color: #666;
+  font-weight: 600;
+  min-width: 30px;
+  text-align: center;
+}
+
+.server {
+  font-size: 12px;
+  color: #666;
+  font-weight: 600;
+  min-width: 80px;
+  text-align: center;
+  background: #e9ecef;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.name {
+  flex: 1;
+  font-weight: 500;
+  color: #333;
+  font-size: 14px;
+}
+
+.toggle-button {
+  padding: 4px 12px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.toggle-button.add {
+  background: #28a745;
+  color: white;
+}
+
+.toggle-button.add:hover {
+  background: #218838;
+}
+
+.toggle-button.remove {
+  background: #dc3545;
+  color: white;
+}
+
+.toggle-button.remove:hover {
+  background: #c82333;
+}
+
+.reference-item-description,
+.rule-item-description,
+.tool-item-description {
+  padding: 0 12px 12px 12px;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .modal {
+    width: 95vw;
+    height: 95vh;
+  }
+}

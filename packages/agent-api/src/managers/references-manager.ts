@@ -36,8 +36,13 @@ export class ReferencesManager extends EventEmitter {
       await strategy.addReference(reference);
     }
 
-    // Update the references list
-    this.references.push(reference);
+    // Update the references list - replace existing reference if it exists, otherwise add new one
+    const existingIndex = this.references.findIndex(r => r.name === reference.name);
+    if (existingIndex >= 0) {
+      this.references[existingIndex] = reference;
+    } else {
+      this.references.push(reference);
+    }
     this.sortReferences();
     
     // Emit change event
