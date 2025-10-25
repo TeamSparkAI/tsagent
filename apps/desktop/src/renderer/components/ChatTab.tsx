@@ -1086,10 +1086,9 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <div className="context-column">
             <div className="context-section">
               <div className="context-section-header">
-                <h3>Active References</h3>
-                <button className="btn edit-button" onClick={() => setShowReferencesModal(true)}>
-                  Edit
-                </button>
+                <h3>Active References <button className="btn edit-button" onClick={() => setShowReferencesModal(true)}>
+                  Manage
+                </button></h3>
               </div>
               {activeReferences.length === 0 && <p>No active references</p>}
               <ul className="context-list">
@@ -1114,10 +1113,9 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <div className="context-column">
             <div className="context-section">
               <div className="context-section-header">
-                <h3>Active Rules</h3>
-                <button className="btn edit-button" onClick={() => setShowRulesModal(true)}>
-                  Edit
-                </button>
+                <h3>Active Rules <button className="btn edit-button" onClick={() => setShowRulesModal(true)}>
+                  Manage
+                </button></h3>
               </div>
               {activeRules.length === 0 && <p>No active rules</p>}
               <ul className="context-list">
@@ -1142,10 +1140,9 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <div className="context-column">
             <div className="context-section">
               <div className="context-section-header">
-                <h3>Active Tools</h3>
-                <button className="btn edit-button" onClick={() => setShowToolsModal(true)}>
-                  Edit
-                </button>
+                <h3>Active Tools <button className="btn edit-button" onClick={() => setShowToolsModal(true)}>
+                  Manage
+                </button></h3>
               </div>
               {activeTools.length === 0 && <p>No active tools</p>}
               {(() => {

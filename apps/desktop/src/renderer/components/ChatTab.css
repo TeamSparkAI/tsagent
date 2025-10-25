@@ -400,20 +400,29 @@
   margin: 0;
   font-size: 16px;
   color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .edit-button {
-  padding: 4px 12px;
-  background: #007bff;
-  color: white;
-  border: none;
+  padding: 1px 8px;
+  background: var(--hover-bg);
+  color: #007bff;
+  border: 1px solid var(--border-color);
   border-radius: 4px;
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  transition: background-color 0.2s ease;
+  font-size: 11px;
+  font-weight: 400;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  height: auto;
+  line-height: 1.3;
+  vertical-align: middle;
 }
 
 .edit-button:hover {
-  background: #0056b3;
+  background: var(--selected-bg);
+  border-color: var(--selected-border);
+  color: #0056b3;
 }
