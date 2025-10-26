@@ -1,4 +1,4 @@
-import { Supervisor, RequestSupervisionResult, ResponseSupervisionResult, SupervisionPermission } from '../types/supervision.js';
+import { Supervisor, RequestSupervisionResult, ResponseSupervisionResult, SupervisionPermission, SupervisionState } from '../types/supervision.js';
 import { ChatSession, ChatMessage, MessageUpdate } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
@@ -43,7 +43,7 @@ export class AgentSupervisor implements Supervisor {
     this.logger.info(`Initialized agent supervisor: ${this.agentPath}`);
   }
   
-  private buildSupervisorContext(session: ChatSession, messages: ChatMessage[], direction: 'request' | 'response'): any {
+  private buildSupervisorContext(session: ChatSession, messages: ChatMessage[], direction: 'request' | 'response'): { systemPrompt: string; messages: Array<{ role: 'user' | 'assistant'; content: string }> } {
     const lastMessage = messages[messages.length - 1];
     let content = '';
     
@@ -58,7 +58,7 @@ export class AgentSupervisor implements Supervisor {
     }
     
     // Role is determined by direction, not the message's role
-    const role = direction === 'request' ? 'user' : 'assistant';
+    const role: 'user' | 'assistant' = direction === 'request' ? 'user' : 'assistant';
     
     return {
       systemPrompt: this.config.systemPrompt,
@@ -73,30 +73,66 @@ export class AgentSupervisor implements Supervisor {
       await this.initialize();
     }
     
+    // Create shared supervision state
+    const state: SupervisionState = {
+      decision: null,
+      reasons: [],
+      contextChanges: {
+        addedRules: [],
+        removedRules: [],
+        addedReferences: [],
+        removedReferences: [],
+        addedTools: [],
+        removedTools: []
+      }
+    };
+    
     // Build context for the supervisor agent
     const context = this.buildSupervisorContext(session, messages, 'request');
     
     // Create a chat session for the supervisor agent
     const supervisorSession = this.agent.createChatSession(`supervisor-${session.id}`);
     
-    // Get the supervision MCP client and inject the supervised session
+    // Get the supervision MCP client and inject both session and state
     const supervisionClient = await this.agent.getMcpClient('supervision');
-    if (supervisionClient && 'setSupervisedSession' in supervisionClient) {
-      (supervisionClient as any).setSupervisedSession(session);
+    if (supervisionClient) {
+      if ('setSupervisedSession' in supervisionClient) {
+        (supervisionClient as any).setSupervisedSession(session);
+      }
+      if ('setSupervisionState' in supervisionClient) {
+        (supervisionClient as any).setSupervisionState(state);
+      }
     }
     
-    // Call the supervisor agent - it will process multiple turns if needed (tool calls, etc.)
-    const response = await supervisorSession.handleMessage(context.messages[0]);
+    // Call the supervisor agent - its tools will mutate the state object
+    await supervisorSession.handleMessage(context.messages[0] as ChatMessage);
     
-    // Parse tool calls to extract supervision decisions and modifications
-    const result = this.parseSupervisorResponse(response);
-    
-    // Apply any modifications to the supervised session
-    if (result.modifications.length > 0) {
-      await this.applyModifications(session, result.modifications);
+    // Extract decision from state and return structured result
+    if (state.decision === 'block') {
+      return {
+        action: 'block',
+        reasons: state.reasons
+      };
     }
     
-    return result.supervisionResult;
+    if (state.decision === 'modify' && state.modifiedRequestContent) {
+      const lastMessage = messages[messages.length - 1];
+      const modifiedMessage: ChatMessage = {
+        ...(typeof lastMessage === 'string' ? { role: 'user', content: lastMessage } : lastMessage),
+        content: state.modifiedRequestContent
+      } as ChatMessage;
+      
+      return {
+        action: 'modify',
+        finalMessage: modifiedMessage,
+        reasons: state.reasons
+      };
+    }
+    
+    return { 
+      action: 'allow',
+      finalMessage: messages[messages.length - 1]
+    };
   }
   
   async processResponse(session: ChatSession, response: MessageUpdate): Promise<ResponseSupervisionResult> {
@@ -104,46 +140,78 @@ export class AgentSupervisor implements Supervisor {
       await this.initialize();
     }
     
+    // Create shared supervision state
+    const state: SupervisionState = {
+      decision: null,
+      reasons: [],
+      contextChanges: {
+        addedRules: [],
+        removedRules: [],
+        addedReferences: [],
+        removedReferences: [],
+        addedTools: [],
+        removedTools: []
+      }
+    };
+    
     // Build context for the supervisor agent using the response message
     const context = this.buildSupervisorContext(session, response.updates, 'response');
     
     // Create or reuse the supervisor agent's chat session
     const supervisorSession = this.agent.createChatSession(`supervisor-${session.id}`);
     
-    // Get the supervision MCP client and inject the supervised session
+    // Get the supervision MCP client and inject both session and state
     const supervisionClient = await this.agent.getMcpClient('supervision');
-    if (supervisionClient && 'setSupervisedSession' in supervisionClient) {
-      (supervisionClient as any).setSupervisedSession(session);
+    if (supervisionClient) {
+      if ('setSupervisedSession' in supervisionClient) {
+        (supervisionClient as any).setSupervisedSession(session);
+      }
+      if ('setSupervisionState' in supervisionClient) {
+        (supervisionClient as any).setSupervisionState(state);
+      }
     }
     
-    // Call the supervisor agent - it will process multiple turns if needed (tool calls, etc.)
-    const supervisorResponse = await supervisorSession.handleMessage(context.messages[0]);
+    // Call the supervisor agent - its tools will mutate the state object
+    await supervisorSession.handleMessage(context.messages[0] as ChatMessage);
     
-    // Parse tool calls to extract supervision decisions and modifications
-    const result = this.parseSupervisorResponse(supervisorResponse);
-    
-    // Apply any modifications to the supervised session
-    if (result.modifications.length > 0) {
-      await this.applyModifications(session, result.modifications);
+    // Extract decision from state and return structured result
+    if (state.decision === 'block') {
+      return {
+        action: 'block',
+        reasons: state.reasons
+      };
     }
     
-    return result.supervisionResult;
+    if (state.decision === 'modify' && state.modifiedResponseContent) {
+      // Find the assistant message to preserve its structure
+      const assistantMessage = response.updates.find(m => 
+        typeof m !== 'string' && m.role === 'assistant'
+      );
+      
+      // Construct the modified response
+      const modifiedResponse: MessageUpdate = {
+        ...response,
+        updates: [{
+          role: 'assistant',
+          modelReply: {
+            timestamp: assistantMessage && 'modelReply' in assistantMessage 
+              ? assistantMessage.modelReply.timestamp 
+              : Date.now(),
+            turns: [{ message: state.modifiedResponseContent }]
+          }
+        }]
+      };
+      
+      return {
+        action: 'modify',
+        finalResponse: modifiedResponse,
+        reasons: state.reasons
+      };
+    }
+    
+    return { action: 'allow' };
   }
     
-  private parseSupervisorResponse(response: any): any {
-    // TODO: Parse the supervisor agent's response to extract supervision decisions
-    // For now, just return allow
-    return {
-      supervisionResult: { action: 'allow', finalMessage: response },
-      modifications: []
-    };
-  }
-  
-  private async applyModifications(session: ChatSession, modifications: any[]): Promise<void> {
-    // TODO: Apply modifications to the supervised session
-    this.logger.info(`Applying ${modifications.length} modifications to session ${session.id}`);
-  }
-  
   async cleanup(): Promise<void> {
     this.logger.info(`Cleaning up agent supervisor: ${this.agentPath}`);
   }

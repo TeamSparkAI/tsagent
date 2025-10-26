@@ -6,6 +6,7 @@ import { ChatSession } from "../types/chat.js";
 import { Rule } from "../types/rules.js";
 import { Reference } from "../types/references.js";
 import { Agent } from "../types/agent.js";
+import { SupervisionState } from "../types/supervision.js";
 
 // Import shared implementation functions
 import {
@@ -56,6 +57,7 @@ export class McpClientInternalSupervision implements McpClient {
     private agent: Agent;
     private logger: Logger;
     private supervisedSession: ChatSession | null = null;
+    private supervisionState: SupervisionState | null = null;
     
     serverVersion: { name: string; version: string } | null = { name: "Supervision", version: "1.0.0" };
     
@@ -507,6 +509,13 @@ export class McpClientInternalSupervision implements McpClient {
     }
 
     /**
+     * Set the supervision state for tracking decisions and modifications
+     */
+    setSupervisionState(state: SupervisionState): void {
+        this.supervisionState = state;
+    }
+
+    /**
      * Get the supervised agent from the supervised session
      */
     private get supervisedAgent(): Agent {
@@ -736,92 +745,38 @@ export class McpClientInternalSupervision implements McpClient {
         };
     }
 
-    // Supervision Methods (keep TODOs as they are agent-specific)
+    // Supervision Methods - now update shared state instead of modifying session directly
     private blockMessage(reason: string): any {
-        // TODO: Implement blocking message
+        if (!this.supervisionState) {
+            throw new Error('No supervision state set');
+        }
+        this.supervisionState.decision = 'block';
+        this.supervisionState.reasons.push(reason);
         return { success: true, message: "Message blocked", reason };
     }
 
     private modifyMessage(content: string, reason: string): any {
-        if (!this.supervisedSession) {
-            throw new Error('No supervised session bound');
+        if (!this.supervisionState) {
+            throw new Error('No supervision state set');
         }
-        
-        const state = this.supervisedSession.getState();
-        const messages = state.messages;
-        
-        if (messages.length === 0) {
-            throw new Error('No messages to modify');
-        }
-        
-        // Modify the last message in place
-        const lastMessage = messages[messages.length - 1];
-        
-        if (typeof lastMessage === 'string') {
-            // Replace string message with modified content
-            (this.supervisedSession as any).messages[messages.length - 1] = content;
-        } else if (lastMessage.role === 'user' || lastMessage.role === 'system' || lastMessage.role === 'error') {
-            // Modify the content of the last user/system/error message
-            (this.supervisedSession as any).messages[messages.length - 1] = {
-                ...lastMessage,
-                content: content
-            };
-        } else {
-            throw new Error('Cannot modify message of this type');
-        }
-        
+        this.supervisionState.decision = 'modify';
+        this.supervisionState.modifiedRequestContent = content;
+        this.supervisionState.reasons.push(reason);
         return { success: true, message: "Message modified", reason };
     }
     
     private modifyResponse(content: string, reason: string): any {
-        if (!this.supervisedSession) {
-            throw new Error('No supervised session bound');
+        if (!this.supervisionState) {
+            throw new Error('No supervision state set');
         }
-        
-        const state = this.supervisedSession.getState();
-        const messages = state.messages;
-        
-        if (messages.length === 0) {
-            throw new Error('No messages to modify');
-        }
-        
-        // Find and modify the last assistant message
-        for (let i = messages.length - 1; i >= 0; i--) {
-            const message = messages[i];
-            
-            if (typeof message !== 'string' && message.role === 'assistant' && 'modelReply' in message) {
-                // Modify the assistant's response content
-                if (message.modelReply && message.modelReply.turns.length > 0) {
-                    (this.supervisedSession as any).messages[i] = {
-                        ...message,
-                        modelReply: {
-                            ...message.modelReply,
-                            turns: [
-                                {
-                                    ...message.modelReply.turns[0],
-                                    message: content
-                                }
-                            ]
-                        }
-                    };
-                } else {
-                    (this.supervisedSession as any).messages[i] = {
-                        ...message,
-                        modelReply: {
-                            timestamp: Date.now(),
-                            turns: [{ message: content }]
-                        }
-                    };
-                }
-                return { success: true, message: "Response modified", reason };
-            }
-        }
-        
-        throw new Error('No assistant message found in response to modify');
+        this.supervisionState.decision = 'modify';
+        this.supervisionState.modifiedResponseContent = content;
+        this.supervisionState.reasons.push(reason);
+        return { success: true, message: "Response modified", reason };
     }
 
     private allowMessage(reason: string): any {
-        // TODO: Implement allowing message
+        // This is a no-op - decision defaults to 'allow' if nothing is set
         return { success: true, message: "Message allowed", reason };
     }
 

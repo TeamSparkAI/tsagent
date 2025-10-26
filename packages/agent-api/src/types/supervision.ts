@@ -27,6 +27,28 @@ export interface Supervisor {
 }
 
 
+// Shared state object for tracking supervision decisions in agent supervisors
+export interface SupervisionState {
+  decision: 'allow' | 'modify' | 'block' | null;
+  reasons: string[];
+  
+  // For request modification
+  modifiedRequestContent?: string;
+  
+  // For response modification
+  modifiedResponseContent?: string;
+  
+  // Context modifications (applied immediately)
+  contextChanges: {
+    addedRules: string[];
+    removedRules: string[];
+    addedReferences: string[];
+    removedReferences: string[];
+    addedTools: Array<{serverName: string, toolName: string}>;
+    removedTools: Array<{serverName: string, toolName: string}>;
+  };
+}
+
 // Base supervision result - common elements
 export interface BaseSupervisionResult {
   action: 'allow' | 'modify' | 'block';

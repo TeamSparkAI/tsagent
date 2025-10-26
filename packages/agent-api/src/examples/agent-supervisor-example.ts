@@ -23,39 +23,6 @@ You have access to tools that allow you to:
 
 Use these tools responsibly and only make changes that will genuinely improve the supervised agent's performance.`,
     
-    tools: [
-      // Data Access Tools
-      'supervised_get_conversation_history',
-      'supervised_get_current_rules',
-      'supervised_get_current_references',
-      'supervised_get_available_tools',
-      'supervised_get_session_stats',
-      
-      // Rules Management Tools
-      'supervised_listRules',
-      'supervised_createRule',
-      'supervised_getRule',
-      'supervised_updateRule',
-      'supervised_deleteRule',
-      'supervised_includeRule',
-      'supervised_excludeRule',
-      
-      // References Management Tools
-      'supervised_listReferences',
-      'supervised_createReference',
-      'supervised_getReference',
-      'supervised_updateReference',
-      'supervised_deleteReference',
-      'supervised_includeReference',
-      'supervised_excludeReference',
-      
-      // Supervision Tools
-      'supervised_block_message',
-      'supervised_modify_message',
-      'supervised_allow_message',
-      'supervised_request_human_review'
-    ],
-    
     allowedActions: [
       SupervisionPermission.READ_ONLY,
       SupervisionPermission.MODIFY_CONTEXT,
@@ -103,11 +70,6 @@ export function createCustomSupervisorConfig(): AgentSupervisorConfig {
 4. Ensure the supervised agent maintains appropriate boundaries
 
 You should be conservative in your approach and err on the side of caution when blocking content.`,
-    
-    tools: [
-      'supervised_get_conversation_history',
-      'supervised_get_current_rules'
-    ],
     
     allowedActions: [
       SupervisionPermission.READ_ONLY,
