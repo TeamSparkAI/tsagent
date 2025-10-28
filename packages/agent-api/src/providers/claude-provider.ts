@@ -124,39 +124,44 @@ export class ClaudeProvider implements Provider {
           // Process each turn in the LLM reply
           for (const turn of message.modelReply.turns) {
             // Add the assistant's message (including any tool calls)
-            if (turn.message) {
+            if (turn.results) {
+              for (const result of turn.results) {
+                if (result.type === 'text') {
+                  turnMessages.push({
+                    role: 'assistant' as const,
+                    content: result.text
+                  });
+                } else if (result.type === 'toolCall') {
+                  // Push the tool call
+                  turnMessages.push({
+                    role: 'assistant' as const,
+                    content: [
+                      {
+                        type: 'tool_use',
+                        id: result.toolCall.toolCallId!,
+                        name: result.toolCall.serverName + '_' + result.toolCall.toolName,
+                        input: result.toolCall.args,
+                      }
+                    ]
+                  });
+                  // Push the tool call result
+                  turnMessages.push({
+                    role: 'user' as const,
+                    content: [
+                      {
+                        type: 'tool_result',
+                        tool_use_id: result.toolCall.toolCallId!,
+                        content: result.toolCall.output,
+                      }
+                    ]
+                  });
+                }
+              }
+            } else if (turn.error) {
               turnMessages.push({
                 role: 'assistant' as const,
-                content: turn.message ?? turn.error
+                content: turn.error
               });
-            }
-            // Add the tool calls, if any
-            if (turn.toolCalls && turn.toolCalls.length > 0) {
-              for (const toolCall of turn.toolCalls) {
-                // Push the tool call
-                turnMessages.push({
-                  role: 'assistant' as const,
-                  content: [
-                    {
-                      type: 'tool_use',
-                      id: toolCall.toolCallId!,
-                      name: toolCall.serverName + '_' + toolCall.toolName,
-                      input: toolCall.args,
-                    }
-                  ]
-                });
-                // Push the tool call result
-                turnMessages.push({
-                  role: 'user' as const,
-                  content: [
-                    {
-                      type: 'tool_result',
-                      tool_use_id: toolCall.toolCallId!,
-                      content: toolCall.output,
-                    }
-                  ]
-                });
-              }
             }
           }
         } else if (message.role != 'approval') {
@@ -176,7 +181,7 @@ export class ClaudeProvider implements Provider {
       const lastChatMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
       if (lastChatMessage && 'toolCallApprovals' in lastChatMessage) {
         // Handle tool call approvals        
-        const turn: Turn = { toolCalls: [] };
+        const turn: Turn = { results: [] };
         for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
           this.logger.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
           const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
@@ -202,14 +207,17 @@ export class ClaudeProvider implements Provider {
             const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
-              turn.toolCalls!.push({
-                serverName: toolCallApproval.serverName,
-                toolName: toolCallApproval.toolName,
-                args: toolCallApproval.args,
-                toolCallId: toolCallApproval.toolCallId,
-                output: resultText,
-                elapsedTimeMs: toolResult.elapsedTimeMs,
-                error: undefined
+              turn.results!.push({
+                type: 'toolCall',
+                toolCall: {
+                  serverName: toolCallApproval.serverName,
+                  toolName: toolCallApproval.toolName,
+                  args: toolCallApproval.args,
+                  toolCallId: toolCallApproval.toolCallId,
+                  output: resultText,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  error: undefined
+                }
               });
               // Add the tool call (executed) result to the context history
               turnMessages.push({
@@ -225,14 +233,17 @@ export class ClaudeProvider implements Provider {
             }
           } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
             // Record the tool call and "denied" result
-            turn.toolCalls!.push({
-              serverName: toolCallApproval.serverName,
-              toolName: toolCallApproval.toolName,
-              args: toolCallApproval.args,
-              toolCallId: toolCallApproval.toolCallId,
-              output: 'Tool call denied',
-              elapsedTimeMs: 0,
-              error: 'Tool call denied'
+            turn.results!.push({
+              type: 'toolCall',
+              toolCall: {
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: 'Tool call denied',
+                elapsedTimeMs: 0,
+                error: 'Tool call denied'
+              }
             });
             // Add the tool call (denied) result to the context history
             turnMessages.push({
@@ -254,7 +265,7 @@ export class ClaudeProvider implements Provider {
 
       let turnCount = 0;
       while (turnCount < state.maxChatTurns) {
-        const turn: Turn = {};
+        const turn: Turn = { results: [] };
         turnCount++;
         let hasToolUse = false;
 
@@ -283,7 +294,10 @@ export class ClaudeProvider implements Provider {
               role: "assistant",
               content: content.text,
             });
-            turn.message = (turn.message || '') +content.text;
+            turn.results!.push({
+              type: 'text',
+              text: content.text
+            });
           } else if (content.type === 'tool_use') {
             hasToolUse = true;
             this.logger.info('Tool use detected:', content);
@@ -310,9 +324,6 @@ export class ClaudeProvider implements Provider {
               const toolResult = await ProviderHelper.callTool(this.agent, toolName, toolArgs, session);
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
-                if (!turn.toolCalls) {
-                  turn.toolCalls = [];
-                }
 
                 // Record the tool use request and ressult in the message context
                 turnMessages.push({
@@ -338,21 +349,24 @@ export class ClaudeProvider implements Provider {
                   ]
                 });
 
-                turn.toolCalls.push({
-                  serverName: toolServerName,
-                  toolName: toolToolName,
-                  args: toolArgs ?? {},
-                  toolCallId: toolUseId,
-                  output: resultText,
-                  elapsedTimeMs: toolResult.elapsedTimeMs,
-                  error: undefined
+                turn.results!.push({
+                  type: 'toolCall',
+                  toolCall: {
+                    serverName: toolServerName,
+                    toolName: toolToolName,
+                    args: toolArgs ?? {},
+                    toolCallId: toolUseId,
+                    output: resultText,
+                    elapsedTimeMs: toolResult.elapsedTimeMs,
+                    error: undefined
+                  }
                 });
               }
             }
           }
         }
 
-        if (turn.message || turn.toolCalls) {
+        if (turn.results && turn.results.length > 0) {
           modelReply.turns.push(turn);
         }
 

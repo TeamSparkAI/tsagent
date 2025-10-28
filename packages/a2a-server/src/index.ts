@@ -73,7 +73,15 @@ export class SimpleAgentExecutor implements AgentExecutor {
       .map((update: any) => {
         if (update.modelReply?.turns) {
           return update.modelReply.turns
-            .map((turn: any) => turn.message || '')
+            .map((turn: any) => {
+              if (turn.results) {
+                return turn.results
+                  .filter((result: any) => result.type === 'text')
+                  .map((result: any) => result.text)
+                  .join('');
+              }
+              return '';
+            })
             .join('');
         }
         return '';

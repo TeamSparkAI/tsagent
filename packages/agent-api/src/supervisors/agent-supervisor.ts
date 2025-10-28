@@ -52,7 +52,9 @@ export class AgentSupervisor implements Supervisor {
     } else if (lastMessage.role === 'user' || lastMessage.role === 'system' || lastMessage.role === 'error') {
       content = lastMessage.content;
     } else if (lastMessage.role === 'assistant') {
-      content = lastMessage.modelReply?.turns.map(t => t.message).join('\n') || '';
+      content = lastMessage.modelReply?.turns.map(t => 
+        t.results?.filter(r => r.type === 'text').map(r => r.text).join('\n') || ''
+      ).join('\n') || '';
     } else {
       content = 'Non-text message';
     }
@@ -197,7 +199,7 @@ export class AgentSupervisor implements Supervisor {
             timestamp: assistantMessage && 'modelReply' in assistantMessage 
               ? assistantMessage.modelReply.timestamp 
               : Date.now(),
-            turns: [{ message: state.modifiedResponseContent }]
+            turns: [{ results: [{ type: 'text', text: state.modifiedResponseContent }] }]
           }
         }]
       };

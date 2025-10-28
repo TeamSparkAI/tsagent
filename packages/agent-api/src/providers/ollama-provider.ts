@@ -130,34 +130,39 @@ export class OllamaProvider implements Provider {
           // Process each turn in the LLM reply
           for (const turn of message.modelReply.turns) {
             // Add the assistant's message (including any tool calls)
-            if (turn.message) {
+            if (turn.results) {
+              for (const result of turn.results) {
+                if (result.type === 'text') {
+                  turnMessages.push({
+                    role: 'assistant' as const,
+                    content: result.text
+                  });
+                } else if (result.type === 'toolCall') {
+                  // Push the tool call
+                  turnMessages.push({
+                    role: 'assistant' as const,
+                    content: '',
+                    tool_calls: [
+                      {
+                        function: {
+                          name: result.toolCall.serverName + '_' + result.toolCall.toolName,
+                          arguments: result.toolCall.args ?? {},
+                        }
+                      }
+                    ]
+                  });
+                  // Push the tool call result
+                  turnMessages.push({
+                    role: 'tool' as const,
+                    content: result.toolCall.output,
+                  });
+                }
+              }
+            } else if (turn.error) {
               turnMessages.push({
                 role: 'assistant' as const,
-                content: turn.message ?? turn.error
+                content: turn.error
               });
-            }
-            // Add the tool calls, if any
-            if (turn.toolCalls && turn.toolCalls.length > 0) {
-              for (const toolCall of turn.toolCalls) {
-                // Push the tool call
-                turnMessages.push({
-                  role: 'assistant' as const,
-                  content: '',
-                  tool_calls: [
-                    {
-                      function: {
-                        name: toolCall.serverName + '_' + toolCall.toolName,
-                        arguments: toolCall.args ?? {},
-                      }
-                    }
-                  ]
-                });
-                // Push the tool call result
-                turnMessages.push({
-                  role: 'tool' as const,
-                  content: toolCall.output,
-                });
-              }
             }
           }
         } else if (message.role != 'approval') {
@@ -177,7 +182,7 @@ export class OllamaProvider implements Provider {
       const lastChatMessage = messages.length > 0 ? messages[messages.length - 1] : undefined;
       if (lastChatMessage && 'toolCallApprovals' in lastChatMessage) {
         // Handle tool call approvals        
-        const turn: Turn = { toolCalls: [] };
+        const turn: Turn = { results: [] };
         for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
           this.logger.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
           const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
@@ -204,14 +209,17 @@ export class OllamaProvider implements Provider {
             const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
-              turn.toolCalls!.push({
-                serverName: toolCallApproval.serverName,
-                toolName: toolCallApproval.toolName,
-                args: toolCallApproval.args,
-                toolCallId: toolCallApproval.toolCallId,
-                output: resultText,
-                elapsedTimeMs: toolResult.elapsedTimeMs,
-                error: undefined
+              turn.results!.push({
+                type: 'toolCall',
+                toolCall: {
+                  serverName: toolCallApproval.serverName,
+                  toolName: toolCallApproval.toolName,
+                  args: toolCallApproval.args,
+                  toolCallId: toolCallApproval.toolCallId,
+                  output: resultText,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  error: undefined
+                }
               });
               // Add the tool call (executed) result to the context history
               turnMessages.push({
@@ -221,14 +229,17 @@ export class OllamaProvider implements Provider {
             }
           } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
             // Record the tool call and "denied" result
-            turn.toolCalls!.push({
-              serverName: toolCallApproval.serverName,
-              toolName: toolCallApproval.toolName,
-              args: toolCallApproval.args,
-              toolCallId: toolCallApproval.toolCallId,
-              output: 'Tool call denied',
-              elapsedTimeMs: 0,
-              error: 'Tool call denied'
+            turn.results!.push({
+              type: 'toolCall',
+              toolCall: {
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: 'Tool call denied',
+                elapsedTimeMs: 0,
+                error: 'Tool call denied'
+              }
             });
             // Add the tool call (denied) result to the context history
             turnMessages.push({
@@ -246,7 +257,7 @@ export class OllamaProvider implements Provider {
 
       let turnCount = 0;
       while (turnCount < state.maxChatTurns) {
-        const turn: Turn = {};
+        const turn: Turn = { results: [] };
         turnCount++;
         let hasToolUse = false;
 
@@ -278,7 +289,10 @@ export class OllamaProvider implements Provider {
         const toolCalls = currentResponse.message.tool_calls;
 
         if (content) {
-          turn.message = content;
+          turn.results!.push({
+            type: 'text',
+            text: content
+          });
           // !!! Does this need to be added to the turnMessages so that the LLM had the context for subsequent turns?
         }
 
@@ -310,9 +324,6 @@ export class OllamaProvider implements Provider {
               const toolResult = await ProviderHelper.callTool(this.agent, toolName, toolArgs, session);
               if (toolResult.content[0]?.type === 'text') {
                 const resultText = toolResult.content[0].text;
-                if (!turn.toolCalls) {
-                  turn.toolCalls = [];
-                }
     
                 // Record the tool use request and result in the message context
                 turnMessages.push({
@@ -333,14 +344,17 @@ export class OllamaProvider implements Provider {
                   content: resultText,
                 });
   
-                turn.toolCalls.push({
-                  serverName: toolServerName,
-                  toolName: toolToolName,
-                  args: toolArgs ?? {},
-                  toolCallId: toolCallId,
-                  output: resultText,
-                  elapsedTimeMs: toolResult.elapsedTimeMs,
-                  error: undefined
+                turn.results!.push({
+                  type: 'toolCall',
+                  toolCall: {
+                    serverName: toolServerName,
+                    toolName: toolToolName,
+                    args: toolArgs ?? {},
+                    toolCallId: toolCallId,
+                    output: resultText,
+                    elapsedTimeMs: toolResult.elapsedTimeMs,
+                    error: undefined
+                  }
                 });
               }
   
@@ -349,7 +363,7 @@ export class OllamaProvider implements Provider {
           }
         }
         
-        if (turn.message || turn.toolCalls) {
+        if (turn.results && turn.results.length > 0) {
           modelReply.turns.push(turn);
         }
 

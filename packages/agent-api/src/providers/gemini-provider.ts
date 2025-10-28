@@ -226,41 +226,49 @@ export class GeminiProvider implements Provider {
               parts: []
             };
 
-            if (turn.message) {
-              replyContent.parts!.push({ text: turn.message ?? turn.error });
-            }
-            // Add the tool calls, if any
-            if (turn.toolCalls && turn.toolCalls.length > 0) {
-              for (const toolCall of turn.toolCalls) {
-                // Push the tool call
-                replyContent.parts!.push({
-                  functionCall: {
-                    name: toolCall.serverName + '_' + toolCall.toolName,
-                    args: toolCall.args ?? {}
-                  }
-                });
+            // Add the results, if any
+            if (turn.results) {
+              for (const result of turn.results) {
+                if (result.type === 'text') {
+                  replyContent.parts!.push({ text: result.text });
+                } else if (result.type === 'toolCall') {
+                  // Push the tool call
+                  replyContent.parts!.push({
+                    functionCall: {
+                      name: result.toolCall.serverName + '_' + result.toolCall.toolName,
+                      args: result.toolCall.args ?? {}
+                    }
+                  });
+                }
               }
+            } else if (turn.error) {
+              replyContent.parts!.push({ text: turn.error });
             }
             addMessageToHistory(replyContent);
 
             // Add the tool call results, if any
-            if (turn.toolCalls && turn.toolCalls.length > 0) {
+            if (turn.results) {
               const toolResultsContent: Content = {
                 role: 'user', // New API doesn't accept 'function' role
                 parts: []
               };
 
-              for (const toolCall of turn.toolCalls) {
-                toolResultsContent.parts!.push({
-                  functionResponse: {
-                    name: toolCall.serverName + '_' + toolCall.toolName,
-                    response: {
-                      text: toolCall.output
+              for (const result of turn.results) {
+                if (result.type === 'toolCall') {
+                  toolResultsContent.parts!.push({
+                    functionResponse: {
+                      name: result.toolCall.serverName + '_' + result.toolCall.toolName,
+                      response: {
+                        text: result.toolCall.output
+                      }
                     }
-                  }
-                });
+                  });
+                }
               }
-              addMessageToHistory(toolResultsContent);
+              
+              if (toolResultsContent.parts!.length > 0) {
+                addMessageToHistory(toolResultsContent);
+              }
             }
           }
         } else if (message.role != 'approval') {
@@ -290,7 +298,7 @@ export class GeminiProvider implements Provider {
           parts: []
         };
 
-        const turn: Turn = { toolCalls: [] };
+        const turn: Turn = { results: [] };
         for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
           this.logger.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
           const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
@@ -306,28 +314,34 @@ export class GeminiProvider implements Provider {
             const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
-              turn.toolCalls!.push({
-                serverName: toolCallApproval.serverName,
-                toolName: toolCallApproval.toolName,
-                args: toolCallApproval.args,
-                toolCallId: toolCallApproval.toolCallId,
-                output: resultText,
-                elapsedTimeMs: toolResult.elapsedTimeMs,
-                error: undefined
+              turn.results!.push({
+                type: 'toolCall',
+                toolCall: {
+                  serverName: toolCallApproval.serverName,
+                  toolName: toolCallApproval.toolName,
+                  args: toolCallApproval.args,
+                  toolCallId: toolCallApproval.toolCallId,
+                  output: resultText,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  error: undefined
+                }
               });
               // Add the tool call (executed) result to the context history
               toolCallsResults.parts!.push({ functionResponse: { name: functionName, response: { text: resultText } } });
             }
           } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
             // Record the tool call and "denied" result
-            turn.toolCalls!.push({
-              serverName: toolCallApproval.serverName,
-              toolName: toolCallApproval.toolName,
-              args: toolCallApproval.args,
-              toolCallId: toolCallApproval.toolCallId,
-              output: 'Tool call denied',
-              elapsedTimeMs: 0,
-              error: 'Tool call denied'
+            turn.results!.push({
+              type: 'toolCall',
+              toolCall: {
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: 'Tool call denied',
+                elapsedTimeMs: 0,
+                error: 'Tool call denied'
+              }
             });
             // Add the tool call (denied) result to the context history
             toolCallsResults.parts!.push({ functionResponse: { name: functionName, response: { text: 'Tool call denied' } } });
@@ -362,7 +376,7 @@ export class GeminiProvider implements Provider {
 
       let turnCount = 0;
       while (turnCount < state.maxChatTurns) {
-        const turn: Turn = {};
+        const turn: Turn = { results: [] };
         turnCount++;
         this.logger.debug(`Sending message prompt "${JSON.stringify(currentPrompt, null, 2)}", turn count: ${turnCount}`);
         const response = await chat.sendMessage({ message: currentPrompt });
@@ -388,7 +402,10 @@ export class GeminiProvider implements Provider {
 
             // Handle text parts
             if (part.text) {
-              turn.message = (turn.message || '') + part.text.replace(/\\n/g, '\n');
+              turn.results!.push({
+                type: 'text',
+                text: part.text.replace(/\\n/g, '\n')
+              });
             }
             
             // Handle function calls
@@ -421,17 +438,17 @@ export class GeminiProvider implements Provider {
                 // Record the function call and result
                 if (toolResult.content[0]?.type === 'text') {
                   const resultText = toolResult.content[0].text;
-                  if (!turn.toolCalls) {
-                    turn.toolCalls = [];
-                  }
-                  turn.toolCalls.push({
-                    serverName: toolServerName,
-                    toolName: toolToolName,
-                    args: toolArgs,
-                    toolCallId: toolCallId,
-                    output: resultText,
-                    elapsedTimeMs: toolResult.elapsedTimeMs,
-                    error: undefined
+                  turn.results!.push({
+                    type: 'toolCall',
+                    toolCall: {
+                      serverName: toolServerName,
+                      toolName: toolToolName,
+                      args: toolArgs,
+                      toolCallId: toolCallId,
+                      output: resultText,
+                      elapsedTimeMs: toolResult.elapsedTimeMs,
+                      error: undefined
+                    }
                   });
                   currentPrompt.push({ functionResponse: { name: toolName, response: { text: resultText } } });
                 }
@@ -440,7 +457,7 @@ export class GeminiProvider implements Provider {
           }
         }
 
-        if (turn.message || turn.toolCalls) {
+        if (turn.results && turn.results.length > 0) {
           modelReply.turns.push(turn);
         }
           

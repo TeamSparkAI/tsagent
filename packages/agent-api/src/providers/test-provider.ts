@@ -45,7 +45,10 @@ export class TestProvider implements Provider {
       timestamp: Date.now(),
       turns: [
         {
-          message: `Happy Birthday! (maxChatTurns: ${state.maxChatTurns}, maxOutputTokens: ${state.maxOutputTokens}, temperature: ${state.temperature.toFixed(2)}, topP: ${state.topP.toFixed(2)})`,
+          results: [{
+            type: 'text',
+            text: `Happy Birthday! (maxChatTurns: ${state.maxChatTurns}, maxOutputTokens: ${state.maxOutputTokens}, temperature: ${state.temperature.toFixed(2)}, topP: ${state.topP.toFixed(2)})`
+          }],
           inputTokens: 420,
           outputTokens: 69
         }

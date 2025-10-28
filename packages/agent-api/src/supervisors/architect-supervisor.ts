@@ -120,7 +120,7 @@ export class ArchitectSupervisorImpl extends BaseSupervisor {
     // Pattern: Assistant uses tools
     if (assistantMessages.some(m => 
       m.role === 'assistant' && 
-      m.modelReply?.turns?.some(turn => turn.toolCalls && turn.toolCalls.length > 0)
+      m.modelReply?.turns?.some(turn => turn.results?.some(result => result.type === 'toolCall'))
     )) {
       patterns.push('tool_usage');
     }
@@ -163,7 +163,7 @@ export class ArchitectSupervisorImpl extends BaseSupervisor {
     const messages = state.messages;
     const toolUsageCount = messages.filter(m => 
       m.role === 'assistant' && 
-      m.modelReply?.turns?.some(turn => turn.toolCalls && turn.toolCalls.length > 0)
+      m.modelReply?.turns?.some(turn => turn.results?.some(result => result.type === 'toolCall'))
     ).length;
     
     const score = Math.min(1.0, (messages.length * 0.1) + (toolUsageCount * 0.2));

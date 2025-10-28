@@ -202,37 +202,46 @@ export class BedrockProvider implements Provider {
           for (const turn of message.modelReply.turns) {
 						// Push the assistant's message (including any tool calls)
 						const messageContent: ContentBlock[] = [];
-						messageContent.push({ text: turn.message ?? turn.error! });
-						if (turn.toolCalls && turn.toolCalls.length > 0) {
-							for (const toolCall of turn.toolCalls) {
-								messageContent.push({ 
-                  toolUse: {
-                    toolUseId: toolCall.toolCallId,
-                    name: toolCall.serverName + '_' + toolCall.toolName,
-                    input: toolCall.args as Record<string, any>
-                  } 
-                });
+						if (turn.results) {
+							for (const result of turn.results) {
+								if (result.type === 'text') {
+									messageContent.push({ text: result.text });
+								} else if (result.type === 'toolCall') {
+									messageContent.push({ 
+										toolUse: {
+											toolUseId: result.toolCall.toolCallId,
+											name: result.toolCall.serverName + '_' + result.toolCall.toolName,
+											input: result.toolCall.args as Record<string, any>
+										} 
+									});
+								}
 							}
+						} else if (turn.error) {
+							messageContent.push({ text: turn.error });
 						}
             turnMessages.push({
               role: ConversationRole.ASSISTANT,
               content: messageContent
             });
 						// Push the tool call results (if multiple tool calls, we push the results in a single message)
-						if (turn.toolCalls && turn.toolCalls.length > 0) {
+						if (turn.results) {
 							const toolResults: ContentBlock[] = [];
-							for (const toolCall of turn.toolCalls) {
-								toolResults.push({
-									toolResult: {
-										toolUseId: toolCall.toolCallId,
-										content: [ { text: toolCall.output } ]
-									}
+							for (const result of turn.results) {
+								if (result.type === 'toolCall') {
+									toolResults.push({
+										toolResult: {
+											toolUseId: result.toolCall.toolCallId,
+											content: [ { text: result.toolCall.output } ]
+										}
+									});
+								}
+							}
+							if (toolResults.length > 0) {
+								turnMessages.push({
+									role: ConversationRole.USER,
+									content: toolResults
 								});
 							}
-							turnMessages.push({
-								role: ConversationRole.USER,
-								content: toolResults
-							});
 						}
           }
         } else if (message.role != 'approval') {
@@ -254,7 +263,7 @@ export class BedrockProvider implements Provider {
         // Handle tool call approvals
         const toolCallsContent: ContentBlock[] = [];
         const toolCallsResults: ContentBlock[] = [];
-        const turn: Turn = { toolCalls: [] };
+        const turn: Turn = { results: [] };
         for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
           this.logger.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
           const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
@@ -276,14 +285,17 @@ export class BedrockProvider implements Provider {
             const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
-              turn.toolCalls!.push({
-                serverName: toolCallApproval.serverName,
-                toolName: toolCallApproval.toolName,
-                args: toolCallApproval.args,
-                toolCallId: toolCallApproval.toolCallId,
-                output: resultText,
-                elapsedTimeMs: toolResult.elapsedTimeMs,
-                error: undefined
+              turn.results!.push({
+                type: 'toolCall',
+                toolCall: {
+                  serverName: toolCallApproval.serverName,
+                  toolName: toolCallApproval.toolName,
+                  args: toolCallApproval.args,
+                  toolCallId: toolCallApproval.toolCallId,
+                  output: resultText,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  error: undefined
+                }
               });
               // Add the tool call (executed) result to the context history
               toolCallsResults.push({
@@ -295,14 +307,17 @@ export class BedrockProvider implements Provider {
             }
           } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
             // Record the tool call and "denied" result
-            turn.toolCalls!.push({
-              serverName: toolCallApproval.serverName,
-              toolName: toolCallApproval.toolName,
-              args: toolCallApproval.args,
-              toolCallId: toolCallApproval.toolCallId,
-              output: 'Tool call denied',
-              elapsedTimeMs: 0,
-              error: 'Tool call denied'
+            turn.results!.push({
+              type: 'toolCall',
+              toolCall: {
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: 'Tool call denied',
+                elapsedTimeMs: 0,
+                error: 'Tool call denied'
+              }
             });
             // Add the tool call (denied) result to the context history
             toolCallsResults.push({
@@ -331,7 +346,7 @@ export class BedrockProvider implements Provider {
 
       let turnCount = 0;
       while (turnCount < state.maxChatTurns) {
-        const turn: Turn = {};
+        const turn: Turn = { results: [] };
         turnCount++;
         let hasToolUse = false;
 
@@ -376,7 +391,10 @@ export class BedrockProvider implements Provider {
 				if (content && content.length > 0) {
 					for (const part of content) {
 						if (part.text) {
-							turn.message = (turn.message || '') + part.text;
+							turn.results!.push({
+                type: 'text',
+                text: part.text
+              });
 						}
 
 						if (part.toolUse) {
@@ -406,9 +424,6 @@ export class BedrockProvider implements Provider {
                 const toolResult = await ProviderHelper.callTool(this.agent, toolName, toolArgs, session);
                 if (toolResult.content[0]?.type === 'text') {
                   const resultText = toolResult.content[0].text;
-                  if (!turn.toolCalls) {
-                    turn.toolCalls = [];
-                  }
 
                   // For Bedrock, we need to push multiple tool call results into the same user message (or it will complain), so we aggregate them here
                   // and push the message below (assuming any tool call results are present).
@@ -420,13 +435,16 @@ export class BedrockProvider implements Provider {
                   })
       
                   // Record the function call and result
-                  turn.toolCalls.push({
-                    serverName: toolServerName,
-                    toolName: toolToolName,
-                    args: toolArgs,
-                    output: resultText,
-                    toolCallId: toolUseId,
-                    elapsedTimeMs: toolResult.elapsedTimeMs,
+                  turn.results!.push({
+                    type: 'toolCall',
+                    toolCall: {
+                      serverName: toolServerName,
+                      toolName: toolToolName,
+                      args: toolArgs,
+                      output: resultText,
+                      toolCallId: toolUseId,
+                      elapsedTimeMs: toolResult.elapsedTimeMs,
+                    }
                   });  
                 }
               }
@@ -442,7 +460,7 @@ export class BedrockProvider implements Provider {
           });
         }
 
-        if (turn.message || turn.toolCalls) {
+        if (turn.results && turn.results.length > 0) {
           modelReply.turns.push(turn);
         }
 

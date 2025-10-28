@@ -98,20 +98,8 @@ export type TurnResult = {
   toolCall: ToolCallResult;
 };
 
-// !!! We need to refactor all users of Turn to use the new Turn with the "results" array property instead of "message" and "toolCalls" properties
-// - For providers, it's pretty straighforward - you just put the message and toolCalls into a single results array
-// - For UX, display interleaved text and tool calls for the turn
-//
-export interface CoolTurn {
-  results?: Array<TurnResult>;
-  error?: string;
-  inputTokens?: number;
-  outputTokens?: number;
-}
-
 export interface Turn {
-  message?: string;
-  toolCalls?: ToolCallResult[];
+  results?: Array<TurnResult>;
   error?: string;
   inputTokens?: number;
   outputTokens?: number;

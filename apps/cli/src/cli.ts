@@ -599,7 +599,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               
               // Count tool calls
               const toolCalls = lastMessage.modelReply.turns.reduce((total: number, turn: any) => 
-                total + (turn.toolCalls?.length || 0), 0);
+                total + (turn.results?.filter((result: any) => result.type === 'toolCall').length || 0), 0);
               console.log(`    Tool Calls: ${chalk.yellow(toolCalls)}`);
               
               // Calculate input tokens for last message
@@ -883,20 +883,22 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
       let assistantUpdate = getAssistantUpdate(messageUpdate);
       while (assistantUpdate) {
         for (const turn of assistantUpdate.modelReply.turns) {
-          if (turn.message) {
-            console.log(`\n${turn.message}`);
-          }
-          if (turn.toolCalls) {
-            for (const toolCall of turn.toolCalls) {
-              console.log(chalk.cyan(`\nTool call: ${toolCall.toolName}`));
-              console.log(chalk.dim(indent(`Arguments: ${JSON.stringify(toolCall.args, null, 2)}`)));
-              if (toolCall.output) {
-                console.log(chalk.dim(indent(`Output:`)));
-                console.log(chalk.dim(indent(toolCall.output, 4)));
-              }
-              if (toolCall.error) {
-                console.log(chalk.red(indent(`Error:`)));
-                console.log(chalk.dim(indent(toolCall.error, 4)));
+          // Display text results
+          if (turn.results) {
+            for (const result of turn.results) {
+              if (result.type === 'text') {
+                console.log(`\n${result.text}`);
+              } else if (result.type === 'toolCall') {
+                console.log(chalk.cyan(`\nTool call: ${result.toolCall.toolName}`));
+                console.log(chalk.dim(indent(`Arguments: ${JSON.stringify(result.toolCall.args, null, 2)}`)));
+                if (result.toolCall.output) {
+                  console.log(chalk.dim(indent(`Output:`)));
+                  console.log(chalk.dim(indent(result.toolCall.output, 4)));
+                }
+                if (result.toolCall.error) {
+                  console.log(chalk.red(indent(`Error:`)));
+                  console.log(chalk.dim(indent(result.toolCall.error, 4)));
+                }
               }
             }
           }

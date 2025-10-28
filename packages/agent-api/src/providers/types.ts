@@ -1,5 +1,5 @@
 import { Agent } from '../types/agent.js';
-import { ChatSession, ChatMessage, ToolCallRequest, ToolCallResult } from '../types/chat.js';
+import { ChatSession, ChatMessage, ToolCallRequest, ToolCallResult, Turn } from '../types/chat.js';
 
 // Provider types
 export enum ProviderType {
@@ -55,13 +55,7 @@ export interface ProviderModel {
 // Model reply interface
 export interface ModelReply {
   timestamp: number;
-  turns: {
-    message?: string;
-    inputTokens?: number;
-    outputTokens?: number;
-    toolCalls?: ToolCallResult[];
-    error?: string;
-  }[];
+  turns: Turn[];
   pendingToolCalls?: ToolCallRequest[];
 }
 

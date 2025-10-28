@@ -121,34 +121,50 @@ export class OpenAIProvider implements Provider {
             // Add the assistant's message (including any tool calls)
             const reply: ChatCompletionMessageParam = {
               role: "assistant" as const,
-              content: turn.message ?? turn.error,
+              content: '',
             };
-            // Add the tool calls, if any
-            if (turn.toolCalls && turn.toolCalls.length > 0) {
-              reply.tool_calls = [];
-              for (const toolCall of turn.toolCalls) {
-                // Push the tool call
-                reply.tool_calls.push({
-                  type: 'function',
-                  id: toolCall.toolCallId!,
-                  function: {
-                    name: toolCall.serverName + '_' + toolCall.toolName,
-                    arguments: JSON.stringify(toolCall.args ?? {}),
-                  },
-                });
+            
+            // Add the results, if any
+            if (turn.results) {
+              let textContent = '';
+              const toolCalls: any[] = [];
+              
+              for (const result of turn.results) {
+                if (result.type === 'text') {
+                  textContent += result.text;
+                } else if (result.type === 'toolCall') {
+                  toolCalls.push({
+                    type: 'function',
+                    id: result.toolCall.toolCallId!,
+                    function: {
+                      name: result.toolCall.serverName + '_' + result.toolCall.toolName,
+                      arguments: JSON.stringify(result.toolCall.args ?? {}),
+                    },
+                  });
+                }
               }
+              
+              reply.content = textContent || turn.error || '';
+              if (toolCalls.length > 0) {
+                reply.tool_calls = toolCalls;
+              }
+            } else if (turn.error) {
+              reply.content = turn.error;
             }
+            
             turnMessages.push(reply);
 
             // Add the tool call results, if any
-            if (turn.toolCalls && turn.toolCalls.length > 0) {
-              for (const toolCall of turn.toolCalls) {
-                // Push the tool call result
-                turnMessages.push({
-                  role: 'tool',
-                  tool_call_id: toolCall.toolCallId!,
-                  content: toolCall.output
-                });
+            if (turn.results) {
+              for (const result of turn.results) {
+                if (result.type === 'toolCall') {
+                  // Push the tool call result
+                  turnMessages.push({
+                    role: 'tool',
+                    tool_call_id: result.toolCall.toolCallId!,
+                    content: result.toolCall.output
+                  });
+                }
               }
             }
           }
@@ -175,7 +191,7 @@ export class OpenAIProvider implements Provider {
           tool_calls: []
         };
         const toolCallsResults: ChatCompletionMessageParam[] = [];
-        const turn: Turn = { toolCalls: [] };
+        const turn: Turn = { results: [] };
         for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
           this.logger.info('Model processing tool call approval', JSON.stringify(toolCallApproval, null, 2));
           const functionName = toolCallApproval.serverName + '_' + toolCallApproval.toolName;
@@ -198,14 +214,17 @@ export class OpenAIProvider implements Provider {
             const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
-              turn.toolCalls!.push({
-                serverName: toolCallApproval.serverName,
-                toolName: toolCallApproval.toolName,
-                args: toolCallApproval.args,
-                toolCallId: toolCallApproval.toolCallId,
-                output: resultText,
-                elapsedTimeMs: toolResult.elapsedTimeMs,
-                error: undefined
+              turn.results!.push({
+                type: 'toolCall',
+                toolCall: {
+                  serverName: toolCallApproval.serverName,
+                  toolName: toolCallApproval.toolName,
+                  args: toolCallApproval.args,
+                  toolCallId: toolCallApproval.toolCallId,
+                  output: resultText,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  error: undefined
+                }
               });
               // Add the tool call (executed) result to the context history
               toolCallsResults.push({
@@ -216,14 +235,17 @@ export class OpenAIProvider implements Provider {
             }
           } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
             // Record the tool call and "denied" result
-            turn.toolCalls!.push({
-              serverName: toolCallApproval.serverName,
-              toolName: toolCallApproval.toolName,
-              args: toolCallApproval.args,
-              toolCallId: toolCallApproval.toolCallId,
-              output: 'Tool call denied',
-              elapsedTimeMs: 0,
-              error: 'Tool call denied'
+            turn.results!.push({
+              type: 'toolCall',
+              toolCall: {
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: 'Tool call denied',
+                elapsedTimeMs: 0,
+                error: 'Tool call denied'
+              }
             });
             // Add the tool call (denied) result to the context history
             toolCallsResults.push({
@@ -248,7 +270,7 @@ export class OpenAIProvider implements Provider {
 
       let turnCount = 0;
       while (turnCount < state.maxChatTurns) {
-        const turn: Turn = {};
+        const turn: Turn = { results: [] };
         let hasToolUse = false;
         turnCount++;
         this.logger.debug(`Processing turn ${turnCount}`);
@@ -279,7 +301,10 @@ export class OpenAIProvider implements Provider {
         }
 
         if (response.content) {
-          turn.message = (turn.message || '') + response.content;
+          turn.results!.push({
+            type: 'text',
+            text: response.content
+          });
         }
         
         if (response.tool_calls && response.tool_calls.length > 0) {
@@ -312,9 +337,6 @@ export class OpenAIProvider implements Provider {
                 const toolResult = await ProviderHelper.callTool(this.agent, toolCall.function.name, JSON.parse(toolCall.function.arguments), session);
                 if (toolResult.content[0]?.type === 'text') {
                   const resultText = toolResult.content[0].text;
-                  if (!turn.toolCalls) {
-                    turn.toolCalls = [];
-                  }
     
                   // Record the tool result in the message context
                   turnMessages.push({
@@ -324,13 +346,16 @@ export class OpenAIProvider implements Provider {
                   });
                   
                   // Record the function call and result
-                  turn.toolCalls.push({
-                    serverName: ProviderHelper.getToolServerName(toolCall.function.name),
-                    toolName: ProviderHelper.getToolName(toolCall.function.name),
-                    args: JSON.parse(toolCall.function.arguments),
-                    output: resultText,
-                    toolCallId: toolCall.id,
-                    elapsedTimeMs: toolResult.elapsedTimeMs,
+                  turn.results!.push({
+                    type: 'toolCall',
+                    toolCall: {
+                      serverName: ProviderHelper.getToolServerName(toolCall.function.name),
+                      toolName: ProviderHelper.getToolName(toolCall.function.name),
+                      args: JSON.parse(toolCall.function.arguments),
+                      output: resultText,
+                      toolCallId: toolCall.id,
+                      elapsedTimeMs: toolResult.elapsedTimeMs,
+                    }
                   });    
                 }
               }
@@ -338,7 +363,7 @@ export class OpenAIProvider implements Provider {
           }
         }
 
-        if (turn.message || turn.toolCalls) {
+        if (turn.results && turn.results.length > 0) {
           modelReply.turns.push(turn);
         }
           

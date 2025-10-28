@@ -17,6 +17,7 @@ export class LocalProvider implements Provider {
   private llama: Llama | null = null;
   private model: LlamaModel | null = null;
 
+
   static getInfo(): ProviderInfo {
     return {
       name: "Local GGUF Models",
@@ -154,6 +155,41 @@ export class LocalProvider implements Provider {
   }
 
   async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
+    // Queue to store tool execution data for correlation with response
+    const toolExecutionQueue: Array<{
+      result: string;
+      elapsedTimeMs: number;
+      toolName: string;
+    }> = [];
+
+    /**
+     * Enqueue tool execution data for later correlation with response
+     */
+    const enqueueToolExecution = (result: string, elapsedTimeMs: number, toolName: string): void => {
+      toolExecutionQueue.push({
+        result,
+        elapsedTimeMs,
+        toolName
+      });
+    };
+
+    /**
+     * Dequeue tool execution data by matching result content and tool name
+     * Returns the first matching entry and removes it from the queue
+     */
+    const dequeueToolExecution = (result: string, toolName: string): { elapsedTimeMs: number } | null => {
+      const executionIndex = toolExecutionQueue.findIndex(
+        exec => exec.result === result && exec.toolName === toolName
+      );
+      
+      if (executionIndex !== -1) {
+        const executionData = toolExecutionQueue.splice(executionIndex, 1)[0];
+        return { elapsedTimeMs: executionData.elapsedTimeMs };
+      }
+      
+      return null;
+    };
+
     const modelReply: ModelReply = {
       timestamp: Date.now(),
       turns: []
@@ -185,13 +221,21 @@ export class LocalProvider implements Provider {
             
             try {
               const toolResult = await ProviderHelper.callTool(this.agent, tool.name, params, session);
-              const resultText = toolResult.content[0]?.text || 'Tool executed successfully';
+              const resultText = (toolResult.content[0]?.text as string) || 'Tool executed successfully';
+              
+              // Enqueue execution data for later correlation with response
+              enqueueToolExecution(resultText, typeof toolResult.elapsedTimeMs === 'number' ? toolResult.elapsedTimeMs : 0, String(tool.name));
               
               this.logger.info('Tool result:', resultText);
               return resultText;
             } catch (error) {
               this.logger.error('Tool execution failed:', error);
-              return `Tool execution failed: ${error}`;
+              const errorText = `Tool execution failed: ${error}`;
+              
+              // Enqueue error execution data as well
+              enqueueToolExecution(errorText, 0, String(tool.name));
+              
+              return errorText;
             }
           }
         };
@@ -215,23 +259,24 @@ export class LocalProvider implements Provider {
           for (const turn of message.modelReply.turns) {
             const responseItems: Array<string | any> = [];
             
-            // Add the turn message text if any
-            if (turn.message) {
-              responseItems.push(turn.message);
-            }
-            
-            // Add tool calls if any
-            if (turn.toolCalls && turn.toolCalls.length > 0) {
-              for (const toolCall of turn.toolCalls) {
-                responseItems.push({
-                  type: 'functionCall',
-                  name: toolCall.serverName + '_' + toolCall.toolName,
-                  description: '',
-                  params: toolCall.args,
-                  result: toolCall.output,
-                  rawCall: undefined
-                });
+            // Add the turn results if any
+            if (turn.results) {
+              for (const result of turn.results) {
+                if (result.type === 'text') {
+                  responseItems.push(result.text);
+                } else if (result.type === 'toolCall') {
+                  responseItems.push({
+                    type: 'functionCall',
+                    name: result.toolCall.serverName + '_' + result.toolCall.toolName,
+                    description: '',
+                    params: result.toolCall.args,
+                    result: result.toolCall.output,
+                    rawCall: undefined
+                  });
+                }
               }
+            } else if (turn.error) {
+              responseItems.push(turn.error);
             }
             
             // Create a single model response with all items
@@ -267,15 +312,18 @@ export class LocalProvider implements Provider {
             const toolResult = await ProviderHelper.callTool(this.agent, toolCallApproval.serverName + '_' + toolCallApproval.toolName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
-              turn.toolCalls = [{
-                serverName: toolCallApproval.serverName,
-                toolName: toolCallApproval.toolName,
-                args: toolCallApproval.args,
-                toolCallId: toolCallApproval.toolCallId,
-                output: resultText,
-                elapsedTimeMs: toolResult.elapsedTimeMs,
-                error: undefined
-              }];
+              turn.results!.push({
+                type: 'toolCall',
+                toolCall: {
+                  serverName: toolCallApproval.serverName,
+                  toolName: toolCallApproval.toolName,
+                  args: toolCallApproval.args,
+                  toolCallId: toolCallApproval.toolCallId,
+                  output: resultText,
+                  elapsedTimeMs: toolResult.elapsedTimeMs,
+                  error: undefined
+                }
+              });
               
               // Add function call to response items
               responseItems.push({
@@ -288,15 +336,18 @@ export class LocalProvider implements Provider {
               });
             }
           } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
-            turn.toolCalls = [{
-              serverName: toolCallApproval.serverName,
-              toolName: toolCallApproval.toolName,
-              args: toolCallApproval.args,
-              toolCallId: toolCallApproval.toolCallId,
-              output: 'Tool call denied',
-              elapsedTimeMs: 0,
-              error: 'Tool call denied'
-            }];
+            turn.results!.push({
+              type: 'toolCall',
+              toolCall: {
+                serverName: toolCallApproval.serverName,
+                toolName: toolCallApproval.toolName,
+                args: toolCallApproval.args,
+                toolCallId: toolCallApproval.toolCallId,
+                output: 'Tool call denied',
+                elapsedTimeMs: 0,
+                error: 'Tool call denied'
+              }
+            });
             
             // Add denied function call to response items
             responseItems.push({
@@ -309,7 +360,7 @@ export class LocalProvider implements Provider {
             });
           }
           
-          if (turn.toolCalls) {
+          if (turn.results && turn.results.length > 0) {
             modelReply.turns.push(turn);
           }
         }
@@ -346,7 +397,7 @@ export class LocalProvider implements Provider {
       let turnCount = 0;
       
       while (turnCount < state.maxChatTurns) {
-        const turn: Turn = {};
+        const turn: Turn = { results: [] };
         turnCount++;
         this.logger.debug(`Processing turn ${turnCount}`);
 
@@ -389,69 +440,63 @@ export class LocalProvider implements Provider {
           }
 
           // Process the structured response
-          let responseText = '';
           const functionCalls: ChatModelFunctionCall[] = [];
-
-          // A "turn" is basically a text response followed by one or more tool calls.  Given that this provider can call tools
-          // and continue generation internally, we can get responses with any combination of interleaved text and tool calls.
-          // To make it fit our model, we need to treat each text + tool calls (followed by another text) as its own turn.
           
           for (const item of responseMeta.response) {
             this.logger.info('Response item:', JSON.stringify(item, null, 2));
             if (typeof item === 'string') {
-              responseText += item;
+              turn.results!.push({
+                type: 'text',
+                text: item
+              });
             } else if (item.type === 'functionCall') {
-              functionCalls.push(item);
-            }
-          }
-
-          if (responseText) {
-            turn.message = responseText;
-          }
-
-          // Handle function calls from the structured response
-          if (functionCalls.length > 0) {
-            this.logger.info(`Found ${functionCalls.length} function calls:`, functionCalls);
-            
-            for (const functionCall of functionCalls) {
-              const toolName = functionCall.name;
+              const toolName = item.name;
               const tool = tools.find(t => t.name === toolName);
-              
+
               if (tool) {
                 const toolServerName = ProviderHelper.getToolServerName(tool.name);
                 const toolToolName = ProviderHelper.getToolName(tool.name);
                 const toolCallId = Math.random().toString(16).slice(2, 10);
-                
-                if (await session.isToolApprovalRequired(toolServerName, toolToolName)) {
+
+                if (item.result === 'PENDING') {
                   // Process tool approval
+                  this.logger.info('Adding pending tool call to model reply:', item.name);
                   if (!modelReply.pendingToolCalls) {
                     modelReply.pendingToolCalls = [];
                   }
                   modelReply.pendingToolCalls.push({
                     serverName: toolServerName,
                     toolName: toolToolName,
-                    args: functionCall.params || {},
+                    args: item.params || {},
                     toolCallId: toolCallId
                   });
                 } else {
-                  // Call the tool directly
-                  const toolResult = await ProviderHelper.callTool(this.agent, tool.name, functionCall.params || {}, session);
-                  if (toolResult.content[0]?.type === 'text') {
-                    const resultText = toolResult.content[0].text;
-                    if (!turn.toolCalls) {
-                      turn.toolCalls = [];
-                    }
-                    turn.toolCalls.push({
+                  // Tool was called during generation, record the call and result
+                  this.logger.info('Adding tool call to turn results:', item.name);
+                  
+                  // Try to get the actual elapsed time from our execution queue
+                  const executionData = dequeueToolExecution(item.result || '', toolName);
+                  const elapsedTimeMs = executionData?.elapsedTimeMs ?? 1;
+                  
+                  if (executionData) {
+                    this.logger.info(`Matched tool call ${toolName} with execution data: ${elapsedTimeMs}ms`);
+                  } else {
+                    this.logger.warn(`Could not find execution data for tool call ${toolName} with result: ${item.result}`);
+                  }
+                  
+                  turn.results!.push({
+                    type: 'toolCall',
+                    toolCall: {
                       serverName: toolServerName,
                       toolName: toolToolName,
-                      args: functionCall.params || {},
+                      args: item.params || {},
                       toolCallId: toolCallId,
-                      output: resultText,
-                      elapsedTimeMs: toolResult.elapsedTimeMs,
+                      output: item.result || '',
+                      elapsedTimeMs: elapsedTimeMs,
                       error: undefined
-                    });
-                  }
-                }
+                    }
+                  });
+                }    
               } else {
                 this.logger.warn(`Function call for unknown tool: ${toolName}`);
               }
@@ -460,11 +505,8 @@ export class LocalProvider implements Provider {
 
           modelReply.turns.push(turn);
           
-          // Break if no tool calls or if there are pending tool calls requiring approval
-          //if (!turn.toolCalls || turn.toolCalls.length === 0 || (modelReply.pendingToolCalls && modelReply.pendingToolCalls.length > 0)) {
-            break;
-          //}
-
+          // Always break - either we're done or we have pending tool calls (requring approval), so either way we yeild back to the chat
+          break;
         } catch (error) {
           this.logger.error('Error in turn:', error);
           turn.error = `Error: ${error instanceof Error ? error.message : 'Unknown error'}`;
