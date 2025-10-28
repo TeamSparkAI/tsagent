@@ -10,10 +10,11 @@
   "homepage": "https://teamspark.ai",
   "license": "MIT",
   "main": "dist/main.js",
+  "type": "module",
   "scripts": {
     "start": "npm run build && electron . --ignore-certificate-errors",
-    "build": "cd ../../packages/agent-api && npm run build && cd ../../apps/desktop && rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.js && cp src/renderer/index.html dist/",
-    "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.js",
+    "build": "cd ../../packages/agent-api && npm run build && cd ../../apps/desktop && rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.mjs && cp src/renderer/index.html dist/",
+    "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.mjs",
     "test": "jest",
     "pack": "electron-builder --dir",
     "dist": "npm run build && npx electron-builder"
@@ -45,6 +46,7 @@
     "dotenv": "^16.4.7",
     "electron-log": "^5.3.2",
     "js-yaml": "^4.1.0",
+    "node-llama-cpp": "^3.14.2",
     "ollama": "^0.5.14",
     "openai": "^4.89.0",
     "react": "^19.0.0",

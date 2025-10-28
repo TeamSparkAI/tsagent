@@ -16,6 +16,7 @@ import OpenAILogo from '../assets/openai.png';
 import GeminiLogo from '../assets/gemini.png';
 import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
+import LocalLogo from '../assets/local.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import { ChatState } from '@tsagent/core';
@@ -52,6 +53,7 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
   [ProviderType.Gemini]: GeminiLogo,
   [ProviderType.Claude]: AnthropicLogo,
   [ProviderType.Bedrock]: BedrockLogo,
+  [ProviderType.Local]: LocalLogo,
 };
 
 export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {

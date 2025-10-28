@@ -117,6 +117,7 @@ const api: API = {
   validateProviderConfig: (provider: LLMType, config: Record<string, string>) => ipcRenderer.invoke('llm:validate-provider-config', provider, config),
   getModelsForProvider: (provider: LLMType) => ipcRenderer.invoke('llm:getModels', provider),
   getInstalledProviders: () => ipcRenderer.invoke('llm:get-installed-providers'),
+  getAvailableProviders: () => ipcRenderer.invoke('llm:get-available-providers'),
   addProvider: (provider: LLMType, config: Record<string, string>) => ipcRenderer.invoke('llm:add-provider', provider, config),
   removeProvider: (provider: LLMType) => ipcRenderer.invoke('llm:remove-provider', provider),
   getProviderConfig: (provider: LLMType, key: string) => ipcRenderer.invoke('llm:get-provider-config', provider, key),

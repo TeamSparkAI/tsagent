@@ -13,6 +13,7 @@ import OpenAILogo from '../assets/openai.png';
 import GeminiLogo from '../assets/gemini.png';
 import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
+import LocalLogo from '../assets/local.png';
 
 import './ProvidersTab.css';
 
@@ -24,6 +25,7 @@ const providerLogos: Record<ProviderType, any> = {
   [ProviderType.Gemini]: GeminiLogo,
   [ProviderType.Claude]: AnthropicLogo,
   [ProviderType.Bedrock]: BedrockLogo,
+  [ProviderType.Local]: LocalLogo,
 };
 
 interface Provider {
@@ -51,7 +53,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
   useEffect(() => {
     const loadProviderInfo = async () => {
       // Get all available providers and their info
-      const availableProviders = await window.api.getInstalledProviders();
+      const availableProviders = await window.api.getAvailableProviders();
       const providerInfoMap: Record<string, LLMProviderInfo> = {};
       
       for (const provider of availableProviders) {

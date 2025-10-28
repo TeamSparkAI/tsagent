@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:desktop:*)",
+      "Bash(find:*)",
+      "Bash(mv:*)",
+      "Bash(npm run build:*)",
+      "Bash(grep:*)",
+      "Bash(ls:*)",
+      "WebFetch(domain:node-llama-cpp.withcat.ai)"
+    ],
+    "deny": []
+  }
+}

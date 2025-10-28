@@ -1,10 +1,10 @@
-//import path from 'path';
-//import webpack from 'webpack';
-//import TerserPlugin from 'terser-webpack-plugin';
+import path from 'path';
+import webpack from 'webpack';
+import TerserPlugin from 'terser-webpack-plugin';
+import { fileURLToPath } from 'url';
 
-const path = require('path');
-const webpack = require('webpack');
-const TerserPlugin = require('terser-webpack-plugin');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const commonConfig = {
   mode: 'production',
@@ -48,10 +48,16 @@ const mainConfig = {
   entry: './src/main/main.ts',
   output: {
     path: path.resolve(__dirname, 'dist'),
-    filename: 'main.js'
+    filename: 'main.js',
+    module: true
+  },
+  experiments: {
+    outputModule: true
   },
   externals: {
-    electron: 'commonjs electron'
+    electron: 'module electron',
+    'node-llama-cpp': 'module node-llama-cpp',
+    '@tsagent/core': 'module @tsagent/core'
   },
   plugins: [
     new webpack.DefinePlugin({
@@ -99,4 +105,4 @@ const preloadConfig = {
   }
 };
 
-module.exports = [mainConfig, rendererConfig, preloadConfig]; 
+export default [mainConfig, rendererConfig, preloadConfig]; 

@@ -277,6 +277,20 @@ async function startApp() {
       mainWindow = await createWindow();
     }
   });
+
+  // Handle uncaught exceptions gracefully
+  process.on('uncaughtException', (error: Error & { code?: string }) => {
+    // Ignore EPIPE errors which occur when stdout is closed (e.g., when app is backgrounded in terminal)
+    if (error.code === 'EPIPE') {
+      log.debug('EPIPE error ignored (likely stdout was closed)');
+      return;
+    }
+    log.error('Uncaught exception:', error);
+  });
+
+  process.on('unhandledRejection', (reason: any) => {
+    log.error('Unhandled promise rejection:', reason);
+  });
 }
 
 function setupIpcHandlers(mainWindow: BrowserWindow | null) {
@@ -1192,6 +1206,17 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
     const providerType = provider as ProviderType;
     return agent.getProviderInfo(providerType);
+  });
+
+  ipcMain.handle('llm:get-available-providers', (event) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return [];
+    }
+    return agent.getAvailableProviders();
   });
 
   ipcMain.handle('llm:validate-provider-config', async (event, provider: string, config: Record<string, string>) => {

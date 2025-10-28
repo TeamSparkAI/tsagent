@@ -8,7 +8,8 @@ export enum ProviderType {
   OpenAI = 'openai',
   Gemini = 'gemini',
   Ollama = 'ollama',
-  Bedrock = 'bedrock'
+  Bedrock = 'bedrock',
+  Local = 'local'
 }
 
 export interface ProviderConfigValue {

@@ -34,6 +34,7 @@ export interface API {
   validateProviderConfig: (provider: ProviderType, config: Record<string, string>) => Promise<{ isValid: boolean, error?: string }>;
   getModelsForProvider: (provider: ProviderType) => Promise<ILLMModel[]>;
   getInstalledProviders: () => Promise<ProviderType[]>;
+  getAvailableProviders: () => Promise<ProviderType[]>;
   addProvider: (provider: ProviderType, config: Record<string, string>) => Promise<boolean>;
   removeProvider: (provider: ProviderType) => Promise<boolean>;
   getProviderConfig: (provider: ProviderType, key: string) => Promise<string | null>;

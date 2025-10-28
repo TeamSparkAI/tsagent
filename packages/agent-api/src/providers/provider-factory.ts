@@ -11,6 +11,7 @@ import { ClaudeProvider } from './claude-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
 import { GeminiProvider } from './gemini-provider.js';
 import { OllamaProvider } from './ollama-provider.js';
+import { LocalProvider } from './local-provider.js';
 
 export class ProviderFactory {
   private agent: Agent;
@@ -28,7 +29,8 @@ export class ProviderFactory {
       ProviderType.Claude,
       ProviderType.OpenAI,
       ProviderType.Gemini,
-      ProviderType.Ollama
+      ProviderType.Ollama,
+      ProviderType.Local
     ];
   }
 
@@ -41,6 +43,7 @@ export class ProviderFactory {
       [ProviderType.OpenAI]: OpenAIProvider.getInfo(),
       [ProviderType.Gemini]: GeminiProvider.getInfo(),
       [ProviderType.Ollama]: OllamaProvider.getInfo(),
+      [ProviderType.Local]: LocalProvider.getInfo(),
     };
   }
 
@@ -58,6 +61,8 @@ export class ProviderFactory {
         return OllamaProvider.getInfo();
       case ProviderType.OpenAI:
         return OpenAIProvider.getInfo();
+      case ProviderType.Local:
+        return LocalProvider.getInfo();
       default:
         throw new Error(`Unknown provider type: ${providerType}`);
     }
@@ -77,6 +82,8 @@ export class ProviderFactory {
         return OllamaProvider.validateConfiguration(this.agent, config);
       case ProviderType.OpenAI:
         return OpenAIProvider.validateConfiguration(this.agent, config);
+      case ProviderType.Local:
+        return LocalProvider.validateConfiguration(this.agent, config);
       default:
         return { isValid: false, error: `Unsupported provider type: ${type}` };
     }
@@ -108,6 +115,9 @@ export class ProviderFactory {
       case ProviderType.OpenAI:
         this.logger.info('Creating OpenAI Provider instance');
         return new OpenAIProvider(modelId || 'gpt-3.5-turbo', this.agent, this.logger);
+      case ProviderType.Local:
+        this.logger.info('Creating Local Provider instance');
+        return new LocalProvider(modelId || '', this.agent, this.logger);
       default:
         throw new Error(`Unsupported provider type: ${modelType}`);
     }
