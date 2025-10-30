@@ -9,6 +9,25 @@ import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
 
+/**
+ * LocalProvider: tool calling when approval is required
+ *
+ * Problem:
+ * - node-llama-cpp can make multiple function calls in a single turn and/or advance multiple internal
+ *   turns in one generation (incorporating function call results from one turn in subsequent turns).  
+ *   When a call requires approval, we need to terminate generation so we can get approval from the user
+ *   and continue in a subsequent turn.
+ *
+ * Solution:
+ * - Limit to one concurrent function call (maxParallelFunctionCalls = 1).
+ * - In the function callhandler:
+ *   - If no approval required: execute immediately; record timing for correlation; return result.
+ *   - If approval required: add to pending list; abort (stopOnAbortSignal) so generation halts.
+ * - On generate call, if there are pending tool call approvals, we call the functions and append
+ *   the calls with results to the context (history) - as we do with all other providers so that
+ *   generation can continue with the tool call results incorporated into the context.
+ */
+
 export class LocalProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
@@ -165,7 +184,7 @@ export class LocalProvider implements Provider {
     /**
      * Enqueue tool execution data for later correlation with response
      */
-    const enqueueToolExecution = (result: string, elapsedTimeMs: number, toolName: string): void => {
+    const enqueueToolExecutionResult = (result: string, elapsedTimeMs: number, toolName: string): void => {
       toolExecutionQueue.push({
         result,
         elapsedTimeMs,
@@ -177,7 +196,7 @@ export class LocalProvider implements Provider {
      * Dequeue tool execution data by matching result content and tool name
      * Returns the first matching entry and removes it from the queue
      */
-    const dequeueToolExecution = (result: string, toolName: string): { elapsedTimeMs: number } | null => {
+    const dequeueToolExecutionResult = (result: string, toolName: string): { elapsedTimeMs: number } | null => {
       const executionIndex = toolExecutionQueue.findIndex(
         exec => exec.result === result && exec.toolName === toolName
       );
@@ -209,37 +228,6 @@ export class LocalProvider implements Provider {
       
       // Get tools for this session
       const tools = await ProviderHelper.getIncludedTools(this.agent, session);
-      const llamaCppTools: Record<string, any> = {};
-      
-      for (const tool of tools) {
-        llamaCppTools[tool.name] = {
-          description: tool.description || '',
-          params: tool.inputSchema,
-          handler: async (params: any) => {
-            // Execute the tool directly
-            this.logger.info('Tool called by model:', tool.name, params);
-            
-            try {
-              const toolResult = await ProviderHelper.callTool(this.agent, tool.name, params, session);
-              const resultText = (toolResult.content[0]?.text as string) || 'Tool executed successfully';
-              
-              // Enqueue execution data for later correlation with response
-              enqueueToolExecution(resultText, typeof toolResult.elapsedTimeMs === 'number' ? toolResult.elapsedTimeMs : 0, String(tool.name));
-              
-              this.logger.info('Tool result:', resultText);
-              return resultText;
-            } catch (error) {
-              this.logger.error('Tool execution failed:', error);
-              const errorText = `Tool execution failed: ${error}`;
-              
-              // Enqueue error execution data as well
-              enqueueToolExecution(errorText, 0, String(tool.name));
-              
-              return errorText;
-            }
-          }
-        };
-      }
       
       this.logger.info('Building conversation context:');
       this.logger.info(`- System prompt: "${systemPrompt}"`);
@@ -306,12 +294,17 @@ export class LocalProvider implements Provider {
           if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
             session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
           }
+
+          this.logger.info('Processing tool call approval:', JSON.stringify(toolCallApproval, null, 2));
           
           if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
             // Run the tool
             const toolResult = await ProviderHelper.callTool(this.agent, toolCallApproval.serverName + '_' + toolCallApproval.toolName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
               const resultText = toolResult.content[0].text;
+              if (!turn.results) {
+                turn.results = [];
+              }
               turn.results!.push({
                 type: 'toolCall',
                 toolCall: {
@@ -336,6 +329,9 @@ export class LocalProvider implements Provider {
               });
             }
           } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+            if (!turn.results) {
+              turn.results = [];
+            }
             turn.results!.push({
               type: 'toolCall',
               toolCall: {
@@ -413,12 +409,62 @@ export class LocalProvider implements Provider {
           const startTime = Date.now();
           this.logger.info('Starting generation...');
           
+          // Build per-turn tools with approval-aware handlers and an abort controller
+          const abortController = new AbortController();
+          const llamaCppTools: Record<string, any> = {};
+          for (const tool of tools) {
+            llamaCppTools[tool.name] = {
+              description: tool.description || '',
+              params: tool.inputSchema,
+              handler: async (params: any) => {
+                this.logger.info('Tool called by model:', tool.name, params);
+                // Check if tool requires approval
+                const toolServerName = ProviderHelper.getToolServerName(tool.name);
+                const toolToolName = ProviderHelper.getToolName(tool.name);
+                const requiresApproval = await session.isToolApprovalRequired(toolServerName, toolToolName);
+
+                if (requiresApproval) {
+                  this.logger.info('Adding pending tool call to model reply:', tool.name);
+                  if (!modelReply.pendingToolCalls) {
+                    modelReply.pendingToolCalls = [];
+                  }
+                  const toolCallId = Math.random().toString(16).slice(2, 10);
+                  modelReply.pendingToolCalls.push({
+                    serverName: toolServerName,
+                    toolName: toolToolName,
+                    args: params || {},
+                    toolCallId: toolCallId
+                  });
+                  this.logger.info('Tool requires approval, aborting generation:', tool.name);
+                  abortController.abort();
+                  return 'PENDING';
+                }
+
+                try {
+                  const toolResult = await ProviderHelper.callTool(this.agent, tool.name, params, session);
+                  const resultText = (toolResult.content[0]?.text as string) || 'Tool executed successfully';
+                  enqueueToolExecutionResult(resultText, typeof toolResult.elapsedTimeMs === 'number' ? toolResult.elapsedTimeMs : 0, String(tool.name));
+                  this.logger.info('Tool result:', resultText);
+                  return resultText;
+                } catch (error) {
+                  this.logger.error('Tool execution failed:', error);
+                  const errorText = `Tool execution failed: ${error}`;
+                  enqueueToolExecutionResult(errorText, 0, String(tool.name));
+                  return errorText;
+                }
+              }
+            };
+          }
+
           // Use promptWithMeta to get structured response with function calls
           const responseMeta = await chatSession.promptWithMeta(userPrompt, {
             temperature: state.temperature || 0.8,
             maxTokens: state.maxOutputTokens || 512,
             topP: state.topP || 0.9,
-            functions: Object.keys(llamaCppTools).length > 0 ? llamaCppTools : undefined
+            functions: Object.keys(llamaCppTools).length > 0 ? llamaCppTools : undefined,
+            maxParallelFunctionCalls: 1,
+            signal: abortController.signal,
+            stopOnAbortSignal: true
           });
 
           this.logger.info('Chat history:', JSON.stringify(chatSession.getChatHistory(), null, 2));
@@ -458,45 +504,31 @@ export class LocalProvider implements Provider {
                 const toolToolName = ProviderHelper.getToolName(tool.name);
                 const toolCallId = Math.random().toString(16).slice(2, 10);
 
-                if (item.result === 'PENDING') {
-                  // Process tool approval
-                  this.logger.info('Adding pending tool call to model reply:', item.name);
-                  if (!modelReply.pendingToolCalls) {
-                    modelReply.pendingToolCalls = [];
-                  }
-                  modelReply.pendingToolCalls.push({
+                // Tool was called during generation, record the call and result
+                this.logger.info('Adding tool call to turn results:', item.name);
+                
+                // Try to get the actual elapsed time from our execution queue
+                const executionData = dequeueToolExecutionResult(item.result || '', toolName);
+                const elapsedTimeMs = executionData?.elapsedTimeMs ?? 1;
+                
+                if (executionData) {
+                this.logger.info(`Matched tool call ${toolName} with execution data: ${elapsedTimeMs}ms`);
+                } else {
+                this.logger.warn(`Could not find execution data for tool call ${toolName} with result: ${item.result}`);
+                }
+                
+                turn.results!.push({
+                type: 'toolCall',
+                toolCall: {
                     serverName: toolServerName,
                     toolName: toolToolName,
                     args: item.params || {},
-                    toolCallId: toolCallId
-                  });
-                } else {
-                  // Tool was called during generation, record the call and result
-                  this.logger.info('Adding tool call to turn results:', item.name);
-                  
-                  // Try to get the actual elapsed time from our execution queue
-                  const executionData = dequeueToolExecution(item.result || '', toolName);
-                  const elapsedTimeMs = executionData?.elapsedTimeMs ?? 1;
-                  
-                  if (executionData) {
-                    this.logger.info(`Matched tool call ${toolName} with execution data: ${elapsedTimeMs}ms`);
-                  } else {
-                    this.logger.warn(`Could not find execution data for tool call ${toolName} with result: ${item.result}`);
-                  }
-                  
-                  turn.results!.push({
-                    type: 'toolCall',
-                    toolCall: {
-                      serverName: toolServerName,
-                      toolName: toolToolName,
-                      args: item.params || {},
-                      toolCallId: toolCallId,
-                      output: item.result || '',
-                      elapsedTimeMs: elapsedTimeMs,
-                      error: undefined
-                    }
-                  });
-                }    
+                    toolCallId: toolCallId,
+                    output: item.result || '',
+                    elapsedTimeMs: elapsedTimeMs,
+                    error: undefined
+                }
+                });
               } else {
                 this.logger.warn(`Function call for unknown tool: ${toolName}`);
               }
