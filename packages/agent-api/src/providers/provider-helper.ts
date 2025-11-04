@@ -54,18 +54,20 @@ export class ProviderHelper {
                     );
                 });
                 
-                // Additional filtering for autonomous mode based on permissions
+                // Additional filtering for autonomous and tools modes based on permissions
+                // Both modes should only have access to tools that don't require permission
                 let filteredTools = contextTools;
-                if (agent.mode === 'autonomous') {
+                if (agent.mode === 'autonomous' || agent.mode === 'tools') {
                     const sessionState = session.getState();
                     if (sessionState.toolPermission === 'always') {
-                        // Always require permission = no tools qualify for autonomous use
+                        // Always require permission = no tools qualify for autonomous/tools use
                         filteredTools = [];
                     } else if (sessionState.toolPermission === 'never') {
                         // Never require permission = all context tools qualify
                         filteredTools = contextTools;
                     } else { // 'tool'
                         // Defer to individual tool permission settings
+                        // Only include tools that don't require permission
                         filteredTools = contextTools.filter(tool => {
                             if (!serverConfig) return true; // No config = tool available
                             return !isToolPermissionRequired(serverConfig, tool.name);

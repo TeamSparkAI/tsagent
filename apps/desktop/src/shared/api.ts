@@ -55,9 +55,9 @@ export interface API {
   toggleDevTools: () => Promise<boolean>;
   getSystemPrompt: () => Promise<string>;
   saveSystemPrompt: (prompt: string) => Promise<void>;
-  getAgentMetadata: () => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; created: string; lastAccessed: string } | null>;
-  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[] }>) => Promise<{ success: boolean; error?: string }>;
-  getAgentMetadataByPath: (agentPath: string) => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; created: string; lastAccessed: string } | null>;
+  getAgentMetadata: () => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } | null>;
+  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[] }>) => Promise<{ success: boolean; error?: string }>;
+  getAgentMetadataByPath: (agentPath: string) => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } | null>;
   showChatMenu: (hasSelection: boolean, x: number, y: number) => Promise<void>;
   showEditControlMenu: (editFlags: { 
     canUndo: boolean;

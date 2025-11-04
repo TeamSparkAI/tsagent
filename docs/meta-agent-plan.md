@@ -396,18 +396,39 @@ A tool testing interface that:
 5. Test end-to-end tool creation and execution
 
 ### Phase 4: Testing Interface
-1. Create tool test interface
-2. Implement parameter collection form
-3. Implement template filling and preview
-4. Implement test execution
-5. Display results and tool call history
+1. Add "Test Tool" button to tool list in Settings tab
+2. Create parameter collection form/modal with live preview
+3. Implement template filling with collected parameters
+4. Show live preview of filled prompt (updates as user types)
+5. Create new chat tab programmatically with filled prompt
+6. Auto-submit prompt once chat tab initializes
+7. Display results in chat tab (tool calls, conversation, stats, context)
+
+**Implementation Approach:**
+- Reuse existing ChatTab component for full functionality
+- Create chat tab with unique ID (e.g., `test-${toolName}-${timestamp}`)
+- Wait for ChatTab initialization, then send filled prompt via `window.api.sendMessage()`
+- Chat tab naturally shows: tool calls, conversation history, stats, context panel, model selection
+- No need for separate testing UI - leverages full chat functionality
+
+**Parameter Collection Modal:**
+- Form fields generated from tool parameter schema
+- Live preview pane showing filled prompt template
+- Preview updates in real-time as user types parameter values
+- Preview shows `{name}` substitution for tool name
+- Preview shows all parameter substitutions with current values
+- Empty/missing parameters show as `{paramName}` in preview
+- Read-only preview area with monospace font for easy reading
 
 ### Phase 5: Polish & Enhancements
 1. Support nested objects/arrays (if deferred)
-2. Add tool execution permissions
-3. Add context sharing if needed
-4. Performance optimization
-5. Documentation and examples
+2. Add context sharing if needed
+3. Performance optimization
+4. Documentation and examples
+
+**Note on Tool Permissions**: Tools agents (like Autonomous agents) only execute tools that don't require permission. This is handled automatically via:
+- Session configuration: `toolPermission: 'never'` for headless execution
+- Tool filtering in `getIncludedTools()`: Only includes tools that don't require permission for `tools` mode (same as `autonomous` mode)
 
 ## Notes
 

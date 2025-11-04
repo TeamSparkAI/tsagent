@@ -8,7 +8,7 @@ import {
   SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, 
   SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, SETTINGS_KEY_SYSTEM_PATH, SETTINGS_KEY_THEME, SESSION_TOOL_PERMISSION_KEY, 
   SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_NEVER,
-  SessionToolPermission, AgentMetadata, AgentSkill,
+  SessionToolPermission, AgentMetadata, AgentSkill, AgentTool, AgentMode,
 } from '@tsagent/core';
 
 interface EditSkillModalProps {
@@ -200,6 +200,262 @@ const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel
   );
 };
 
+interface EditToolModalProps {
+  tool?: AgentTool;
+  onSave: (tool: AgentTool) => void;
+  onCancel: () => void;
+}
+
+const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel }) => {
+  const [name, setName] = useState(tool?.name || '');
+  const [description, setDescription] = useState(tool?.description || '');
+  const [prompt, setPrompt] = useState(tool?.prompt || '');
+  const [parameters, setParameters] = useState<Record<string, any>>(tool?.parameters?.properties || {});
+  const [required, setRequired] = useState<string[]>(tool?.parameters?.required || []);
+  const [error, setError] = useState<string | null>(null);
+  const [newParamName, setNewParamName] = useState('');
+  const [showAddParam, setShowAddParam] = useState(false);
+
+  const handleSave = () => {
+    setError(null);
+    
+    if (!name.trim()) {
+      setError('Tool name is required');
+      return;
+    }
+    
+    if (!description.trim()) {
+      setError('Tool description is required');
+      return;
+    }
+
+    if (!prompt.trim()) {
+      setError('Prompt template is required');
+      return;
+    }
+
+    // Build the ToolInputSchema
+    const toolInputSchema: any = {
+      type: 'object',
+      properties: parameters,
+      required: required.length > 0 ? required : undefined,
+    };
+
+    const toolData: AgentTool = {
+      name: name.trim(),
+      description: description.trim(),
+      parameters: toolInputSchema,
+      prompt: prompt.trim(),
+    };
+
+    onSave(toolData);
+  };
+
+  const addParameter = () => {
+    if (newParamName.trim()) {
+      const trimmedName = newParamName.trim();
+      if (parameters[trimmedName]) {
+        setError(`Parameter "${trimmedName}" already exists`);
+        return;
+      }
+      setParameters({
+        ...parameters,
+        [trimmedName]: {
+          type: 'string',
+          description: '',
+        }
+      });
+      setNewParamName('');
+      setShowAddParam(false);
+      setError(null);
+    }
+  };
+
+  const cancelAddParameter = () => {
+    setNewParamName('');
+    setShowAddParam(false);
+    setError(null);
+  };
+
+  const removeParameter = (paramName: string) => {
+    const newParams = { ...parameters };
+    delete newParams[paramName];
+    setParameters(newParams);
+    setRequired(required.filter(r => r !== paramName));
+  };
+
+  const updateParameter = (paramName: string, updates: any) => {
+    setParameters({
+      ...parameters,
+      [paramName]: {
+        ...parameters[paramName],
+        ...updates
+      }
+    });
+  };
+
+  const toggleRequired = (paramName: string) => {
+    if (required.includes(paramName)) {
+      setRequired(required.filter(r => r !== paramName));
+    } else {
+      setRequired([...required, paramName]);
+    }
+  };
+
+  return (
+    <div style={{ padding: '20px', maxWidth: '800px' }}>
+      <h2>{tool ? 'Edit Tool' : 'Add Tool'}</h2>
+      
+      {error && (
+        <div className="error-message" style={{ 
+          color: '#dc3545', 
+          backgroundColor: '#f8d7da', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {error}
+        </div>
+      )}
+
+      <div className="form-group">
+        <label htmlFor="tool-name">Name *</label>
+        <input
+          id="tool-name"
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Enter tool name (e.g., book_flight)"
+          className="common-input"
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="tool-description">Description *</label>
+        <textarea
+          id="tool-description"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Describe what this tool does"
+          rows={3}
+          className="common-textarea"
+        />
+      </div>
+
+      <div className="form-group">
+        <label htmlFor="tool-prompt">Prompt Template *</label>
+        <textarea
+          id="tool-prompt"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Enter prompt template with {parameter} substitution (e.g., The user wants to book a flight to {destination} on {departure_date})"
+          rows={4}
+          className="common-textarea"
+          style={{ fontFamily: 'monospace' }}
+        />
+        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          Use {'{'}parameter_name{'}'} to substitute parameter values. Use {'{'}name{'}'} for the tool name.
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label>Parameters</label>
+        <div style={{ marginBottom: '10px' }}>
+          {!showAddParam ? (
+            <button type="button" onClick={() => setShowAddParam(true)} className="btn btn-secondary">
+              Add Parameter
+            </button>
+          ) : (
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <input
+                type="text"
+                value={newParamName}
+                onChange={(e) => setNewParamName(e.target.value)}
+                placeholder="Parameter name"
+                style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', flex: 1 }}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault();
+                    addParameter();
+                  } else if (e.key === 'Escape') {
+                    cancelAddParameter();
+                  }
+                }}
+                autoFocus
+              />
+              <button type="button" onClick={addParameter} className="btn btn-primary" disabled={!newParamName.trim()}>
+                Add
+              </button>
+              <button type="button" onClick={cancelAddParameter} className="btn btn-secondary">
+                Cancel
+              </button>
+            </div>
+          )}
+        </div>
+        {Object.keys(parameters).length === 0 ? (
+          <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No parameters defined</div>
+        ) : (
+          <div style={{ border: '1px solid var(--border-color)', borderRadius: '4px', padding: '10px' }}>
+            {Object.entries(parameters).map(([paramName, paramSchema]) => (
+              <div key={paramName} style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'var(--bg-secondary)', borderRadius: '4px', color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                  <strong style={{ color: 'var(--text-primary)' }}>{paramName}</strong>
+                  <div>
+                    <label style={{ marginRight: '10px', fontSize: '14px', color: 'var(--text-primary)' }}>
+                      <input
+                        type="checkbox"
+                        checked={required.includes(paramName)}
+                        onChange={() => toggleRequired(paramName)}
+                        style={{ marginRight: '4px' }}
+                      />
+                      Required
+                    </label>
+                    <button type="button" onClick={() => removeParameter(paramName)} className="btn btn-danger" style={{ fontSize: '12px', padding: '4px 8px' }}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '8px' }}>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: 'var(--text-primary)' }}>Type:</label>
+                  <select
+                    value={paramSchema.type || 'string'}
+                    onChange={(e) => updateParameter(paramName, { type: e.target.value })}
+                    style={{ padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                  >
+                    <option value="string">String</option>
+                    <option value="number">Number</option>
+                    <option value="integer">Integer</option>
+                    <option value="boolean">Boolean</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: 'var(--text-primary)' }}>Description:</label>
+                  <input
+                    type="text"
+                    value={paramSchema.description || ''}
+                    onChange={(e) => updateParameter(paramName, { description: e.target.value })}
+                    placeholder="Parameter description"
+                    style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)' }}
+                  />
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="settings-actions">
+        <button className="btn btn-primary" onClick={handleSave}>
+          {tool ? 'Update Tool' : 'Add Tool'}
+        </button>
+        <button className="btn btn-secondary" onClick={onCancel}>
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
+};
+
 const AgentInfoSection: React.FC = () => {
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
   const [originalMetadata, setOriginalMetadata] = useState<AgentMetadata | null>(null);
@@ -210,7 +466,7 @@ const AgentInfoSection: React.FC = () => {
   const [documentationUrl, setDocumentationUrl] = useState('');
   const [providerOrg, setProviderOrg] = useState('');
   const [providerUrl, setProviderUrl] = useState('');
-  const [agentMode, setAgentMode] = useState<'interactive' | 'autonomous'>('interactive');
+  const [agentMode, setAgentMode] = useState<AgentMode>('interactive');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -219,6 +475,10 @@ const AgentInfoSection: React.FC = () => {
   // Skills editing state
   const [isEditingSkill, setIsEditingSkill] = useState(false);
   const [editingSkill, setEditingSkill] = useState<AgentSkill | undefined>(undefined);
+  
+  // Tools editing state
+  const [isEditingTool, setIsEditingTool] = useState(false);
+  const [editingTool, setEditingTool] = useState<AgentTool | undefined>(undefined);
 
   useEffect(() => {
     loadAgentMetadata();
@@ -239,9 +499,16 @@ const AgentInfoSection: React.FC = () => {
         setDocumentationUrl(agentMetadata.documentationUrl || '');
         setProviderOrg(agentMetadata.provider?.organization || '');
         setProviderUrl(agentMetadata.provider?.url || '');
-        // Set initial mode based on skills - if skills exist and is empty array, it's autonomous
-        // If skills is null/undefined, it's interactive
-        setAgentMode(agentMetadata.skills && Array.isArray(agentMetadata.skills) ? 'autonomous' : 'interactive');
+        // Set initial mode based on tools/skills - if tools exist, it's tools
+        // If skills exist (and is array), it's autonomous
+        // Otherwise it's interactive
+        if (agentMetadata.tools && Array.isArray(agentMetadata.tools)) {
+          setAgentMode('tools');
+        } else if (agentMetadata.skills && Array.isArray(agentMetadata.skills)) {
+          setAgentMode('autonomous');
+        } else {
+          setAgentMode('interactive');
+        }
       }
     } catch (err) {
       log.error('Error loading agent metadata:', err);
@@ -272,7 +539,8 @@ const AgentInfoSection: React.FC = () => {
           organization: providerOrg.trim(),
           url: providerUrl.trim()
         } : undefined,
-        skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined
+        skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined,
+        tools: agentMode === 'tools' ? (metadata?.tools || []) : undefined
       });
 
       if (result.success) {
@@ -289,7 +557,8 @@ const AgentInfoSection: React.FC = () => {
             organization: providerOrg.trim(),
             url: providerUrl.trim()
           } : undefined,
-          skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined
+          skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined,
+          tools: agentMode === 'tools' ? (metadata?.tools || []) : undefined
         };
         setOriginalMetadata(JSON.parse(JSON.stringify(updatedMetadata)));
         setMetadata(updatedMetadata);
@@ -313,6 +582,12 @@ const AgentInfoSection: React.FC = () => {
     })));
   };
 
+  // Helper function to normalize tools for comparison
+  const normalizeToolsForComparison = (tools: AgentTool[] | undefined): string => {
+    if (!tools || tools.length === 0) return '';
+    return JSON.stringify(tools);
+  };
+
   const hasChanges = metadata && originalMetadata && (
     name !== originalMetadata.name || 
     (description || '') !== (originalMetadata.description || '') ||
@@ -321,8 +596,10 @@ const AgentInfoSection: React.FC = () => {
     (documentationUrl || '') !== (originalMetadata.documentationUrl || '') ||
     (providerOrg || '') !== (originalMetadata.provider?.organization || '') ||
     (providerUrl || '') !== (originalMetadata.provider?.url || '') ||
-    agentMode !== (originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive') ||
-    normalizeSkillsForComparison(metadata.skills) !== normalizeSkillsForComparison(originalMetadata.skills)
+    agentMode !== (originalMetadata.tools && Array.isArray(originalMetadata.tools) ? 'tools' : 
+                   originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive') ||
+    normalizeSkillsForComparison(metadata.skills) !== normalizeSkillsForComparison(originalMetadata.skills) ||
+    normalizeToolsForComparison(metadata.tools) !== normalizeToolsForComparison(originalMetadata.tools)
   );
 
   // Skills handling functions
@@ -375,6 +652,50 @@ const AgentInfoSection: React.FC = () => {
     setEditingSkill(undefined);
   };
 
+  // Tools handling functions
+  const handleAddTool = () => {
+    setEditingTool(undefined);
+    setIsEditingTool(true);
+  };
+
+  const handleEditTool = (tool: AgentTool) => {
+    setEditingTool(tool);
+    setIsEditingTool(true);
+  };
+
+  const handleDeleteTool = (toolName: string) => {
+    if (!metadata?.tools) return;
+    
+    const updatedTools = metadata.tools.filter(tool => tool.name !== toolName);
+    setMetadata({
+      ...metadata,
+      tools: updatedTools.length > 0 ? updatedTools : []
+    });
+  };
+
+  const handleSaveTool = (tool: AgentTool) => {
+    if (!metadata) return;
+    
+    const currentTools = metadata.tools || [];
+    let updatedTools: AgentTool[];
+    
+    if (editingTool) {
+      // Update existing tool
+      updatedTools = currentTools.map(t => t.name === tool.name ? tool : t);
+    } else {
+      // Add new tool
+      updatedTools = [...currentTools, tool];
+    }
+    
+    setMetadata({
+      ...metadata,
+      tools: updatedTools
+    });
+    
+    setIsEditingTool(false);
+    setEditingTool(undefined);
+  };
+
   if (isLoading) {
     return (
       <div className="agent-info-settings">
@@ -393,6 +714,20 @@ const AgentInfoSection: React.FC = () => {
         onCancel={() => {
           setIsEditingSkill(false);
           setEditingSkill(undefined);
+        }}
+      />
+    );
+  }
+
+  // Show tools editing modal if editing
+  if (isEditingTool) {
+    return (
+      <EditToolModal
+        tool={editingTool}
+        onSave={handleSaveTool}
+        onCancel={() => {
+          setIsEditingTool(false);
+          setEditingTool(undefined);
         }}
       />
     );
@@ -547,11 +882,19 @@ const AgentInfoSection: React.FC = () => {
           >
             Autonomous
           </button>
+          <button
+            className={`mode-button ${agentMode === 'tools' ? 'active' : ''}`}
+            onClick={() => setAgentMode('tools')}
+          >
+            Tools
+          </button>
         </div>
         <div className="agent-mode-description">
           {agentMode === 'interactive' 
             ? 'Interactive chat session with history, supports user interaction (clarifying questions, tool use permission)'
-            : 'Autonomous agent without chat session history or user interaction, provides direct answers to calling agent'
+            : agentMode === 'autonomous'
+            ? 'Autonomous agent without chat session history or user interaction, provides direct answers to calling agent'
+            : 'Tools agent exposed as MCP server with dynamically defined tools'
           }
         </div>
       </div>
@@ -599,6 +942,42 @@ const AgentInfoSection: React.FC = () => {
         </div>
       )}
 
+      {/* Tools Section - Only show in tools mode */}
+      {agentMode === 'tools' && (
+        <div className="form-group">
+          <label>Tools</label>
+          <div className="skills-list">
+            {metadata?.tools && metadata.tools.length > 0 ? (
+              metadata.tools.map(tool => (
+                <div key={tool.name} className="skill-item">
+                  <div className="skill-info">
+                    <div className="skill-name">{tool.name}</div>
+                    <div className="skill-description">{tool.description}</div>
+                  </div>
+                  <div className="skill-actions">
+                    <button 
+                      onClick={() => handleEditTool(tool)} 
+                      className="btn btn-secondary"
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteTool(tool.name)} 
+                      className="btn btn-danger"
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="no-skills">No tools defined</div>
+            )}
+            <button onClick={handleAddTool} className="btn add-button">Add Tool</button>
+          </div>
+        </div>
+      )}
+
       <div className="settings-actions">
         <button 
           className="btn btn-primary"
@@ -620,12 +999,20 @@ const AgentInfoSection: React.FC = () => {
                 setDocumentationUrl(originalMetadata.documentationUrl || '');
                 setProviderOrg(originalMetadata.provider?.organization || '');
                 setProviderUrl(originalMetadata.provider?.url || '');
-                setAgentMode(originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive');
+                if (originalMetadata.tools && Array.isArray(originalMetadata.tools)) {
+                  setAgentMode('tools');
+                } else if (originalMetadata.skills && Array.isArray(originalMetadata.skills)) {
+                  setAgentMode('autonomous');
+                } else {
+                  setAgentMode('interactive');
+                }
               }
               setError(null);
               setSuccess(null);
               setIsEditingSkill(false);
               setEditingSkill(undefined);
+              setIsEditingTool(false);
+              setEditingTool(undefined);
             }}
             disabled={isSaving}
           >

@@ -4,6 +4,7 @@ import { McpClient, McpConfig } from '../mcp/types.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
 import { ChatSession, ChatSessionOptions } from './chat.js';
 import { SupervisionManager, Supervisor, SupervisorConfig } from './supervision.js';
+import { ToolInputSchema } from './json-schema.js';
 
 export { SupervisorConfig };
 
@@ -31,7 +32,7 @@ export const SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS = 1000;
 export const SETTINGS_DEFAULT_TEMPERATURE = 0.5;
 export const SETTINGS_DEFAULT_TOP_P = 0.5;
 
-export type AgentMode = 'interactive' | 'autonomous';
+export type AgentMode = 'interactive' | 'autonomous' | 'tools';
 
 // Core agent interface
 export interface Agent extends ProvidersManager, McpServerManager, ChatSessionManager {
@@ -127,6 +128,14 @@ export interface AgentSkill {
   examples?: string[]; // Example prompts or scenarios that this skill can handle. Provides a hint to the client on how to use the skill
 }
 
+// Tool definition for Tools agent mode (MCP server with cognitive layer)
+export interface AgentTool {
+  name: string;        // Tool identifier (used in MCP)
+  description: string; // Human-readable tool description (used in MCP tool description)
+  parameters: ToolInputSchema; // JSON Schema object defining tool parameters (root must be object)
+  prompt: string;      // Prompt template with {} substitution for tool parameters
+}
+
 export interface AgentMetadata {
   name: string;
   version?: string;
@@ -138,6 +147,7 @@ export interface AgentMetadata {
     url: string;
   };
   skills?: AgentSkill[];
+  tools?: AgentTool[];
   created: string;
   lastAccessed: string;
 }

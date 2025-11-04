@@ -59,7 +59,11 @@ export class AgentImpl  extends EventEmitter implements Agent {
   get name(): string { return this._agentData?.metadata?.name || this._strategy?.getName() || this._id; }
   get path(): string { return this._strategy?.getName() || this._id; }
   get description(): string | undefined { return this._agentData?.metadata?.description; }
-  get mode(): AgentMode { return this._agentData?.metadata?.skills ? 'autonomous' : 'interactive'; }
+  get mode(): AgentMode { 
+    if (this._agentData?.metadata?.tools) return 'tools';
+    if (this._agentData?.metadata?.skills) return 'autonomous';
+    return 'interactive';
+  }
 
   constructor(strategy: AgentStrategy | null, private logger: Logger) {
     super();

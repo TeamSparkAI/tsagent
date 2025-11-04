@@ -65,7 +65,7 @@ const api: API = {
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
   getAgentMetadata: () => ipcRenderer.invoke('get-agent-metadata'),
-  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[] }>) => ipcRenderer.invoke('update-agent-metadata', metadata),
+  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[] }>) => ipcRenderer.invoke('update-agent-metadata', metadata),
   getAgentMetadataByPath: (agentPath: string) => ipcRenderer.invoke('get-agent-metadata-by-path', agentPath),
   
   // Other existing methods
