@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TabProps } from '../types/TabProps';
 import type { AgentWindow } from '../../main/agents-manager';
-import { AgentMetadata } from '@tsagent/core';
+import { AgentMetadata, AgentMode } from '@tsagent/core';
 import log from 'electron-log';
 import './AgentTab.css';
 
@@ -55,9 +55,19 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ agentPath, showPath = true }) => 
     return description.length > maxLength ? description.substring(0, maxLength) + '...' : description;
   };
 
+  // Determine agent mode using same logic as Agent class
+  const getAgentMode = (metadata: AgentMetadata): AgentMode => {
+    if (metadata.tools && Array.isArray(metadata.tools)) return 'tools';
+    if (metadata.skills && Array.isArray(metadata.skills)) return 'autonomous';
+    return 'interactive';
+  };
+
+  const agentMode = getAgentMode(metadata);
+  const modeDisplayName = agentMode === 'tools' ? 'Tools' : agentMode === 'autonomous' ? 'A2A' : 'Interactive';
+
   return (
     <div className="agent-info">
-      <div className="agent-name">{metadata.name}</div>
+      <div className="agent-name">{metadata.name} ({modeDisplayName})</div>
       {metadata.description && (
         <div className="agent-description">{truncateDescription(metadata.description)}</div>
       )}

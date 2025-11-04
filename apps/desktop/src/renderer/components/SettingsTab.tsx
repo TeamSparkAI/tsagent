@@ -134,7 +134,7 @@ const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel
   };
 
   return (
-    <div style={{ padding: '20px' }}>
+    <div className="agent-info-settings" style={{ padding: '20px' }}>
       <h2>{skill ? 'Edit Skill' : 'Add Skill'}</h2>
       
       {error && (
@@ -191,7 +191,7 @@ const EditSkillModal: React.FC<EditSkillModalProps> = ({ skill, onSave, onCancel
 
       <div className="settings-actions">
         <button className="btn btn-primary" onClick={handleSave}>
-          {skill ? 'Update Skill' : 'Add Skill'}
+          OK
         </button>
         <button className="btn btn-secondary" onClick={onCancel}>
           Cancel
@@ -295,6 +295,33 @@ const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel })
     });
   };
 
+  const handleParameterNameChange = (oldName: string, newName: string) => {
+    if (newName === oldName) return;
+    if (newName.trim() === '') {
+      setError('Parameter name cannot be empty');
+      return;
+    }
+    if (parameters[newName]) {
+      setError(`Parameter "${newName}" already exists`);
+      return;
+    }
+    
+    const newParams: Record<string, any> = {};
+    const newRequired = required.map(r => r === oldName ? newName : r);
+    
+    for (const [key, value] of Object.entries(parameters)) {
+      if (key === oldName) {
+        newParams[newName] = value;
+      } else {
+        newParams[key] = value;
+      }
+    }
+    
+    setParameters(newParams);
+    setRequired(newRequired);
+    setError(null);
+  };
+
   const toggleRequired = (paramName: string) => {
     if (required.includes(paramName)) {
       setRequired(required.filter(r => r !== paramName));
@@ -304,7 +331,7 @@ const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel })
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '800px' }}>
+    <div className="agent-info-settings" style={{ padding: '20px', maxWidth: '800px' }}>
       <h2>{tool ? 'Edit Tool' : 'Add Tool'}</h2>
       
       {error && (
@@ -344,27 +371,11 @@ const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel })
       </div>
 
       <div className="form-group">
-        <label htmlFor="tool-prompt">Prompt Template *</label>
-        <textarea
-          id="tool-prompt"
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder="Enter prompt template with {parameter} substitution (e.g., The user wants to book a flight to {destination} on {departure_date})"
-          rows={4}
-          className="common-textarea"
-          style={{ fontFamily: 'monospace' }}
-        />
-        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
-          Use {'{'}parameter_name{'}'} to substitute parameter values. Use {'{'}name{'}'} for the tool name.
-        </div>
-      </div>
-
-      <div className="form-group">
-        <label>Parameters</label>
-        <div style={{ marginBottom: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+          <label>Parameters</label>
           {!showAddParam ? (
             <button type="button" onClick={() => setShowAddParam(true)} className="btn btn-secondary">
-              Add Parameter
+              Add
             </button>
           ) : (
             <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
@@ -399,10 +410,28 @@ const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel })
           <div style={{ border: '1px solid var(--border-color)', borderRadius: '4px', padding: '10px' }}>
             {Object.entries(parameters).map(([paramName, paramSchema]) => (
               <div key={paramName} style={{ marginBottom: '15px', padding: '10px', backgroundColor: 'var(--bg-secondary)', borderRadius: '4px', color: 'var(--text-primary)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                  <strong style={{ color: 'var(--text-primary)' }}>{paramName}</strong>
-                  <div>
-                    <label style={{ marginRight: '10px', fontSize: '14px', color: 'var(--text-primary)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '8px', gap: '16px' }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <label style={{ display: 'block', marginBottom: '4px', fontSize: '14px', color: 'var(--text-primary)' }}>Name:</label>
+                    <input
+                      type="text"
+                      defaultValue={paramName}
+                      onBlur={(e) => {
+                        const newName = e.target.value.trim();
+                        if (newName && newName !== paramName) {
+                          handleParameterNameChange(paramName, newName);
+                        }
+                      }}
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          e.currentTarget.blur();
+                        }
+                      }}
+                      style={{ width: '100%', padding: '4px 8px', borderRadius: '4px', border: '1px solid var(--border-color)', backgroundColor: 'var(--bg-primary)', color: 'var(--text-primary)', boxSizing: 'border-box' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexShrink: 0, paddingTop: '20px' }}>
+                    <label style={{ fontSize: '14px', color: 'var(--text-primary)', whiteSpace: 'nowrap' }}>
                       <input
                         type="checkbox"
                         checked={required.includes(paramName)}
@@ -411,7 +440,7 @@ const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel })
                       />
                       Required
                     </label>
-                    <button type="button" onClick={() => removeParameter(paramName)} className="btn btn-danger" style={{ fontSize: '12px', padding: '4px 8px' }}>
+                    <button type="button" onClick={() => removeParameter(paramName)} className="btn btn-danger" style={{ fontSize: '12px', padding: '4px 8px', whiteSpace: 'nowrap' }}>
                       Remove
                     </button>
                   </div>
@@ -445,9 +474,25 @@ const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel })
         )}
       </div>
 
+      <div className="form-group">
+        <label htmlFor="tool-prompt">Prompt Template *</label>
+        <textarea
+          id="tool-prompt"
+          value={prompt}
+          onChange={(e) => setPrompt(e.target.value)}
+          placeholder="Enter prompt template with {parameter} substitution (e.g., The user wants to book a flight to {destination} on {departure_date})"
+          rows={4}
+          className="common-textarea"
+          style={{ fontFamily: 'monospace' }}
+        />
+        <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+          Use {'{'}parameter_name{'}'} to substitute parameter values. Use {'{'}name{'}'} for the tool name.
+        </div>
+      </div>
+
       <div className="settings-actions">
         <button className="btn btn-primary" onClick={handleSave}>
-          {tool ? 'Update Tool' : 'Add Tool'}
+          OK
         </button>
         <button className="btn btn-secondary" onClick={onCancel}>
           Cancel
@@ -675,7 +720,590 @@ const TestToolModal: React.FC<TestToolModalProps> = ({ tool, onTest, onCancel })
   );
 };
 
-const AgentInfoSection: React.FC = () => {
+const SkillsSection: React.FC = () => {
+  const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isEditingSkill, setIsEditingSkill] = useState(false);
+  const [editingSkill, setEditingSkill] = useState<AgentSkill | undefined>(undefined);
+
+  useEffect(() => {
+    loadAgentMetadata();
+  }, []);
+
+  const loadAgentMetadata = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const agentMetadata = await window.api.getAgentMetadata();
+      if (agentMetadata) {
+        setMetadata(agentMetadata);
+      }
+    } catch (err) {
+      log.error('Error loading agent metadata:', err);
+      setError('Failed to load agent information');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+  const handleAddSkill = () => {
+    setEditingSkill(undefined);
+    setIsEditingSkill(true);
+  };
+
+  const handleEditSkill = (skill: AgentSkill) => {
+    setEditingSkill(skill);
+    setIsEditingSkill(true);
+  };
+
+  const handleDeleteSkill = async (skillId: string) => {
+    if (!metadata?.skills) return;
+    
+    const skillToDelete = metadata.skills.find(skill => skill.id === skillId);
+    if (!skillToDelete) return;
+    
+    if (!confirm(`Are you sure you want to delete the skill "${skillToDelete.name}"?`)) {
+      return;
+    }
+    
+    const updatedSkills = metadata.skills.filter(skill => skill.id !== skillId);
+    const updatedMetadata = {
+      ...metadata,
+      skills: updatedSkills.length > 0 ? updatedSkills : []
+    };
+    
+    setMetadata(updatedMetadata);
+    
+    // Auto-save immediately
+    try {
+      setError(null);
+      setSuccess(null);
+      
+      const result = await window.api.updateAgentMetadata({
+        skills: updatedSkills.length > 0 ? updatedSkills : []
+      });
+
+      if (result.success) {
+        setSuccess('Skill deleted successfully');
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(result.error || 'Failed to delete skill');
+        // Revert on error
+        setMetadata(metadata);
+      }
+    } catch (err) {
+      log.error('Error deleting skill:', err);
+      setError('Failed to delete skill');
+      // Revert on error
+      setMetadata(metadata);
+    }
+  };
+
+  const handleSaveSkill = async (skill: AgentSkill) => {
+    if (!metadata) return;
+    
+    const normalizedSkill: AgentSkill = {
+      ...skill,
+      examples: skill.examples && skill.examples.length > 0 ? skill.examples : undefined
+    };
+    
+    const currentSkills = metadata.skills || [];
+    let updatedSkills: AgentSkill[];
+    
+    if (editingSkill) {
+      updatedSkills = currentSkills.map(s => s.id === skill.id ? normalizedSkill : s);
+    } else {
+      updatedSkills = [...currentSkills, normalizedSkill];
+    }
+    
+    const updatedMetadata = {
+      ...metadata,
+      skills: updatedSkills
+    };
+    
+    setMetadata(updatedMetadata);
+    
+    // Auto-save immediately
+    try {
+      setError(null);
+      setSuccess(null);
+      
+      const result = await window.api.updateAgentMetadata({
+        skills: updatedSkills
+      });
+
+      if (result.success) {
+        setSuccess(editingSkill ? 'Skill updated successfully' : 'Skill added successfully');
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(result.error || 'Failed to save skill');
+      }
+    } catch (err) {
+      log.error('Error saving skill:', err);
+      setError('Failed to save skill');
+      // Revert on error
+      setMetadata(metadata);
+    }
+    
+    setIsEditingSkill(false);
+    setEditingSkill(undefined);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="agent-info-settings">
+        <h2>A2A Skills</h2>
+        <div className="loading">Loading skills...</div>
+      </div>
+    );
+  }
+
+  if (isEditingSkill) {
+    return (
+      <EditSkillModal
+        skill={editingSkill}
+        onSave={handleSaveSkill}
+        onCancel={() => {
+          setIsEditingSkill(false);
+          setEditingSkill(undefined);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="agent-info-settings">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h2 style={{ margin: 0 }}>A2A Skills</h2>
+        <button onClick={handleAddSkill} className="btn btn-primary">Add</button>
+      </div>
+      <p className="setting-description">
+        Define the skills available for this autonomous agent. Skills describe what the agent can do.
+      </p>
+
+      {error && (
+        <div className="error-message" style={{ 
+          color: '#dc3545', 
+          backgroundColor: '#f8d7da', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="success-message" style={{ 
+          color: '#155724', 
+          backgroundColor: '#d4edda', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {success}
+        </div>
+      )}
+
+      <div className="form-group">
+        <div className="skills-list">
+          {metadata?.skills && metadata.skills.length > 0 ? (
+            metadata.skills.map(skill => (
+              <div key={skill.id} className="skill-item" style={{ padding: '16px', marginBottom: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div className="skill-name" style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{skill.name}</div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button 
+                      onClick={() => handleEditSkill(skill)} 
+                      className="btn btn-secondary"
+                      style={{ fontSize: '12px', padding: '4px 8px' }}
+                    >
+                      Edit
+                    </button>
+                    <button 
+                      onClick={() => handleDeleteSkill(skill.id)} 
+                      className="btn btn-danger"
+                      style={{ fontSize: '12px', padding: '4px 8px' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+                
+                <div className="skill-description" style={{ marginBottom: '12px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  {skill.description}
+                </div>
+                
+                {skill.tags && skill.tags.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>Tags:</div>
+                    <div style={{ paddingLeft: '12px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                      {skill.tags.map((tag, index) => (
+                        <span key={index} style={{ 
+                          padding: '4px 8px', 
+                          backgroundColor: 'var(--bg-primary)', 
+                          borderRadius: '4px', 
+                          border: '1px solid var(--border-color)',
+                          fontSize: '12px',
+                          color: 'var(--text-primary)'
+                        }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                
+                {skill.examples && skill.examples.length > 0 && (
+                  <div style={{ marginBottom: '12px' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>Examples:</div>
+                    <div style={{ paddingLeft: '12px' }}>
+                      {skill.examples.map((example, index) => (
+                        <div key={index} style={{ 
+                          marginBottom: '6px',
+                          padding: '8px 12px', 
+                          backgroundColor: 'var(--bg-primary)', 
+                          borderRadius: '4px', 
+                          border: '1px solid var(--border-color)',
+                          fontSize: '13px',
+                          color: 'var(--text-secondary)',
+                          fontStyle: 'italic'
+                        }}>
+                          {example}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))
+          ) : (
+            <div className="no-skills">No skills defined</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ToolsSection: React.FC = () => {
+  const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isEditingTool, setIsEditingTool] = useState(false);
+  const [editingTool, setEditingTool] = useState<AgentTool | undefined>(undefined);
+  const [isTestingTool, setIsTestingTool] = useState(false);
+  const [testingTool, setTestingTool] = useState<AgentTool | undefined>(undefined);
+
+  useEffect(() => {
+    loadAgentMetadata();
+  }, []);
+
+  const loadAgentMetadata = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      const agentMetadata = await window.api.getAgentMetadata();
+      if (agentMetadata) {
+        setMetadata(agentMetadata);
+      }
+    } catch (err) {
+      log.error('Error loading agent metadata:', err);
+      setError('Failed to load agent information');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+
+  const handleAddTool = () => {
+    setEditingTool(undefined);
+    setIsEditingTool(true);
+  };
+
+  const handleEditTool = (tool: AgentTool) => {
+    setEditingTool(tool);
+    setIsEditingTool(true);
+  };
+
+  const handleDeleteTool = async (toolName: string) => {
+    if (!metadata?.tools) return;
+    
+    const toolToDelete = metadata.tools.find(tool => tool.name === toolName);
+    if (!toolToDelete) return;
+    
+    if (!confirm(`Are you sure you want to delete the tool "${toolToDelete.name}"?`)) {
+      return;
+    }
+    
+    const updatedTools = metadata.tools.filter(tool => tool.name !== toolName);
+    const updatedMetadata = {
+      ...metadata,
+      tools: updatedTools.length > 0 ? updatedTools : []
+    };
+    
+    setMetadata(updatedMetadata);
+    
+    // Auto-save immediately
+    try {
+      setError(null);
+      setSuccess(null);
+      
+      const result = await window.api.updateAgentMetadata({
+        tools: updatedTools.length > 0 ? updatedTools : []
+      });
+
+      if (result.success) {
+        setSuccess('Tool deleted successfully');
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(result.error || 'Failed to delete tool');
+        // Revert on error
+        setMetadata(metadata);
+      }
+    } catch (err) {
+      log.error('Error deleting tool:', err);
+      setError('Failed to delete tool');
+      // Revert on error
+      setMetadata(metadata);
+    }
+  };
+
+  const handleTestTool = (tool: AgentTool) => {
+    setTestingTool(tool);
+    setIsTestingTool(true);
+  };
+
+  const handleSaveTool = async (tool: AgentTool) => {
+    if (!metadata) return;
+    
+    const currentTools = metadata.tools || [];
+    let updatedTools: AgentTool[];
+    
+    if (editingTool) {
+      updatedTools = currentTools.map(t => t.name === tool.name ? tool : t);
+    } else {
+      updatedTools = [...currentTools, tool];
+    }
+    
+    const updatedMetadata = {
+      ...metadata,
+      tools: updatedTools
+    };
+    
+    setMetadata(updatedMetadata);
+    
+    // Auto-save immediately
+    try {
+      setError(null);
+      setSuccess(null);
+      
+      const result = await window.api.updateAgentMetadata({
+        tools: updatedTools
+      });
+
+      if (result.success) {
+        setSuccess(editingTool ? 'Tool updated successfully' : 'Tool added successfully');
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError(result.error || 'Failed to save tool');
+      }
+    } catch (err) {
+      log.error('Error saving tool:', err);
+      setError('Failed to save tool');
+      // Revert on error
+      setMetadata(metadata);
+    }
+    
+    setIsEditingTool(false);
+    setEditingTool(undefined);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="agent-info-settings">
+        <h2>Exported Tools</h2>
+        <div className="loading">Loading tools...</div>
+      </div>
+    );
+  }
+
+  if (isTestingTool && testingTool) {
+    return (
+      <TestToolModal
+        tool={testingTool}
+        onTest={async (prompt: string) => {
+          const tabId = `test-${testingTool.name}-${Date.now()}`;
+          
+          try {
+            window.dispatchEvent(new CustomEvent('create-test-chat-tab', {
+              detail: { tabId, title: `Test: ${testingTool.name}`, initialMessage: prompt }
+            }));
+            
+            setIsTestingTool(false);
+            setTestingTool(undefined);
+          } catch (error) {
+            log.error('Error creating test chat tab:', error);
+            setError('Failed to create test chat tab');
+          }
+        }}
+        onCancel={() => {
+          setIsTestingTool(false);
+          setTestingTool(undefined);
+        }}
+      />
+    );
+  }
+
+  if (isEditingTool) {
+    return (
+      <EditToolModal
+        tool={editingTool}
+        onSave={handleSaveTool}
+        onCancel={() => {
+          setIsEditingTool(false);
+          setEditingTool(undefined);
+        }}
+      />
+    );
+  }
+
+  return (
+    <div className="agent-info-settings">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+        <h2 style={{ margin: 0 }}>Exported Tools</h2>
+        <button onClick={handleAddTool} className="btn btn-primary">Add</button>
+      </div>
+      <p className="setting-description">
+        Define the tools available for this Tools agent. Tools are exposed via MCP and can be called by other agents or clients.
+      </p>
+
+      {error && (
+        <div className="error-message" style={{ 
+          color: '#dc3545', 
+          backgroundColor: '#f8d7da', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {error}
+        </div>
+      )}
+
+      {success && (
+        <div className="success-message" style={{ 
+          color: '#155724', 
+          backgroundColor: '#d4edda', 
+          padding: '8px 12px', 
+          borderRadius: '4px', 
+          marginBottom: '16px' 
+        }}>
+          {success}
+        </div>
+      )}
+
+      <div className="form-group">
+        <div className="skills-list">
+          {metadata?.tools && metadata.tools.length > 0 ? (
+            metadata.tools.map(tool => {
+              const params = tool.parameters?.properties || {};
+              const paramNames = Object.keys(params);
+              const requiredParams = tool.parameters?.required || [];
+              
+              return (
+                <div key={tool.name} className="skill-item" style={{ padding: '16px', marginBottom: '16px', backgroundColor: 'var(--bg-secondary)', borderRadius: '4px', border: '1px solid var(--border-color)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                    <div className="skill-name" style={{ fontSize: '16px', fontWeight: 'bold', color: 'var(--text-primary)' }}>{tool.name}</div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <button 
+                        onClick={() => handleEditTool(tool)} 
+                        className="btn btn-secondary"
+                        style={{ fontSize: '12px', padding: '4px 8px' }}
+                      >
+                        Edit
+                      </button>
+                      <button 
+                        onClick={() => handleDeleteTool(tool.name)} 
+                        className="btn btn-danger"
+                        style={{ fontSize: '12px', padding: '4px 8px' }}
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div className="skill-description" style={{ marginBottom: '12px', color: 'var(--text-secondary)', fontSize: '14px' }}>
+                    {tool.description}
+                  </div>
+                  
+                  {paramNames.length > 0 && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>Parameters:</div>
+                      <div style={{ paddingLeft: '12px' }}>
+                        {paramNames.map(paramName => {
+                          const param = params[paramName];
+                          const isRequired = requiredParams.includes(paramName);
+                          return (
+                            <div key={paramName} style={{ marginBottom: '4px', fontSize: '13px', color: 'var(--text-secondary)' }}>
+                              <span style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontFamily: 'monospace' }}>{paramName}</span>
+                              {isRequired && <span style={{ color: 'var(--text-warning)', marginLeft: '4px' }}>(required)</span>}
+                              <span style={{ color: 'var(--text-tertiary)', marginLeft: '4px' }}>: {param.type || 'string'}</span>
+                              {param.description && <span style={{ color: 'var(--text-secondary)', marginLeft: '8px' }}>— {param.description}</span>}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {tool.prompt && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <div style={{ fontSize: '14px', fontWeight: 'bold', color: 'var(--text-primary)', marginBottom: '8px' }}>Prompt Template:</div>
+                      <div style={{ 
+                        padding: '8px 12px', 
+                        backgroundColor: 'var(--bg-primary)', 
+                        borderRadius: '4px', 
+                        border: '1px solid var(--border-color)',
+                        fontFamily: 'monospace',
+                        fontSize: '12px',
+                        color: 'var(--text-primary)',
+                        whiteSpace: 'pre-wrap',
+                        wordBreak: 'break-word'
+                      }}>
+                        {tool.prompt}
+                      </div>
+                    </div>
+                  )}
+                  
+                  <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '8px' }}>
+                    <button 
+                      onClick={() => handleTestTool(tool)} 
+                      className="btn btn-primary"
+                    >
+                      Test
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <div className="no-skills">No tools defined</div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+interface AgentInfoSectionProps {
+  onModeChange?: (mode: AgentMode) => void;
+}
+
+const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => {
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
   const [originalMetadata, setOriginalMetadata] = useState<AgentMetadata | null>(null);
   const [name, setName] = useState('');
@@ -691,15 +1319,6 @@ const AgentInfoSection: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   
-  // Skills editing state
-  const [isEditingSkill, setIsEditingSkill] = useState(false);
-  const [editingSkill, setEditingSkill] = useState<AgentSkill | undefined>(undefined);
-  
-  // Tools editing state
-  const [isEditingTool, setIsEditingTool] = useState(false);
-  const [editingTool, setEditingTool] = useState<AgentTool | undefined>(undefined);
-  const [isTestingTool, setIsTestingTool] = useState(false);
-  const [testingTool, setTestingTool] = useState<AgentTool | undefined>(undefined);
 
   useEffect(() => {
     loadAgentMetadata();
@@ -723,13 +1342,14 @@ const AgentInfoSection: React.FC = () => {
         // Set initial mode based on tools/skills - if tools exist, it's tools
         // If skills exist (and is array), it's autonomous
         // Otherwise it's interactive
+        let detectedMode: AgentMode = 'interactive';
         if (agentMetadata.tools && Array.isArray(agentMetadata.tools)) {
-          setAgentMode('tools');
+          detectedMode = 'tools';
         } else if (agentMetadata.skills && Array.isArray(agentMetadata.skills)) {
-          setAgentMode('autonomous');
-        } else {
-          setAgentMode('interactive');
+          detectedMode = 'autonomous';
         }
+        setAgentMode(detectedMode);
+        onModeChange?.(detectedMode);
       }
     } catch (err) {
       log.error('Error loading agent metadata:', err);
@@ -783,6 +1403,16 @@ const AgentInfoSection: React.FC = () => {
         };
         setOriginalMetadata(JSON.parse(JSON.stringify(updatedMetadata)));
         setMetadata(updatedMetadata);
+        
+        // Update mode if changed
+        let detectedMode: AgentMode = 'interactive';
+        if (updatedMetadata.tools && Array.isArray(updatedMetadata.tools)) {
+          detectedMode = 'tools';
+        } else if (updatedMetadata.skills && Array.isArray(updatedMetadata.skills)) {
+          detectedMode = 'autonomous';
+        }
+        setAgentMode(detectedMode);
+        onModeChange?.(detectedMode);
       } else {
         setError(result.error || 'Failed to update agent information');
       }
@@ -794,21 +1424,6 @@ const AgentInfoSection: React.FC = () => {
     }
   };
 
-  // Helper function to normalize skills for comparison
-  const normalizeSkillsForComparison = (skills: AgentSkill[] | undefined): string => {
-    if (!skills || skills.length === 0) return '';
-    return JSON.stringify(skills.map(skill => ({
-      ...skill,
-      examples: skill.examples && skill.examples.length > 0 ? skill.examples : undefined
-    })));
-  };
-
-  // Helper function to normalize tools for comparison
-  const normalizeToolsForComparison = (tools: AgentTool[] | undefined): string => {
-    if (!tools || tools.length === 0) return '';
-    return JSON.stringify(tools);
-  };
-
   const hasChanges = metadata && originalMetadata && (
     name !== originalMetadata.name || 
     (description || '') !== (originalMetadata.description || '') ||
@@ -818,109 +1433,9 @@ const AgentInfoSection: React.FC = () => {
     (providerOrg || '') !== (originalMetadata.provider?.organization || '') ||
     (providerUrl || '') !== (originalMetadata.provider?.url || '') ||
     agentMode !== (originalMetadata.tools && Array.isArray(originalMetadata.tools) ? 'tools' : 
-                   originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive') ||
-    normalizeSkillsForComparison(metadata.skills) !== normalizeSkillsForComparison(originalMetadata.skills) ||
-    normalizeToolsForComparison(metadata.tools) !== normalizeToolsForComparison(originalMetadata.tools)
+                   originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive')
   );
 
-  // Skills handling functions
-  const handleAddSkill = () => {
-    setEditingSkill(undefined);
-    setIsEditingSkill(true);
-  };
-
-  const handleEditSkill = (skill: AgentSkill) => {
-    setEditingSkill(skill);
-    setIsEditingSkill(true);
-  };
-
-  const handleDeleteSkill = (skillId: string) => {
-    if (!metadata?.skills) return;
-    
-    const updatedSkills = metadata.skills.filter(skill => skill.id !== skillId);
-    setMetadata({
-      ...metadata,
-      skills: updatedSkills.length > 0 ? updatedSkills : []
-    });
-  };
-
-  const handleSaveSkill = (skill: AgentSkill) => {
-    if (!metadata) return;
-    
-    // Normalize the skill to ensure examples is undefined if empty
-    const normalizedSkill: AgentSkill = {
-      ...skill,
-      examples: skill.examples && skill.examples.length > 0 ? skill.examples : undefined
-    };
-    
-    const currentSkills = metadata.skills || [];
-    let updatedSkills: AgentSkill[];
-    
-    if (editingSkill) {
-      // Update existing skill
-      updatedSkills = currentSkills.map(s => s.id === skill.id ? normalizedSkill : s);
-    } else {
-      // Add new skill
-      updatedSkills = [...currentSkills, normalizedSkill];
-    }
-    
-    setMetadata({
-      ...metadata,
-      skills: updatedSkills
-    });
-    
-    setIsEditingSkill(false);
-    setEditingSkill(undefined);
-  };
-
-  // Tools handling functions
-  const handleAddTool = () => {
-    setEditingTool(undefined);
-    setIsEditingTool(true);
-  };
-
-  const handleEditTool = (tool: AgentTool) => {
-    setEditingTool(tool);
-    setIsEditingTool(true);
-  };
-
-  const handleDeleteTool = (toolName: string) => {
-    if (!metadata?.tools) return;
-    
-    const updatedTools = metadata.tools.filter(tool => tool.name !== toolName);
-    setMetadata({
-      ...metadata,
-      tools: updatedTools.length > 0 ? updatedTools : []
-    });
-  };
-
-  const handleTestTool = (tool: AgentTool) => {
-    setTestingTool(tool);
-    setIsTestingTool(true);
-  };
-
-  const handleSaveTool = (tool: AgentTool) => {
-    if (!metadata) return;
-    
-    const currentTools = metadata.tools || [];
-    let updatedTools: AgentTool[];
-    
-    if (editingTool) {
-      // Update existing tool
-      updatedTools = currentTools.map(t => t.name === tool.name ? tool : t);
-    } else {
-      // Add new tool
-      updatedTools = [...currentTools, tool];
-    }
-    
-    setMetadata({
-      ...metadata,
-      tools: updatedTools
-    });
-    
-    setIsEditingTool(false);
-    setEditingTool(undefined);
-  };
 
   if (isLoading) {
     return (
@@ -928,65 +1443,6 @@ const AgentInfoSection: React.FC = () => {
         <h2>Agent Info</h2>
         <div className="loading">Loading agent information...</div>
       </div>
-    );
-  }
-
-  // Show tool testing modal if testing
-  if (isTestingTool && testingTool) {
-    return (
-      <TestToolModal
-        tool={testingTool}
-        onTest={async (prompt: string) => {
-          const tabId = `test-${testingTool.name}-${Date.now()}`;
-          
-          try {
-            // Emit custom event to App to create a test chat tab with initial message
-            // ChatTab will create the chat session when it initializes
-            window.dispatchEvent(new CustomEvent('create-test-chat-tab', {
-              detail: { tabId, title: `Test: ${testingTool.name}`, initialMessage: prompt }
-            }));
-            
-            // Close modal
-            setIsTestingTool(false);
-            setTestingTool(undefined);
-          } catch (error) {
-            log.error('Error creating test chat tab:', error);
-            setError('Failed to create test chat tab');
-          }
-        }}
-        onCancel={() => {
-          setIsTestingTool(false);
-          setTestingTool(undefined);
-        }}
-      />
-    );
-  }
-
-  // Show skills editing modal if editing
-  if (isEditingSkill) {
-    return (
-      <EditSkillModal
-        skill={editingSkill}
-        onSave={handleSaveSkill}
-        onCancel={() => {
-          setIsEditingSkill(false);
-          setEditingSkill(undefined);
-        }}
-      />
-    );
-  }
-
-  // Show tools editing modal if editing
-  if (isEditingTool) {
-    return (
-      <EditToolModal
-        tool={editingTool}
-        onSave={handleSaveTool}
-        onCancel={() => {
-          setIsEditingTool(false);
-          setEditingTool(undefined);
-        }}
-      />
     );
   }
 
@@ -1129,19 +1585,28 @@ const AgentInfoSection: React.FC = () => {
         <div className="agent-mode-selector">
           <button
             className={`mode-button ${agentMode === 'interactive' ? 'active' : ''}`}
-            onClick={() => setAgentMode('interactive')}
+            onClick={() => {
+              setAgentMode('interactive');
+              onModeChange?.('interactive');
+            }}
           >
             Interactive
           </button>
           <button
             className={`mode-button ${agentMode === 'autonomous' ? 'active' : ''}`}
-            onClick={() => setAgentMode('autonomous')}
+            onClick={() => {
+              setAgentMode('autonomous');
+              onModeChange?.('autonomous');
+            }}
           >
             Autonomous
           </button>
           <button
             className={`mode-button ${agentMode === 'tools' ? 'active' : ''}`}
-            onClick={() => setAgentMode('tools')}
+            onClick={() => {
+              setAgentMode('tools');
+              onModeChange?.('tools');
+            }}
           >
             Tools
           </button>
@@ -1155,93 +1620,6 @@ const AgentInfoSection: React.FC = () => {
           }
         </div>
       </div>
-
-      {/* Skills Section - Only show in autonomous mode */}
-      {agentMode === 'autonomous' && (
-        <div className="form-group">
-          <label>Skills</label>
-          <div className="skills-list">
-            {metadata?.skills && metadata.skills.length > 0 ? (
-              metadata.skills.map(skill => (
-                <div key={skill.id} className="skill-item">
-                  <div className="skill-info">
-                    <div className="skill-name">{skill.name}</div>
-                    <div className="skill-description">{skill.description}</div>
-                    {skill.tags && skill.tags.length > 0 && (
-                      <div className="skill-tags">
-                        {skill.tags.map((tag, index) => (
-                          <span key={index} className="skill-tag">{tag}</span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  <div className="skill-actions">
-                    <button 
-                      onClick={() => handleEditSkill(skill)} 
-                      className="btn btn-secondary"
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteSkill(skill.id)} 
-                      className="btn btn-danger"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="no-skills">No skills defined</div>
-            )}
-            <button onClick={handleAddSkill} className="btn add-button">Add Skill</button>
-          </div>
-        </div>
-      )}
-
-      {/* Tools Section - Only show in tools mode */}
-      {agentMode === 'tools' && (
-        <div className="form-group">
-          <label>Tools</label>
-          <div className="skills-list">
-            {metadata?.tools && metadata.tools.length > 0 ? (
-              metadata.tools.map(tool => (
-                <div key={tool.name} className="skill-item">
-                  <div className="skill-info">
-                    <div className="skill-name">{tool.name}</div>
-                    <div className="skill-description">{tool.description}</div>
-                  </div>
-                  <div className="skill-actions">
-                    <button 
-                      onClick={() => handleTestTool(tool)} 
-                      className="btn btn-primary"
-                      style={{ marginRight: '8px' }}
-                    >
-                      Test
-                    </button>
-                    <button 
-                      onClick={() => handleEditTool(tool)} 
-                      className="btn btn-secondary"
-                      style={{ marginRight: '8px' }}
-                    >
-                      Edit
-                    </button>
-                    <button 
-                      onClick={() => handleDeleteTool(tool.name)} 
-                      className="btn btn-danger"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="no-skills">No tools defined</div>
-            )}
-            <button onClick={handleAddTool} className="btn add-button">Add Tool</button>
-          </div>
-        </div>
-      )}
 
       <div className="settings-actions">
         <button 
@@ -1264,22 +1642,17 @@ const AgentInfoSection: React.FC = () => {
                 setDocumentationUrl(originalMetadata.documentationUrl || '');
                 setProviderOrg(originalMetadata.provider?.organization || '');
                 setProviderUrl(originalMetadata.provider?.url || '');
+                let detectedMode: AgentMode = 'interactive';
                 if (originalMetadata.tools && Array.isArray(originalMetadata.tools)) {
-                  setAgentMode('tools');
+                  detectedMode = 'tools';
                 } else if (originalMetadata.skills && Array.isArray(originalMetadata.skills)) {
-                  setAgentMode('autonomous');
-                } else {
-                  setAgentMode('interactive');
+                  detectedMode = 'autonomous';
                 }
+                setAgentMode(detectedMode);
+                onModeChange?.(detectedMode);
               }
               setError(null);
               setSuccess(null);
-              setIsEditingSkill(false);
-              setEditingSkill(undefined);
-              setIsEditingTool(false);
-              setEditingTool(undefined);
-              setIsTestingTool(false);
-              setTestingTool(undefined);
             }}
             disabled={isSaving}
           >
@@ -1293,6 +1666,7 @@ const AgentInfoSection: React.FC = () => {
 
 export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
   const [activeSection, setActiveSection] = useState<string>('about');
+  const [agentMode, setAgentMode] = useState<AgentMode>('interactive');
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('');
   const [initialSystemPrompt, setInitialSystemPrompt] = useState<string>('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -1360,6 +1734,18 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
         const systemPath = await window.api.getSettingsValue(SETTINGS_KEY_SYSTEM_PATH);
         setCurrentSystemPath(systemPath || '');
         setInitialSystemPath(systemPath || '');
+
+        // Load agent metadata to determine mode
+        const agentMetadata = await window.api.getAgentMetadata();
+        if (agentMetadata) {
+          if (agentMetadata.tools && Array.isArray(agentMetadata.tools)) {
+            setAgentMode('tools');
+          } else if (agentMetadata.skills && Array.isArray(agentMetadata.skills)) {
+            setAgentMode('autonomous');
+          } else {
+            setAgentMode('interactive');
+          }
+        }
       } catch (error) {
         log.error('Error loading settings:', error);
       }
@@ -1433,7 +1819,11 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   const renderContent = () => {
     switch (activeSection) {
       case 'agent-info':
-        return <AgentInfoSection />;
+        return <AgentInfoSection onModeChange={setAgentMode} />;
+      case 'skills':
+        return <SkillsSection />;
+      case 'tools':
+        return <ToolsSection />;
       case 'about':
         return (
           <AboutView
@@ -1612,6 +2002,22 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           >
             <span>Agent Info</span>
           </div>
+          {agentMode === 'autonomous' && (
+            <div 
+              className={`tab-items-item ${activeSection === 'skills' ? 'selected' : ''}`}
+              onClick={() => setActiveSection('skills')}
+            >
+              <span>A2A Skills</span>
+            </div>
+          )}
+          {agentMode === 'tools' && (
+            <div 
+              className={`tab-items-item ${activeSection === 'tools' ? 'selected' : ''}`}
+              onClick={() => setActiveSection('tools')}
+            >
+              <span>Exported Tools</span>
+            </div>
+          )}
           <div 
             className={`tab-items-item ${activeSection === 'system-prompt' ? 'selected' : ''}`}
             onClick={() => setActiveSection('system-prompt')}

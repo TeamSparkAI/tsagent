@@ -126,13 +126,13 @@ export const App: React.FC = () => {
           },
           {
             id: uuidv4(),
-            type: 'providers',
-            title: 'Providers'
+            type: 'settings',
+            title: 'Settings'
           },
           {
             id: uuidv4(),
-            type: 'settings',
-            title: 'Settings'
+            type: 'providers',
+            title: 'Providers'
           },
           {
             id: uuidv4(),
