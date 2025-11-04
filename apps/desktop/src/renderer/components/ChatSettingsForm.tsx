@@ -15,12 +15,14 @@ interface ChatSettingsFormProps {
   settings: ChatSettings;
   onSettingsChange: (newSettings: ChatSettings) => void;
   showTitle?: boolean;
+  readOnly?: boolean;
 }
 
 export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   settings,
   onSettingsChange,
-  showTitle = true
+  showTitle = true,
+  readOnly = false
 }) => {
   const [agentSettings, setAgentSettings] = useState<ChatSettings>({
     maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
@@ -100,6 +102,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
                 className="btn-restore-defaults"
                 onClick={handleRestoreDefaults}
                 title="Restore agent default settings"
+                disabled={readOnly}
               >
                 Restore Agent Defaults
               </button>
@@ -122,6 +125,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             onChange={(e) => handleChange('maxChatTurns', parseInt(e.target.value))}
             min="1"
             max="100"
+            disabled={readOnly}
           />
           <div className="setting-description">
             Maximum number of turns (typically tool calls) allowed in response to a single message before forcing a stop.
@@ -137,6 +141,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             onChange={(e) => handleChange('maxOutputTokens', parseInt(e.target.value))}
             min="100"
             max="4000"
+            disabled={readOnly}
           />
           <div className="setting-description">
             Maximum number of tokens the AI can generate in a single response.
@@ -154,6 +159,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
               min="0"
               max="1"
               step="0.05"
+              disabled={readOnly}
             />
             <div className="setting-value">{settings.temperature.toFixed(2)}</div>
           </div>
@@ -173,6 +179,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
               min="0"
               max="1"
               step="0.05"
+              disabled={readOnly}
             />
             <div className="setting-value">{settings.topP.toFixed(2)}</div>
           </div>
@@ -187,6 +194,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             value={settings.toolPermission}
             onChange={(e) => handleChange('toolPermission', e.target.value as SessionToolPermission)}
             style={{ width: 'fit-content' }}
+            disabled={readOnly}
           >
             <option value={SESSION_TOOL_PERMISSION_TOOL}>Request permission based on tool setting</option>
             <option value={SESSION_TOOL_PERMISSION_ALWAYS}>Always request permission</option>

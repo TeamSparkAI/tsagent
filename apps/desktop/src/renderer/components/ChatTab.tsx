@@ -56,7 +56,17 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
   [ProviderType.Local]: LocalLogo,
 };
 
-export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style }) => {
+interface ChatTabProps extends TabProps {
+  initialMessage?: string;
+  readOnly?: boolean;
+  initialModel?: {
+    provider: ProviderType;
+    id: string;
+  };
+}
+
+export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, style, initialMessage, readOnly, initialModel }) => {
+  const isReadOnly = readOnly === true;
   const chatApiRef = useRef<ChatAPI | null>(null);
   const chatContainerRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -176,20 +186,26 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           let modelProvider: ProviderType | undefined = undefined;
           let modelId: string | undefined = undefined;
 
-          // Get installed providers to verify the current model is available
-          const installedProviders = await window.api.getInstalledProviders();
+          // Check for initial model prop first
+          if (initialModel) {
+            modelProvider = initialModel.provider;
+            modelId = initialModel.id;
+          } else {
+            // Get installed providers to verify the current model is available
+            const installedProviders = await window.api.getInstalledProviders();
 
-          // Attempt to get the most recent model from settings
-          const mostRecentModel = await window.api.getSettingsValue(SETTINGS_KEY_MOST_RECENT_MODEL);
-          if (mostRecentModel) {
-            const colonIndex = mostRecentModel.indexOf(':');
-            if (colonIndex !== -1) {
-              const provider = mostRecentModel.substring(0, colonIndex);
-              const id = mostRecentModel.substring(colonIndex + 1);
+            // Attempt to get the most recent model from settings
+            const mostRecentModel = await window.api.getSettingsValue(SETTINGS_KEY_MOST_RECENT_MODEL);
+            if (mostRecentModel) {
+              const colonIndex = mostRecentModel.indexOf(':');
+              if (colonIndex !== -1) {
+                const provider = mostRecentModel.substring(0, colonIndex);
+                const id = mostRecentModel.substring(colonIndex + 1);
 
-              if (installedProviders.includes(provider as ProviderType)) {
-                modelProvider = provider as ProviderType;
-                modelId = id;
+                if (installedProviders.includes(provider as ProviderType)) {
+                  modelProvider = provider as ProviderType;
+                  modelId = id;
+                }
               }
             }
           }
@@ -258,9 +274,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             
             setIsInitialized(true);
 
-
-            // Only show model picker if no model was specified
-            setShowModelPickerPanel(!modelProvider);
+            // Only show model picker if no model was specified and not read-only
+            setShowModelPickerPanel(!modelProvider && !isReadOnly);
           }
         } catch (error) {
           log.error('Error initializing chat tab:', error);
@@ -321,6 +336,50 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       };
     }
   }, [id]); // Only depend on id, not activeTabId
+
+  // Send initial message after initialization
+  useEffect(() => {
+    if (isInitialized && initialMessage && chatApiRef.current) {
+      const sendInitialMessage = async () => {
+        try {
+          // Set loading state first to show indicator
+          setIsLoading(true);
+          // Add user message immediately to show it in the UI
+          setChatState(prev => ({
+            ...prev,
+            messages: [
+              ...prev.messages,
+              {
+                type: 'user',
+                content: initialMessage
+              }
+            ]
+          }));
+          await chatApiRef.current!.sendMessage(initialMessage);
+          setChatState(prev => ({
+            messages: chatApiRef.current!.getMessages(),
+            selectedModel: chatApiRef.current!.getCurrentModel(),
+            selectedModelName: chatApiRef.current!.getCurrentModelName(),
+            currentModelId: prev.currentModelId,
+            references: prev.references,
+            rules: prev.rules
+          }));
+        } catch (error) {
+          log.error('Failed to send initial message:', error);
+          // Remove the optimistic message on error
+          setChatState(prev => ({
+            ...prev,
+            messages: prev.messages.filter((msg, idx) => 
+              !(msg.type === 'user' && msg.content === initialMessage && idx === prev.messages.length - 1)
+            )
+          }));
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      sendInitialMessage();
+    }
+  }, [isInitialized, initialMessage, id]);
 
   // Clean up the chat session when the component unmounts
   useEffect(() => {
@@ -383,6 +442,13 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       setScrollPosition(newPosition);
     }
   };
+
+  // Scroll to bottom when loading indicator appears
+  useEffect(() => {
+    if (isLoading && chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
+  }, [isLoading]);
 
   useEffect(() => {
     if (chatContainerRef.current) {
@@ -531,6 +597,8 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   const sendMessage = async () => {
     if (!inputValue.trim() || isLoading) return;
 
+    const messageToSend = inputValue.trim();
+    
     try {
       setIsLoading(true);
       setInputValue('');
@@ -538,7 +606,19 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
         textareaRef.current.style.height = '38px';
       }
       
-      const response = await chatApiRef.current!.sendMessage(inputValue);
+      // Add user message immediately to show it in the UI (optimistic update)
+      setChatState(prev => ({
+        ...prev,
+        messages: [
+          ...prev.messages,
+          {
+            type: 'user',
+            content: messageToSend
+          }
+        ]
+      }));
+      
+      const response = await chatApiRef.current!.sendMessage(messageToSend);
       setChatState(prev => ({
         messages: chatApiRef.current!.getMessages(),
         selectedModel: chatApiRef.current!.getCurrentModel(),
@@ -559,6 +639,13 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
       }
     } catch (error) {
       log.error('Failed to get response:', error);
+      // Remove the optimistic message on error
+      setChatState(prev => ({
+        ...prev,
+        messages: prev.messages.filter((msg, idx) => 
+          !(msg.type === 'user' && msg.content === messageToSend && idx === prev.messages.length - 1)
+        )
+      }));
     } finally {
       setIsLoading(false);
       
@@ -907,13 +994,15 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
   return (
     <div className="chat-tab">
       <div id="model-container">
-        <button 
-          id="model-button" 
-          onClick={toggleModelPickerPanel}
-          className={`btn btn-subtab ${showModelPickerPanel ? 'active' : ''}`}
-        >
-          <span>Model</span>
-        </button>
+        {!isReadOnly && (
+          <button 
+            id="model-button" 
+            onClick={toggleModelPickerPanel}
+            className={`btn btn-subtab ${showModelPickerPanel ? 'active' : ''}`}
+          >
+            <span>Model</span>
+          </button>
+        )}
         
         <div id="model-display">
           {chatState.selectedModel ? (
@@ -1088,9 +1177,11 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <div className="context-column">
             <div className="context-section">
               <div className="context-section-header">
-                <h3>Active References <button className="btn edit-button" onClick={() => setShowReferencesModal(true)}>
-                  Manage
-                </button></h3>
+                <h3>Active References {!isReadOnly && (
+                  <button className="btn edit-button" onClick={() => setShowReferencesModal(true)}>
+                    Manage
+                  </button>
+                )}</h3>
               </div>
               {activeReferences.length === 0 && <p>No active references</p>}
               <ul className="context-list">
@@ -1115,9 +1206,11 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <div className="context-column">
             <div className="context-section">
               <div className="context-section-header">
-                <h3>Active Rules <button className="btn edit-button" onClick={() => setShowRulesModal(true)}>
-                  Manage
-                </button></h3>
+                <h3>Active Rules {!isReadOnly && (
+                  <button className="btn edit-button" onClick={() => setShowRulesModal(true)}>
+                    Manage
+                  </button>
+                )}</h3>
               </div>
               {activeRules.length === 0 && <p>No active rules</p>}
               <ul className="context-list">
@@ -1142,9 +1235,11 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <div className="context-column">
             <div className="context-section">
               <div className="context-section-header">
-                <h3>Active Tools <button className="btn edit-button" onClick={() => setShowToolsModal(true)}>
-                  Manage
-                </button></h3>
+                <h3>Active Tools {!isReadOnly && (
+                  <button className="btn edit-button" onClick={() => setShowToolsModal(true)}>
+                    Manage
+                  </button>
+                )}</h3>
               </div>
               {activeTools.length === 0 && <p>No active tools</p>}
               {(() => {
@@ -1218,6 +1313,7 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
           <ChatSettingsForm
             settings={chatSettings}
             onSettingsChange={handleSettingsChange}
+            readOnly={isReadOnly}
           />
         </div>
       )}
@@ -1539,38 +1635,46 @@ export const ChatTab: React.FC<TabProps> = ({ id, activeTabId, name, type, style
             </div>
           </div>
         ))}
+        {isLoading && (
+          <div className="message system">
+            <div style={{ display: 'inline' }}>
+              <strong>SYSTEM:</strong> <span className="loading-text">Waiting for response...</span>
+            </div>
+          </div>
+        )}
       </div>
       
-      <div className="input-container">
-        {isLoading && <div className="loading-indicator">Waiting for response...</div>}
-        <textarea
-          ref={textareaRef}
-          id="message-input"
-          value={inputValue}
-          onChange={(e) => {
-            setInputValue(e.target.value);
-            adjustTextareaHeight(e.target);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
-              e.preventDefault();
-              sendMessage();
-            }
-          }}
-          placeholder={isLoading || isPendingDisposition ? "" : 
-            chatState.selectedModel ? "Type your message..." : "Select a model to start chatting"}
-          rows={1}
-          disabled={isLoading || !chatState.selectedModel || isPendingDisposition}
-        />
-        <button 
-          id="send-button" 
-          className="btn btn-primary"
-          onClick={sendMessage}
-          disabled={isLoading || !inputValue.trim() || isPendingDisposition}
-        >
-          Send
-        </button>
-      </div>
+      {!isReadOnly && (
+        <div className="input-container">
+          <textarea
+            ref={textareaRef}
+            id="message-input"
+            value={inputValue}
+            onChange={(e) => {
+              setInputValue(e.target.value);
+              adjustTextareaHeight(e.target);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            placeholder={isLoading || isPendingDisposition ? "" : 
+              chatState.selectedModel ? "Type your message..." : "Select a model to start chatting"}
+            rows={1}
+            disabled={isLoading || !chatState.selectedModel || isPendingDisposition}
+          />
+          <button 
+            id="send-button" 
+            className="btn btn-primary"
+            onClick={sendMessage}
+            disabled={isLoading || !inputValue.trim() || isPendingDisposition}
+          >
+            Send
+          </button>
+        </div>
+      )}
     </div>
   );
 };

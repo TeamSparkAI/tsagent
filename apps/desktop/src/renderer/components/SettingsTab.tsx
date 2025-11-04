@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import log from 'electron-log';
+import { v4 as uuidv4 } from 'uuid';
 import { TabProps } from '../types/TabProps';
 import { AboutView } from './AboutView';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
@@ -456,6 +457,224 @@ const EditToolModal: React.FC<EditToolModalProps> = ({ tool, onSave, onCancel })
   );
 };
 
+interface TestToolModalProps {
+  tool: AgentTool;
+  onTest: (prompt: string) => void;
+  onCancel: () => void;
+}
+
+const TestToolModal: React.FC<TestToolModalProps> = ({ tool, onTest, onCancel }) => {
+  const [params, setParams] = useState<Record<string, any>>({});
+  const [preview, setPreview] = useState('');
+
+  // Initialize parameters with defaults
+  useEffect(() => {
+    const initialParams: Record<string, any> = {};
+    if (tool.parameters.properties) {
+      for (const [key, schema] of Object.entries(tool.parameters.properties)) {
+        // Check if schema has default property (StringSchema, NumericSchema, or BooleanSchema)
+        if (schema.type === 'string' || schema.type === 'number' || schema.type === 'integer' || schema.type === 'boolean') {
+          if ('default' in schema && schema.default !== undefined) {
+            initialParams[key] = schema.default;
+          }
+        }
+      }
+    }
+    setParams(initialParams);
+  }, [tool]);
+
+  // Update preview when params change
+  useEffect(() => {
+    let filledPrompt = tool.prompt;
+    
+    // Replace {name} with tool name
+    filledPrompt = filledPrompt.replace(/{name}/g, tool.name);
+    
+    // Replace {param} with parameter values
+    for (const [key, value] of Object.entries(params)) {
+      const pattern = new RegExp(`\\{${key}\\}`, 'g');
+      filledPrompt = filledPrompt.replace(pattern, value !== undefined && value !== null ? String(value) : `{${key}}`);
+    }
+    
+    setPreview(filledPrompt);
+  }, [tool, params]);
+
+  const updateParam = (key: string, value: any) => {
+    setParams(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleTest = () => {
+    onTest(preview);
+  };
+
+  const getParameterInput = (paramName: string, schema: any) => {
+    const isRequired = tool.parameters.required?.includes(paramName) || false;
+    const value = params[paramName] ?? schema.default ?? '';
+    
+    switch (schema.type) {
+      case 'string':
+        return (
+          <div key={paramName} style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-primary)' }}>
+              {paramName} {isRequired && <span style={{ color: '#dc3545' }}>*</span>}
+            </label>
+            {schema.description && (
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                {schema.description}
+              </div>
+            )}
+            <input
+              type="text"
+              value={String(value)}
+              onChange={(e) => updateParam(paramName, e.target.value)}
+              placeholder={schema.description || `Enter ${paramName}`}
+              style={{
+                width: '100%',
+                padding: '8px',
+                borderRadius: '4px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-primary)'
+              }}
+            />
+          </div>
+        );
+      case 'number':
+      case 'integer':
+        return (
+          <div key={paramName} style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'block', marginBottom: '4px', color: 'var(--text-primary)' }}>
+              {paramName} {isRequired && <span style={{ color: '#dc3545' }}>*</span>}
+            </label>
+            {schema.description && (
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginBottom: '4px' }}>
+                {schema.description}
+              </div>
+            )}
+            <input
+              type="number"
+              value={value !== undefined && value !== null ? value : ''}
+              onChange={(e) => {
+                const numValue = e.target.value === '' ? undefined : (schema.type === 'integer' ? parseInt(e.target.value, 10) : parseFloat(e.target.value));
+                updateParam(paramName, numValue);
+              }}
+              placeholder={schema.description || `Enter ${paramName}`}
+              min={schema.minimum}
+              max={schema.maximum}
+              style={{
+                width: '100%',
+                padding: '8px',
+                borderRadius: '4px',
+                border: '1px solid var(--border-color)',
+                backgroundColor: 'var(--bg-primary)',
+                color: 'var(--text-primary)'
+              }}
+            />
+          </div>
+        );
+      case 'boolean':
+        return (
+          <div key={paramName} style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'flex', alignItems: 'center', color: 'var(--text-primary)' }}>
+              <input
+                type="checkbox"
+                checked={value === true}
+                onChange={(e) => updateParam(paramName, e.target.checked)}
+                style={{ marginRight: '8px' }}
+              />
+              {paramName} {isRequired && <span style={{ color: '#dc3545' }}>*</span>}
+            </label>
+            {schema.description && (
+              <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '4px' }}>
+                {schema.description}
+              </div>
+            )}
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <div style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1000
+    }}>
+      <div style={{
+        backgroundColor: 'var(--bg-primary)',
+        borderRadius: '8px',
+        padding: '20px',
+        maxWidth: '900px',
+        width: '90%',
+        maxHeight: '90vh',
+        display: 'flex',
+        flexDirection: 'column',
+        boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+      }}>
+        <h2 style={{ marginTop: 0, marginBottom: '20px', color: 'var(--text-primary)' }}>
+          Test Tool: {tool.name}
+        </h2>
+        
+        <div style={{ display: 'flex', gap: '20px', flex: 1, minHeight: 0 }}>
+          {/* Parameter Form */}
+          <div style={{ flex: 1, overflowY: 'auto', paddingRight: '10px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px', color: 'var(--text-primary)' }}>Parameters</h3>
+            {tool.parameters.properties && Object.keys(tool.parameters.properties).length > 0 ? (
+              <div>
+                {Object.entries(tool.parameters.properties).map(([paramName, schema]) =>
+                  getParameterInput(paramName, schema)
+                )}
+              </div>
+            ) : (
+              <div style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>
+                No parameters defined
+              </div>
+            )}
+          </div>
+
+          {/* Preview Pane */}
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', borderLeft: '1px solid var(--border-color)', paddingLeft: '20px' }}>
+            <h3 style={{ marginTop: 0, marginBottom: '15px', color: 'var(--text-primary)' }}>Preview</h3>
+            <div style={{
+              flex: 1,
+              padding: '12px',
+              borderRadius: '4px',
+              border: '1px solid var(--border-color)',
+              backgroundColor: 'var(--bg-secondary)',
+              fontFamily: 'monospace',
+              fontSize: '14px',
+              whiteSpace: 'pre-wrap',
+              overflowY: 'auto',
+              color: 'var(--text-primary)',
+              minHeight: '200px'
+            }}>
+              {preview || 'Fill in parameters to see preview...'}
+            </div>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', gap: '10px', marginTop: '20px', justifyContent: 'flex-end' }}>
+          <button className="btn btn-secondary" onClick={onCancel}>
+            Cancel
+          </button>
+          <button className="btn btn-primary" onClick={handleTest}>
+            Test in Chat
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const AgentInfoSection: React.FC = () => {
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
   const [originalMetadata, setOriginalMetadata] = useState<AgentMetadata | null>(null);
@@ -479,6 +698,8 @@ const AgentInfoSection: React.FC = () => {
   // Tools editing state
   const [isEditingTool, setIsEditingTool] = useState(false);
   const [editingTool, setEditingTool] = useState<AgentTool | undefined>(undefined);
+  const [isTestingTool, setIsTestingTool] = useState(false);
+  const [testingTool, setTestingTool] = useState<AgentTool | undefined>(undefined);
 
   useEffect(() => {
     loadAgentMetadata();
@@ -673,6 +894,11 @@ const AgentInfoSection: React.FC = () => {
     });
   };
 
+  const handleTestTool = (tool: AgentTool) => {
+    setTestingTool(tool);
+    setIsTestingTool(true);
+  };
+
   const handleSaveTool = (tool: AgentTool) => {
     if (!metadata) return;
     
@@ -702,6 +928,37 @@ const AgentInfoSection: React.FC = () => {
         <h2>Agent Info</h2>
         <div className="loading">Loading agent information...</div>
       </div>
+    );
+  }
+
+  // Show tool testing modal if testing
+  if (isTestingTool && testingTool) {
+    return (
+      <TestToolModal
+        tool={testingTool}
+        onTest={async (prompt: string) => {
+          const tabId = `test-${testingTool.name}-${Date.now()}`;
+          
+          try {
+            // Emit custom event to App to create a test chat tab with initial message
+            // ChatTab will create the chat session when it initializes
+            window.dispatchEvent(new CustomEvent('create-test-chat-tab', {
+              detail: { tabId, title: `Test: ${testingTool.name}`, initialMessage: prompt }
+            }));
+            
+            // Close modal
+            setIsTestingTool(false);
+            setTestingTool(undefined);
+          } catch (error) {
+            log.error('Error creating test chat tab:', error);
+            setError('Failed to create test chat tab');
+          }
+        }}
+        onCancel={() => {
+          setIsTestingTool(false);
+          setTestingTool(undefined);
+        }}
+      />
     );
   }
 
@@ -956,8 +1213,16 @@ const AgentInfoSection: React.FC = () => {
                   </div>
                   <div className="skill-actions">
                     <button 
+                      onClick={() => handleTestTool(tool)} 
+                      className="btn btn-primary"
+                      style={{ marginRight: '8px' }}
+                    >
+                      Test
+                    </button>
+                    <button 
                       onClick={() => handleEditTool(tool)} 
                       className="btn btn-secondary"
+                      style={{ marginRight: '8px' }}
                     >
                       Edit
                     </button>
@@ -1013,6 +1278,8 @@ const AgentInfoSection: React.FC = () => {
               setEditingSkill(undefined);
               setIsEditingTool(false);
               setEditingTool(undefined);
+              setIsTestingTool(false);
+              setTestingTool(undefined);
             }}
             disabled={isSaving}
           >

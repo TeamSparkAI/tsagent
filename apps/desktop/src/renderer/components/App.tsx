@@ -19,6 +19,7 @@ interface TabInstance {
   id: string;
   type: string;
   title: string;
+  data?: Record<string, unknown>; // Tab-specific data
 }
 
 export const App: React.FC = () => {
@@ -237,6 +238,33 @@ export const App: React.FC = () => {
     }
   }, [hasAgent, tabs]); // Watch for changes to hasAgent and tabs array
 
+  // Listen for create-test-chat-tab events (from tool testing)
+  useEffect(() => {
+    const handleCreateTestChatTab = async (event: Event) => {
+      const customEvent = event as CustomEvent<{ tabId: string; title?: string; initialMessage?: string }>;
+      const { tabId, title, initialMessage } = customEvent.detail;
+      
+      // Create the tab UI with tab-specific data (test tabs are read-only with initial message)
+      const newTab: TabInstance = {
+        id: tabId,
+        type: 'chat',
+        title: title || 'Chat',
+        data: {
+          initialMessage: initialMessage,
+          readOnly: true // Test tabs are read-only
+        }
+      };
+      setTabs(prev => [...prev, newTab]);
+      setActiveTabId(tabId);
+    };
+    
+    window.addEventListener('create-test-chat-tab', handleCreateTestChatTab);
+    
+    return () => {
+      window.removeEventListener('create-test-chat-tab', handleCreateTestChatTab);
+    };
+  }, []);
+
   const handleAddTab = (type: string) => {
     if (type !== 'chat') return; // Only allow creating new chat tabs
     const newTab = {
@@ -270,7 +298,7 @@ export const App: React.FC = () => {
       case 'settings':
         return <SettingsTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'chat':
-        return <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
+        return <ChatTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} {...(tab.data || {})} />;
       case 'rules':
         return <RulesTab key={tab.id} id={tab.id} activeTabId={activeTabId} name={tab.title} type={tab.type} />;
       case 'references':
