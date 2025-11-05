@@ -11,7 +11,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Agent, AgentTool, ToolInputSchema, Logger } from '@tsagent/core';
 import { loadAgent } from '@tsagent/core/runtime';
-import { ConsoleLogger } from './logger.js';
+import { ConsoleLogger } from './logger';
 
 /**
  * Meta MCP Server
@@ -21,7 +21,7 @@ import { ConsoleLogger } from './logger.js';
  * executes it via a headless chat session.
  */
 export class MetaMCPServer {
-  private server: Server;
+  private server: Server | null = null;
   private agent: Agent | null = null;
   private agentPath: string;
   private logger: Logger;
@@ -29,23 +29,13 @@ export class MetaMCPServer {
   constructor(agentPath: string, logger?: Logger) {
     this.agentPath = agentPath;
     this.logger = logger || new ConsoleLogger();
-    
-    this.server = new Server(
-      {
-        name: '@tsagent/meta-mcp',
-        version: '1.0.0',
-      },
-      {
-        capabilities: {
-          tools: {},
-        },
-      }
-    );
-
-    this.setupHandlers();
   }
 
   private setupHandlers(): void {
+    if (!this.server) {
+      throw new Error('Server not initialized. Call start() first.');
+    }
+
     // List available tools
     this.server.setRequestHandler(ListToolsRequestSchema, async () => {
       if (!this.agent) {
@@ -95,6 +85,24 @@ export class MetaMCPServer {
       this.logger.info(`Agent has ${tools.length} tool(s) defined`);
     }
 
+    // Create the server with instructions from agent description
+    const agentDescription = this.agent.description || undefined;
+    this.server = new Server(
+      {
+        name: '@tsagent/meta-mcp',
+        version: '1.0.0',
+      },
+      {
+        capabilities: {
+          tools: {},
+        },
+        instructions: agentDescription,
+      }
+    );
+
+    // Set up request handlers
+    this.setupHandlers();
+
     // Start the server - after this point, stdout is used for MCP protocol
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
@@ -102,7 +110,7 @@ export class MetaMCPServer {
     // After connecting to stdio, disable verbose logging
     // Only critical errors will be logged to stderr
     if (this.logger instanceof ConsoleLogger) {
-      this.logger.setVerbose(false);
+      (this.logger as ConsoleLogger).setVerbose(false);
     }
   }
 
