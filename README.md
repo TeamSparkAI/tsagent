@@ -30,6 +30,7 @@ TsAgent is a comprehensive platform that enables anyone to:
 | **CLI** | [`@tsagent/cli`](https://www.npmjs.com/package/@tsagent/cli) | CLI Tool | Command-line interface for agent operations and automation <br>`tsagent-cli` |
 | **A2A Server** | [`@tsagent/server`](https://www.npmjs.com/package/@tsagent/server) | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
 | **A2A Orchestrator** | [`@tsagent/orchestrator`](https://www.npmjs.com/package/@tsagent/orchestrator) | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
+| **Meta MCP** | [`@tsagent/meta-mcp`](https://www.npmjs.com/package/@tsagent/meta-mcp) | MCP Server | MCP server that exposes Tools agents as MCP tools with cognitive layer <br>`tsagent-meta-mcp` |
 
 | TsAgent Foundry | TsAgent CLI |
 |-----------------|-------------|
@@ -50,11 +51,12 @@ Download the pre-built installer for your platform:
 
 ```bash
 # Install all developer tools
-npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/orchestrator
+npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/orchestrator @tsagent/meta-mcp
 
 # Or install individual components
 npm install @tsagent/core  # Just the TypeScript library
 npm install @tsagent/cli   # Just the CLI tool
+npm install @tsagent/meta-mcp  # MCP server for Tools agents
 ```
 
 ## Quick Start
@@ -89,7 +91,7 @@ console.log(response.updates[1].modelReply);
 ### Deploy Agents as Services
 
 ```bash
-# Start an A2A server
+# Start an A2A server (for Autonomous agents)
 npx @tsagent/server /path/to/agent --port 3000
 # or if installed globally
 tsagent-server /path/to/agent --port 3000
@@ -97,14 +99,27 @@ tsagent-server /path/to/agent --port 3000
 # Your agent is now available at http://localhost:3000
 ```
 
+### Expose Tools Agents as MCP Tools
+
+```bash
+# Start a Meta MCP server (for Tools agents)
+npx @tsagent/meta-mcp /path/to/tools-agent
+# or if installed globally
+tsagent-meta-mcp /path/to/tools-agent
+
+# The agent's tools are now available as MCP tools
+# Configure in Claude Desktop or other MCP clients
+```
+
 ## Agent Types
 
-TsAgent supports two types of agents:
+TsAgent supports three types of agents:
 
 - **Interactive Agents**: Maintain conversation history and can ask for user permission to use tools
-- **Autonomous Agents**: Process requests independently and return complete results without user interaction
+- **Autonomous Agents**: Process requests independently and return complete results without user interaction (exposed via A2A protocol)
+- **Tools Agents**: Expose agent capabilities as MCP tools, where each tool call executes a prompt template via a headless chat session
 
-Also, any agent can orchestrate other agents (whether it is interactive or autonomous itself) via the TsAgent Orchestrator MCP server
+Also, any agent can orchestrate other agents (whether it is interactive or autonomous itself) via the TsAgent Orchestrator MCP server, and Tools agents can be exposed via the Meta MCP server to make them available as tools to other agents or MCP clients.
 
 
 ## Development Workflow
