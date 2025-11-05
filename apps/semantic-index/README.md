@@ -167,7 +167,7 @@ The general idea is that we would use this tooling (the indexer in this project)
 
 We have the concept of a rule/reference/tool that may be included by "Agent" (when the agent thinks it's relevant).  We also have the concept of a Supervisor, including a Supervisor Agent, where one of the functions is to include/exclude context elements (rules, references, and tools) based on relevance to the current user-provided context (message, possibly also including some message history).
 
-The ideas is that on each chat message the agent includes the "always" context items (or manaully added ones, if interactive), then it searches the "agent" context items to find the most relevant K matches to the current query and includes those also.
+The ideas is that on each chat message the agent includes the "always" context items (or manaully added ones, if interactive), then it searches the "agent" context items to find the most relevant K matches to the current query and includes those also.  It might be better to only index the "Agent" context items to make this logic cleaner (though those items may have been manually added by a user in an interactvie agent, so we'd still need to check for that).
 
 In this way the LLM is only operating on relvant context (not overwhelmed cognitively and not overrunning input token limits).
 

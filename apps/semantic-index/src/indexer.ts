@@ -171,7 +171,7 @@ export class SemanticIndexer {
     let indexingStartTime: number | null = null;
     this.chunks = [];
     
-    // Index rules (by name and description)
+    // Index rules (by name, description, and text content)
     for (const rule of rules) {
       if (!rule.enabled) {
         continue;
@@ -179,39 +179,50 @@ export class SemanticIndexer {
 
       this.logger.info(`Indexing rule: ${rule.name}`);
       
-      const text = `${rule.name}\n${rule.description || ''}`.trim();
-      if (!text) {
+      // Combine name: description, then text for indexing
+      const header = rule.description ? `${rule.name}: ${rule.description}` : rule.name;
+      const fullText = rule.text ? `${header}\n\n${rule.text}` : header;
+      
+      if (!fullText) {
         continue;
       }
 
-      try {
-        const beforeCall = Date.now();
-        const embeddingResult = await this.generateEmbedding(text);
-        const afterCall = Date.now();
+      // Chunk the text appropriately
+      const textChunks = this.chunkText(fullText);
+      
+      // Generate embeddings for each chunk
+      for (let i = 0; i < textChunks.length; i++) {
+        const chunk = textChunks[i];
         
-        // Track model initialization time (only on first call)
-        if (modelInitMs === 0 && embeddingResult.initTimeMs > 0) {
-          modelInitMs = embeddingResult.initTimeMs;
-          // Indexing starts after model initialization completes
-          indexingStartTime = beforeCall + embeddingResult.initTimeMs;
-        } else if (indexingStartTime === null) {
-          // Model already initialized, indexing starts now
-          indexingStartTime = beforeCall;
+        try {
+          const beforeCall = Date.now();
+          const embeddingResult = await this.generateEmbedding(chunk);
+          const afterCall = Date.now();
+          
+          // Track model initialization time (only on first call)
+          if (modelInitMs === 0 && embeddingResult.initTimeMs > 0) {
+            modelInitMs = embeddingResult.initTimeMs;
+            // Indexing starts after model initialization completes
+            indexingStartTime = beforeCall + embeddingResult.initTimeMs;
+          } else if (indexingStartTime === null) {
+            // Model already initialized, indexing starts now
+            indexingStartTime = beforeCall;
+          }
+          
+          this.chunks.push({
+            scope: 'rules',
+            itemName: rule.name,
+            chunkIndex: i,
+            text: chunk,
+            embedding: embeddingResult.embedding,
+          });
+        } catch (error) {
+          this.logger.error(`Failed to generate embedding for chunk ${i} of rule ${rule.name}:`, error);
         }
-        
-        this.chunks.push({
-          scope: 'rules',
-          itemName: rule.name,
-          chunkIndex: 0,
-          text: text,
-          embedding: embeddingResult.embedding,
-        });
-      } catch (error) {
-        this.logger.error(`Failed to generate embedding for rule ${rule.name}:`, error);
       }
     }
 
-    // Index references (by name and description)
+    // Index references (by name, description, and text content)
     for (const reference of references) {
       if (!reference.enabled) {
         continue;
@@ -219,22 +230,33 @@ export class SemanticIndexer {
 
       this.logger.info(`Indexing reference: ${reference.name}`);
       
-      const text = `${reference.name}\n${reference.description || ''}`.trim();
-      if (!text) {
+      // Combine name: description, then text for indexing
+      const header = reference.description ? `${reference.name}: ${reference.description}` : reference.name;
+      const fullText = reference.text ? `${header}\n\n${reference.text}` : header;
+      
+      if (!fullText) {
         continue;
       }
 
-      try {
-        const embeddingResult = await this.generateEmbedding(text);
-        this.chunks.push({
-          scope: 'references',
-          itemName: reference.name,
-          chunkIndex: 0,
-          text: text,
-          embedding: embeddingResult.embedding,
-        });
-      } catch (error) {
-        this.logger.error(`Failed to generate embedding for reference ${reference.name}:`, error);
+      // Chunk the text appropriately
+      const textChunks = this.chunkText(fullText);
+      
+      // Generate embeddings for each chunk
+      for (let i = 0; i < textChunks.length; i++) {
+        const chunk = textChunks[i];
+        
+        try {
+          const embeddingResult = await this.generateEmbedding(chunk);
+          this.chunks.push({
+            scope: 'references',
+            itemName: reference.name,
+            chunkIndex: i,
+            text: chunk,
+            embedding: embeddingResult.embedding,
+          });
+        } catch (error) {
+          this.logger.error(`Failed to generate embedding for chunk ${i} of reference ${reference.name}:`, error);
+        }
       }
     }
 
@@ -242,7 +264,7 @@ export class SemanticIndexer {
     for (const tool of tools) {
       this.logger.info(`Indexing tool: ${tool.name}`);
       
-      const text = `${tool.name}\n${tool.description || ''}`.trim();
+      const text = tool.description ? `${tool.name}: ${tool.description}` : tool.name;
       if (!text) {
         continue;
       }
