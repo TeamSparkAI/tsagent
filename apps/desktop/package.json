@@ -13,7 +13,7 @@
   "type": "module",
   "scripts": {
     "start": "npm run build && electron . --ignore-certificate-errors",
-    "build": "cd ../../packages/agent-api && npm run build && cd ../../apps/desktop && rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.mjs && cp src/renderer/index.html dist/",
+    "build": "rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.mjs && cp src/renderer/index.html dist/",
     "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.mjs",
     "test": "jest",
     "pack": "electron-builder --dir",
@@ -58,7 +58,7 @@
   "build": {
     "appId": "ai.teamspark.workbench",
     "productName": "TsAgent Foundry",
-    "afterPack": "./build/afterPack.js",
+    "afterPack": "./build/afterPack.cjs",
     "electronVersion": "28.0.0",
     "mac": {
       "category": "public.app-category.developer-tools",
