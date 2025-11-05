@@ -161,3 +161,14 @@ Note: Tools are indexed from MCP clients (`serverTools`), representing tools the
 - Only returns item names, not full text (though preview of name + description is shown)
 - Indexes only name and description (not full content for rules/references)
 
+## Usage
+
+The general idea is that we would use this tooling (the indexer in this project) to select relevant rules, references, and tools to include in a chat request context.
+
+We have the concept of a rule/reference/tool that may be included by "Agent" (when the agent thinks it's relevant).  We also have the concept of a Supervisor, including a Supervisor Agent, where one of the functions is to include/exclude context elements (rules, references, and tools) based on relevance to the current user-provided context (message, possibly also including some message history).
+
+The ideas is that on each chat message the agent includes the "always" context items (or manaully added ones, if interactive), then it searches the "agent" context items to find the most relevant K matches to the current query and includes those also.
+
+In this way the LLM is only operating on relvant context (not overwhelmed cognitively and not overrunning input token limits).
+
+We have observed indexer startup time of approx 120ms, and indexing time of approx 350ms per 100 documents (chunks), meaing that for a system with 100 total context items you should expect a one-time hit of approx 500ms (at agent startup).  The inference time is very fast at approx 10ms per 100 documents in the index.
