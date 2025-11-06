@@ -137,24 +137,8 @@ export class ChatSessionImpl {
   // Replace simple arrays with tracked context items
   contextItems: SessionContextItem[] = [];
   
-  // Helper methods for backward compatibility
-  get rules(): string[] {
-    return this.contextItems
-      .filter(item => item.type === 'rule')
-      .map(item => item.name);
-  }
-  
-  get references(): string[] {
-    return this.contextItems
-      .filter(item => item.type === 'reference')
-      .map(item => item.name);
-  }
-  
-  get tools(): Array<{serverName: string, toolName: string}> {
-    return this.contextItems
-      .filter(item => item.type === 'tool')
-      .map(item => ({ serverName: item.serverName!, toolName: item.name }));
-  }
+  // Note: Backward-compatible getters were removed
+  // All consumers now use contextItems directly
 }
 ```
 
@@ -165,7 +149,6 @@ Request context built from session context + agent items:
 ```typescript
 export interface RequestContext {
   items: RequestContextItem[];  // All items used for this request (session + agent items)
-  timestamp: Date;
 }
 
 // Attached to assistant messages
@@ -257,18 +240,15 @@ for (const rule of this.agent.getAllRules()) {
 Build request context from session context + agent items:
 
 ```typescript
-async function buildRequestContext(
-  session: ChatSession,
-  agent: Agent,
-  userMessage: string,
-  semanticSearch?: (query: string, topK: number, topN: number, includeScore?: number) => Promise<RequestContextItem[]>
+// In ChatSessionImpl (method on the session instance)
+private async buildRequestContext(
+  userMessage: string
 ): Promise<RequestContext> {
   const requestItems: RequestContextItem[] = [];
   
   // Step 1: Add all session context items (always + manual)
-  for (const sessionItem of session.contextItems) {
-    // Spread session item and add to request items
-    // TypeScript will ensure serverName is only present for tools
+  for (const sessionItem of this.contextItems) {
+    // Convert SessionContextItem to RequestContextItem
     if (sessionItem.type === 'tool') {
       requestItems.push({
         type: 'tool',
@@ -285,81 +265,62 @@ async function buildRequestContext(
     }
   }
   
-  // Step 2: Find items with include: 'agent' that are NOT in session context
-  const agentModeItems = getAgentModeItems(agent, session);
-  
-  // Step 3: If semantic search is enabled, select relevant agent items
-  if (semanticSearch) {
-    const semanticResults = await semanticSearch(userMessage, topK, topN, includeScore);
-    
-    // Add agent items selected via semantic search (only if not already in session context)
-    for (const result of semanticResults) {
-      const alreadyInSession = session.contextItems.some(
-        item => item.type === result.type && 
-                item.name === result.name &&
-                (result.type !== 'tool' || item.serverName === result.serverName)
-      );
-      
-      if (!alreadyInSession) {
-        // TypeScript discriminated union ensures correct structure
-        if (result.type === 'tool') {
-          requestItems.push({
-            type: 'tool',
-            name: result.name,
-            serverName: result.serverName,
-            includeMode: 'agent',
-            similarityScore: result.score,
-          });
-        } else {
-          requestItems.push({
-            type: result.type,
-            name: result.name,
-            includeMode: 'agent',
-            similarityScore: result.score,
-          });
-        }
-      }
-    }
-  }
+  // Step 2: For Phase 3, we don't include agent mode items yet
+  // This will be added in Phase 5 with semantic search
   
   return {
     items: requestItems,
-    timestamp: new Date(),
   };
 }
 
-function getAgentModeItems(agent: Agent, session: ChatSession): RequestContextItem[] {
+// Helper function to get agent mode items (prepared for semantic search integration)
+private getAgentModeItems(): RequestContextItem[] {
   const items: RequestContextItem[] = [];
   
   // Get rules with include: 'agent'
-  for (const rule of agent.getAllRules()) {
+  for (const rule of this.agent.getAllRules()) {
     if (rule.include === 'agent' && rule.enabled) {
       // Check if not already in session
-      const inSession = session.contextItems.some(
+      const inSession = this.contextItems.some(
         item => item.type === 'rule' && item.name === rule.name
       );
       if (!inSession) {
         items.push({
           name: rule.name,
           type: 'rule',
-            includeMode: 'agent',  // Will be included via semantic search
+          includeMode: 'agent',  // Will be included via semantic search
         });
       }
     }
   }
   
-  // Similar for references...
+  // Get references with include: 'agent'
+  for (const reference of this.agent.getAllReferences()) {
+    if (reference.include === 'agent' && reference.enabled) {
+      // Check if not already in session
+      const inSession = this.contextItems.some(
+        item => item.type === 'reference' && item.name === reference.name
+      );
+      if (!inSession) {
+        items.push({
+          name: reference.name,
+          type: 'reference',
+          includeMode: 'agent',  // Will be included via semantic search
+        });
+      }
+    }
+  }
   
   // Get tools with include: 'agent'
-  const mcpClients = agent.getAllMcpClientsSync();
+  const mcpClients = this.agent.getAllMcpClientsSync();
   for (const [serverName, client] of Object.entries(mcpClients)) {
-    const serverConfig = agent.getMcpServer(serverName)?.config;
+    const serverConfig = this.agent.getMcpServer(serverName)?.config;
     if (!serverConfig) continue;
     
     for (const tool of client.serverTools) {
       const effectiveMode = getToolEffectiveIncludeMode(serverConfig, tool.name);
       if (effectiveMode === 'agent') {
-        const inSession = session.contextItems.some(
+        const inSession = this.contextItems.some(
           item => item.type === 'tool' && 
                   item.name === tool.name && 
                   item.serverName === serverName
@@ -380,34 +341,53 @@ function getAgentModeItems(agent: Agent, session: ChatSession): RequestContextIt
 }
 ```
 
-### 4. Using Request Context
+### 4. Using Request Context to Build LLM Messages
 
-Build actual LLM request from request context:
+The request context is used to build the actual messages array sent to the LLM. This ensures that what's recorded in the request context is exactly what was used:
 
 ```typescript
-// In provider.generateResponse() or similar
-async function generateResponse(
-  requestContext: RequestContext,
-  messages: ChatMessage[],
-  // ... other params
-): Promise<ModelReply> {
-  // Build actual context from request context items
-  const rules = requestContext.items
-    .filter(item => item.type === 'rule')
-    .map(item => item.name);
-  
-  const references = requestContext.items
-    .filter(item => item.type === 'reference')
-    .map(item => item.name);
-  
-  const tools = requestContext.items
-    .filter(item => item.type === 'tool')
-    .map(item => ({ serverName: item.serverName!, toolName: item.name }));
-  
-  // Use ProviderHelper.getIncludedTools() with these tools
-  // Or build context messages with these rules/references
-  // ... provider-specific logic
+// In ChatSessionImpl.handleMessage()
+// After building request context, use it to construct messages array
+const requestContext = await this.buildRequestContext(userMessageContent);
+
+// Build messages array, starting with system prompt and existing non-system messages
+const systemPrompt = await this.agent.getSystemPrompt();
+const messages: ChatMessage[] = [
+  { role: 'system', content: systemPrompt },
+  ...this.messages.filter(m => m.role !== 'system')
+];
+
+// Add the references to the messages array (from request context)
+for (const item of requestContext.items) {
+  if (item.type === 'reference') {
+    const reference = this.agent.getReference(item.name);
+    if (reference) {
+      messages.push({
+        role: 'user',
+        content: `Reference: ${reference.text}`
+      }); 
+    }
+  }
 }
+
+// Add the rules to the messages array (from request context)
+for (const item of requestContext.items) {
+  if (item.type === 'rule') {
+    const rule = this.agent.getRule(item.name);
+    if (rule) {
+      messages.push({
+        role: 'user',
+        content: `Rule: ${rule.text}`
+      });
+    }
+  }
+}
+
+// Add the user message to the messages array
+messages.push(message);
+
+// Tools from request context are handled via ProviderHelper.getIncludedTools()
+// which uses the session's getIncludedTools() method that derives from contextItems
 ```
 
 ### 5. Attaching Request Context to Response
@@ -415,39 +395,22 @@ async function generateResponse(
 Store request context with assistant message:
 
 ```typescript
-// In ChatSession.handleMessage()
-async handleMessage(userMessage: string): Promise<ChatSessionResponse> {
-  // Build request context
-  const requestContext = await buildRequestContext(
-    this,
-    this.agent,
-    userMessage,
-    semanticSearchFunction
-  );
-  
-  // Generate response using request context
-  const response = await this.provider.generateResponse(
-    requestContext,
-    this.messages,
-    // ... other params
-  );
-  
-  // Create assistant message with request context
-  const assistantMessage: ChatMessage = {
-    role: 'assistant',
-    modelReply: response,
-    requestContext: requestContext,  // Store the context used
-  };
-  
-  this.messages.push(assistantMessage);
-  
-  return {
-    success: true,
-    updates: [assistantMessage],
-    lastSyncId: this.lastSyncId,
-    // ...
-  };
-}
+// In ChatSessionImpl.handleMessage()
+// After generating response, attach request context to assistant message
+const replyMessage: ChatMessage = {
+  role: 'assistant' as const,
+  modelReply: modelResponse,
+  requestContext: requestContext  // Attach the context used for this request/response pair
+};
+
+this.messages.push(replyMessage);
+this.lastSyncId++;
+
+// Return MessageUpdate with the assistant message (which includes requestContext)
+return {
+  updates: [message, replyMessage],
+  lastSyncId: this.lastSyncId,
+};
 ```
 
 ## Key Design Decisions
@@ -503,45 +466,48 @@ async handleMessage(userMessage: string): Promise<ChatSessionResponse> {
 
 ## UX Display
 
-### Message Details View
+### Request Context Modal
 
-Show context for each turn (request/response pair):
+Request context is displayed on-demand via a modal dialog accessible from assistant messages:
 
+**Access**:
+- Context menu option or button on assistant messages
+- Only visible on messages that have `requestContext` attached
+- Opens modal to display request context
+
+**Modal Layout**:
+- Three-column layout matching the context panel design
+- Each column shows one type: Rules, References, Tools
+- Read-only view (no "Manage" buttons or add/remove functionality)
+
+**Item Display**:
+- Include mode badges: "Always", "Manual", "Agent"
+- Item name
+- Similarity score (for agent mode items, when semantic search is enabled)
+- Item description/tooltip
+
+**Example Display**:
 ```
-Context Used:
-Rules (3):
+Rules Column:
   • Authentication Rules [Always]
   • Error Handling [Manual]
   • File Operations [Agent - 0.87]
 
-References (2):
+References Column:
   • API Documentation [Always]
   • Database Schema [Agent - 0.92]
 
-Tools (2):
+Tools Column:
   • filesystem:read_file [Manual]
   • database:query [Agent - 0.85]
 ```
 
-### Selection Summary
-
-Show counts by include mode:
-- "5 rules (3 agent, 2 always), 2 references (1 agent, 1 manual), 3 tools (all manual)"
-
-### Visual Design
-
-- Collapsible sections for Rules/References/Tools
-- Badges/pills for include mode: "Always", "Manual", "Agent"
-- Clickable items that link to rule/reference/tool details
-- Show similarity scores for agent items
-- Summary stats at top
-
 ## Backward Compatibility
 
-- `context` field is optional on `ChatMessage`
-- Messages without context show "No context data available" in details view
-- Helper methods on `ChatSession` provide backward-compatible access to `rules`, `references`, `tools` arrays
-- Existing code that uses these arrays continues to work
+- `requestContext` field is optional on `ChatMessage` (assistant messages only)
+- Messages without `requestContext` show "No context data available" in the modal
+- **Note**: Backward-compatible arrays (`rules`, `references`, `tools`) were removed from `ChatState` in favor of `contextItems`
+- All consumers (desktop app, CLI, MCP clients) were updated to use `contextItems` directly
 
 ## Future Considerations
 

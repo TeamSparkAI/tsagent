@@ -568,9 +568,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { 
         success: true,
         updates: result.updates,
-        lastSyncId: result.lastSyncId,
-        references: result.references,
-        rules: result.rules
+        lastSyncId: result.lastSyncId
       };
     } catch (error) {
       log.error('Error clearing model:', error);
@@ -595,9 +593,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { 
         success: true,
         updates: result.updates,
-        lastSyncId: result.lastSyncId,
-        references: result.references,
-        rules: result.rules
+        lastSyncId: result.lastSyncId
       };
     } catch (error) {
       log.error('Error switching model:', error);

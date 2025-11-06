@@ -34,7 +34,7 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "@tsagent/core": "^1.2.8",
+    "@tsagent/core": "file:../../packages/agent-api",
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock": "^3.787.0",
     "@aws-sdk/client-bedrock-runtime": "^3.785.0",

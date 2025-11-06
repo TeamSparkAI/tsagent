@@ -448,7 +448,9 @@ export function implementListRules(agent: Agent): Rule[] {
  * Implementation for listing rules in context
  */
 export function implementListContextRules(session: ChatSession): string[] {
-    return session.getState().rules;
+    return session.getState().contextItems
+        .filter(item => item.type === 'rule')
+        .map(item => item.name);
 }
 
 /**

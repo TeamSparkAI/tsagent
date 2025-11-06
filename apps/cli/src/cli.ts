@@ -728,7 +728,8 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               console.log(chalk.yellow('No rules available.'));
             } else {
               allRules.forEach((rule: any) => {
-                const isActive = chatSession.getState().rules.includes(rule.name);
+                const state = chatSession.getState();
+                const isActive = state.contextItems.some(item => item.type === 'rule' && item.name === rule.name);
                 const marker = isActive ? chalk.green('* ') : chalk.dim('- ');
                 console.log(`${marker}${chalk.yellow(rule.name)} (priority: ${rule.priorityLevel})${!rule.enabled ? ' [disabled]' : ''}`);
               });
@@ -778,7 +779,8 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               console.log(chalk.yellow('No references available.'));
             } else {
               allReferences.forEach((reference: any) => {
-                const isActive = chatSession.getState().references.includes(reference.name);
+                const state = chatSession.getState();
+                const isActive = state.contextItems.some(item => item.type === 'reference' && item.name === reference.name);
                 const marker = isActive ? chalk.green('* ') : chalk.dim('- ');
                 console.log(`${marker}${chalk.yellow(reference.name)} (priority: ${reference.priorityLevel})${!reference.enabled ? ' [disabled]' : ''}`);
               });

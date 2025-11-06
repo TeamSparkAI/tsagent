@@ -35,6 +35,14 @@ export {
   TOOL_CALL_DECISION_DENY
  } from './types/chat.js';
 
+// Export context types
+export type { 
+  ContextItemBase,
+  SessionContextItem,
+  RequestContextItem,
+  RequestContext
+ } from './types/context.js';
+
 // Export MCP types and constants 
 export { 
   Tool, 

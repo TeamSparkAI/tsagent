@@ -1,7 +1,7 @@
 import { ProviderType } from '@tsagent/core';
 import type { ProviderModel as ILLMModel } from '@tsagent/core';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ChatMessage, MessageUpdate, ModelReply } from '@tsagent/core';
+import { ChatMessage, MessageUpdate, ModelReply, SessionContextItem } from '@tsagent/core';
 import log from 'electron-log';
 
 export class ChatAPI {
@@ -216,13 +216,15 @@ export class ChatAPI {
 
   public async getActiveReferences(): Promise<string[]> {
     // This requires refreshing the state first to ensure we have the latest data
-    // Return the references from the latest state
+    // Return the references from contextItems
     try {
       const state = await window.api.getChatState(this.tabId);
       if (!state) {
         throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
       }
-      return state.references;
+      return state.contextItems
+        .filter((item: SessionContextItem) => item.type === 'reference')
+        .map((item: SessionContextItem) => item.name);
     } catch (error) {
       log.error('Error getting active references:', error);
       return [];
@@ -231,13 +233,15 @@ export class ChatAPI {
 
   public async getActiveRules(): Promise<string[]> {
     // This requires refreshing the state first to ensure we have the latest data
-    // Return the rules from the latest state
+    // Return the rules from contextItems
     try {
       const state = await window.api.getChatState(this.tabId);
       if (!state) {
         throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
       }
-      return state.rules;
+      return state.contextItems
+        .filter((item: SessionContextItem) => item.type === 'rule')
+        .map((item: SessionContextItem) => item.name);
     } catch (error) {
       log.error('Error getting active rules:', error);
       return [];
@@ -246,13 +250,20 @@ export class ChatAPI {
 
   public async getActiveTools(): Promise<{serverName: string, toolName: string}[]> {
     // This requires refreshing the state first to ensure we have the latest data
-    // Return the tools from the latest state
+    // Return the tools from contextItems
     try {
       const state = await window.api.getChatState(this.tabId);
       if (!state) {
         throw new Error(`[CHAT API] No chat state found for tab ${this.tabId}`);
       }
-      return state.tools || [];
+      return state.contextItems
+        .filter((item: SessionContextItem) => item.type === 'tool')
+        .map((item: SessionContextItem) => {
+          if (item.type === 'tool') {
+            return { serverName: item.serverName, toolName: item.name };
+          }
+          throw new Error('Expected tool item');
+        });
     } catch (error) {
       log.error('Error getting active tools:', error);
       return [];

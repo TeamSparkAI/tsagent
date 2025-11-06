@@ -6,6 +6,7 @@ import {
   SETTINGS_KEY_TEMPERATURE, 
   SESSION_TOOL_PERMISSION_KEY 
 } from './agent.js';
+import { RequestContext, SessionContextItem } from './context.js';
 
 // These represent the Electron-side chat history (requests and responses)
 
@@ -28,6 +29,7 @@ export type ChatMessage = {
 } | {
   role: 'assistant';
   modelReply: ModelReply;
+  requestContext?: RequestContext;  // Context used for this request/response pair
 };
 
 export interface ChatState {
@@ -35,9 +37,7 @@ export interface ChatState {
   lastSyncId: number;
   currentModelProvider?: ProviderType;
   currentModelId?: string;
-  references: string[];
-  rules: string[];
-  tools: Array<{serverName: string, toolName: string}>;
+  contextItems: SessionContextItem[];  // Tracked context items with include modes
   maxChatTurns: number;
   maxOutputTokens: number;
   temperature: number;
@@ -48,8 +48,6 @@ export interface ChatState {
 export interface MessageUpdate {
   updates: ChatMessage[];
   lastSyncId: number;
-  references: string[];
-  rules: string[];
 }
 
 export interface ChatSessionSettings {

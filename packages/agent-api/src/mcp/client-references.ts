@@ -428,7 +428,9 @@ export function implementListReferences(agent: Agent): Reference[] {
 }
 
 export function implementListContextReferences(session: ChatSession): string[] {
-    return session.getState().references;
+    return session.getState().contextItems
+        .filter(item => item.type === 'reference')
+        .map(item => item.name);
 }
 
 export function implementIncludeReference(session: ChatSession, referenceName: string): string {

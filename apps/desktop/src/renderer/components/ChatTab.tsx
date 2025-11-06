@@ -19,7 +19,7 @@ import BedrockLogo from '../assets/bedrock.png';
 import LocalLogo from '../assets/local.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
-import { ChatState } from '@tsagent/core';
+import { ChatState, SessionContextItem } from '@tsagent/core';
 import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from '@tsagent/core';
 import { ReferencesModal } from './ReferencesModal';
 import { RulesModal } from './RulesModal';
@@ -31,9 +31,8 @@ interface ClientChatState {
   selectedModel?: ProviderType;
   selectedModelName?: string;
   currentModelId?: string;
-  references?: string[];
-  rules?: string[];
   pendingToolCalls?: ToolCallRequest[];
+  contextItems?: SessionContextItem[];  // Session context items for deriving active references, rules, and tools
 }
 
 // Handle external links safely
@@ -82,9 +81,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   });
   const [inputValue, setInputValue] = useState('');
   const [expandedToolCalls, setExpandedToolCalls] = useState<Set<string>>(new Set());
-  const [activeReferences, setActiveReferences] = useState<string[]>([]);
-  const [activeRules, setActiveRules] = useState<string[]>([]);
-  const [activeTools, setActiveTools] = useState<{serverName: string, toolName: string}[]>([]);
   const [availableReferences, setAvailableReferences] = useState<{name: string, description: string, priorityLevel: number}[]>([]);
   const [availableRules, setAvailableRules] = useState<{name: string, description: string, priorityLevel: number}[]>([]);
   const [availableTools, setAvailableTools] = useState<{serverName: string, toolName: string, description: string}[]>([]);
@@ -249,17 +245,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               selectedModel: modelProvider,
               selectedModelName: modelName,
               currentModelId: modelId,
-              references: state.references || [],
-              rules: state.rules || [],
+              contextItems: state.contextItems
             };
 
-            // Update the chat state
             setChatState(newChatState);
-            
-            // Update the context data
-            setActiveReferences(state.references || []);
-            setActiveRules(state.rules || []);
-            setActiveTools(state.tools || []);
 
             // Update the chat settings
             setChatSettings({
@@ -360,9 +349,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             messages: chatApiRef.current!.getMessages(),
             selectedModel: chatApiRef.current!.getCurrentModel(),
             selectedModelName: chatApiRef.current!.getCurrentModelName(),
-            currentModelId: prev.currentModelId,
-            references: prev.references,
-            rules: prev.rules
+            currentModelId: prev.currentModelId
           }));
         } catch (error) {
           log.error('Failed to send initial message:', error);
@@ -619,24 +606,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
       }));
       
       const response = await chatApiRef.current!.sendMessage(messageToSend);
+      
+      // Get updated state with contextItems
+      const updatedState = await window.api.getChatState(id);
       setChatState(prev => ({
         messages: chatApiRef.current!.getMessages(),
         selectedModel: chatApiRef.current!.getCurrentModel(),
         selectedModelName: chatApiRef.current!.getCurrentModelName(),
         currentModelId: prev.currentModelId,
-        references: prev.references,
-        rules: prev.rules
+        contextItems: updatedState?.contextItems  // Update contextItems (activeReferences, activeRules, activeTools will be derived automatically)
       }));
-      
-      // Refresh the context to show any changes made during message processing
-      if (chatApiRef.current) {
-        const refs = await chatApiRef.current.getActiveReferences();
-        const rules = await chatApiRef.current.getActiveRules();
-        const tools = await chatApiRef.current.getActiveTools();
-        setActiveReferences(refs);
-        setActiveRules(rules);
-        setActiveTools(tools);
-      }
     } catch (error) {
       log.error('Failed to get response:', error);
       // Remove the optimistic message on error
@@ -672,9 +651,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               messages: updatedMessages,
               selectedModel: model,
               selectedModelName: modelName || prev.selectedModelName,
-              currentModelId: modelId || prev.currentModelId,
-              references: prev.references,
-              rules: prev.rules
+              currentModelId: modelId || prev.currentModelId
             };
             return newState;
           });
@@ -695,9 +672,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
           messages: prev.messages,
           selectedModel: prev.selectedModel,
           selectedModelName: prev.selectedModelName,
-          currentModelId: prev.currentModelId,
-          references: prev.references,
-          rules: prev.rules,
+          currentModelId: prev.currentModelId
         };
         return newState;
       });
@@ -813,14 +788,12 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const refreshContextData = async () => {
     if (chatApiRef.current) {
       try {
-        const [refs, rules, tools] = await Promise.all([
-          chatApiRef.current.getActiveReferences(),
-          chatApiRef.current.getActiveRules(),
-          chatApiRef.current.getActiveTools()
-        ]);
-        setActiveReferences(refs);
-        setActiveRules(rules);
-        setActiveTools(tools);
+        // Refresh contextItems from state (activeReferences, activeRules, activeTools will be derived automatically)
+        const updatedState = await window.api.getChatState(id);
+        setChatState(prev => ({
+          ...prev,
+          contextItems: updatedState?.contextItems
+        }));
       } catch (error) {
         log.error('Error refreshing context data:', error);
       }
@@ -922,6 +895,9 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
 
         log.info(`[ChatTab] Received response from chat session:`, response);
 
+        // Get updated chat state to get current contextItems
+        const updatedState = await window.api.getChatState(id);
+
         // Update chat state with the full response
         setChatState(prevState => {
           const newMessages = [...prevState.messages];
@@ -954,8 +930,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
           return {
             ...prevState,
             messages: newMessages,
-            references: response.references || prevState.references,
-            rules: response.rules || prevState.rules
+            contextItems: updatedState?.contextItems  // Update contextItems (activeReferences, activeRules will be derived automatically)
           };
         });
 
@@ -1183,10 +1158,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                   </button>
                 )}</h3>
               </div>
-              {activeReferences.length === 0 && <p>No active references</p>}
+              {(!chatState.contextItems || chatState.contextItems.filter(item => item.type === 'reference').length === 0) && <p>No active references</p>}
               <ul className="context-list">
                 {availableReferences
-                  .filter(ref => activeReferences.includes(ref.name))
+                  .filter(ref => chatState.contextItems?.some(item => item.type === 'reference' && item.name === ref.name))
                   .sort((a, b) => {
                     if (a.priorityLevel !== b.priorityLevel) {
                       return a.priorityLevel - b.priorityLevel;
@@ -1212,10 +1187,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                   </button>
                 )}</h3>
               </div>
-              {activeRules.length === 0 && <p>No active rules</p>}
+              {(!chatState.contextItems || chatState.contextItems.filter(item => item.type === 'rule').length === 0) && <p>No active rules</p>}
               <ul className="context-list">
                 {availableRules
-                  .filter(rule => activeRules.includes(rule.name))
+                  .filter(rule => chatState.contextItems?.some(item => item.type === 'rule' && item.name === rule.name))
                   .sort((a, b) => {
                     if (a.priorityLevel !== b.priorityLevel) {
                       return a.priorityLevel - b.priorityLevel;
@@ -1241,11 +1216,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                   </button>
                 )}</h3>
               </div>
-              {activeTools.length === 0 && <p>No active tools</p>}
+              {(!chatState.contextItems || chatState.contextItems.filter(item => item.type === 'tool').length === 0) && <p>No active tools</p>}
               {(() => {
                 const toolsByServer: Record<string, typeof availableTools> = {};
                 availableTools.forEach(tool => {
-                  if (activeTools.some(active => active.serverName === tool.serverName && active.toolName === tool.toolName)) {
+                  if (chatState.contextItems?.some(item => item.type === 'tool' && item.serverName === tool.serverName && item.name === tool.toolName)) {
                     if (!toolsByServer[tool.serverName]) {
                       toolsByServer[tool.serverName] = [];
                     }

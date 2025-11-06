@@ -719,9 +719,13 @@ export class McpClientInternalSupervision implements McpClient {
             case 'messages':
                 return state.messages;
             case 'rules':
-                return state.rules;
+                return state.contextItems
+                    .filter(item => item.type === 'rule')
+                    .map(item => item.name);
             case 'references':
-                return state.references;
+                return state.contextItems
+                    .filter(item => item.type === 'reference')
+                    .map(item => item.name);
             default:
                 return null;
         }
@@ -740,8 +744,8 @@ export class McpClientInternalSupervision implements McpClient {
         return {
             sessionId: this.supervisedSession.id,
             messageCount: state.messages.length,
-            ruleCount: state.rules.length,
-            referenceCount: state.references.length,
+            ruleCount: state.contextItems.filter(item => item.type === 'rule').length,
+            referenceCount: state.contextItems.filter(item => item.type === 'reference').length,
         };
     }
 

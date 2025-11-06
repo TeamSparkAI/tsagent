@@ -5,6 +5,7 @@ import { Logger } from '../types/common.js';
 import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent.js';
 import { isToolPermissionRequired, getToolEffectiveIncludeMode, getToolIncludeServerDefault } from '../mcp/types.js';
 import { SupervisionManager, RequestSupervisionResult, ResponseSupervisionResult } from '../types/supervision.js';
+import { SessionContextItem, RequestContextItem, RequestContext } from '../types/context.js';
 
 export class ChatSessionImpl implements ChatSession {
   private _id: string;
@@ -14,9 +15,7 @@ export class ChatSessionImpl implements ChatSession {
   currentModelId?: string;
   provider?: Provider;
   agent: Agent;
-  rules: string[] = [];
-  references: string[] = [];
-  tools: Array<{serverName: string, toolName: string}> = [];
+  contextItems: SessionContextItem[] = [];  // Tracked context items with include modes
   maxChatTurns: number;
   maxOutputTokens: number;
   temperature: number;
@@ -72,14 +71,14 @@ export class ChatSessionImpl implements ChatSession {
     // Add "always" include references to the session
     for (const reference of this.agent.getAllReferences()) {
       if (reference.include === 'always') {
-        this.addReference(reference.name);
+        this.addReference(reference.name, 'always');
       }
     }
 
     // Add "always" include rules to the session
     for (const rule of this.agent.getAllRules()) {
       if (rule.include === 'always') {
-        this.addRule(rule.name);
+        this.addRule(rule.name, 'always');
       }
     } 
 
@@ -104,15 +103,119 @@ export class ChatSessionImpl implements ChatSession {
       lastSyncId: this.lastSyncId,
       currentModelProvider: this.currentProvider,
       currentModelId: this.currentModelId,
-      references: [...this.references],
-      rules: [...this.rules],
-      tools: [...this.tools],
+      contextItems: [...this.contextItems],  // Include tracked context items
       maxChatTurns: this.maxChatTurns,
       maxOutputTokens: this.maxOutputTokens,
       temperature: this.temperature,
       topP: this.topP,
       toolPermission: this.toolPermission,
     };
+  }
+
+  /**
+   * Build request context from session context + agent items
+   * For Phase 3, only includes session context (no semantic search yet)
+   */
+  private async buildRequestContext(
+    userMessage: string
+  ): Promise<RequestContext> {
+    const requestItems: RequestContextItem[] = [];
+    
+    // Step 1: Add all session context items (always + manual)
+    for (const sessionItem of this.contextItems) {
+      // Convert SessionContextItem to RequestContextItem
+      if (sessionItem.type === 'tool') {
+        requestItems.push({
+          type: 'tool',
+          name: sessionItem.name,
+          serverName: sessionItem.serverName,
+          includeMode: sessionItem.includeMode,
+        });
+      } else {
+        requestItems.push({
+          type: sessionItem.type,
+          name: sessionItem.name,
+          includeMode: sessionItem.includeMode,
+        });
+      }
+    }
+    
+    // Step 2: For Phase 3, we don't include agent mode items yet
+    // This will be added in Phase 4 with semantic search
+    
+    return {
+      items: requestItems,
+    };
+  }
+
+  /**
+   * Helper function to get agent mode items (items with include: 'agent' that are NOT in session context)
+   * Prepared for Phase 4 semantic search integration
+   */
+  private getAgentModeItems(): RequestContextItem[] {
+    const items: RequestContextItem[] = [];
+    
+    // Get rules with include: 'agent'
+    for (const rule of this.agent.getAllRules()) {
+      if (rule.include === 'agent' && rule.enabled) {
+        // Check if not already in session
+        const inSession = this.contextItems.some(
+          item => item.type === 'rule' && item.name === rule.name
+        );
+        if (!inSession) {
+          items.push({
+            name: rule.name,
+            type: 'rule',
+            includeMode: 'agent',  // Will be included via semantic search
+          });
+        }
+      }
+    }
+    
+    // Get references with include: 'agent'
+    for (const reference of this.agent.getAllReferences()) {
+      if (reference.include === 'agent' && reference.enabled) {
+        // Check if not already in session
+        const inSession = this.contextItems.some(
+          item => item.type === 'reference' && item.name === reference.name
+        );
+        if (!inSession) {
+          items.push({
+            name: reference.name,
+            type: 'reference',
+            includeMode: 'agent',  // Will be included via semantic search
+          });
+        }
+      }
+    }
+    
+    // Get tools with include: 'agent'
+    const mcpClients = this.agent.getAllMcpClientsSync();
+    for (const [serverName, client] of Object.entries(mcpClients)) {
+      const serverConfig = this.agent.getMcpServer(serverName)?.config;
+      if (!serverConfig) continue;
+      
+      for (const tool of client.serverTools) {
+        const effectiveMode = getToolEffectiveIncludeMode(serverConfig, tool.name);
+        if (effectiveMode === 'agent') {
+          const inSession = this.contextItems.some(
+            item => item.type === 'tool' && 
+                    item.name === tool.name && 
+                    item.serverName === serverName
+          );
+          if (!inSession) {
+            items.push({
+              name: tool.name,
+              type: 'tool',
+              serverName: serverName,
+              includeMode: 'agent',
+            });
+          }
+        }
+      }
+    }
+    
+    return items;
   }
 
   //  We're going to construct and pass a bag of messages to the LLM (context)
@@ -157,9 +260,8 @@ export class ChatSessionImpl implements ChatSession {
         cleanMessage = cleanMessage.replace(referenceRegex, '');
         for (const match of referenceMatches) {
           const referenceName = match.replace('@ref:', '');
-          if (!this.references.includes(referenceName)) {
-            this.references.push(referenceName);
-          }
+          // Use addReference method which handles contextItems tracking
+          this.addReference(referenceName, 'manual');
         }
       }
       
@@ -167,9 +269,8 @@ export class ChatSessionImpl implements ChatSession {
         cleanMessage = cleanMessage.replace(ruleRegex, '');
         for (const match of ruleMatches) {
           const ruleName = match.replace('@rule:', '');
-          if (!this.rules.includes(ruleName)) {
-            this.rules.push(ruleName);
-          }
+          // Use addRule method which handles contextItems tracking
+          this.addRule(ruleName, 'manual');
         }
       }
       
@@ -179,6 +280,10 @@ export class ChatSessionImpl implements ChatSession {
       message.content = cleanMessage;
     }
 
+    // Build request context (for this request/response pair)
+    const userMessageContent = message.role === 'user' ? message.content : '';
+    const requestContext = await this.buildRequestContext(userMessageContent);
+
     // Build messages array, starting with system prompt and existing non-system messages
     const systemPrompt = await this.agent.getSystemPrompt();
     const messages: ChatMessage[] = [
@@ -186,25 +291,29 @@ export class ChatSessionImpl implements ChatSession {
       ...this.messages.filter(m => m.role !== 'system')
     ];
     
-    // Add the references to the messages array
-    for (const referenceName of this.references) {
-      const reference = this.agent.getReference(referenceName);
-      if (reference) {
-        messages.push({
-          role: 'user',
-          content: `Reference: ${reference.text}`
-        }); 
+    // Add the references to the messages array (from request context)
+    for (const item of requestContext.items) {
+      if (item.type === 'reference') {
+        const reference = this.agent.getReference(item.name);
+        if (reference) {
+          messages.push({
+            role: 'user',
+            content: `Reference: ${reference.text}`
+          }); 
+        }
       }
     }
     
-    // Add the rules to the messages array
-    for (const ruleName of this.rules) {
-      const rule = this.agent.getRule(ruleName);
-      if (rule) {
-        messages.push({
-          role: 'user',
-          content: `Rule: ${rule.text}`
-        });
+    // Add the rules to the messages array (from request context)
+    for (const item of requestContext.items) {
+      if (item.type === 'rule') {
+        const rule = this.agent.getRule(item.name);
+        if (rule) {
+          messages.push({
+            role: 'user',
+            content: `Rule: ${rule.text}`
+          });
+        }
       }
     }
 
@@ -230,8 +339,6 @@ export class ChatSessionImpl implements ChatSession {
               content: `Message blocked: ${reason}`
             }],
             lastSyncId: this.lastSyncId,
-            references: [...this.references],
-            rules: [...this.rules]
           };
         }
         
@@ -261,9 +368,10 @@ export class ChatSessionImpl implements ChatSession {
 
       this.logger.debug('All turns', JSON.stringify(modelResponse.turns, null, 2));
 
-      const replyMessage = {
+      const replyMessage: ChatMessage = {
         role: 'assistant' as const,
-        modelReply: modelResponse
+        modelReply: modelResponse,
+        requestContext: requestContext  // Attach the context used for this request/response pair
       };
       
       this.messages.push(replyMessage);
@@ -272,8 +380,6 @@ export class ChatSessionImpl implements ChatSession {
       let response: MessageUpdate = {
         updates: [message, replyMessage],
         lastSyncId: this.lastSyncId,
-        references: [...this.references],
-        rules: [...this.rules]
       };
 
       // Apply supervision to response if available
@@ -294,8 +400,6 @@ export class ChatSessionImpl implements ChatSession {
                 content: `Response blocked: ${reason}`
               }],
               lastSyncId: this.lastSyncId,
-              references: [...this.references],
-              rules: [...this.rules]
             };
           }
           
@@ -334,8 +438,6 @@ export class ChatSessionImpl implements ChatSession {
     return {
       updates: [systemMessage],
       lastSyncId: this.lastSyncId,
-      references: [...this.references],
-      rules: [...this.rules]
     };
   }
 
@@ -367,8 +469,6 @@ export class ChatSessionImpl implements ChatSession {
       return {
         updates: [systemMessage],
         lastSyncId: this.lastSyncId,
-        references: [...this.references],
-        rules: [...this.rules]
       };
     } catch (error) {
       this.logger.error(`Error switching model:`, error);
@@ -380,14 +480,13 @@ export class ChatSessionImpl implements ChatSession {
       return {
         updates: [systemMessage],
         lastSyncId: this.lastSyncId,
-        references: [...this.references],
-        rules: [...this.rules]
       };
     }
   }
 
-  addReference(referenceName: string): boolean {
-    if (this.references.includes(referenceName)) {
+  addReference(referenceName: string, method: 'always' | 'manual' = 'manual'): boolean {
+    // Check if already in contextItems
+    if (this.contextItems.some(item => item.type === 'reference' && item.name === referenceName)) {
       return false; // Already exists
     }
     
@@ -398,26 +497,33 @@ export class ChatSessionImpl implements ChatSession {
       return false;
     }
     
-    this.references.push(referenceName);
+    this.contextItems.push({
+      type: 'reference',
+      name: referenceName,
+      includeMode: method,
+    });
     this.lastSyncId++;
-    this.logger.info(`Added reference '${referenceName}' to chat session`);
+    this.logger.info(`Added reference '${referenceName}' to chat session (${method})`);
     return true;
   }
 
   removeReference(referenceName: string): boolean {
-    const index = this.references.indexOf(referenceName);
+    const index = this.contextItems.findIndex(
+      item => item.type === 'reference' && item.name === referenceName
+    );
     if (index === -1) {
       return false; // Doesn't exist
     }
     
-    this.references.splice(index, 1);
+    this.contextItems.splice(index, 1);
     this.lastSyncId++;
     this.logger.info(`Removed reference '${referenceName}' from chat session`);
     return true;
   }
 
-  addRule(ruleName: string): boolean {
-    if (this.rules.includes(ruleName)) {
+  addRule(ruleName: string, method: 'always' | 'manual' = 'manual'): boolean {
+    // Check if already in contextItems
+    if (this.contextItems.some(item => item.type === 'rule' && item.name === ruleName)) {
       return false; // Already exists
     }
     
@@ -428,27 +534,37 @@ export class ChatSessionImpl implements ChatSession {
       return false;
     }
     
-    this.rules.push(ruleName);
+    this.contextItems.push({
+      type: 'rule',
+      name: ruleName,
+      includeMode: method,
+    });
     this.lastSyncId++;
-    this.logger.info(`Added rule '${ruleName}' to chat session`);
+    this.logger.info(`Added rule '${ruleName}' to chat session (${method})`);
     return true;
   }
 
   removeRule(ruleName: string): boolean {
-    const index = this.rules.indexOf(ruleName);
+    const index = this.contextItems.findIndex(
+      item => item.type === 'rule' && item.name === ruleName
+    );
     if (index === -1) {
       return false; // Doesn't exist
     }
     
-    this.rules.splice(index, 1);
+    this.contextItems.splice(index, 1);
     this.lastSyncId++;
     this.logger.info(`Removed rule '${ruleName}' from chat session`);
     return true;
   }
 
-  async addTool(serverName: string, toolName: string): Promise<boolean> {
-    // Check if tool is already in context
-    if (this.tools.some(tool => tool.serverName === serverName && tool.toolName === toolName)) {
+  async addTool(serverName: string, toolName: string, method: 'always' | 'manual' = 'manual'): Promise<boolean> {
+    // Check if tool is already in contextItems
+    if (this.contextItems.some(
+      item => item.type === 'tool' && 
+              item.name === toolName && 
+              item.serverName === serverName
+    )) {
       return false; // Already exists
     }
     
@@ -467,9 +583,14 @@ export class ChatSessionImpl implements ChatSession {
         return false;
       }
       
-      this.tools.push({ serverName, toolName });
+      this.contextItems.push({
+        type: 'tool',
+        name: toolName,
+        serverName: serverName,
+        includeMode: method,
+      });
       this.lastSyncId++;
-      this.logger.info(`Added tool '${serverName}:${toolName}' to chat session`);
+      this.logger.info(`Added tool '${serverName}:${toolName}' to chat session (${method})`);
       return true;
     } catch (error) {
       this.logger.error(`Error adding tool '${serverName}:${toolName}' to chat session:`, error);
@@ -478,19 +599,25 @@ export class ChatSessionImpl implements ChatSession {
   }
 
   removeTool(serverName: string, toolName: string): boolean {
-    const index = this.tools.findIndex(tool => tool.serverName === serverName && tool.toolName === toolName);
+    const index = this.contextItems.findIndex(
+      item => item.type === 'tool' && 
+              item.name === toolName && 
+              item.serverName === serverName
+    );
     if (index === -1) {
       return false; // Doesn't exist
     }
     
-    this.tools.splice(index, 1);
+    this.contextItems.splice(index, 1);
     this.lastSyncId++;
     this.logger.info(`Removed tool '${serverName}:${toolName}' from chat session`);
     return true;
   }
 
   getIncludedTools(): Array<{serverName: string, toolName: string}> {
-    return [...this.tools];
+    return this.contextItems
+      .filter(item => item.type === 'tool')
+      .map(item => ({ serverName: item.serverName!, toolName: item.name }));
   }
 
   private initializeAlwaysIncludeTools(): void {
@@ -509,7 +636,12 @@ export class ChatSessionImpl implements ChatSession {
           if (client && client.serverTools) {
             for (const tool of client.serverTools) {
               if (getToolEffectiveIncludeMode(serverConfig as any, tool.name) === 'always') {
-                this.tools.push({ serverName, toolName: tool.name });
+                this.contextItems.push({
+                  type: 'tool',
+                  name: tool.name,
+                  serverName: serverName,
+                  includeMode: 'always',
+                });
                 this.logger.info(`Added always-include tool '${serverName}:${tool.name}' to session`);
               }
             }
