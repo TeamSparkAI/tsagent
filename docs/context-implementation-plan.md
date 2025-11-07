@@ -4,8 +4,8 @@ This document outlines a phased implementation plan for the context tracking sys
 
 ## Implementation Status
 
-**Completed Phases**: 1, 2, 3, 4  
-**Remaining Phases**: 5, 6
+**Completed Phases**: 1, 2, 3, 4, 5a, 5b, 5c, 5d  
+**Remaining Phases**: 6
 
 ## Implementation Phases
 
@@ -134,42 +134,177 @@ This document outlines a phased implementation plan for the context tracking sys
 
 ### 🔄 REMAINING PHASES
 
-### ⏳ Phase 5: Semantic Search Integration
-**Status**: PENDING  
+### ✅ Phase 5a: Add SemanticIndexer to Agent
+**Status**: COMPLETE  
+**Goal**: Add semantic indexing capability to Agent as an optional, on-demand feature.
+
+**Prerequisites**:
+- Semantic indexer from `apps/semantic-index` must be available as a package or integrated into `agent-api`
+- `@xenova/transformers` dependency available
+
+**Tasks**:
+1. ✅ Extract `SemanticIndexer` from `apps/semantic-index/src/indexer.ts` into `packages/agent-api/src/managers/semantic-indexer.ts`:
+   - ✅ Adapted to work with `SessionContextItem[]` and `RequestContextItem[]` types (context-item-centric design)
+   - ✅ Supports JIT (Just-In-Time) indexing via `indexContextItems()` method
+   - ✅ Maintains same embedding model (`Xenova/all-MiniLM-L6-v2`)
+   - ✅ Removed `Scope` and `SearchResult` types in favor of context item types
+2. ✅ Add `searchContextItems()` method to `Agent` interface:
+   - ✅ Public method: `searchContextItems(query: string, items: SessionContextItem[], options?: {...}): Promise<RequestContextItem[]>`
+   - ✅ `SemanticIndexer` is private, lazy-initialized member of `AgentImpl`
+   - ✅ No getter/setter - indexer is internal implementation detail
+3. ✅ Update `AgentImpl` to support semantic indexer:
+   - ✅ Private `_semanticIndexer: SemanticIndexer | null = null` property
+   - ✅ Private `getSemanticIndexer(): SemanticIndexer` method with lazy initialization
+   - ✅ Public `searchContextItems()` method delegates to indexer
+   - ✅ Uses agent's logger for indexer initialization
+   - ✅ Model initialization deferred until first use
+
+**Deliverables**:
+- ✅ `SemanticIndexer` class available in `agent-api` package
+- ✅ Agent interface supports semantic search via `searchContextItems()` method
+- ✅ Indexer initializes on-demand (no upfront cost)
+- ✅ Search parameters implemented: `topK` (default: 20), `topN` (default: 5), `includeScore` (default: 0.7)
+
+**Implementation Notes**:
+- `SemanticIndexer` is context-item-centric: works directly with `SessionContextItem[]` and returns `RequestContextItem[]`
+- `indexContextItems()` performs JIT indexing for all items in the provided array
+- `searchContextItems()` internally calls `indexContextItems()` to ensure all items are indexed before searching
+- Embeddings stored directly on items (`Rule.embeddings`, `Reference.embeddings`) and clients (`McpClient.toolEmbeddings`)
+- Search parameters allow fine-tuning: `topK` for chunk match limit, `topN` for result limit, `includeScore` for high-confidence threshold
+
+**Testing**:
+- ✅ Semantic indexer initializes only when first used
+- ✅ Model loading works correctly
+- ✅ System works without semantic indexer (optional feature)
+- ✅ Search parameters work with defaults and custom values
+
+---
+
+### ✅ Phase 5b: JIT Indexing for Rules and References
+**Status**: COMPLETE  
+**Goal**: Implement JIT indexing for rules and references with embeddings stored on items.
+
+**Prerequisites**:
+- Phase 5a complete (SemanticIndexer available on Agent)
+
+**Tasks**:
+1. ✅ Update `Rule` and `Reference` interfaces to support embeddings:
+   - ✅ Added optional `embeddings?: IndexedChunk[]` field
+   - ✅ `IndexedChunk` includes: `text: string`, `embedding: number[]`, `chunkIndex: number`
+2. ✅ Implement JIT indexing in `SemanticIndexer`:
+   - ✅ Method to index single rule/reference on demand (`indexRule()`, `indexReference()`)
+   - ✅ Method to batch index multiple rules/references (`indexContextItems()`)
+   - ✅ Check for existing embeddings before indexing: `if (!item.embeddings) { generate }`
+   - ✅ Store embeddings on item: `item.embeddings = chunks`
+3. ✅ Implement cache invalidation:
+   - ✅ Clear embeddings when rule/reference is updated: `item.embeddings = undefined`
+   - ✅ Embeddings regenerated on next semantic search
+4. ✅ Update rule/reference update methods:
+   - ✅ Clear embeddings in `addRule()` and `addReference()` (used for both add and update)
+
+**Deliverables**:
+- ✅ Rules and references support optional embeddings
+- ✅ JIT indexing generates embeddings on demand
+- ✅ Cache invalidation clears embeddings on updates
+- ✅ No upfront indexing cost
+
+**Implementation Notes**:
+- Embeddings are stored directly on `Rule` and `Reference` objects
+- JIT indexing is triggered automatically when `searchContextItems()` is called (via `indexContextItems()`)
+- Cache invalidation only clears embeddings when updating existing items (not for new items)
+
+**Testing**:
+- ✅ Embeddings generated only when needed
+- ✅ Embeddings persist until item is updated
+- ✅ Cache invalidation works correctly
+- ✅ Performance acceptable (no blocking on agent load)
+
+---
+
+### ✅ Phase 5c: JIT Indexing for MCP Tools
+**Status**: COMPLETE  
+**Goal**: Implement JIT indexing for MCP tools with embeddings stored on McpClient.
+
+**Prerequisites**:
+- Phase 5a complete (SemanticIndexer available on Agent)
+- Phase 5b complete (JIT indexing pattern established)
+
+**Tasks**:
+1. ✅ Update `McpClient` interface to support tool embeddings:
+   - ✅ Added optional `toolEmbeddings?: Map<string, IndexedChunk[]>` field
+   - ✅ Key: tool name, Value: embeddings chunks
+2. ✅ Implement JIT indexing for tools in `SemanticIndexer`:
+   - ✅ Method to index tools from a specific MCP client (`indexTool()`)
+   - ✅ Method to batch index tools from multiple clients (via `indexContextItems()`)
+   - ✅ Check for existing embeddings: `if (!client.toolEmbeddings?.has(tool.name)) { generate }`
+   - ✅ Ensure map exists: `if (!client.toolEmbeddings) { client.toolEmbeddings = new Map() }`
+   - ✅ Store embeddings: `client.toolEmbeddings.set(tool.name, chunks)`
+3. ✅ Handle tool indexing (same JIT pattern as rules/references):
+   - ✅ Index tools JIT on first semantic search request (same as rules/references)
+   - ✅ No invalidation needed (tools don't change after MCP clients are loaded)
+   - ✅ If client is reloaded, embeddings cleared with old client (new client has no embeddings)
+
+**Deliverables**:
+- ✅ MCP tools support optional embeddings on client
+- ✅ JIT indexing generates tool embeddings on demand
+- ✅ Embeddings stored per tool on client
+- ✅ No upfront indexing cost
+
+**Implementation Notes**:
+- Embeddings are stored on `McpClient` instances in a `Map<string, IndexedChunk[]>`
+- JIT indexing is triggered automatically when `searchContextItems()` is called (via `indexContextItems()`)
+- No cache invalidation needed since tools don't change after MCP clients are loaded
+
+**Testing**:
+- ✅ Tool embeddings generated only when needed
+- ✅ Embeddings persist per client
+- ✅ Client reload clears embeddings correctly
+- ✅ Performance acceptable
+
+---
+
+### ✅ Phase 5d: Integrate Semantic Search into Request Context
+**Status**: COMPLETE  
 **Goal**: Integrate semantic search to automatically select agent mode items for each request.
 
 **Prerequisites**:
-- Semantic indexer from `apps/semantic-index` must be available as a package or integrated
-- Agent must have access to semantic indexer instance
+- Phase 5a complete (SemanticIndexer on Agent)
+- Phase 5b complete (JIT indexing for rules/references)
+- Phase 5c complete (JIT indexing for tools)
 
 **Tasks**:
-1. Create semantic search function:
-   - Takes user message, agent, and session
-   - Uses semantic indexer to search for relevant rules, references, and tools
-   - Returns `RequestContextItem[]` with `includeMode: 'agent'` and `similarityScore`
-   - Only searches items with `include: 'agent'` that are NOT in session context
-2. Update `buildRequestContext()`:
-   - Add semantic search step (if semantic search is available)
-   - Merge agent-selected items into request context
-   - Ensure no duplicates (agent items already in session context are excluded)
-3. Update `handleMessage()`:
-   - Pass semantic search function to `buildRequestContext()` (if available)
-   - Handle optional semantic search gracefully (works without it)
+1. ✅ Update `buildRequestContext()` in `ChatSessionImpl`:
+   - ✅ Get agent mode items using `getAgentModeItems()` helper
+   - ✅ Call `agent.searchContextItems()` with user message and agent mode items
+   - ✅ Use default search parameters (topK: 20, topN: 5, includeScore: 0.7)
+   - ✅ Handle optional semantic search gracefully (try/catch - works without it)
+   - ✅ Merge agent-selected items into request context
+   - ✅ Ensure no duplicates (agent items already in session context are excluded)
+   - ✅ Preserve server/tool relationship for tools
+2. ✅ Update `handleMessage()`:
+   - ✅ Semantic search is already integrated via `buildRequestContext()`
+   - ✅ Similarity scores are automatically attached to agent mode items in request context
+   - ✅ No additional changes needed (request context already includes similarity scores)
 
 **Deliverables**:
-- Agent mode items automatically selected via semantic search
-- Similarity scores recorded in request context
-- Works with or without semantic search enabled
+- ✅ Agent mode items automatically selected via semantic search
+- ✅ Similarity scores recorded in request context
+- ✅ Works with or without semantic search enabled
+- ✅ JIT indexing ensures embeddings exist when needed
+
+**Implementation Notes**:
+- Semantic search is called in `buildRequestContext()` before building the request context
+- JIT indexing runs automatically when `searchContextItems()` is called
+- Search results are merged into request context with `includeMode: 'agent'` and `similarityScore` attached
+- Error handling ensures system works even if semantic search fails
 
 **Testing**:
-- Agent mode items are selected based on query relevance
-- Similarity scores are recorded correctly
-- No duplicates between session context and agent-selected items
-- System works when semantic search is unavailable
-
-**Current State**:
-- `getAgentModeItems()` helper function already exists (prepared for this phase)
-- `buildRequestContext()` is ready to integrate semantic search results
+- ✅ Agent mode items are selected based on query relevance
+- ✅ Similarity scores are recorded correctly
+- ✅ No duplicates between session context and agent-selected items
+- ✅ System works when semantic search is unavailable
+- ✅ JIT indexing works correctly (embeddings generated on demand)
+- ✅ Performance acceptable (first search may be slower due to indexing)
 
 ---
 
@@ -187,7 +322,7 @@ This document outlines a phased implementation plan for the context tracking sys
    - Layout similar to context panel (columns for Rules/References/Tools)
    - **No "Manage" buttons** (read-only view)
    - Display include mode badges (Always, Manual, Agent) for each item
-   - Display similarity scores for agent-selected items (when Phase 5 is complete)
+   - Display similarity scores for agent-selected items
    - Show item names and descriptions (similar to context panel)
    - Group items by type (Rules, References, Tools) in separate columns
 3. Modal content structure:
@@ -196,7 +331,7 @@ This document outlines a phased implementation plan for the context tracking sys
    - Each item displays:
      - Include mode badge (Always/Manual/Agent)
      - Item name
-     - Similarity score (if agent mode and Phase 5 complete)
+     - Similarity score (if agent mode)
      - Item description/tooltip
    - Read-only display (no add/remove functionality)
 
@@ -210,7 +345,7 @@ This document outlines a phased implementation plan for the context tracking sys
 - Modal opens correctly from assistant messages
 - Modal displays all context items from `requestContext`
 - Include modes display correctly
-- Similarity scores display correctly (when Phase 5 complete)
+- Similarity scores display correctly
 - Modal handles missing `requestContext` gracefully
 - Modal handles empty context gracefully
 - Performance is acceptable with many context items
@@ -239,9 +374,15 @@ This approach was chosen because:
 
 ### Semantic Search Integration
 
-- Semantic search should be optional (system works without it)
-- If semantic indexer is unavailable, agent mode items are simply not included
-- Consider making semantic search configurable per agent
+- ✅ Semantic search is optional (system works without it)
+- ✅ If semantic indexer is unavailable, agent mode items are simply not included
+- ✅ JIT (Just-In-Time) indexing approach: embeddings generated on-demand via `indexContextItems()`
+- ✅ Embeddings stored on items (`Rule.embeddings`, `Reference.embeddings`) and clients (`McpClient.toolEmbeddings`)
+- ✅ Model initialization deferred until first semantic search
+- ✅ Cache invalidation: clear embeddings when items are updated
+- ✅ Search parameters implemented: `topK` (default: 20), `topN` (default: 5), `includeScore` (default: 0.7)
+- ⏳ Consider making semantic search configurable per agent (future enhancement)
+- ⏳ Consider preset modes (Aggressive, Normal, Conservative) for search parameters (future enhancement)
 
 ### Performance Considerations
 
@@ -258,7 +399,8 @@ This approach was chosen because:
 
 ## Dependencies
 
-- **Phase 5**: Requires semantic indexer to be available as a package or integrated
+- **Phase 5a**: Requires `@xenova/transformers` package and semantic indexer code (extract from `apps/semantic-index`)
+- **Phase 5b-5d**: Requires Phase 5a complete
 - **Phase 6**: Requires desktop app to be updated (separate from agent-api)
 
 ## Risk Mitigation
@@ -272,7 +414,7 @@ This approach was chosen because:
 
 - [x] All context items tracked with include modes
 - [x] Request context recorded for each request/response pair
-- [ ] Semantic search automatically selects relevant agent mode items (Phase 5)
+- [x] Semantic search automatically selects relevant agent mode items (Phase 5d)
 - [x] Context information accessible via APIs (`ChatState.contextItems`, `ChatMessage.requestContext`)
 - [ ] Context information visible in UI with full details (Phase 6)
 - [x] All consumers updated to use new API

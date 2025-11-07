@@ -43,6 +43,13 @@ export type {
   RequestContext
  } from './types/context.js';
 
+// Export semantic indexer types
+// Note: SemanticIndexer class is NOT exported here - it's only used internally in AgentImpl
+// Exporting it would pull in Node.js dependencies that can't run in the browser/renderer
+export type { 
+  IndexedChunk
+} from './managers/semantic-indexer.js';
+
 // Export MCP types and constants 
 export { 
   Tool, 

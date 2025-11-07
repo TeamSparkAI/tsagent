@@ -265,8 +265,33 @@ private async buildRequestContext(
     }
   }
   
-  // Step 2: For Phase 3, we don't include agent mode items yet
-  // This will be added in Phase 5 with semantic search
+  // Step 2: Add agent mode items via semantic search (if available)
+  const agentModeItems = this.getAgentModeItems();
+  if (agentModeItems.length > 0) {
+    try {
+      // Use semantic search to select relevant agent mode items
+      const searchResults = await this.agent.searchContextItems(
+        userMessage,
+        agentModeItems.map(item => ({
+          type: item.type,
+          name: item.name,
+          serverName: item.serverName,
+          includeMode: 'agent' as const,
+        })),
+        {
+          topK: 20,  // Consider top 20 chunk matches
+          topN: 5,   // Return top 5 items after grouping
+          includeScore: 0.7,  // Always include items with score >= 0.7
+        }
+      );
+      
+      // Add agent-selected items to request context
+      requestItems.push(...searchResults);
+    } catch (error) {
+      // Semantic search is optional - if it fails, continue without agent items
+      this.logger?.warn('Semantic search failed, continuing without agent mode items', error);
+    }
+  }
   
   return {
     items: requestItems,
@@ -279,7 +304,7 @@ private getAgentModeItems(): RequestContextItem[] {
   
   // Get rules with include: 'agent'
   for (const rule of this.agent.getAllRules()) {
-    if (rule.include === 'agent' && rule.enabled) {
+    if (rule.include === 'agent') {
       // Check if not already in session
       const inSession = this.contextItems.some(
         item => item.type === 'rule' && item.name === rule.name
@@ -296,7 +321,7 @@ private getAgentModeItems(): RequestContextItem[] {
   
   // Get references with include: 'agent'
   for (const reference of this.agent.getAllReferences()) {
-    if (reference.include === 'agent' && reference.enabled) {
+    if (reference.include === 'agent') {
       // Check if not already in session
       const inSession = this.contextItems.some(
         item => item.type === 'reference' && item.name === reference.name
@@ -483,7 +508,7 @@ Request context is displayed on-demand via a modal dialog accessible from assist
 **Item Display**:
 - Include mode badges: "Always", "Manual", "Agent"
 - Item name
-- Similarity score (for agent mode items, when semantic search is enabled)
+- Similarity score (for agent mode items)
 - Item description/tooltip
 
 **Example Display**:
@@ -501,6 +526,42 @@ Tools Column:
   • filesystem:read_file [Manual]
   • database:query [Agent - 0.85]
 ```
+
+## Semantic Search Integration
+
+The context system integrates with semantic search to automatically select relevant agent mode items for each request:
+
+### Agent Interface
+
+The `Agent` interface provides a `searchContextItems()` method:
+
+```typescript
+async searchContextItems(
+  query: string,
+  items: SessionContextItem[],
+  options?: {
+    topK?: number;  // Max embedding matches to consider (default: 20)
+    topN?: number;  // Target number of results to return after grouping (default: 5)
+    includeScore?: number;  // Always include items with this score or higher (default: 0.7)
+  }
+): Promise<RequestContextItem[]>
+```
+
+### Integration Flow
+
+1. **Get Agent Mode Items**: `getAgentModeItems()` returns all items with `include: 'agent'` that are NOT in session context
+2. **Semantic Search**: Call `agent.searchContextItems()` with the user message and agent mode items
+3. **JIT Indexing**: The search method internally ensures all items are indexed (embeddings generated on demand)
+4. **Results**: Returns `RequestContextItem[]` with `includeMode: 'agent'` and `similarityScore` attached
+5. **Merge**: Add search results to request context (no duplicates with session context)
+
+### Search Parameters
+
+- **`topK`** (default: 20): Considers more chunk matches before grouping, improving recall
+- **`topN`** (default: 5): Limits the number of items returned after grouping, controlling context size
+- **`includeScore`** (default: 0.7): Always includes high-confidence matches even if they exceed `topN`
+
+See `docs/semantic-indexing.md` for detailed information about the semantic indexing system.
 
 ## Backward Compatibility
 

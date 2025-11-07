@@ -72,7 +72,8 @@ export class ChatAPI {
     return {
       type: message.role === 'assistant' ? 'ai' : message.role,
       content: message.role === 'assistant' ? '' : message.content,
-      modelReply: message.role === 'assistant' ? message.modelReply : undefined
+      modelReply: message.role === 'assistant' ? message.modelReply : undefined,
+      requestContext: message.role === 'assistant' ? message.requestContext : undefined
     };
   }
 

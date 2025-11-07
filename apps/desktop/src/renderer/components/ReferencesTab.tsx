@@ -17,7 +17,6 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
     const [name, setName] = useState(reference?.name || '');
     const [description, setDescription] = useState(reference?.description || '');
     const [priorityLevel, setPriorityLevel] = useState(reference?.priorityLevel || 500);
-    const [enabled, setEnabled] = useState(reference?.enabled ?? true);
     const [text, setText] = useState(reference?.text || '');
     const [include, setInclude] = useState<'always' | 'manual' | 'agent'>(reference?.include || 'manual');
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +39,6 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
                 name,
                 description,
                 priorityLevel,
-                enabled,
                 text,
                 include
             });
@@ -114,16 +112,6 @@ const EditReferenceModal: React.FC<EditReferenceModalProps> = ({ reference, onSa
                         style={{ width: '80px', padding: '8px' }}
                     />
                     <span style={{ color: '#666' }}>(000-999)</span>
-                </div>
-
-                <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Enabled:</label>
-                <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                    <input 
-                        type="checkbox" 
-                        checked={enabled}
-                        onChange={(e) => setEnabled(e.target.checked)}
-                        style={{ margin: '0', transform: 'scale(1.2)' }}
-                    />
                 </div>
 
                 <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Include:</label>
@@ -310,10 +298,6 @@ export const ReferencesTab: React.FC<TabProps> = ({ id, activeTabId, name, type 
                     <p style={{ margin: 0, fontFamily: 'monospace' }}>
                         {reference.priorityLevel.toString().padStart(3, '0')}
                     </p>
-                </div>
-                <div style={{ marginBottom: '20px' }}>
-                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Status</h3>
-                    <p style={{ margin: 0 }}>{reference.enabled ? 'Enabled' : 'Disabled'}</p>
                 </div>
                 <div style={{ marginBottom: '20px' }}>
                     <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Include</h3>

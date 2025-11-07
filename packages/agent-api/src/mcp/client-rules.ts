@@ -42,11 +42,6 @@ export class McpClientInternalRules implements McpClient {
                         description: "Priority level of the rule (000-999, higher numbers = higher priority)",
                         default: 500
                     },
-                    enabled: {
-                        type: "boolean",
-                        description: "Whether the rule is enabled",
-                        default: true
-                    },
                     include: {
                         type: "string",
                         description: "How the rule should be included in sessions",
@@ -92,10 +87,6 @@ export class McpClientInternalRules implements McpClient {
                     priorityLevel: {
                         type: "number",
                         description: "New priority level of the rule (000-999, higher numbers = higher priority)"
-                    },
-                    enabled: {
-                        type: "boolean",
-                        description: "New enabled state of the rule"
                     },
                     text: {
                         type: "string",
@@ -352,12 +343,6 @@ export function validateRuleArgs(args?: Record<string, unknown>, requiredFields:
         validated.priorityLevel = args.priorityLevel;
     }
 
-    if ('enabled' in args) {
-        if (typeof args.enabled !== 'boolean') {
-            throw new Error('Rule enabled must be a boolean');
-        }
-        validated.enabled = args.enabled;
-    }
 
     if ('text' in args) {
         if (typeof args.text !== 'string') {
@@ -384,7 +369,6 @@ export async function implementCreateRule(agent: Agent, args: RuleArgs): Promise
         name: args.name!,
         description: args.description || "",
         priorityLevel: args.priorityLevel ?? 500,
-        enabled: args.enabled ?? true,
         text: args.text!,
         include: args.include || 'manual'
     };
@@ -417,7 +401,6 @@ export async function implementUpdateRule(agent: Agent, args: RuleArgs): Promise
         name: existingRule.name,
         description: args.description ?? existingRule.description,
         priorityLevel: args.priorityLevel ?? existingRule.priorityLevel,
-        enabled: args.enabled ?? existingRule.enabled,
         text: args.text ?? existingRule.text,
         include: args.include ?? existingRule.include
     };

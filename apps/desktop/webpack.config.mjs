@@ -57,7 +57,10 @@ const mainConfig = {
   externals: {
     electron: 'module electron',
     'node-llama-cpp': 'module node-llama-cpp',
-    '@tsagent/core': 'module @tsagent/core'
+    '@tsagent/core': 'module @tsagent/core',
+    '@xenova/transformers': 'module @xenova/transformers',
+    'onnxruntime-node': 'module onnxruntime-node',
+    'sharp': 'module sharp'
   },
   plugins: [
     new webpack.DefinePlugin({

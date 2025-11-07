@@ -42,11 +42,6 @@ export class McpClientInternalReferences implements McpClient {
                         description: "Priority level of the reference (000-999, higher numbers = higher priority)",
                         default: 500
                     },
-                    enabled: {
-                        type: "boolean",
-                        description: "Whether the reference is enabled",
-                        default: true
-                    },
                     include: {
                         type: "string",
                         description: "How the reference should be included in sessions",
@@ -92,10 +87,6 @@ export class McpClientInternalReferences implements McpClient {
                     priorityLevel: {
                         type: "number",
                         description: "New priority level of the reference (000-999, higher numbers = higher priority)"
-                    },
-                    enabled: {
-                        type: "boolean",
-                        description: "New enabled state of the reference"
                     },
                     text: {
                         type: "string",
@@ -350,12 +341,6 @@ export function validateReferenceArgs(args?: Record<string, unknown>, requiredFi
         validated.priorityLevel = args.priorityLevel;
     }
 
-    if ('enabled' in args) {
-        if (typeof args.enabled !== 'boolean') {
-            throw new Error('Reference enabled must be a boolean');
-        }
-        validated.enabled = args.enabled;
-    }
 
     if ('text' in args) {
         if (typeof args.text !== 'string') {
@@ -379,7 +364,6 @@ export async function implementCreateReference(agent: Agent, args: ReferenceArgs
         name: args.name!,
         description: args.description || "",
         priorityLevel: args.priorityLevel ?? 500,
-        enabled: args.enabled ?? true,
         text: args.text!,
         include: args.include || 'manual'
     };
@@ -406,7 +390,6 @@ export async function implementUpdateReference(agent: Agent, args: ReferenceArgs
         name: existingReference.name,
         description: args.description ?? existingReference.description,
         priorityLevel: args.priorityLevel ?? existingReference.priorityLevel,
-        enabled: args.enabled ?? existingReference.enabled,
         text: args.text ?? existingReference.text,
         include: args.include ?? existingReference.include
     };

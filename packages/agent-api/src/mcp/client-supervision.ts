@@ -139,7 +139,6 @@ export class McpClientInternalSupervision implements McpClient {
                     name: { type: "string", description: "Name of the rule" },
                     description: { type: "string", description: "Description of the rule" },
                     priorityLevel: { type: "number", description: "Priority level (1-10)" },
-                    enabled: { type: "boolean", description: "Whether the rule is enabled" },
                     text: { type: "string", description: "Rule content" },
                     include: { type: "string", enum: ["always", "manual", "agent"], description: "Include mode" }
                 },
@@ -155,7 +154,6 @@ export class McpClientInternalSupervision implements McpClient {
                     name: { type: "string", description: "Name of the rule to update" },
                     description: { type: "string", description: "New description" },
                     priorityLevel: { type: "number", description: "New priority level" },
-                    enabled: { type: "boolean", description: "New enabled state" },
                     text: { type: "string", description: "New rule content" },
                     include: { type: "string", enum: ["always", "manual", "agent"], description: "New include mode" }
                 },
@@ -226,7 +224,6 @@ export class McpClientInternalSupervision implements McpClient {
                     name: { type: "string", description: "Name of the reference" },
                     description: { type: "string", description: "Description of the reference" },
                     priorityLevel: { type: "number", description: "Priority level (1-10)" },
-                    enabled: { type: "boolean", description: "Whether the reference is enabled" },
                     text: { type: "string", description: "Reference content" },
                     include: { type: "string", enum: ["always", "manual", "agent"], description: "Include mode" }
                 },
@@ -242,7 +239,6 @@ export class McpClientInternalSupervision implements McpClient {
                     name: { type: "string", description: "Name of the reference to update" },
                     description: { type: "string", description: "New description" },
                     priorityLevel: { type: "number", description: "New priority level" },
-                    enabled: { type: "boolean", description: "New enabled state" },
                     text: { type: "string", description: "New reference content" },
                     include: { type: "string", enum: ["always", "manual", "agent"], description: "New include mode" }
                 },

@@ -39,8 +39,11 @@ export class ReferencesManager extends EventEmitter {
     // Update the references list - replace existing reference if it exists, otherwise add new one
     const existingIndex = this.references.findIndex(r => r.name === reference.name);
     if (existingIndex >= 0) {
+      // Clear embeddings when updating existing reference (cache invalidation)
+      reference.embeddings = undefined;
       this.references[existingIndex] = reference;
     } else {
+      // New reference - embeddings will be generated on demand via JIT indexing
       this.references.push(reference);
     }
     this.sortReferences();

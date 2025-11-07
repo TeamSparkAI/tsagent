@@ -27,7 +27,9 @@ import { ProviderFactory } from '../providers/provider-factory.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
 import { Reference, Rule } from '../index.js';
 import { ChatSession, ChatSessionOptions } from '../types/chat.js';
+import { SessionContextItem, RequestContextItem } from '../types/context.js';
 import { AgentStrategy, FileBasedAgentStrategy } from './agent-strategy.js';
+import { SemanticIndexer } from '../managers/semantic-indexer.js';
 
 // The idea behind the agent strategy is that you might want to serialize agents differenty (for example, in a database for an 
 // online service), or you might want to be able to create ephemral agents where you can set their state however you want and use
@@ -53,6 +55,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   public readonly mcpServers: McpServerManagerImpl;
   private readonly mcpManager: MCPClientManager;
   private _supervisionManager?: SupervisionManagerImpl;
+  private _semanticIndexer: SemanticIndexer | null = null;
 
   // Agent interface properties
   get id(): string { return this._id; }
@@ -431,6 +434,34 @@ export class AgentImpl  extends EventEmitter implements Agent {
   
   getSupervisorConfigs(): SupervisorConfig[] {
     return this._agentData?.supervisors || [];
+  }
+
+  /**
+   * Get the semantic indexer (lazy initialization)
+   * Internal use only - used by searchContextItems for semantic search
+   */
+  private getSemanticIndexer(): SemanticIndexer {
+    if (!this._semanticIndexer) {
+      this._semanticIndexer = new SemanticIndexer(this.logger);
+    }
+    return this._semanticIndexer;
+  }
+
+  /**
+   * Search context items and return RequestContextItem[] with similarity scores
+   * Handles JIT indexing internally - ensures all items are indexed before searching
+   */
+  async searchContextItems(
+    query: string,
+    items: SessionContextItem[],
+    options?: {
+      topK?: number;  // Max embedding matches to consider (default: 20)
+      topN?: number;  // Target number of results to return after grouping (default: 5)
+      includeScore?: number;  // Always include items with this score or higher (default: 0.7)
+    }
+  ): Promise<RequestContextItem[]> {
+    const indexer = this.getSemanticIndexer();
+    return await indexer.searchContextItems(query, items, this, options);
   }
   
   /**

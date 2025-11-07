@@ -19,11 +19,12 @@ import BedrockLogo from '../assets/bedrock.png';
 import LocalLogo from '../assets/local.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
-import { ChatState, SessionContextItem } from '@tsagent/core';
+import { ChatState, SessionContextItem, RequestContext } from '@tsagent/core';
 import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from '@tsagent/core';
 import { ReferencesModal } from './ReferencesModal';
 import { RulesModal } from './RulesModal';
 import { ToolsModal } from './ToolsModal';
+import { RequestContextModal } from './RequestContextModal';
 import './Modal.css';
 
 interface ClientChatState {
@@ -92,6 +93,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const [showReferencesModal, setShowReferencesModal] = useState(false);
   const [showRulesModal, setShowRulesModal] = useState(false);
   const [showToolsModal, setShowToolsModal] = useState(false);
+  const [showRequestContextModal, setShowRequestContextModal] = useState(false);
+  const [selectedRequestContext, setSelectedRequestContext] = useState<RequestContext | undefined>(undefined);
   const [isNewSession, setIsNewSession] = useState(true);
   const [expandedToolServers, setExpandedToolServers] = useState<Set<string>>(new Set());
   const [chatSettings, setChatSettings] = useState<ChatSettings>({
@@ -240,7 +243,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               messages: state.messages.map((msg: any) => ({
                 type: msg.role === 'assistant' ? 'ai' : msg.role,
                 content: msg.role === 'assistant' ? '' : msg.content,
-                modelReply: msg.role === 'assistant' ? msg.modelReply : undefined
+                modelReply: msg.role === 'assistant' ? msg.modelReply : undefined,
+                requestContext: msg.role === 'assistant' ? msg.requestContext : undefined
               })),
               selectedModel: modelProvider,
               selectedModelName: modelName,
@@ -909,7 +913,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                 return {
                   type: 'ai' as const,
                   content: '',
-                  modelReply: msg.modelReply
+                  modelReply: msg.modelReply,
+                  requestContext: msg.requestContext
                 };
               } else if (msg.role === 'approval') {
                 return {
@@ -1317,6 +1322,15 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
         onContextChange={refreshContextData}
       />
       
+      <RequestContextModal
+        isOpen={showRequestContextModal}
+        onClose={() => {
+          setShowRequestContextModal(false);
+          setSelectedRequestContext(undefined);
+        }}
+        requestContext={selectedRequestContext}
+      />
+      
       <div id="chat-container" 
         ref={chatContainerRef}
         onContextMenu={handleContextMenu}
@@ -1334,6 +1348,21 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                       
                       return (
                         <div key={messageIndex} className="message-content">
+                          {message.requestContext && (
+                            <div style={{ marginBottom: '8px' }}>
+                              <button
+                                onClick={() => {
+                                  setSelectedRequestContext(message.requestContext);
+                                  setShowRequestContextModal(true);
+                                }}
+                                className="btn btn-secondary btn-sm"
+                                style={{ fontSize: '12px', padding: '4px 8px' }}
+                                title="View context used for this response"
+                              >
+                                View Context
+                              </button>
+                            </div>
+                          )}
                           {message.modelReply.turns.map((turn, turnIndex) => (
                             <div key={turnIndex}>
                               {/* Display text results */}

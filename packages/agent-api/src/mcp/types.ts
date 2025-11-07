@@ -1,6 +1,7 @@
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 
 import { ChatSession } from "../types/chat.js";
+import type { IndexedChunk } from '../managers/semantic-indexer.js';
 
 // Re-export the imported types
 export { CallToolResult, Tool };
@@ -184,6 +185,7 @@ export interface McpClient {
   getErrorLog(): string[];
   isConnected(): boolean;
   ping(): Promise<{ elapsedTimeMs: number }>;
+  toolEmbeddings?: Map<string, IndexedChunk[]>;  // Semantic embeddings for JIT indexing (Phase 5a)
 }
 
 export interface MCPClientManager {

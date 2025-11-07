@@ -17,7 +17,6 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
     const [name, setName] = useState(rule?.name || '');
     const [description, setDescription] = useState(rule?.description || '');
     const [priorityLevel, setPriorityLevel] = useState(rule?.priorityLevel || 500);
-    const [enabled, setEnabled] = useState(rule?.enabled ?? true);
     const [text, setText] = useState(rule?.text || '');
     const [include, setInclude] = useState<'always' | 'manual' | 'agent'>(rule?.include || 'manual');
     const [error, setError] = useState<string | null>(null);
@@ -40,7 +39,6 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                 name,
                 description,
                 priorityLevel,
-                enabled,
                 text,
                 include
             });
@@ -114,16 +112,6 @@ const EditRuleModal: React.FC<EditRuleModalProps> = ({ rule, onSave, onCancel })
                         style={{ width: '80px', padding: '8px' }}
                     />
                     <span style={{ color: '#666' }}>(000-999)</span>
-                </div>
-
-                <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Enabled:</label>
-                <div style={{ display: 'flex', alignItems: 'baseline' }}>
-                    <input 
-                        type="checkbox" 
-                        checked={enabled}
-                        onChange={(e) => setEnabled(e.target.checked)}
-                        style={{ margin: '0', transform: 'scale(1.2)' }}
-                    />
                 </div>
 
                 <label style={{ fontWeight: 'bold', paddingTop: '8px' }}>Include:</label>
@@ -310,10 +298,6 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                     </p>
                 </div>
                 <div style={{ marginBottom: '20px' }}>
-                    <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Status</h3>
-                    <p style={{ margin: 0 }}>{rule.enabled ? 'Enabled' : 'Disabled'}</p>
-                </div>
-                <div style={{ marginBottom: '20px' }}>
                     <h3 style={{ margin: '0 0 8px 0', color: '#666' }}>Include</h3>
                     <p style={{ margin: 0 }}>
                         {rule.include === 'always' ? 'Always (included in new sessions)' :
@@ -397,7 +381,6 @@ export const RulesTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) =>
                                         }
                                     }}
                                     style={{
-                                        opacity: rule.enabled ? 1 : 0.5,
                                         display: 'flex',
                                         alignItems: 'center',
                                         gap: '8px'

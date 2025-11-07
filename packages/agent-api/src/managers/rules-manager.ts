@@ -39,8 +39,11 @@ export class RulesManager extends EventEmitter {
     // Update the rules list - replace existing rule if it exists, otherwise add new one
     const existingIndex = this.rules.findIndex(r => r.name === rule.name);
     if (existingIndex >= 0) {
+      // Clear embeddings when updating existing rule (cache invalidation)
+      rule.embeddings = undefined;
       this.rules[existingIndex] = rule;
     } else {
+      // New rule - embeddings will be generated on demand via JIT indexing
       this.rules.push(rule);
     }
     this.sortRules();

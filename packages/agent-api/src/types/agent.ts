@@ -5,6 +5,7 @@ import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../provider
 import { ChatSession, ChatSessionOptions } from './chat.js';
 import { SupervisionManager, Supervisor, SupervisorConfig } from './supervision.js';
 import { ToolInputSchema } from './json-schema.js';
+import { SessionContextItem, RequestContextItem } from './context.js';
 
 export { SupervisorConfig };
 
@@ -117,6 +118,17 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   
   // Supervisor configuration access (read-only)
   getSupervisorConfigs(): SupervisorConfig[];
+
+  // Semantic search
+  searchContextItems(
+    query: string,
+    items: SessionContextItem[],
+    options?: {
+      topK?: number;  // Max embedding matches to consider (default: 20)
+      topN?: number;  // Target number of results to return after grouping (default: 5)
+      includeScore?: number;  // Always include items with this score or higher (default: 0.7)
+    }
+  ): Promise<RequestContextItem[]>;
 }
 
 // This is a subset of the AgentSkill interface from the A2A protocol

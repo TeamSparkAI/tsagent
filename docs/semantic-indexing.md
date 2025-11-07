@@ -17,12 +17,12 @@ This document describes the design for semantic indexing of agent rules, referen
 
 ### Core Components
 
-The semantic indexing system leverages the `SemanticIndexer` class from the `@tsagent/semantic-index` CLI project (see `apps/semantic-index/src/indexer.ts`). The indexer provides:
+The semantic indexing system uses the `SemanticIndexer` class (extracted from `apps/semantic-index/src/indexer.ts` into `packages/agent-api/src/managers/semantic-indexer.ts`). The indexer provides:
 
 - **Local Embeddings**: Uses `@xenova/transformers` with `Xenova/all-MiniLM-L6-v2` model (~80MB, quantized)
 - **Chunking**: Splits long text into semantically coherent chunks (~500 chars max)
 - **Cosine Similarity**: Brute-force vector similarity search for relevance scoring
-- **Multi-Scope Support**: Indexes rules, references, and tools with scope metadata (`'rules'`, `'references'`, `'tools'`) to enable filtered searches
+- **Context-Item-Centric Design**: Works directly with `SessionContextItem[]` and `RequestContextItem[]` types, eliminating the need for separate scope types
 
 ### Indexing Strategy
 
@@ -108,48 +108,28 @@ Embeddings are generated **on-demand** when needed for semantic search, not upfr
 
 ### Implementation
 
-**For Rules and References**:
+**For Rules, References, and Tools**:
 
 1. **On Semantic Search Request**:
-   - Check if embeddings exist for each item that needs indexing: `if (!item.embeddings) { ... }`
+   - The `searchContextItems()` method internally calls `indexContextItems()` to ensure all items are indexed
+   - `indexContextItems()` iterates through `SessionContextItem[]` and checks for missing embeddings:
+     - **Rules/References**: `if (!item.embeddings) { generate }`
+     - **Tools**: `if (!client.toolEmbeddings?.has(tool.name)) { generate }`
    - For items missing embeddings, generate them (batch all missing items together)
-   - Store embeddings with the item: `item.embeddings = chunks`
+   - Store embeddings:
+     - Rules/References: `item.embeddings = chunks`
+     - Tools: `client.toolEmbeddings.set(tool.name, chunks)`
 
 2. **On Item Update**:
-   - Clear embeddings: `item.embeddings = undefined`
+   - **Rules/References**: Clear embeddings: `item.embeddings = undefined`
+   - **Tools**: Not applicable - tools don't change after MCP clients are loaded
    - Embeddings will be regenerated on next semantic search
 
 3. **No Complex Sync**:
    - No version tracking
    - No timestamps
    - No hash checks
-   - Simple presence check: `if (!item.embeddings) { generate }`
-
-**For MCP Tools**:
-
-1. **On Semantic Search Request**:
-   - Get all MCP clients: `await agent.getAllMcpClients()`
-   - For each client/server, iterate through `client.serverTools`
-   - Check if embeddings exist: `if (!client.toolEmbeddings?.has(tool.name)) { ... }`
-   - For tools missing embeddings, generate them (batch all missing tools together)
-   - Ensure embeddings map exists: `if (!client.toolEmbeddings) { client.toolEmbeddings = new Map() }`
-   - Store embeddings: `client.toolEmbeddings.set(tool.name, chunks)`
-
-2. **On Tool Change**:
-   - Not applicable - tools don't change after MCP clients are loaded
-   - If an MCP client is reloaded, the client is replaced and embeddings are cleared with the old client
-
-3. **Indexing Timing**:
-   - Tools are available after `preloadMcpClients()` completes
-   - Index tools JIT on first semantic search request (same as rules/references)
-   - No invalidation needed since tools don't change
-
-4. **Retrieval Pattern**:
-   - Common usage: "get all tools with `include: 'agent'` along with their embeddings"
-   - Iterate clients: `for (const [serverName, client] of Object.entries(await agent.getAllMcpClients()))`
-   - Filter tools by include mode from `client.serverTools`
-   - Get embeddings: `client.toolEmbeddings?.get(tool.name)`
-   - Results naturally preserve server/tool relationship (via client reference)
+   - Simple presence check: `if (!item.embeddings) { generate }` or `if (!client.toolEmbeddings?.has(tool.name)) { generate }`
 
 ### Benefits
 
@@ -235,32 +215,44 @@ No complex invalidation logic needed - simple presence check is sufficient.
 
 ### Search Implementation
 
+The semantic search is accessed via the `Agent` interface:
+
+```typescript
+// Agent interface
+async searchContextItems(
+  query: string,
+  items: SessionContextItem[],
+  options?: {
+    topK?: number;  // Max embedding matches to consider (default: 20)
+    topN?: number;  // Target number of results to return after grouping (default: 5)
+    includeScore?: number;  // Always include items with this score or higher (default: 0.7)
+  }
+): Promise<RequestContextItem[]>
+```
+
 When performing semantic search:
 
-1. **Filter Items**: Collect items with `include: 'agent'` that are enabled
-   - **Rules**: `agent.getAllRules().filter(r => r.include === 'agent' && r.enabled)`
-   - **References**: `agent.getAllReferences().filter(r => r.include === 'agent' && r.enabled)`
-   - **Tools**: Get tools from MCP clients with `include: 'agent'` (via tool context management)
+1. **JIT Indexing**: The `searchContextItems()` method internally calls `indexContextItems()` to ensure all items in the provided `SessionContextItem[]` are indexed before searching
 
-2. **Ensure Embeddings**: Generate embeddings for any missing items (JIT)
-   - **Rules/References**: Check `if (!item.embeddings) { generate }`, store on item
-   - **Tools**: For each client, iterate `client.serverTools`, check `if (!client.toolEmbeddings?.has(tool.name)) { generate }`, store on client
-
-3. **Collect All Chunks**: Gather all chunks with their metadata (server, tool, scope)
-   - **Rules/References**: Iterate `item.embeddings` for each item, include item name
+2. **Collect All Chunks**: Gather all chunks from indexed items with their metadata
+   - **Rules/References**: Iterate `item.embeddings` for each item
    - **Tools**: Iterate clients → iterate `client.serverTools` → get embeddings from `client.toolEmbeddings?.get(tool.name)`
-   - Store metadata with each chunk: `{ serverName: client name, toolName: tool.name, scope: 'tools', chunkIndex, text, embedding }`
+   - Store metadata with each chunk: `{ item: SessionContextItem, chunkIndex, text, embedding }`
 
-4. **Generate Query Embedding**: Embed the user query using the same model
+3. **Generate Query Embedding**: Embed the user query using the same model
 
-5. **Calculate Similarity**: Cosine similarity between query embedding and all collected chunks
+4. **Calculate Similarity**: Cosine similarity between query embedding and all collected chunks
 
-6. **Rank Results**: Sort by similarity score, return top K items (with scope and item name)
+5. **Rank and Filter Results**:
+   - Sort by similarity score (descending)
+   - Take top `topK` chunk matches (default: 20)
+   - Group by item (using type + name + serverName for tools), keep best score per item
+   - Apply `includeScore` threshold: always include items with score >= `includeScore` (default: 0.7)
+   - Limit remaining results to `topN` items (default: 5), but high-score items can exceed `topN`
 
-7. **Include in Context**: Add selected items to the chat session context
-   - **Rules/References**: Add by name
-   - **Tools**: Add by server name + tool name (preserved in search results), or via tool context management
-   - Results naturally preserve the server/tool relationship without string parsing
+6. **Return Results**: Convert to `RequestContextItem[]` with `includeMode: 'agent'` and `similarityScore` attached
+
+The `SemanticIndexer` is a private, lazy-initialized member of `AgentImpl`. It is accessed only through the public `searchContextItems()` method on the `Agent` interface.
 
 ## Future Considerations
 
@@ -283,14 +275,24 @@ When performing semantic search:
 - **Indexer Implementation**: `apps/semantic-index/src/indexer.ts` - Core indexing and search logic
 - **Model**: `Xenova/all-MiniLM-L6-v2` - Lightweight, fast embedding model (~80MB)
 
+## Search Parameters
+
+The `searchContextItems()` method accepts optional search parameters:
+
+- **`topK`** (default: 20): Max embedding chunk matches to consider before grouping by item
+- **`topN`** (default: 5): Target number of results to return after grouping by item
+- **`includeScore`** (default: 0.7): Always include items with this similarity score or higher, even if it exceeds `topN`
+
+These parameters allow fine-tuning of semantic search behavior:
+- Higher `topK` considers more chunk matches (more thorough but slower)
+- Higher `topN` returns more items (larger context but more tokens)
+- Higher `includeScore` includes more high-confidence matches (can exceed `topN`)
+
+**Future Consideration**: These parameters could be made configurable per agent or per session, potentially with preset modes (Aggressive, Normal, Conservative) that map to different parameter combinations.
+
 ## Open Issues
 
 Do we want to treat rules and references as one "domain" for semantic inclusion, and tools as a separate domain?
-
-Do we want to configure match result settings:
-- topK - max embedding matches to consider
-- topN - target number of results to return (after grouping matches)
-- includeScore - always include items with this similarity score or higher (can cause topN to be exceeded)
 
 How do we configure the match result settings?
 - Session props for each setting (and for each domain)

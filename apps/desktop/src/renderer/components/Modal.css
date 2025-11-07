@@ -173,6 +173,105 @@
   line-height: 1.4;
 }
 
+/* Request Context Modal - Read-only context items */
+.context-column-readonly {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding-right: 10px;
+}
+
+.context-list-readonly {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.context-item-readonly {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  background: white;
+  padding: 12px;
+}
+
+.context-item-header-readonly {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.context-item-description {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid #f0f0f0;
+  color: #666;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.server-name {
+  font-size: 12px;
+  color: #666;
+  font-weight: 600;
+}
+
+/* Include mode badges */
+.include-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.include-badge.always {
+  background-color: #d4edda;
+  color: #155724;
+  border: 1px solid #c3e6cb;
+}
+
+.include-badge.manual {
+  background-color: #d1ecf1;
+  color: #0c5460;
+  border: 1px solid #bee5eb;
+}
+
+.include-badge.agent {
+  background-color: #fff3cd;
+  color: #856404;
+  border: 1px solid #ffeaa7;
+}
+
+/* Similarity score */
+.similarity-score {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #495057;
+  font-family: monospace;
+  margin-left: 4px;
+}
+
+.context-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.context-section-header h3 {
+  margin: 0;
+  font-size: 16px;
+  color: #333;
+}
+
 /* Responsive design */
 @media (max-width: 768px) {
   .modal {

@@ -215,7 +215,6 @@ export class FileBasedAgentStrategy implements AgentStrategy {
             name: metadata.name || path.basename(file, FileBasedAgentStrategy.RULE_FILE_EXTENSION),
             description: metadata.description || '',
             priorityLevel: metadata.priorityLevel || 500,
-            enabled: metadata.enabled ?? true,
             text: text,
             include: metadata.include || 'manual'
           };
@@ -255,7 +254,6 @@ export class FileBasedAgentStrategy implements AgentStrategy {
       name: rule.name,
       description: rule.description,
       priorityLevel: rule.priorityLevel,
-      enabled: rule.enabled,
       include: rule.include
     };
 
@@ -299,7 +297,6 @@ export class FileBasedAgentStrategy implements AgentStrategy {
             name: metadata.name || path.basename(file, FileBasedAgentStrategy.REFERENCE_FILE_EXTENSION),
             description: metadata.description || '',
             priorityLevel: metadata.priorityLevel || 500,
-            enabled: metadata.enabled ?? true,
             text: text,
             include: metadata.include || 'manual'
           };
@@ -339,7 +336,6 @@ export class FileBasedAgentStrategy implements AgentStrategy {
       name: reference.name,
       description: reference.description,
       priorityLevel: reference.priorityLevel,
-      enabled: reference.enabled,
       include: reference.include
     };
 

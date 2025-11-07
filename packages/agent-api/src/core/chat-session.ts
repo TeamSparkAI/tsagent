@@ -114,7 +114,7 @@ export class ChatSessionImpl implements ChatSession {
 
   /**
    * Build request context from session context + agent items
-   * For Phase 3, only includes session context (no semantic search yet)
+   * Includes session context items (always + manual) plus agent-selected items via semantic search
    */
   private async buildRequestContext(
     userMessage: string
@@ -140,8 +140,49 @@ export class ChatSessionImpl implements ChatSession {
       }
     }
     
-    // Step 2: For Phase 3, we don't include agent mode items yet
-    // This will be added in Phase 4 with semantic search
+    // Step 2: Add agent mode items via semantic search (if available)
+    const agentModeItems = this.getAgentModeItems();
+    if (agentModeItems.length > 0) {
+      try {
+        // Convert RequestContextItem[] to SessionContextItem[] for search
+        // Note: includeMode is required by SessionContextItem type but not used by search
+        // We use 'always' as a placeholder since these are agent mode items being searched
+        const sessionItemsForSearch: SessionContextItem[] = agentModeItems.map(item => {
+          if (item.type === 'tool') {
+            return {
+              type: 'tool',
+              name: item.name,
+              serverName: item.serverName,
+              includeMode: 'always' as const,  // Placeholder - search doesn't use includeMode
+            };
+          } else {
+            return {
+              type: item.type,
+              name: item.name,
+              includeMode: 'always' as const,  // Placeholder - search doesn't use includeMode
+            };
+          }
+        });
+
+        // Use semantic search to select relevant agent mode items
+        const searchResults = await this.agent.searchContextItems(
+          userMessage,
+          sessionItemsForSearch,
+          {
+            topK: 20,  // Consider top 20 chunk matches
+            topN: 5,   // Return top 5 items after grouping
+            includeScore: 0.7,  // Always include items with score >= 0.7
+          }
+        );
+        
+        // Add agent-selected items to request context
+        // searchResults are already RequestContextItem[] with includeMode: 'agent' and similarityScore
+        requestItems.push(...searchResults);
+      } catch (error) {
+        // Semantic search is optional - if it fails, continue without agent items
+        this.logger?.warn('Semantic search failed, continuing without agent mode items', error);
+      }
+    }
     
     return {
       items: requestItems,
@@ -150,14 +191,14 @@ export class ChatSessionImpl implements ChatSession {
 
   /**
    * Helper function to get agent mode items (items with include: 'agent' that are NOT in session context)
-   * Prepared for Phase 4 semantic search integration
+   * Returns RequestContextItem[] for use in semantic search
    */
   private getAgentModeItems(): RequestContextItem[] {
     const items: RequestContextItem[] = [];
     
     // Get rules with include: 'agent'
     for (const rule of this.agent.getAllRules()) {
-      if (rule.include === 'agent' && rule.enabled) {
+      if (rule.include === 'agent') {
         // Check if not already in session
         const inSession = this.contextItems.some(
           item => item.type === 'rule' && item.name === rule.name
@@ -174,7 +215,7 @@ export class ChatSessionImpl implements ChatSession {
     
     // Get references with include: 'agent'
     for (const reference of this.agent.getAllReferences()) {
-      if (reference.include === 'agent' && reference.enabled) {
+      if (reference.include === 'agent') {
         // Check if not already in session
         const inSession = this.contextItems.some(
           item => item.type === 'reference' && item.name === reference.name
