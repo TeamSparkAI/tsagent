@@ -21,6 +21,9 @@ export class ChatSessionImpl implements ChatSession {
   temperature: number;
   topP: number;
   toolPermission: SessionToolPermission;
+  contextTopK: number;
+  contextTopN: number;
+  contextIncludeScore: number;
   private approvedTools: Map<string, Set<string>> = new Map();
   private supervisionManager?: SupervisionManager;
 
@@ -45,6 +48,9 @@ export class ChatSessionImpl implements ChatSession {
     this.toolPermission = (options.toolPermission === SESSION_TOOL_PERMISSION_TOOL || options.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || options.toolPermission === SESSION_TOOL_PERMISSION_NEVER)
       ? options.toolPermission
       : SESSION_TOOL_PERMISSION_TOOL;
+    this.contextTopK = options.contextTopK;
+    this.contextTopN = options.contextTopN;
+    this.contextIncludeScore = options.contextIncludeScore;
     let modelDescription = '';
 
     // Create the LLM instance
@@ -109,6 +115,9 @@ export class ChatSessionImpl implements ChatSession {
       temperature: this.temperature,
       topP: this.topP,
       toolPermission: this.toolPermission,
+      contextTopK: this.contextTopK,
+      contextTopN: this.contextTopN,
+      contextIncludeScore: this.contextIncludeScore,
     };
   }
 
@@ -169,9 +178,9 @@ export class ChatSessionImpl implements ChatSession {
           userMessage,
           sessionItemsForSearch,
           {
-            topK: 20,  // Consider top 20 chunk matches
-            topN: 5,   // Return top 5 items after grouping
-            includeScore: 0.7,  // Always include items with score >= 0.7
+            topK: this.contextTopK,
+            topN: this.contextTopN,
+            includeScore: this.contextIncludeScore,
           }
         );
         
@@ -336,11 +345,11 @@ export class ChatSessionImpl implements ChatSession {
     for (const item of requestContext.items) {
       if (item.type === 'reference') {
         const reference = this.agent.getReference(item.name);
-        if (reference) {
-          messages.push({
-            role: 'user',
-            content: `Reference: ${reference.text}`
-          }); 
+      if (reference) {
+        messages.push({
+          role: 'user',
+          content: `Reference: ${reference.text}`
+        }); 
         }
       }
     }
@@ -349,11 +358,11 @@ export class ChatSessionImpl implements ChatSession {
     for (const item of requestContext.items) {
       if (item.type === 'rule') {
         const rule = this.agent.getRule(item.name);
-        if (rule) {
-          messages.push({
-            role: 'user',
-            content: `Rule: ${rule.text}`
-          });
+      if (rule) {
+        messages.push({
+          role: 'user',
+          content: `Rule: ${rule.text}`
+        });
         }
       }
     }
@@ -744,12 +753,18 @@ export class ChatSessionImpl implements ChatSession {
     temperature: number;
     topP: number;
     toolPermission: SessionToolPermission;
+    contextTopK: number;
+    contextTopN: number;
+    contextIncludeScore: number;
   }): boolean {
     this.maxChatTurns = settings.maxChatTurns;
     this.maxOutputTokens = settings.maxOutputTokens;
     this.temperature = settings.temperature;
     this.topP = settings.topP;
     this.toolPermission = settings.toolPermission;
+    this.contextTopK = settings.contextTopK;
+    this.contextTopN = settings.contextTopN;
+    this.contextIncludeScore = settings.contextIncludeScore;
     
     this.logger.info(`Updated chat session settings:`, settings);
     return true;

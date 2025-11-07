@@ -29,6 +29,12 @@ import {
   SESSION_TOOL_PERMISSION_TOOL,
   SETTINGS_KEY_TEMPERATURE, 
   SETTINGS_DEFAULT_TEMPERATURE, 
+  SETTINGS_KEY_CONTEXT_TOP_K,
+  SETTINGS_DEFAULT_CONTEXT_TOP_K,
+  SETTINGS_KEY_CONTEXT_TOP_N,
+  SETTINGS_DEFAULT_CONTEXT_TOP_N,
+  SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
+  SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE,
   TOOL_CALL_DECISION_ALLOW_SESSION, 
   TOOL_CALL_DECISION_ALLOW_ONCE, 
   TOOL_CALL_DECISION_DENY, 
@@ -198,7 +204,10 @@ function getAgentSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings 
     maxOutputTokens: getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS),
     temperature: getSettingsValue(agent, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE),
     topP: getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P),
-    toolPermission: getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT)
+    toolPermission: getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT),
+    contextTopK: getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_K),
+    contextTopN: getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_TOP_N),
+    contextIncludeScore: getSettingsValue(agent, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE)
   };
 }
 
@@ -462,17 +471,30 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
             const agentTopP = getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P);
             const sessionToolPermission = settings.toolPermission;
             const agentToolPermission = getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
+            const sessionContextTopK = settings.contextTopK;
+            const agentContextTopK = getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_K);
+            const sessionContextTopN = settings.contextTopN;
+            const agentContextTopN = getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_TOP_N);
+            const sessionContextIncludeScore = settings.contextIncludeScore;
+            const agentContextIncludeScore = getSettingsValue(agent, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE);
             // Only if values are different, append "(agent default: <value>)"
             const maxChatTurns = sessionMaxChatTurns === agentMaxChatTurns ? sessionMaxChatTurns : `${sessionMaxChatTurns} (overrides agent default: ${agentMaxChatTurns})`;
             const maxOutputTokens = sessionMaxOutputTokens === agentMaxOutputTokens ? sessionMaxOutputTokens : `${sessionMaxOutputTokens} (overrides agent default: ${agentMaxOutputTokens})`;
             const temperature = sessionTemperature === agentTemperature ? sessionTemperature : `${sessionTemperature} (overrides agent default: ${agentTemperature})`;
             const topP = sessionTopP === agentTopP ? sessionTopP : `${sessionTopP} (overrides agent default: ${agentTopP})`;
             const toolPermission = sessionToolPermission === agentToolPermission ? sessionToolPermission : `${sessionToolPermission} (overrides agent default: ${agentToolPermission})`;
+            const contextTopK = sessionContextTopK === agentContextTopK ? sessionContextTopK : `${sessionContextTopK} (overrides agent default: ${agentContextTopK})`;
+            const contextTopN = sessionContextTopN === agentContextTopN ? sessionContextTopN : `${sessionContextTopN} (overrides agent default: ${agentContextTopN})`;
+            const contextIncludeScore = sessionContextIncludeScore === agentContextIncludeScore ? sessionContextIncludeScore : `${sessionContextIncludeScore} (overrides agent default: ${agentContextIncludeScore})`;
             console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_CHAT_TURNS}: ${maxChatTurns}`));
             console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_OUTPUT_TOKENS}: ${maxOutputTokens}`));
             console.log(chalk.yellow(`  ${SETTINGS_KEY_TEMPERATURE}: ${temperature}`));
             console.log(chalk.yellow(`  ${SETTINGS_KEY_TOP_P}: ${topP}`));
             console.log(chalk.yellow(`  ${SESSION_TOOL_PERMISSION_KEY}: ${toolPermission}`));
+            console.log(chalk.cyan('\n  Agent Context Selection:'));
+            console.log(chalk.yellow(`    ${SETTINGS_KEY_CONTEXT_TOP_K}: ${contextTopK}`));
+            console.log(chalk.yellow(`    ${SETTINGS_KEY_CONTEXT_TOP_N}: ${contextTopN}`));
+            console.log(chalk.yellow(`    ${SETTINGS_KEY_CONTEXT_INCLUDE_SCORE}: ${contextIncludeScore}`));
             console.log('');
           } else if (args[0] == 'clear') {
             const settings = getAgentSettings(agent);
@@ -485,6 +507,9 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
             await agent.setSetting(SETTINGS_KEY_TEMPERATURE, settings.temperature.toString());
             await agent.setSetting(SETTINGS_KEY_TOP_P, settings.topP.toString());
             await agent.setSetting(SESSION_TOOL_PERMISSION_KEY, settings.toolPermission);
+            await agent.setSetting(SETTINGS_KEY_CONTEXT_TOP_K, settings.contextTopK.toString());
+            await agent.setSetting(SETTINGS_KEY_CONTEXT_TOP_N, settings.contextTopN.toString());
+            await agent.setSetting(SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, settings.contextIncludeScore.toString());
             console.log(chalk.cyan('\nChat session settings saved to agent'));
           } else {
             console.log(chalk.cyan('\nUnknown settings command: '), chalk.yellow(args[1]));
@@ -531,6 +556,27 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               break;
             }
             chatSession.updateSettings({...settings, toolPermission: value as SessionToolPermission});
+          } else if (key == SETTINGS_KEY_CONTEXT_TOP_K) {
+            const contextTopK = parseInt(value);
+            if (isNaN(contextTopK) || contextTopK < 1 || contextTopK > 100) {
+              console.log(chalk.red('Invalid context top K (must be between 1 and 100): '), chalk.yellow(value));
+              break;
+            }
+            chatSession.updateSettings({...settings, contextTopK});
+          } else if (key == SETTINGS_KEY_CONTEXT_TOP_N) {
+            const contextTopN = parseInt(value);
+            if (isNaN(contextTopN) || contextTopN < 1 || contextTopN > 50) {
+              console.log(chalk.red('Invalid context top N (must be between 1 and 50): '), chalk.yellow(value));
+              break;
+            }
+            chatSession.updateSettings({...settings, contextTopN});
+          } else if (key == SETTINGS_KEY_CONTEXT_INCLUDE_SCORE) {
+            const contextIncludeScore = parseFloat(value);
+            if (isNaN(contextIncludeScore) || contextIncludeScore < 0 || contextIncludeScore > 1) {
+              console.log(chalk.red('Invalid context include score (must be between 0 and 1): '), chalk.yellow(value));
+              break;
+            }
+            chatSession.updateSettings({...settings, contextIncludeScore});
           } else {
             console.log(chalk.red('Unknown setting: '), chalk.yellow(key));
             break;

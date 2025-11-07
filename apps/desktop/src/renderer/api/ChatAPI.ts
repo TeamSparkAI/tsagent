@@ -1,7 +1,7 @@
 import { ProviderType } from '@tsagent/core';
 import type { ProviderModel as ILLMModel } from '@tsagent/core';
 import { RendererChatMessage } from '../types/ChatMessage';
-import { ChatMessage, MessageUpdate, ModelReply, SessionContextItem } from '@tsagent/core';
+import { ChatMessage, MessageUpdate, ModelReply, SessionContextItem, SessionToolPermission } from '@tsagent/core';
 import log from 'electron-log';
 
 export class ChatAPI {
@@ -276,6 +276,10 @@ export class ChatAPI {
     maxOutputTokens: number;
     temperature: number;
     topP: number;
+    toolPermission: SessionToolPermission;
+    contextTopK: number;
+    contextTopN: number;
+    contextIncludeScore: number;
   }): Promise<boolean> {
     try {
       await window.api.updateChatSettings(this.tabId, settings);

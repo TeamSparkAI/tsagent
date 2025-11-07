@@ -11,6 +11,12 @@ import {
   SETTINGS_DEFAULT_TEMPERATURE, 
   SETTINGS_KEY_TOP_P, 
   SETTINGS_DEFAULT_TOP_P, 
+  SETTINGS_KEY_CONTEXT_TOP_K,
+  SETTINGS_DEFAULT_CONTEXT_TOP_K,
+  SETTINGS_KEY_CONTEXT_TOP_N,
+  SETTINGS_DEFAULT_CONTEXT_TOP_N,
+  SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
+  SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE,
   SESSION_TOOL_PERMISSION_KEY, 
   SESSION_TOOL_PERMISSION_TOOL, 
   SessionToolPermission, 
@@ -65,7 +71,10 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
       maxOutputTokens: this.getSettingsValue(options.maxOutputTokens, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS),
       temperature: this.getSettingsValue(options.temperature, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE),
       topP: this.getSettingsValue(options.topP, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P),
-      toolPermission: this.getToolPermissionValue(options.toolPermission, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL)
+      toolPermission: this.getToolPermissionValue(options.toolPermission, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL),
+      contextTopK: this.getSettingsValue(options.contextTopK, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_K),
+      contextTopN: this.getSettingsValue(options.contextTopN, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_TOP_N),
+      contextIncludeScore: this.getSettingsValue(options.contextIncludeScore, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE)
     }
 
     // Create new ChatSession instance

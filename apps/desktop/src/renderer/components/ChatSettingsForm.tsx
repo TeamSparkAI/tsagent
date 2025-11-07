@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import log from 'electron-log';
 import './ChatSettingsForm.css';
-import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '@tsagent/core';
+import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SETTINGS_DEFAULT_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '@tsagent/core';
 
 export interface ChatSettings {
   maxChatTurns: number;
@@ -9,6 +9,9 @@ export interface ChatSettings {
   temperature: number;
   topP: number;
   toolPermission: SessionToolPermission;
+  contextTopK: number;
+  contextTopN: number;
+  contextIncludeScore: number;
 }
 
 interface ChatSettingsFormProps {
@@ -29,7 +32,10 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
     maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
     temperature: SETTINGS_DEFAULT_TEMPERATURE,
     topP: SETTINGS_DEFAULT_TOP_P,
-    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
+    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
+    contextTopK: SETTINGS_DEFAULT_CONTEXT_TOP_K,
+    contextTopN: SETTINGS_DEFAULT_CONTEXT_TOP_N,
+    contextIncludeScore: SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
   });
 
   useEffect(() => {
@@ -40,6 +46,9 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
         const temperature = await window.api.getSettingsValue(SETTINGS_KEY_TEMPERATURE);
         const topP = await window.api.getSettingsValue(SETTINGS_KEY_TOP_P);
         const toolPermission = await window.api.getSettingsValue('toolPermission');
+        const contextTopK = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_TOP_K);
+        const contextTopN = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_TOP_N);
+        const contextIncludeScore = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_INCLUDE_SCORE);
 
         setAgentSettings({
           maxChatTurns: maxTurns ? parseInt(maxTurns) : SETTINGS_DEFAULT_MAX_CHAT_TURNS,
@@ -48,7 +57,10 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
           topP: topP ? parseFloat(topP) : SETTINGS_DEFAULT_TOP_P,
           toolPermission: (toolPermission === SESSION_TOOL_PERMISSION_TOOL || toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || toolPermission === SESSION_TOOL_PERMISSION_NEVER) 
             ? toolPermission as SessionToolPermission 
-            : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
+            : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
+          contextTopK: contextTopK ? parseInt(contextTopK) : SETTINGS_DEFAULT_CONTEXT_TOP_K,
+          contextTopN: contextTopN ? parseInt(contextTopN) : SETTINGS_DEFAULT_CONTEXT_TOP_N,
+          contextIncludeScore: contextIncludeScore ? parseFloat(contextIncludeScore) : SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
         });
       } catch (error) {
         log.error('Error loading agent settings:', error);
@@ -64,7 +76,10 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
       settings.maxOutputTokens === agentSettings.maxOutputTokens &&
       settings.temperature === agentSettings.temperature &&
       settings.topP === agentSettings.topP &&
-      settings.toolPermission === agentSettings.toolPermission
+      settings.toolPermission === agentSettings.toolPermission &&
+      settings.contextTopK === agentSettings.contextTopK &&
+      settings.contextTopN === agentSettings.contextTopN &&
+      settings.contextIncludeScore === agentSettings.contextIncludeScore
     );
   };
 
@@ -91,29 +106,32 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   return (
     <div className="settings-section">
       {showTitle && (
-        <div className="settings-header">
-          <h3>
-            Chat Settings
-            <span className="setting-description">Any changes here will apply only to this chat session.</span>
-          </h3>
-          <div className="settings-actions">
-            {!areSettingsDefault() && (
-              <button 
-                className="btn-restore-defaults"
-                onClick={handleRestoreDefaults}
-                title="Restore agent default settings"
-                disabled={readOnly}
-              >
-                Restore Agent Defaults
-              </button>
-            )}
-            {areSettingsDefault() && (
-              <span className="default-indicator" title="Using agent default settings">
-                Using Agent Default Settings
-              </span>
-            )}
+        <>
+          <div className="settings-header">
+            <h3>
+              Chat Settings
+              <span className="setting-description">Any changes here will apply only to this chat session.</span>
+            </h3>
+            <div className="settings-actions">
+              {!areSettingsDefault() && (
+                <button 
+                  className="btn-restore-defaults"
+                  onClick={handleRestoreDefaults}
+                  title="Restore agent default settings"
+                  disabled={readOnly}
+                >
+                  Restore Agent Defaults
+                </button>
+              )}
+              {areSettingsDefault() && (
+                <span className="default-indicator" title="Using agent default settings">
+                  Using Agent Default Settings
+                </span>
+              )}
+            </div>
           </div>
-        </div>
+          <hr className="setting-group-divider" />
+        </>
       )}
       <div className="settings-grid">
         <div className="setting-item">
@@ -200,6 +218,66 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             <option value={SESSION_TOOL_PERMISSION_ALWAYS}>Always request permission</option>
             <option value={SESSION_TOOL_PERMISSION_NEVER}>Never request permission</option>
           </select>
+        </div>
+
+        <hr className="setting-group-divider" />
+        <div className="setting-group-header">
+          <span className="setting-group-title">Agent Context Selection</span>
+          <div className="setting-group-description">
+            Control how context items with "agent" include are selected for each request.
+          </div>
+        </div>
+
+        <div className="setting-item">
+          <label htmlFor="contextTopK">Top K (Chunk Matches)</label>
+          <input
+            type="number"
+            id="contextTopK"
+            value={settings.contextTopK}
+            onChange={(e) => handleChange('contextTopK', parseInt(e.target.value))}
+            min="1"
+            max="100"
+            disabled={readOnly}
+          />
+          <div className="setting-description">
+            Maximum number of chunk matches to consider when selecting relevant context items.
+          </div>
+        </div>
+
+        <div className="setting-item">
+          <label htmlFor="contextTopN">Top N (Items)</label>
+          <input
+            type="number"
+            id="contextTopN"
+            value={settings.contextTopN}
+            onChange={(e) => handleChange('contextTopN', parseInt(e.target.value))}
+            min="1"
+            max="50"
+            disabled={readOnly}
+          />
+          <div className="setting-description">
+            Target number of context items to include after grouping by item (may exceed if include score threshold is met).
+          </div>
+        </div>
+
+        <div className="setting-item">
+          <label htmlFor="contextIncludeScore">Include Score Threshold</label>
+          <div className="slider-container">
+            <input
+              type="range"
+              id="contextIncludeScore"
+              value={settings.contextIncludeScore}
+              onChange={(e) => handleChange('contextIncludeScore', parseFloat(e.target.value))}
+              min="0"
+              max="1"
+              step="0.05"
+              disabled={readOnly}
+            />
+            <div className="setting-value">{settings.contextIncludeScore.toFixed(2)}</div>
+          </div>
+          <div className="setting-description">
+            Always include items with relevance score at or above this threshold, even if the number of items exceeds Top N.
+          </div>
         </div>
       </div>
     </div>

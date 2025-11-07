@@ -395,7 +395,10 @@
   display: grid;
   grid-template-columns: 1fr;
   grid-gap: 10px;
-  overflow: visible;
+  max-height: min(60%, 60vh);
+  flex: 0 1 60%;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 /* Context section headers */

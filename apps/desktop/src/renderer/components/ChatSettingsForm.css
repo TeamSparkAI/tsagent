@@ -117,3 +117,34 @@
   margin-top: 0;
   margin-bottom: 10px;
 }
+
+.setting-group-header {
+  display: contents;
+}
+
+.setting-group-title {
+  font-weight: 600;
+  font-style: italic;
+  color: var(--text-primary);
+  grid-column: 1;
+  white-space: nowrap;
+  padding-right: 20px;
+  align-self: baseline;
+}
+
+.setting-group-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  grid-column: 2;
+  margin: 0 0 20px 0;
+  align-self: baseline;
+  font-style: italic;
+}
+
+.setting-group-divider {
+  grid-column: 1 / -1;
+  border: none;
+  border-top: 1px solid var(--border-color);
+  margin: 10px 0 20px 0;
+}

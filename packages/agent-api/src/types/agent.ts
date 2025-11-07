@@ -16,6 +16,9 @@ export const SETTINGS_KEY_TOP_P = 'topP';
 export const SETTINGS_KEY_SYSTEM_PATH = 'systemPath';
 export const SETTINGS_KEY_MOST_RECENT_MODEL = 'mostRecentModel';
 export const SETTINGS_KEY_THEME = 'theme';
+export const SETTINGS_KEY_CONTEXT_TOP_K = 'contextTopK';
+export const SETTINGS_KEY_CONTEXT_TOP_N = 'contextTopN';
+export const SETTINGS_KEY_CONTEXT_INCLUDE_SCORE = 'contextIncludeScore';
 
 // Tool Permission Settings
 export type SessionToolPermission = 'always' | 'never' | 'tool';
@@ -32,6 +35,9 @@ export const SETTINGS_DEFAULT_MAX_CHAT_TURNS = 20;
 export const SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS = 1000;
 export const SETTINGS_DEFAULT_TEMPERATURE = 0.5;
 export const SETTINGS_DEFAULT_TOP_P = 0.5;
+export const SETTINGS_DEFAULT_CONTEXT_TOP_K = 20;
+export const SETTINGS_DEFAULT_CONTEXT_TOP_N = 5;
+export const SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE = 0.7;
 
 export type AgentMode = 'interactive' | 'autonomous' | 'tools';
 
@@ -170,6 +176,9 @@ export interface AgentSettings {
   [SETTINGS_KEY_TEMPERATURE]: string;
   [SETTINGS_KEY_TOP_P]: string;
   [SETTINGS_KEY_THEME]: string;
+  [SETTINGS_KEY_CONTEXT_TOP_K]: string;
+  [SETTINGS_KEY_CONTEXT_TOP_N]: string;
+  [SETTINGS_KEY_CONTEXT_INCLUDE_SCORE]: string;
   [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
   [key: string]: string | SessionToolPermission | undefined;
 }

@@ -9,7 +9,7 @@ import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from '@tsagent/core
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import type { ProviderModel as ILLMModel } from '@tsagent/core';
-import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MOST_RECENT_MODEL, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '@tsagent/core';
+import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MOST_RECENT_MODEL, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SETTINGS_DEFAULT_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '@tsagent/core';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -102,7 +102,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
     maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
     temperature: SETTINGS_DEFAULT_TEMPERATURE,
     topP: SETTINGS_DEFAULT_TOP_P,
-    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
+    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
+    contextTopK: SETTINGS_DEFAULT_CONTEXT_TOP_K,
+    contextTopN: SETTINGS_DEFAULT_CONTEXT_TOP_N,
+    contextIncludeScore: SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
   });
 
   // Helper to find the disposition for a tool call by looking at the previous message
@@ -262,7 +265,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               topP: state.topP ?? SETTINGS_DEFAULT_TOP_P,
               toolPermission: (state.toolPermission === SESSION_TOOL_PERMISSION_TOOL || state.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || state.toolPermission === SESSION_TOOL_PERMISSION_NEVER)
                 ? state.toolPermission as SessionToolPermission
-                : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission
+                : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
+              contextTopK: state.contextTopK ?? SETTINGS_DEFAULT_CONTEXT_TOP_K,
+              contextTopN: state.contextTopN ?? SETTINGS_DEFAULT_CONTEXT_TOP_N,
+              contextIncludeScore: state.contextIncludeScore ?? SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
             });
             
             setIsInitialized(true);

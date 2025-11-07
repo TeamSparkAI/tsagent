@@ -4,6 +4,9 @@ import {
   SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
   SETTINGS_KEY_TOP_P, SessionToolPermission, 
   SETTINGS_KEY_TEMPERATURE, 
+  SETTINGS_KEY_CONTEXT_TOP_K,
+  SETTINGS_KEY_CONTEXT_TOP_N,
+  SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
   SESSION_TOOL_PERMISSION_KEY 
 } from './agent.js';
 import { RequestContext, SessionContextItem } from './context.js';
@@ -43,6 +46,9 @@ export interface ChatState {
   temperature: number;
   topP: number;
   toolPermission: SessionToolPermission;
+  contextTopK: number;
+  contextTopN: number;
+  contextIncludeScore: number;
 }
 
 export interface MessageUpdate {
@@ -55,6 +61,9 @@ export interface ChatSessionSettings {
     [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: string;
     [SETTINGS_KEY_TEMPERATURE]: string;
     [SETTINGS_KEY_TOP_P]: string;
+    [SETTINGS_KEY_CONTEXT_TOP_K]: string;
+    [SETTINGS_KEY_CONTEXT_TOP_N]: string;
+    [SETTINGS_KEY_CONTEXT_INCLUDE_SCORE]: string;
     [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
 }
 
@@ -67,9 +76,12 @@ export interface ChatSessionOptions {
   temperature?: number;
   topP?: number;
   toolPermission?: SessionToolPermission;
+  contextTopK?: number;
+  contextTopN?: number;
+  contextIncludeScore?: number;
 }
 
-type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission'>>;
+type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission' | 'contextTopK' | 'contextTopN' | 'contextIncludeScore'>>;
 export type ChatSessionOptionsWithRequiredSettings = Omit<ChatSessionOptions, keyof RequiredSettings> & RequiredSettings;
 
 export interface ChatSessionResponse {
@@ -143,5 +155,8 @@ export interface ChatSession {
     temperature: number;
     topP: number;
     toolPermission: SessionToolPermission;
+    contextTopK: number;
+    contextTopN: number;
+    contextIncludeScore: number;
   }): boolean;
 }

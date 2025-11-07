@@ -1357,6 +1357,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     temperature: number;
     topP: number;
     toolPermission: SessionToolPermission;
+    contextTopK: number;
+    contextTopN: number;
+    contextIncludeScore: number;
   }) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
