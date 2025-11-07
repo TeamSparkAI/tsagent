@@ -163,9 +163,22 @@ export interface ChatState {
   maxOutputTokens: number;
   temperature: number;
   topP: number;
+  contextTopK: number;
+  contextTopN: number;
+  contextIncludeScore: number;
   toolPermission: SessionToolPermission;
 }
 ```
+
+## Agent and Session Settings
+
+Context behavior is controlled by configuration tracked at both the **agent** and **session** level:
+
+- **Agent defaults**: Each agent stores default values for chat settings (max turns, temperature, topP, tool permissions) and for agent-mode selection controls (`contextTopK`, `contextTopN`, `contextIncludeScore`).
+- **Session overrides**: When a chat session is created, it inherits the agent defaults. Users can adjust any of these values for the active session without affecting the agent defaults.
+- **Request building**: `ChatSessionImpl` always uses the current session values when invoking `searchContextItems()`. Agent-level defaults only matter when seeding new sessions.
+
+Desktop and CLI surfaces expose both layers—the agent settings tab edits the defaults, while the per-session settings drawer adjusts the overrides. These settings directly influence which context items are available to the agent and how semantic selection is performed for each request.
 
 ## How It Works
 
