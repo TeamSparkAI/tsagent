@@ -672,29 +672,32 @@ export class ChatSessionImpl implements ChatSession {
 
   private initializeAlwaysIncludeTools(): void {
     try {
-      // Get server configs synchronously - clients should be preloaded
       const mcpServers = this.agent.getAgentMcpServers();
       if (!mcpServers) return;
-      
+
+      const mcpClients = this.agent.getAllMcpClientsSync();
+
       for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
-        // Check if server default is 'always'
-        const serverDefault = getToolIncludeServerDefault(serverConfig as any);
-        if (serverDefault === 'always') {
-          // Get the client for this server to access its tools
-          const mcpClients = this.agent.getAllMcpClientsSync();
-          const client = mcpClients[serverName];
-          if (client && client.serverTools) {
-            for (const tool of client.serverTools) {
-              if (getToolEffectiveIncludeMode(serverConfig as any, tool.name) === 'always') {
-                this.contextItems.push({
-                  type: 'tool',
-                  name: tool.name,
-                  serverName: serverName,
-                  includeMode: 'always',
-                });
-                this.logger.info(`Added always-include tool '${serverName}:${tool.name}' to session`);
-              }
-            }
+        const client = mcpClients[serverName];
+        if (!client?.serverTools?.length) continue;
+
+        for (const tool of client.serverTools) {
+          if (getToolEffectiveIncludeMode(serverConfig as any, tool.name) === 'always') {
+            const alreadyIncluded = this.contextItems.some(
+              item =>
+                item.type === 'tool' &&
+                item.name === tool.name &&
+                item.serverName === serverName
+            );
+            if (alreadyIncluded) continue;
+
+            this.contextItems.push({
+              type: 'tool',
+              name: tool.name,
+              serverName: serverName,
+              includeMode: 'always',
+            });
+            this.logger.info(`Added always-include tool '${serverName}:${tool.name}' to session`);
           }
         }
       }

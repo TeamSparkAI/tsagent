@@ -18,7 +18,6 @@ import {
     getToolIncludeServerDefault,
     getToolIncludeMode,
     getToolEffectiveIncludeMode,
-    isToolInContext,
     isToolAvailableForManual,
     isToolAvailableForAgent
 } from "@tsagent/core";
@@ -1447,31 +1446,37 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
                                 </div>
                                 <div>
-                                    {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => (
-                                        <div 
-                                            key={tool.name}
-                                            className={`tab-items-item ${selectedTool?.name === tool.name ? 'selected' : ''}`}
-                                            onClick={() => setSelectedTool(tool)}
-                                            style={{ display: 'block' }}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{tool.name}</h3>
-                                                {!isToolInContext(selectedServer.config, tool.name) && (
-                                                    <span style={{ 
-                                                        padding: '2px 6px', 
-                                                        backgroundColor: '#ff4444',
-                                                        color: 'white',
-                                                        borderRadius: '4px',
-                                                        fontSize: '12px',
-                                                        fontWeight: 'bold'
-                                                    }}>
-                                                        Disabled
-                                                    </span>
-                                                )}
+                                    {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => {
+                                        const includeMode = getToolEffectiveIncludeMode(selectedServer.config, tool.name);
+                                        const includeModeLabel = includeMode === 'manual' ? 'Manual' : includeMode === 'agent' ? 'Agent' : null;
+                                        const includeModeColor = includeMode === 'manual' ? '#ff9800' : '#1890ff';
+
+                                        return (
+                                            <div 
+                                                key={tool.name}
+                                                className={`tab-items-item ${selectedTool?.name === tool.name ? 'selected' : ''}`}
+                                                onClick={() => setSelectedTool(tool)}
+                                                style={{ display: 'block' }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                    <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{tool.name}</h3>
+                                                    {includeModeLabel && (
+                                                        <span style={{ 
+                                                            padding: '2px 6px', 
+                                                            backgroundColor: includeModeColor,
+                                                            color: 'white',
+                                                            borderRadius: '4px',
+                                                            fontSize: '12px',
+                                                            fontWeight: 'bold'
+                                                        }}>
+                                                            {includeModeLabel}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>{tool.description || 'No description'}</p>
                                             </div>
-                                            <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>{tool.description || 'No description'}</p>
-                                        </div>
-                                    ))}
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>

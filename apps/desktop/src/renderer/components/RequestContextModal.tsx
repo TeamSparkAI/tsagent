@@ -191,13 +191,13 @@ export const RequestContextModal: React.FC<RequestContextModalProps> = ({
               <div className="context-column-readonly" style={{ flex: 1, overflowY: 'auto' }}>
                 <div className="context-section">
                   <div className="context-section-header">
-                    <h3>Rules ({rules.length})</h3>
+                    <h3>References ({references.length})</h3>
                   </div>
-                  {rules.length === 0 ? (
-                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No rules used</p>
+                  {references.length === 0 ? (
+                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No references used</p>
                   ) : (
                     <div className="context-list-readonly">
-                      {rules.map(renderContextItem)}
+                      {references.map(renderContextItem)}
                     </div>
                   )}
                 </div>
@@ -206,13 +206,13 @@ export const RequestContextModal: React.FC<RequestContextModalProps> = ({
               <div className="context-column-readonly" style={{ flex: 1, overflowY: 'auto' }}>
                 <div className="context-section">
                   <div className="context-section-header">
-                    <h3>References ({references.length})</h3>
+                    <h3>Rules ({rules.length})</h3>
                   </div>
-                  {references.length === 0 ? (
-                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No references used</p>
+                  {rules.length === 0 ? (
+                    <p style={{ color: 'var(--text-secondary)', fontStyle: 'italic' }}>No rules used</p>
                   ) : (
                     <div className="context-list-readonly">
-                      {references.map(renderContextItem)}
+                      {rules.map(renderContextItem)}
                     </div>
                   )}
                 </div>
