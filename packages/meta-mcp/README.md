@@ -194,6 +194,7 @@ ToolVault
   - next.js MCP
   - Something to enumerate, call REST API endpoints (maybe openapi spec is a ref?)
   - sqlite pointing at local db
+  - NPM MCP server?
 - External tools
   - ???
 
@@ -218,13 +219,15 @@ Present scenarios for a demo that satisfy the above, whether using MCP ToolVault
 
 
 System health
-- product/server running, reponding to API
+- product/server running, reponding to API (local host/port the way the shim does it?)
 - for ToolVault - recent messages passing through
 - github open issues and PRs
 
 Data element tracking
 - Show flow from db->model->API->UX
 
-NPM pubishing - determine if pubishing is required
-- Is version later than published version?
-- If not, has code been touched since verson published?
+NPM pubishing - determine if pubishing is required for package
+- Get latest npm pubished version and timestamp (NPM, maybe Fetch?) - for package
+- Is version later than published version (Guthub or filesystem)? - for package.json
+- If not, has code been committed since verson published? (github) - in package dir
+- If not, are there local (uncommitted) changes later than published version? (filesystem) - in package dir
