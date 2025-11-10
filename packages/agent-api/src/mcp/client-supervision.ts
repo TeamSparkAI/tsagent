@@ -19,6 +19,7 @@ import {
     implementListContextRules,
     implementIncludeRule,
     implementExcludeRule,
+    implementSearchRules,
     type RuleArgs
 } from './client-rules.js';
 
@@ -32,8 +33,10 @@ import {
     implementListContextReferences,
     implementIncludeReference,
     implementExcludeReference,
+    implementSearchReferences,
     type ReferenceArgs
 } from './client-references.js';
+import { validateSearchArgs } from './client.js';
 
 import {
     implementListTools,
@@ -46,7 +49,8 @@ import {
     implementGetToolServer,
     implementSetServerIncludeMode,
     implementIncludeToolServer,
-    implementExcludeToolServer
+    implementExcludeToolServer,
+    implementSearchTools
 } from './client-tools.js';
 
 /**
@@ -117,6 +121,37 @@ export class McpClientInternalSupervision implements McpClient {
                 type: "object",
                 properties: {},
                 required: []
+            }
+        },
+        {
+            name: "supervised_searchRules",
+            description: "Search rules using semantic similarity and return matching items",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "Search query text to match against rule contents"
+                    },
+                    topK: {
+                        type: "number",
+                        description: "Maximum embedding matches to consider before grouping (default: 20)",
+                        minimum: 1
+                    },
+                    topN: {
+                        type: "number",
+                        description: "Target number of results to return after grouping (default: 5)",
+                        minimum: 1
+                    },
+                    includeScore: {
+                        type: "number",
+                        description: "Always include items with this cosine similarity score or higher (default: 0.7)",
+                        minimum: 0,
+                        maximum: 1
+                    }
+                },
+                required: ["query"],
+                additionalProperties: false
             }
         },
         {
@@ -205,6 +240,37 @@ export class McpClientInternalSupervision implements McpClient {
             }
         },
         {
+            name: "supervised_searchReferences",
+            description: "Search references using semantic similarity and return matching items",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "Search query text to match against reference contents"
+                    },
+                    topK: {
+                        type: "number",
+                        description: "Maximum embedding matches to consider before grouping (default: 20)",
+                        minimum: 1
+                    },
+                    topN: {
+                        type: "number",
+                        description: "Target number of results to return after grouping (default: 5)",
+                        minimum: 1
+                    },
+                    includeScore: {
+                        type: "number",
+                        description: "Always include items with this cosine similarity score or higher (default: 0.7)",
+                        minimum: 0,
+                        maximum: 1
+                    }
+                },
+                required: ["query"],
+                additionalProperties: false
+            }
+        },
+        {
             name: "supervised_getReference",
             description: "Get a specific reference from the supervised agent",
             inputSchema: {
@@ -287,6 +353,37 @@ export class McpClientInternalSupervision implements McpClient {
                 type: "object",
                 properties: {},
                 required: []
+            }
+        },
+        {
+            name: "supervised_searchTools",
+            description: "Search tools using semantic similarity and return matching items",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "Search query text to match against tool names and descriptions"
+                    },
+                    topK: {
+                        type: "number",
+                        description: "Maximum embedding matches to consider before grouping (default: 20)",
+                        minimum: 1
+                    },
+                    topN: {
+                        type: "number",
+                        description: "Target number of results to return after grouping (default: 5)",
+                        minimum: 1
+                    },
+                    includeScore: {
+                        type: "number",
+                        description: "Always include items with this cosine similarity score or higher (default: 0.7)",
+                        minimum: 0,
+                        maximum: 1
+                    }
+                },
+                required: ["query"],
+                additionalProperties: false
             }
         },
         {
@@ -587,6 +684,11 @@ export class McpClientInternalSupervision implements McpClient {
                     result = implementExcludeRule(supervisedSession, validatedArgs.name!);
                     break;
                 }
+                case "supervised_searchRules": {
+                    const validatedArgs = validateSearchArgs(args);
+                    result = await implementSearchRules(supervisedAgent, validatedArgs);
+                    break;
+                }
                 
                 // References Management Tools - use shared implementations
                 case "supervised_listReferences": {
@@ -621,6 +723,11 @@ export class McpClientInternalSupervision implements McpClient {
                 case "supervised_excludeReference": {
                     const validatedArgs = validateReferenceArgs(args, ["name"]);
                     result = implementExcludeReference(supervisedSession, validatedArgs.name!);
+                    break;
+                }
+                case "supervised_searchReferences": {
+                    const validatedArgs = validateSearchArgs(args);
+                    result = await implementSearchReferences(supervisedAgent, validatedArgs);
                     break;
                 }
                 
@@ -667,6 +774,11 @@ export class McpClientInternalSupervision implements McpClient {
                 }
                 case "supervised_excludeToolServer": {
                     result = await implementExcludeToolServer(supervisedSession, args?.serverName as string);
+                    break;
+                }
+                case "supervised_searchTools": {
+                    const validatedArgs = validateSearchArgs(args);
+                    result = await implementSearchTools(supervisedAgent, validatedArgs);
                     break;
                 }
                 

@@ -1,10 +1,12 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 import { CallToolResultWithElapsedTime, McpClient } from "./types.js";
+import { SearchArgs, validateSearchArgs } from "./client.js";
 import { Logger } from '../types/common.js';
 import { ChatSession } from "../types/chat.js";
 import { Reference } from "../types/references.js";
 import { Agent } from "../types/agent.js";
+import { SessionContextItem } from "../types/context.js";
 
 /**
  * Interface for reference arguments with all fields optional
@@ -16,6 +18,15 @@ export interface ReferenceArgs {
     enabled?: boolean;
     text?: string;
     include?: 'always' | 'manual' | 'agent';
+}
+
+export interface ReferenceSearchResult {
+    name: string;
+    description?: string;
+    priorityLevel?: number;
+    include?: 'always' | 'manual' | 'agent';
+    similarityScore?: number;
+    text?: string;
 }
 
 export class McpClientInternalReferences implements McpClient {
@@ -161,6 +172,37 @@ export class McpClientInternalReferences implements McpClient {
                 required: ["name"]
             }
         },
+        {
+            name: "searchReferences",
+            description: "Search references using semantic similarity and return matching items",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "Search query text to match against reference contents"
+                    },
+                    topK: {
+                        type: "number",
+                        description: "Maximum embedding matches to consider before grouping (default: 20)",
+                        minimum: 1
+                    },
+                    topN: {
+                        type: "number",
+                        description: "Target number of results to return after grouping (default: 5)",
+                        minimum: 1
+                    },
+                    includeScore: {
+                        type: "number",
+                        description: "Always include items with this cosine similarity score or higher (default: 0.7)",
+                        minimum: 0,
+                        maximum: 1
+                    }
+                },
+                required: ["query"],
+                additionalProperties: false
+            }
+        },
     ];
 
     constructor(agent: Agent, logger: Logger) {
@@ -272,6 +314,15 @@ export class McpClientInternalReferences implements McpClient {
                     const message = implementExcludeReference(session, validatedArgs.name!);
                     return {
                         content: [{ type: "text", text: message }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+
+                case "searchReferences": {
+                    const validatedArgs = validateSearchArgs(args);
+                    const results = await implementSearchReferences(this.agent, validatedArgs);
+                    return {
+                        content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
@@ -441,3 +492,43 @@ export function implementExcludeReference(session: ChatSession, referenceName: s
     
     return `Reference "${referenceName}" successfully excluded from chat session`;
 } 
+
+export async function implementSearchReferences(agent: Agent, args: SearchArgs): Promise<ReferenceSearchResult[]> {
+    const references = agent.getAllReferences();
+    if (references.length === 0) {
+        return [];
+    }
+
+    const referenceMap = new Map(references.map(reference => [reference.name, reference]));
+
+    const sessionItems: SessionContextItem[] = references.map(reference => ({
+        type: 'reference' as const,
+        name: reference.name,
+        includeMode: reference.include === 'always' ? 'always' : 'manual',
+    }));
+
+    const searchResults = await agent.searchContextItems(args.query, sessionItems, args);
+
+    return searchResults
+        .filter(item => item.type === 'reference')
+        .map(item => {
+            const reference = referenceMap.get(item.name);
+            if (!reference) {
+                return {
+                    name: item.name,
+                    similarityScore: item.similarityScore,
+                };
+            }
+
+            const result: ReferenceSearchResult = {
+                name: reference.name,
+                description: reference.description || undefined,
+                priorityLevel: reference.priorityLevel,
+                include: reference.include,
+                similarityScore: item.similarityScore,
+                text: reference.text || undefined,
+            };
+
+            return result;
+        });
+}

@@ -175,3 +175,56 @@ npx @modelcontextprotocol/inspector \
   npm run build
   ```
 
+## Demo
+
+MCP Optimizer
+- list_tools
+  - "List tools most relevant to the prompt that follows: {prompt}"
+- call_tool
+  - "Call the tool {toolname} with the parameters that follow: {parameters}"
+
+Tool manager
+- Later: Install server (elicitation for config?)
+
+ToolVault
+- MCP Servers
+  - Refs (about ToolVault)
+  - filesystem pointing at source (maybe grep also)
+  - github pointing at repo
+  - next.js MCP
+  - Something to enumerate, call REST API endpoints (maybe openapi spec is a ref?)
+  - sqlite pointing at local db
+- External tools
+  - ???
+
+### Servers
+
+REST API as MCP
+
+https://github.com/ivo-toby/mcp-openapi-server
+https://www.npmjs.com/package/@mcp-apps/api-tools-mcp-server
+
+### Prompt
+
+I have a feature of my agent platform that allows a user to create an agent that exports tools. The user can define a tool by name, description, parameters, and prompt. An MCP server provides those tools to clients, where the client sees the tools and calls them, and the MCP server does substituition of paramter values in the prompt and the lets the agent process that prompt, returning a result. The agent can use internal references or rules or call it's own MCP tools in service of responding to the prompt. 
+
+I'm trying to come up with a demo to showcase the power of this functionality (essentiallly MCP tools that are implemented as full agents), highlighting situations where this would be better than just adding the agents mcp servers to the calling client and letting it's agent handle it. So it needs to be something that "functional" (a function call with parameters) and that relies on the combination if rules, references, and tools in the provuding agent to solve the problem.  Ideally these would be develper scenarios with five functions that would leverage the same set of agent references, rules, and tools (using only those appropriate for each use case), and be targeted at the same persona.
+
+As a possible basis for such a demo, I have product (MCP ToolVault) that is implemented in Next.js, has a full REST API (documented via an openapi spec), with its database in sqlite.  It renders a Web UX.  I have MCP servers that an access the filesystem (the source code of the project), the github repo of the product, can enumerate and call the REST API endpoints, can access the sqlite database (which contains clients, servers, policies, messages, and alerts), and can interact with the web ux (via Playright?).  I can collect product and project information and rules in rules and references as appropriate.
+
+The database can tell us things like how the product is being used (which clients and servers, which policies, and also things like whether any recent messages exist for given clients/servers to see who is using the product and how, and alerts by policy to see which policies are being violated).  That being said, much of that can be seen in the product itself or determined by call it's APIs.  Using the db on concert with other context would be good, but only if it is truly complimentary.
+
+Present scenarios for a demo that satisfy the above, whether using MCP ToolVault or something else.
+
+
+System health
+- product/server running, reponding to API
+- for ToolVault - recent messages passing through
+- github open issues and PRs
+
+Data element tracking
+- Show flow from db->model->API->UX
+
+NPM pubishing - determine if pubishing is required
+- Is version later than published version?
+- If not, has code been touched since verson published?

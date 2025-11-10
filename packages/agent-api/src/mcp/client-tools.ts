@@ -1,7 +1,9 @@
-import { Tool, CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { Tool } from "@modelcontextprotocol/sdk/types.js";
 import { McpClient, CallToolResultWithElapsedTime } from "./types.js";
+import { SearchArgs, validateSearchArgs } from "./client.js";
 import { ChatSession } from "../types/chat.js";
 import { Agent } from "../types/agent.js";
+import { SessionContextItem } from "../types/context.js";
 
 export class McpClientInternalTools implements McpClient {
     serverVersion = { name: "internal-tools", version: "1.0.0" };
@@ -129,6 +131,37 @@ export class McpClientInternalTools implements McpClient {
                     },
                     required: ["name"]
                 }
+            },
+            {
+                name: "searchTools",
+                description: "Search tools using semantic similarity and return matching items",
+                inputSchema: {
+                    type: "object",
+                    properties: {
+                        query: {
+                            type: "string",
+                            description: "Search query text to match against tool names and descriptions"
+                        },
+                        topK: {
+                            type: "number",
+                            description: "Maximum embedding matches to consider before grouping (default: 20)",
+                            minimum: 1
+                        },
+                        topN: {
+                            type: "number",
+                            description: "Target number of results to return after grouping (default: 5)",
+                            minimum: 1
+                        },
+                        includeScore: {
+                            type: "number",
+                            description: "Always include items with this cosine similarity score or higher (default: 0.7)",
+                            minimum: 0,
+                            maximum: 1
+                        }
+                    },
+                    required: ["query"],
+                    additionalProperties: false
+                }
             }
         ];
     }
@@ -205,6 +238,11 @@ export class McpClientInternalTools implements McpClient {
                 result = await implementExcludeToolServer(session, args?.name as string);
                 break;
             }
+            case "searchTools": {
+                const validatedArgs = validateSearchArgs(args);
+                result = await implementSearchTools(this.agent, validatedArgs);
+                break;
+            }
             default:
                 result = { error: `Unknown tool: ${tool.name}` };
             }
@@ -246,6 +284,15 @@ export class McpClientInternalTools implements McpClient {
 // ========================================
 // Exported Implementation Functions
 // ========================================
+
+export interface ToolSearchResult {
+    serverName: string;
+    toolName: string;
+    description?: string;
+    inputSchema?: Tool['inputSchema'];
+    includeMode: 'always' | 'manual' | 'agent';
+    similarityScore?: number;
+}
 
 export async function implementListTools(agent: Agent): Promise<any> {
     try {
@@ -459,4 +506,78 @@ export async function implementExcludeToolServer(session: ChatSession, serverNam
         success: true,
         message: `Server '${serverName}' excluded with ${excludedCount} tools removed from context`
     };
+}
+
+function resolveToolIncludeMode(serverConfig: any, toolName: string): 'always' | 'manual' | 'agent' {
+    const toolIncludeConfig = serverConfig?.config?.toolInclude;
+    if (!toolIncludeConfig) {
+        return 'manual';
+    }
+
+    const toolMode = toolIncludeConfig.tools?.[toolName] as 'always' | 'manual' | 'agent' | undefined;
+    if (toolMode) {
+        return toolMode;
+    }
+
+    const serverDefault = toolIncludeConfig.serverDefault as 'always' | 'manual' | 'agent' | undefined;
+    return serverDefault ?? 'manual';
+}
+
+function mapToSessionIncludeMode(mode: 'always' | 'manual' | 'agent'): 'always' | 'manual' {
+    return mode === 'always' ? 'always' : 'manual';
+}
+
+export async function implementSearchTools(agent: Agent, args: SearchArgs): Promise<ToolSearchResult[]> {
+    const [mcpClients, mcpServers] = await Promise.all([
+        agent.getAllMcpClients(),
+        agent.getAllMcpServers()
+    ]);
+
+    const toolMetadata = new Map<string, { tool: Tool; includeMode: 'always' | 'manual' | 'agent' }>();
+    const sessionItems: SessionContextItem[] = [];
+
+    for (const [serverName, client] of Object.entries(mcpClients)) {
+        const serverConfig = mcpServers[serverName];
+
+        for (const tool of client.serverTools) {
+            const includeMode = resolveToolIncludeMode(serverConfig, tool.name);
+            const sessionIncludeMode = mapToSessionIncludeMode(includeMode);
+            const key = `${serverName}:${tool.name}`;
+
+            toolMetadata.set(key, {
+                tool,
+                includeMode,
+            });
+
+            sessionItems.push({
+                type: 'tool',
+                name: tool.name,
+                serverName,
+                includeMode: sessionIncludeMode,
+            });
+        }
+    }
+
+    if (sessionItems.length === 0) {
+        return [];
+    }
+
+    const searchResults = await agent.searchContextItems(args.query, sessionItems, args);
+
+    return searchResults
+        .filter(item => item.type === 'tool')
+        .map(item => {
+            const key = `${item.serverName}:${item.name}`;
+            const metadata = toolMetadata.get(key);
+            const tool = metadata?.tool;
+
+            return {
+                serverName: item.serverName,
+                toolName: item.name,
+                description: tool?.description,
+                inputSchema: tool?.inputSchema,
+                includeMode: metadata?.includeMode ?? 'manual',
+                similarityScore: item.similarityScore,
+            };
+        });
 }

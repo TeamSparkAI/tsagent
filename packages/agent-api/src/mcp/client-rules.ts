@@ -1,10 +1,12 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
 import { CallToolResultWithElapsedTime, McpClient } from "./types.js";
+import { SearchArgs, validateSearchArgs } from "./client.js";
 import { Logger } from '../types/common.js';
 import { ChatSession } from "../types/chat.js";
 import { Rule } from "../types/rules.js";
 import { Agent } from "../types/agent.js";
+import { SessionContextItem } from "../types/context.js";
 
 /**
  * Interface for rule arguments with all fields optional
@@ -16,6 +18,15 @@ export interface RuleArgs {
     enabled?: boolean;
     text?: string;
     include?: 'always' | 'manual' | 'agent';
+}
+
+export interface RuleSearchResult {
+    name: string;
+    description?: string;
+    priorityLevel?: number;
+    include?: 'always' | 'manual' | 'agent';
+    similarityScore?: number;
+    text?: string;
 }
 
 export class McpClientInternalRules implements McpClient {
@@ -160,6 +171,37 @@ export class McpClientInternalRules implements McpClient {
                 properties: {},
                 required: []
             }
+        },
+        {
+            name: "searchRules",
+            description: "Search rules using semantic similarity and return matching items",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    query: {
+                        type: "string",
+                        description: "Search query text to match against rule contents"
+                    },
+                    topK: {
+                        type: "number",
+                        description: "Maximum embedding matches to consider before grouping (default: 20)",
+                        minimum: 1
+                    },
+                    topN: {
+                        type: "number",
+                        description: "Target number of results to return after grouping (default: 5)",
+                        minimum: 1
+                    },
+                    includeScore: {
+                        type: "number",
+                        description: "Always include items with this cosine similarity score or higher (default: 0.7)",
+                        minimum: 0,
+                        maximum: 1
+                    }
+                },
+                required: ["query"],
+                additionalProperties: false
+            }
         }
     ];
 
@@ -272,6 +314,15 @@ export class McpClientInternalRules implements McpClient {
                     const message = implementExcludeRule(session, validatedArgs.name!);
                     return {
                         content: [{ type: "text", text: message }],
+                        elapsedTimeMs: performance.now() - startTime
+                    };
+                }
+                
+                case "searchRules": {
+                    const validatedArgs = validateSearchArgs(args);
+                    const results = await implementSearchRules(this.agent, validatedArgs);
+                    return {
+                        content: [{ type: "text", text: JSON.stringify(results, null, 2) }],
                         elapsedTimeMs: performance.now() - startTime
                     };
                 }
@@ -466,4 +517,44 @@ export function implementExcludeRule(session: ChatSession, ruleName: string): st
     }
     
     return `Rule "${ruleName}" successfully excluded from chat session`;
+}
+
+export async function implementSearchRules(agent: Agent, args: SearchArgs): Promise<RuleSearchResult[]> {
+    const rules = agent.getAllRules();
+    if (rules.length === 0) {
+        return [];
+    }
+
+    const ruleMap = new Map(rules.map(rule => [rule.name, rule]));
+
+    const sessionItems: SessionContextItem[] = rules.map(rule => ({
+        type: 'rule' as const,
+        name: rule.name,
+        includeMode: rule.include === 'always' ? 'always' : 'manual',
+    }));
+
+    const searchResults = await agent.searchContextItems(args.query, sessionItems, args);
+
+    return searchResults
+        .filter(item => item.type === 'rule')
+        .map(item => {
+            const rule = ruleMap.get(item.name);
+            if (!rule) {
+                return {
+                    name: item.name,
+                    similarityScore: item.similarityScore,
+                };
+            }
+
+            const result: RuleSearchResult = {
+                name: rule.name,
+                description: rule.description || undefined,
+                priorityLevel: rule.priorityLevel,
+                include: rule.include,
+                similarityScore: item.similarityScore,
+                text: rule.text || undefined,
+            };
+
+            return result;
+        });
 }

@@ -257,3 +257,60 @@ export class McpClientSse extends McpClientBase implements McpClient {
         return transport;
     }
 }
+
+export interface SearchOptions {
+    topK?: number;
+    topN?: number;
+    includeScore?: number;
+}
+
+export interface SearchArgs extends SearchOptions {
+    query: string;
+}
+
+export function validatePositiveInteger(value: unknown, fieldName: string): number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+        throw new Error(`${fieldName} must be a positive number`);
+    }
+    return Math.floor(value);
+}
+
+export function validateIncludeScore(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value < 0 || value > 1) {
+        throw new Error('includeScore must be a number between 0 and 1');
+    }
+    return value;
+}
+
+export function validateSearchOptions(topK?: unknown, topN?: unknown, includeScore?: unknown): SearchOptions {
+    const options: SearchOptions = {};
+    if (topK !== undefined) {
+        options.topK = validatePositiveInteger(topK, 'topK');
+    }
+    if (topN !== undefined) {
+        options.topN = validatePositiveInteger(topN, 'topN');
+    }
+    if (includeScore !== undefined) {
+        options.includeScore = validateIncludeScore(includeScore);
+    }
+    return options;
+}
+
+export function validateSearchArgs(args?: Record<string, unknown>): SearchArgs {
+    if (!args || typeof args !== 'object' || Array.isArray(args)) {
+        throw new Error('Arguments must be an object containing at least a query field');
+    }
+
+    const { query, topK, topN, includeScore } = args as { query?: unknown; topK?: unknown; topN?: unknown; includeScore?: unknown };
+
+    if (typeof query !== 'string' || query.trim().length === 0) {
+        throw new Error('Search query must be a non-empty string');
+    }
+
+    const searchOptions = validateSearchOptions(topK, topN, includeScore);
+
+    return {
+        query: query.trim(),
+        ...searchOptions,
+    };
+}
