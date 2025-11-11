@@ -758,7 +758,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
             </div>
 
             <div className="form-group">
-                <h3>Tool Enabled</h3>
+                <h3>Tool Include</h3>
 
                 <div style={{ 
                     display: 'grid', 
