@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/cli",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "TsAgent CLI",
   "type": "module",
   "main": "dist/main.js",
@@ -16,7 +16,7 @@
     "test": "jest"
   },
   "dependencies": {
-    "@tsagent/core": "file:../../packages/agent-api",
+    "@tsagent/core": "^1.2.9",
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "ora": "^5.4.1",
@@ -42,5 +42,8 @@
     "email": "support@teamspark.ai"
   },
   "homepage": "https://teamspark.ai",
-  "license": "MIT"
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  }
 }

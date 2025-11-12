@@ -1,7 +1,7 @@
 {
   "name": "tsagent-foundry",
   "productName": "TsAgent Foundry",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "Agent builder application supporting multi-LLMs, tool calling, and agent orchestration",
   "author": {
     "name": "TeamSpark",
@@ -24,8 +24,8 @@
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^20.10.0",
     "css-loader": "^7.1.2",
-    "electron": "^28.0.0",
-    "electron-builder": "^25.1.8",
+    "electron": "39.1.2",
+    "electron-builder": "^26.0.0",
     "style-loader": "^4.0.0",
     "ts-jest": "^29.1.0",
     "ts-loader": "^9.5.2",
@@ -34,7 +34,7 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "@tsagent/core": "file:../../packages/agent-api",
+    "@tsagent/core": "^1.2.9",
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock": "^3.787.0",
     "@aws-sdk/client-bedrock-runtime": "^3.785.0",
@@ -62,7 +62,7 @@
     "appId": "ai.teamspark.workbench",
     "productName": "TsAgent Foundry",
     "afterPack": "./build/afterPack.cjs",
-    "electronVersion": "28.0.0",
+    "electronVersion": "39.1.2",
     "mac": {
       "category": "public.app-category.developer-tools",
       "target": [

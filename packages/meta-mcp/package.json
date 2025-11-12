@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/meta-mcp",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "MCP server that exposes Tools agents as MCP tools with cognitive layer",
   "type": "module",
   "bin": {
@@ -20,6 +20,9 @@
     }
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "npx tsc",
     "dev": "npx tsx src/index.ts",
@@ -28,7 +31,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1",
     "uuid": "^11.1.0",
-    "@tsagent/core": "file:../../packages/agent-api"
+    "@tsagent/core": "^1.2.9"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

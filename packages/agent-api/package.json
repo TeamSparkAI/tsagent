@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/core",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "description": "Typescript API for agents",
   "type": "module",
   "exports": {
@@ -24,6 +24,9 @@
     }
   },
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "build": "npm run build:esm && npm run build:cjs",
     "build:esm": "mkdir -p dist/esm && echo '{\"type\": \"module\"}' > dist/esm/package.json && npx tsc -p tsconfig.esm.json",

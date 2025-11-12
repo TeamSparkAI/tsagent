@@ -853,7 +853,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // Add new IPC handler
-  ipcMain.handle('show-chat-menu', (_, hasSelection: boolean, x: number, y: number) => {
+  ipcMain.handle('show-chat-menu', (event, hasSelection: boolean, x: number, y: number) => {
+    const window = BrowserWindow.fromWebContents(event.sender);
+    if (!window) return;
+    
     const menu = Menu.buildFromTemplate([
       {
         label: 'Copy',
@@ -865,27 +868,25 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       {
         label: 'Select All',
         accelerator: 'CmdOrCtrl+A',
-        click: (menuItem, browserWindow) => {
-          if (browserWindow) {
-            browserWindow.webContents.executeJavaScript(`
-              (function() {
-                // Select only the chat container content
-                const chatContainerEl = document.getElementById('chat-container');
-                if (chatContainerEl) {
-                  const range = document.createRange();
-                  range.selectNodeContents(chatContainerEl);
-                  const selection = window.getSelection();
-                  selection.removeAllRanges();
-                  selection.addRange(range);
-                }
-              })();
-            `);
-          }
+        click: () => {
+          window.webContents.executeJavaScript(`
+            (function() {
+              // Select only the chat container content
+              const chatContainerEl = document.getElementById('chat-container');
+              if (chatContainerEl) {
+                const range = document.createRange();
+                range.selectNodeContents(chatContainerEl);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+              }
+            })();
+          `);
         }
       }
     ]);
 
-    menu.popup({ x, y });
+    menu.popup({ window, x, y });
   });
 
   // Add IPC handler for edit control context menu
