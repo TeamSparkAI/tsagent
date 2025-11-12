@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/core",
-  "version": "1.2.9",
+  "version": "1.2.10",
   "description": "Typescript API for agents",
   "type": "module",
   "exports": {
