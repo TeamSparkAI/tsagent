@@ -15,7 +15,20 @@ npm install -g @tsagent/meta-mcp
 ## Usage
 
 ```bash
-tsagent-meta-mcp <agent-path>
+tsagent-meta-mcp [--debug|-d] <agent-path>
+```
+
+**Options:**
+- `--debug` or `-d`: Enable debug mode. When enabled, tool calls return the full message payload (with all turns) instead of just the final message.
+
+**Examples:**
+```bash
+# Normal mode (returns only final message)
+tsagent-meta-mcp /path/to/agent
+
+# Debug mode (returns full message payload)
+tsagent-meta-mcp --debug /path/to/agent
+tsagent-meta-mcp -d /path/to/agent
 ```
 
 The server will:
@@ -31,7 +44,7 @@ The server will:
 2. **Tool Adapter**: Converts `AgentTool` definitions to MCP SDK `Tool` type
 3. **Prompt Processing**: Substitutes `{}` tokens in prompt templates with tool call parameters
 4. **Chat Session Handler**: Creates headless chat sessions with `toolPermission: 'never'` for automatic execution
-5. **Response Extraction**: Extracts assistant response text from chat session results
+5. **Response Extraction**: Extracts assistant response text from chat session results (or returns full payload in debug mode)
 
 ## Tool Template Syntax
 

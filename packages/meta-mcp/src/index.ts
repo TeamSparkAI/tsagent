@@ -9,7 +9,7 @@ import {
   Tool,
   CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
-import { Agent, AgentTool, ToolInputSchema, Logger } from '@tsagent/core';
+import { Agent, AgentTool, ToolInputSchema, Logger, MessageUpdate, ChatMessage, Turn, JsonSchemaDefinition } from '@tsagent/core';
 import { loadAgent } from '@tsagent/core/runtime';
 import { ConsoleLogger } from './logger.js';
 
@@ -25,10 +25,12 @@ export class MetaMCPServer {
   private agent: Agent | null = null;
   private agentPath: string;
   private logger: Logger;
+  private debug: boolean;
 
-  constructor(agentPath: string, logger?: Logger) {
+  constructor(agentPath: string, logger?: Logger, debug: boolean = false) {
     this.agentPath = agentPath;
     this.logger = logger || new ConsoleLogger();
+    this.debug = debug;
   }
 
   private setupHandlers(): void {
@@ -142,40 +144,19 @@ export class MetaMCPServer {
   /**
    * Convert ToolInputSchema (our custom type) to MCP SDK format
    */
-  private convertToolInputSchema(schema: ToolInputSchema): any {
+  private convertToolInputSchema(schema: ToolInputSchema): Tool['inputSchema'] {
     // ToolInputSchema is already an ObjectSchema, so we can convert it directly
     // MCP SDK expects a JSON Schema object
-    const mcpSchema: any = {
+    const mcpSchema: Tool['inputSchema'] = {
       type: 'object',
+      ...(schema.properties && { properties: this.convertProperties(schema.properties) }),
+      ...(schema.required && schema.required.length > 0 && { required: schema.required }),
+      ...(schema.description && { description: schema.description }),
+      ...(schema.title && { title: schema.title }),
+      ...(schema.additionalProperties !== undefined && { additionalProperties: schema.additionalProperties }),
+      ...(schema.minProperties !== undefined && { minProperties: schema.minProperties }),
+      ...(schema.maxProperties !== undefined && { maxProperties: schema.maxProperties }),
     };
-
-    if (schema.properties) {
-      mcpSchema.properties = this.convertProperties(schema.properties);
-    }
-
-    if (schema.required && schema.required.length > 0) {
-      mcpSchema.required = schema.required;
-    }
-
-    if (schema.description) {
-      mcpSchema.description = schema.description;
-    }
-
-    if (schema.title) {
-      mcpSchema.title = schema.title;
-    }
-
-    if (schema.additionalProperties !== undefined) {
-      mcpSchema.additionalProperties = schema.additionalProperties;
-    }
-
-    if (schema.minProperties !== undefined) {
-      mcpSchema.minProperties = schema.minProperties;
-    }
-
-    if (schema.maxProperties !== undefined) {
-      mcpSchema.maxProperties = schema.maxProperties;
-    }
 
     return mcpSchema;
   }
@@ -183,8 +164,8 @@ export class MetaMCPServer {
   /**
    * Convert properties Record to MCP format
    */
-  private convertProperties(properties: Record<string, any>): Record<string, any> {
-    const result: Record<string, any> = {};
+  private convertProperties(properties: Record<string, JsonSchemaDefinition>): Record<string, Record<string, unknown>> {
+    const result: Record<string, Record<string, unknown>> = {};
     
     for (const [key, value] of Object.entries(properties)) {
       result[key] = this.convertPropertySchema(value);
@@ -195,93 +176,68 @@ export class MetaMCPServer {
 
   /**
    * Convert a single property schema to MCP format
+   * Returns a JSON Schema object compatible with MCP SDK
    */
-  private convertPropertySchema(schema: any): any {
-    const result: any = {
-      type: schema.type,
-    };
-
-    if (schema.description) {
-      result.description = schema.description;
-    }
-
-    if (schema.title) {
-      result.title = schema.title;
-    }
-
-    if (schema.default !== undefined) {
-      result.default = schema.default;
-    }
-
-    if (schema.enum) {
-      result.enum = schema.enum;
-    }
-
-    if (schema.examples) {
-      result.examples = schema.examples;
-    }
-
-    // Type-specific properties
+  private convertPropertySchema(schema: JsonSchemaDefinition): Record<string, unknown> {
+    // Type-specific properties with proper narrowing
     if (schema.type === 'string') {
-      if (schema.minLength !== undefined) {
-        result.minLength = schema.minLength;
-      }
-      if (schema.maxLength !== undefined) {
-        result.maxLength = schema.maxLength;
-      }
+      return {
+        type: schema.type,
+        ...(schema.description && { description: schema.description }),
+        ...(schema.title && { title: schema.title }),
+        ...(schema.default !== undefined && { default: schema.default }),
+        ...(schema.enum && { enum: schema.enum }),
+        ...(schema.examples && { examples: schema.examples }),
+        ...(schema.minLength !== undefined && { minLength: schema.minLength }),
+        ...(schema.maxLength !== undefined && { maxLength: schema.maxLength }),
+      };
+    } else if (schema.type === 'number' || schema.type === 'integer') {
+      return {
+        type: schema.type,
+        ...(schema.description && { description: schema.description }),
+        ...(schema.title && { title: schema.title }),
+        ...(schema.default !== undefined && { default: schema.default }),
+        ...(schema.enum && { enum: schema.enum }),
+        ...(schema.examples && { examples: schema.examples }),
+        ...(schema.minimum !== undefined && { minimum: schema.minimum }),
+        ...(schema.maximum !== undefined && { maximum: schema.maximum }),
+      };
+    } else if (schema.type === 'boolean') {
+      return {
+        type: schema.type,
+        ...(schema.description && { description: schema.description }),
+        ...(schema.title && { title: schema.title }),
+        ...(schema.default !== undefined && { default: schema.default }),
+      };
+    } else if (schema.type === 'array') {
+      return {
+        type: schema.type,
+        ...(schema.description && { description: schema.description }),
+        ...(schema.title && { title: schema.title }),
+        ...(schema.items && {
+          items: Array.isArray(schema.items)
+            ? schema.items.map((item) => this.convertPropertySchema(item))
+            : this.convertPropertySchema(schema.items)
+        }),
+        ...(schema.minItems !== undefined && { minItems: schema.minItems }),
+        ...(schema.maxItems !== undefined && { maxItems: schema.maxItems }),
+        ...(schema.uniqueItems !== undefined && { uniqueItems: schema.uniqueItems }),
+      };
+    } else if (schema.type === 'object') {
+      return {
+        type: schema.type,
+        ...(schema.description && { description: schema.description }),
+        ...(schema.title && { title: schema.title }),
+        ...(schema.properties && { properties: this.convertProperties(schema.properties) }),
+        ...(schema.required && { required: schema.required }),
+        ...(schema.additionalProperties !== undefined && { additionalProperties: schema.additionalProperties }),
+        ...(schema.minProperties !== undefined && { minProperties: schema.minProperties }),
+        ...(schema.maxProperties !== undefined && { maxProperties: schema.maxProperties }),
+      };
     }
-
-    if (schema.type === 'number' || schema.type === 'integer') {
-      if (schema.minimum !== undefined) {
-        result.minimum = schema.minimum;
-      }
-      if (schema.maximum !== undefined) {
-        result.maximum = schema.maximum;
-      }
-    }
-
-    if (schema.type === 'boolean') {
-      // No additional properties for boolean
-    }
-
-    if (schema.type === 'array') {
-      if (schema.items) {
-        if (Array.isArray(schema.items)) {
-          result.items = schema.items.map((item: any) => this.convertPropertySchema(item));
-        } else {
-          result.items = this.convertPropertySchema(schema.items);
-        }
-      }
-      if (schema.minItems !== undefined) {
-        result.minItems = schema.minItems;
-      }
-      if (schema.maxItems !== undefined) {
-        result.maxItems = schema.maxItems;
-      }
-      if (schema.uniqueItems !== undefined) {
-        result.uniqueItems = schema.uniqueItems;
-      }
-    }
-
-    if (schema.type === 'object') {
-      if (schema.properties) {
-        result.properties = this.convertProperties(schema.properties);
-      }
-      if (schema.required) {
-        result.required = schema.required;
-      }
-      if (schema.additionalProperties !== undefined) {
-        result.additionalProperties = schema.additionalProperties;
-      }
-      if (schema.minProperties !== undefined) {
-        result.minProperties = schema.minProperties;
-      }
-      if (schema.maxProperties !== undefined) {
-        result.maxProperties = schema.maxProperties;
-      }
-    }
-
-    return result;
+    
+    // Fallback (should never happen with proper discriminated union)
+    return { type: schema.type };
   }
 
   /**
@@ -335,8 +291,8 @@ export class MetaMCPServer {
       // Handle message and get response
       const response = await chatSession.handleMessage(prompt);
 
-      // Extract assistant response text
-      const assistantText = this.extractAssistantResponse(response);
+      // Extract assistant response text based on debug mode
+      const assistantText = this.extractAssistantResponse(response, this.debug);
 
       return {
         content: [
@@ -366,26 +322,33 @@ export class MetaMCPServer {
   /**
    * Extract assistant response text from handleMessage response
    * Modeled after A2A server's response extraction
+   * 
+   * @param response - The response from handleMessage
+   * @param debug - If true, returns all turns. If false, returns only the last turn.
    */
-  private extractAssistantResponse(response: any): string {
+  private extractAssistantResponse(response: MessageUpdate, debug: boolean): string {
     // Extract text from turn.results (type: 'text')
     const assistantUpdates = response.updates
-      .filter((update: any) => update.role === 'assistant')
-      .map((update: any) => {
-        if (update.modelReply?.turns) {
-          return update.modelReply.turns
-            .map((turn: any) => {
-              if (turn.results) {
-                return turn.results
-                  .filter((result: any) => result.type === 'text')
-                  .map((result: any) => result.text)
-                  .join('');
-              }
-              return '';
-            })
-            .join('');
-        }
-        return '';
+      .filter((update) => 
+        update.role === 'assistant' && 'modelReply' in update && update.modelReply?.turns !== undefined
+      )
+      .map((update) => {
+        if (update.role !== 'assistant' || !('modelReply' in update)) return '';
+        
+        // If not debug mode, only process the last turn
+        const turns = debug ? update.modelReply.turns : update.modelReply.turns.slice(-1);
+        
+        return turns
+          .map((turn: Turn) => {
+            if (turn.results) {
+              return turn.results
+                .filter((result): result is { type: 'text'; text: string } => result.type === 'text')
+                .map((result) => result.text)
+                .join('');
+            }
+            return '';
+          })
+          .join('');
       })
       .join('\n');
 
@@ -395,17 +358,33 @@ export class MetaMCPServer {
 
 // CLI entry point
 async function main() {
-  const agentPath = process.argv[2];
+  const args = process.argv.slice(2);
+  let agentPath: string | undefined;
+  let debug = false;
+
+  // Parse command-line arguments
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    
+    if (arg === '--debug' || arg === '-d') {
+      debug = true;
+    } else if (!arg.startsWith('-')) {
+      // First non-flag argument is the agent path
+      if (!agentPath) {
+        agentPath = arg;
+      }
+    }
+  }
   
   if (!agentPath) {
     // Use stderr for error messages (stdout is reserved for MCP protocol)
-    console.error('Usage: tsagent-meta-mcp <agent-path>');
+    console.error('Usage: tsagent-meta-mcp [--debug|-d] <agent-path>');
     process.exit(1);
   }
 
   // Create logger with verbose enabled during startup only
   const logger = new ConsoleLogger(true);
-  const server = new MetaMCPServer(agentPath, logger);
+  const server = new MetaMCPServer(agentPath, logger, debug);
   
   try {
     await server.start();
