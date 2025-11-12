@@ -28,7 +28,7 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.18.1",
     "uuid": "^11.1.0",
-    "@tsagent/core": "^1.2.8"
+    "@tsagent/core": "file:../../packages/agent-api"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

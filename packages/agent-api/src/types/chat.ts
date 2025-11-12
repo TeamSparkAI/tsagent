@@ -131,6 +131,7 @@ export interface ToolCallResult extends ToolCallRequest {
 export interface ChatSession {
   get id(): string;
   getState(): ChatState;
+  getLastRequestContext(): RequestContext | undefined;
   handleMessage(message: string | ChatMessage): Promise<MessageUpdate>;
 
   clearModel(): MessageUpdate;

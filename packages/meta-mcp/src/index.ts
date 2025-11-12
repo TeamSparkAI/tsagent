@@ -11,7 +11,7 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import { Agent, AgentTool, ToolInputSchema, Logger } from '@tsagent/core';
 import { loadAgent } from '@tsagent/core/runtime';
-import { ConsoleLogger } from './logger';
+import { ConsoleLogger } from './logger.js';
 
 /**
  * Meta MCP Server

@@ -1,6 +1,6 @@
 import { Tool } from "@modelcontextprotocol/sdk/types.js";
 
-import { CallToolResultWithElapsedTime, isToolInContext, isToolPermissionRequired, getToolEffectiveIncludeMode } from "../mcp/types.js";
+import { CallToolResultWithElapsedTime, isToolPermissionRequired, getToolEffectiveIncludeMode } from "../mcp/types.js";
 import { ChatSession } from "../types/chat.js";
 import { Agent } from "../types/agent.js";
 
@@ -25,35 +25,38 @@ export class ProviderHelper {
     static async getIncludedTools(agent: Agent, session: ChatSession): Promise<Tool[]> {
         const allTools: Tool[] = [];
         const mcpClients = await agent.getAllMcpClients();
+
+        const sessionTools = session.getIncludedTools();
+        const sessionToolKeys = new Set(sessionTools.map(tool => `${tool.serverName}:${tool.toolName}`));
+
+        const requestContext = session.getLastRequestContext?.();
+        const requestToolKeys = new Set<string>();
+        if (requestContext) {
+            for (const item of requestContext.items) {
+                if (item.type === 'tool') {
+                    requestToolKeys.add(`${item.serverName}:${item.name}`);
+                }
+            }
+        }
+
         for (const [clientName, client] of Object.entries(mcpClients)) {
             try {
-                // Get server config to check availability
                 const serverConfig = agent.getMcpServer(clientName)?.config;
-                
-                // Filter tools based on availability (enabled tool from enabled server)
-                const availableTools = client.serverTools.filter(tool => {
-                    if (!serverConfig) return true; // No config = all tools available
-                    return isToolInContext(serverConfig, tool.name);
-                });
-                
-                // Filter tools based on session context
-                // For "always" include mode, include tools automatically
-                // For other modes, only include tools that are explicitly in the session
-                const contextTools = availableTools.filter(tool => {
-                    if (!serverConfig) return true; // No config = all tools available
-                    
+
+                const contextTools = client.serverTools.filter(tool => {
+                    if (!serverConfig) {
+                        return true;
+                    }
+
                     const effectiveMode = getToolEffectiveIncludeMode(serverConfig, tool.name);
                     if (effectiveMode === 'always') {
-                        return true; // Always include these tools
+                        return true;
                     }
-                    
-                    // For manual/agent modes, check if tool is explicitly in session
-                    const sessionTools = session.getIncludedTools();
-                    return sessionTools.some(sessionTool => 
-                        sessionTool.serverName === clientName && sessionTool.toolName === tool.name
-                    );
+
+                    const toolKey = `${clientName}:${tool.name}`;
+                    return sessionToolKeys.has(toolKey) || requestToolKeys.has(toolKey);
                 });
-                
+
                 // Additional filtering for autonomous and tools modes based on permissions
                 // Both modes should only have access to tools that don't require permission
                 let filteredTools = contextTools;

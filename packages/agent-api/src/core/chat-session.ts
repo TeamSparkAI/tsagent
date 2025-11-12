@@ -26,6 +26,7 @@ export class ChatSessionImpl implements ChatSession {
   contextIncludeScore: number;
   private approvedTools: Map<string, Set<string>> = new Map();
   private supervisionManager?: SupervisionManager;
+  private lastRequestContext?: RequestContext;
 
   constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, private logger: Logger) {
     this._id = id;
@@ -119,6 +120,10 @@ export class ChatSessionImpl implements ChatSession {
       contextTopN: this.contextTopN,
       contextIncludeScore: this.contextIncludeScore,
     };
+  }
+
+  getLastRequestContext(): RequestContext | undefined {
+    return this.lastRequestContext;
   }
 
   /**
@@ -333,6 +338,7 @@ export class ChatSessionImpl implements ChatSession {
     // Build request context (for this request/response pair)
     const userMessageContent = message.role === 'user' ? message.content : '';
     const requestContext = await this.buildRequestContext(userMessageContent);
+    this.lastRequestContext = requestContext;
 
     // Build messages array, starting with system prompt and existing non-system messages
     const systemPrompt = await this.agent.getSystemPrompt();

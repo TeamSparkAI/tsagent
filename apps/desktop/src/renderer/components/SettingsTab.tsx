@@ -1088,7 +1088,7 @@ const ToolsSection: React.FC = () => {
     let updatedTools: AgentTool[];
     
     if (editingTool) {
-      updatedTools = currentTools.map(t => t.name === tool.name ? tool : t);
+      updatedTools = currentTools.map(t => t.name === editingTool.name ? tool : t);
     } else {
       updatedTools = [...currentTools, tool];
     }
