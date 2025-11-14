@@ -2,7 +2,7 @@
 
 ## Chat
 
-Support multi-model (non-text) types - images, videos?
+Support multi-modal (non-text) types - images, videos?
 
 ## Model abstraction
 
@@ -32,13 +32,6 @@ Support for other MCP functionality:
 
 "History" for each tool call that shows JSON request (tool name, params) and response
 
-## Selective Tool Usage
-
-Each rule and reference has a list of tools
-The tool list can include server or server.tool
-When a tool fires, it gets the list of references and rules that match the server/server.tool
-User can manually indicate active tools?
-
 ## LLM Providers
 
 Need better default model for switch to provider without specifying model
@@ -52,20 +45,6 @@ Add support for inference profile and provisioned models
 ## CLI
 
 No way to install/uninstall providers or tools
-
-## References / Rules include by keyword
-
-We have references and rules with keywords (comma separated, quoted strings?, wildcards?)
-- Separate by any combination of commas/spaces
-We have prompt text
-We want to see which reference or rules have keywords that are found in the prompt text
-Ideally we want to match regardless of plurality or tense of word (Stemming via natural.js or stemmer)
-We could do fuzzy matches with wildcards (Fuse.js) - only use Fuse for wildcarded keywords?  Just *?
-We could also support literal quoted exact match keywords
-
-Gather all bare keywords, stem them, stem the prompt, determine which keywords are found
-Gather all quoted keywords and wildcard keywords, convert to regex, search text, determine which keywords were found
-- Quoted string is word boundary before and after
 
 ## Dynamic References
 

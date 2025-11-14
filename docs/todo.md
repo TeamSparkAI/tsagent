@@ -1,26 +1,5 @@
 # TsAgent Foundry
 
-## Pre-publish README review
-
-Revew all README docs
-Add screen shots for foundry and cli, anything else?
-In top-level readme, distinguish between agent features and platform features (currently kind of mixed together)
-
-## Publishing strategy
-
-Publish @tsagent/core
-Change dependencies in desktop, cli, and a2a-server projects to use @tsagent/core
-Test TsAgent Foundry build from GHA, install
-Build, test/validate, publish cli, a2a-server (including validating a2a-server in use by MCP server)
-Change dependency in a2a-mcp to use @tsagent/server
-Build, test/validate, publish a2a-mcp (validating MCP server in use)
-
-## Launch
-
-Website update
-LinkedIn post
-Videos?
-
 ## Project - switch to pnpm 
 
 When the agent-api was broken out into its own package we adopted npm workspaces (which we use with some success in ToolVault).
@@ -29,7 +8,7 @@ directory and expectations about where electron-builder and other tools must res
 npm workspace hoisting, which cannot be disabled).  After a day of fighting with it, in the end we had to abandon npm workspaces.
 
 If we switch to pnpm, its workspace support is much better, and would allow us the disable hoising for electron and any other
-tooling.  It would also make it easier to publish agent-api as it's own npm package (which we'd like to do at some point).
+tooling.
 
 ## Chat UX
 

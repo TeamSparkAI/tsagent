@@ -75,6 +75,68 @@ tsagent.json - in root of agent
 /references/*.mdt (YAML frontmatter + GFM text)
 /rules/*.mdt (YAML frontmatter + GFM text)
 
+## Agent mode-specific metadata
+
+### Autonomous agents
+
+Autonomous agents define skills in `metadata.skills`:
+
+```json
+{
+  "metadata": {
+    "name": "My Autonomous Agent",
+    "skills": [
+      {
+        "id": "skill-id",
+        "name": "Skill Name",
+        "description": "Skill description",
+        "tags": ["tag1", "tag2"],
+        "examples": ["example1", "example2"]
+      }
+    ]
+  }
+}
+```
+
+### Tools agents
+
+Tools agents define tools in `metadata.tools`:
+
+```json
+{
+  "metadata": {
+    "name": "My Tools Agent",
+    "tools": [
+      {
+        "name": "book_flight",
+        "description": "Books a flight ticket for a user.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "destination": {
+              "type": "string",
+              "description": "The destination city and country (e.g., 'Paris, France')."
+            },
+            "departure_date": {
+              "type": "string",
+              "description": "The desired date of departure, in YYYY-MM-DD format."
+            }
+          },
+          "required": ["destination", "departure_date"]
+        },
+        "prompt": "The user wants to book a flight to {destination} on {departure_date}, please book accordingly"
+      }
+    ]
+  }
+}
+```
+
+Tool prompt templates use `{}` syntax to substitute parameters:
+- `{name}` - tool name
+- `{paramName}` - parameter value from tool call (e.g., `{destination}`, `{departure_date}`)
+
+For detailed information about Tools mode, including JSON Schema types and implementation details, see [meta-agent-plan.md](./meta-agent-plan.md).
+
 ===============================================================
 
 # Agent v2 (A2A)
@@ -100,6 +162,15 @@ Agents can be one of:
   - Does not return tool call details (we can suppress/remove)
   - Cannot modify state (particularly rules/references)
   - Will define one or more skills (each skill will have skill metadata: id, name, desc, tags)
+- Tools
+  - System prompt: "You are a helpful assistant..." (similar to Interactive)
+  - Exposes agent capabilities as MCP tools (not skills)
+  - Each tool has: name, description, JSON Schema parameters, and a prompt template
+  - Prompt template uses `{}` syntax to substitute tool parameters (e.g., `{destination}`, `{name}`)
+  - Tool calls execute in headless chat sessions (no user interaction)
+  - Only presents model with approved tools (cannot ask user for tool use permission)
+  - Cannot modify state (particularly rules/references)
+  - Tools are exposed via MCP server (meta-mcp) for use by other agents or MCP clients
 
 Agent Orchestration
 - Any agent (interactive or autonomous) can orchestrate other agents
@@ -141,6 +212,38 @@ MCP server that implements A2A orchestration of A2A servers
 - We manage the lifecycle of the embedded a2a-server (server orderly shutdown when MCP server shuts down)
 - Implements list_agents, call_agent
 
+## Tools Mode MCP server
+
+Package: meta-mcp
+
+MCP server that exposes Tools mode agents as MCP tools
+
+- Takes Tools agent path as parameter
+  - Loads agent metadata and tool definitions from agent directory
+  - Uses agent configuration (settings, providers, prompt, rules, references)
+- Generates MCP tools dynamically from agent tool definitions
+  - Converts agent tool definitions to MCP SDK `Tool` type
+  - Maps tool `parameters` (JSON Schema) to MCP `inputSchema`
+  - Preserves tool `name` and `description`
+  - Tool names prefixed with server name to avoid conflicts: `${serverName}_${toolName}`
+- Handles tool calls via headless chat sessions
+  - Receives tool call with parameters from MCP client
+  - Substitutes parameters into prompt template using `{}` syntax (e.g., `{destination}`, `{name}`)
+  - Creates isolated chat session per tool call (unique context ID)
+  - Configures session for headless execution (`toolPermission: 'never'`)
+  - Passes filled prompt to chat session via `handleMessage()`
+  - Executes tool calls within session automatically (no user approval)
+  - Extracts assistant response text from chat session
+  - Returns response as tool result
+- Server metadata derived from agent metadata
+  - `serverInfo.name` ← `agent.metadata.name`
+  - `serverInfo.version` ← `agent.metadata.version`
+  - `instructions` ← `agent.metadata.description`
+- Supports stdio transport (and potentially SSE)
+- Logging uses `console.error()` to avoid stdout interference with stdio transport
+
+For detailed implementation information, see [meta-agent-plan.md](./meta-agent-plan.md).
+
 ## Later
 
 Our chat logic may not be handling structuredContent propery (or maybe the LLMs just don't support it?)
@@ -154,15 +257,21 @@ We also saw that when the tool descriptions had output schema and we didn't retu
 
 ### Agent type constraints
 
-Agent Mode is available as property (truthy skills attribute means autonomous) [done]
+Agent Mode is available as property (truthy skills attribute means autonomous, tools array means tools mode) [done]
 
-Implement constraints of agent in chat session based on interactive/autonomous
+Implement constraints of agent in chat session based on interactive/autonomous/tools
 - Autonomous
   - Only present tools that don't require approval [done]
   - Immutable rules/references (suppress internal tools that mutate them - is that enough?)
     - We can disable to mutating tools by config now if we want
   - Session doesn't include history on request
   - Response filters out tool calls
+- Tools
+  - Only present tools that don't require approval [done]
+  - Immutable rules/references (suppress internal tools that mutate them)
+  - Each tool call uses isolated chat session (no history)
+  - Headless execution mode (`toolPermission: 'never'`)
+  - Response extracts text content only (no tool call details)
 - We could just:
   - Have the a2a_server use a new session per call/message (should do that anyway), so it will have no history
     - Do we also want to make sure that when using autonomous agent interactively (test/dev) that it doesn't maintain chat history?
@@ -170,7 +279,7 @@ Implement constraints of agent in chat session based on interactive/autonomous
 
 ### Orchestration UX
 
-A TsAgrnt Foundry tab providing a better UX for a2a-mcp
+A TsAgent Foundry tab providing a better UX for a2a-mcp
 
 Current Implementation [done]
 - Shown when a2a-mcp server is installed, hidden otherwise

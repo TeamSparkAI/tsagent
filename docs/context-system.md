@@ -646,6 +646,163 @@ Tools Column:
 - Optimize context selection based on usage patterns
 - Suggest removing unused items from session
 
+## Context-Based Expansion
+
+### Problem Statement
+
+The current context system builds request context once at the start of each request based on semantic search of the user's query. However, there's a temporal mismatch: the initial query doesn't always reveal all the context items the LLM will need. After the LLM analyzes the initially selected context items, it may discover it needs other items that weren't included.
+
+**Example Scenario:**
+- User asks: "How do I authenticate?"
+- System includes: "Authentication Rules" reference (via semantic search on query)
+- LLM reads the reference and discovers it needs to "fetch an API endpoint"
+- Problem: The `fetch_website` tool wasn't included because the initial query didn't mention fetching
+- Result: LLM lacks the necessary tool, even though it logically follows from the included context
+
+This problem occurs because:
+1. **Query-driven selection**: Context is selected based on the user query, not on the content of other context items
+2. **No awareness of dependencies**: The system doesn't know that certain context items implicitly require others
+3. **Static context building**: Context is built once at request start and doesn't adapt as the LLM processes it
+
+### Context-Based Expansion Approach
+
+**Two-Pass Semantic Search**: Expand context based on the content of initially selected items using existing chunk embeddings.
+
+#### Implementation Strategy
+
+**Pass 1: Query-Based Selection (Current)**
+- Run semantic search on the user query
+- Select initial context items using existing `searchContextItems()` logic
+- Items are selected based on relevance to the user's explicit query
+
+**Pass 2: Chunk-Based Expansion (New)**
+- For each context item selected in Pass 1, use its existing chunk embeddings as "queries"
+- **Rules/References**: Use all chunk embeddings from the item (already indexed in `item.embeddings[]`)
+- **Tools**: Use the tool's description embedding (already indexed in `client.toolEmbeddings.get(tool.name)`)
+- For each chunk embedding from Pass 1 items:
+  - Compute cosine similarity to all context chunk embeddings (excluding chunks from Pass 1 items)
+  - Collect similarity scores for all context items
+- **Pool scores across chunks** (similar to query chunking):
+  - **Max pooling**: For each context item, take the maximum similarity score across all chunk queries
+  - This gives each candidate item the benefit of the best-matching chunk from Pass 1 items
+- Apply same filtering/thresholding logic as Pass 1 (topN, includeScore)
+- Include high-confidence matches that weren't already selected in Pass 1
+
+#### Example Flow
+
+```
+User Query: "How do I authenticate?"
+
+Pass 1 (Query-based):
+  - Embed user query: "How do I authenticate?"
+  - Semantic search against all context chunks
+  - Selects: "Authentication Rules" reference (similarity: 0.92)
+  - "Authentication Rules" has 3 chunks (already indexed)
+
+Pass 2 (Chunk-based expansion):
+  - Use "Authentication Rules" chunk embeddings as queries:
+    - Chunk 1: "To authenticate, fetch the API endpoint..." (embedding: [0.1, 0.2, ...])
+    - Chunk 2: "Get the authentication token from..." (embedding: [0.3, 0.4, ...])
+    - Chunk 3: "Make HTTP request with token..." (embedding: [0.5, 0.6, ...])
+  - For each chunk embedding, compute similarity to all other context chunks
+  - Pool results (max pooling):
+    - "fetch_website" tool: max(0.85, 0.72, 0.68) = 0.85
+    - "http_request" tool: max(0.78, 0.81, 0.89) = 0.89
+  - Include items above threshold (0.75) not already in Pass 1
+  - Adds: "fetch_website" tool (0.85), "http_request" tool (0.89)
+
+Final Request Context:
+  - "Authentication Rules" reference (Pass 1, similarity: 0.92)
+  - "fetch_website" tool (Pass 2, similarity: 0.85)
+  - "http_request" tool (Pass 2, similarity: 0.89)
+```
+
+#### Benefits
+
+- **Uses existing infrastructure**: Leverages current semantic search, chunk embeddings, and similarity computation
+- **No extraction step**: Uses existing chunk embeddings directly (no keyword/phrase extraction needed)
+- **No LLM awareness required**: Automatic and transparent to the LLM
+- **Solves the dependency problem**: Captures implicit relationships between context items based on their content
+- **Similar to query chunking**: Uses the same max pooling technique already described in the document
+- **Configurable**: Can be enabled/disabled and tuned via agent/session settings
+- **Incremental implementation**: Can be added without breaking existing functionality
+
+#### Configuration Options
+
+- **`contextExpansionDepth`**: Number of expansion passes (0 = off, 1 = one pass, etc.)
+- **`contextExpansionThreshold`**: Minimum similarity score for expansion items (default: 0.75)
+- **`contextExpansionTopN`**: Maximum number of items to include per expansion pass (default: 3)
+- **`contextExpansionEnabled`**: Enable/disable expansion per agent or session
+
+#### Implementation Considerations
+
+- **Performance**: Uses existing chunk embeddings (no additional embedding generation needed)
+  - Similarity computation is fast (cosine similarity on already-computed vectors)
+  - Max pooling across chunks is O(n*m) where n = number of Pass 1 chunks, m = number of candidate chunks
+  - Can be optimized by limiting the number of Pass 1 chunks used (e.g., top 5 chunks per item)
+  - Expansion can reuse the same similarity computation infrastructure as Pass 1
+- **Token efficiency**: May include more context items, but only high-confidence matches
+  - Threshold filtering (e.g., 0.75) prevents low-quality matches
+  - TopN limiting prevents excessive context expansion
+- **No extraction step**: Uses existing indexed chunks directly
+  - Rules/References: Chunks already exist in `item.embeddings[]` (JIT indexed when needed)
+  - Tools: Tool description embeddings already exist in `client.toolEmbeddings` (JIT indexed when needed)
+  - No additional processing or "extraction" required
+- **Chunk selection**: May want to limit which chunks are used as queries
+  - Option: Use all chunks from Pass 1 items (comprehensive but slower)
+  - Option: Use top K chunks per item (faster, still effective)
+  - Option: Use chunks above a relevance threshold (most relevant chunks only)
+- **User transparency**: Expansion items should be marked in request context display
+  - Could use `includeMode: 'expansion'` or similar to distinguish from query-based items
+  - Similarity scores from expansion can be shown in context modal
+
+### Alternative: Pre-computed Context Relationships
+
+**Relationship Graph**: Pre-compute semantic relationships between all context items at agent load time using existing chunk embeddings.
+
+- For each context item, use its existing chunk embeddings (already indexed)
+- For each pair of items, compute item-level similarity:
+  - **Option 1**: Average all chunk embeddings per item, then compute cosine similarity
+  - **Option 2**: Max pooling (best chunk match between items)
+  - **Option 3**: Mean pooling (average of all chunk-to-chunk similarities)
+- Store relationships above a threshold (e.g., 0.75): `itemA → [itemB (0.87), itemC (0.82)]`
+- On request context building: After Pass 1, look up pre-computed relationships for selected items
+- Include related items above threshold that aren't already selected
+
+**Benefits:**
+- Very fast at request time (just lookups, no additional semantic search)
+- Captures relationships that might not appear in a single query
+- Can be computed once and cached (during agent indexing)
+- Uses existing chunk embeddings (no additional embedding generation)
+
+**Trade-offs:**
+- Requires upfront computation (but can be done during agent indexing, or lazily on first use)
+- May include items that aren't needed (but threshold helps)
+- Relationships are static (won't capture dynamic needs from tool results)
+- Item-level similarity may lose nuance compared to chunk-level search
+
+### Hybrid Approach
+
+Combine both approaches:
+1. **Two-pass semantic search** for query-driven expansion (more flexible, adapts to query)
+2. **Relationship graph** for item-driven expansion (faster, captures static relationships)
+3. Configurable thresholds and limits for each
+
+This provides both flexibility and performance, with the relationship graph handling common cases quickly and two-pass search handling query-specific needs.
+
+### Future: Tool Result Analysis
+
+For cases where tool results suggest additional context items are needed (e.g., LLM analyzes tool result and discovers it needs other tools/rules):
+- **Tool-specific expansion rules**: Define relationships between tools (e.g., `read_file` → `write_file`, `search_code`)
+  - Simple rule-based approach for common patterns
+  - Could be configured per agent or globally
+- **Tool result embedding**: Embed tool result text (chunk it if needed) and search for similar context items
+  - Similar to Pass 2 chunk-based expansion, but using tool result chunks as queries
+  - Would require embedding tool results on-the-fly (adds latency)
+  - Could be limited to specific tool types (e.g., `read_file` results)
+
+These are more complex and may require additional infrastructure, but could be added incrementally after context-based expansion is implemented.
+
 ## Open Questions
 
 - Should rules and references be treated as one "domain" for semantic inclusion, and tools as a separate domain?
