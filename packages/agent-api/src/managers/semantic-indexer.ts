@@ -149,24 +149,30 @@ export class SemanticIndexer {
 
   /**
    * Calculate cosine similarity between two vectors
+   * 
+   * NOTE: This function assumes vectors are already normalized (unit length = 1).
+   * Embeddings from @xenova/transformers pipeline are generated with `normalize: true`,
+   * so we can use dot product directly without computing norms.
+   * 
+   * For normalized vectors:
+   * - normA = normB = 1
+   * - cosine similarity = dotProduct / (normA * normB) = dotProduct / 1 = dotProduct
    */
   private cosineSimilarity(a: number[], b: number[]): number {
     if (a.length !== b.length) {
       throw new Error('Vectors must have the same length');
     }
 
+    // Compute dot product
+    //
+    // NOTE: Since vectors are normalized (from pipeline with normalize: true), cosine similarity = dot product (no need to compute norms or divide)
+    // 
     let dotProduct = 0;
-    let normA = 0;
-    let normB = 0;
-
     for (let i = 0; i < a.length; i++) {
       dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
     }
 
-    const denominator = Math.sqrt(normA) * Math.sqrt(normB);
-    return denominator === 0 ? 0 : dotProduct / denominator;
+    return dotProduct;
   }
 
   /**
