@@ -409,6 +409,8 @@ export class SemanticIndexer {
       embedding: number[];
     }> = [];
 
+    const clients = agent.getAllMcpClientsSync();
+
     // Collect chunks from rules
     for (const item of items) {
       if (item.type === 'rule') {
@@ -436,7 +438,6 @@ export class SemanticIndexer {
           }
         }
       } else if (item.type === 'tool') {
-        const clients = agent.getAllMcpClientsSync();
         const client = clients[item.serverName];
         if (client && client.toolEmbeddings) {
           const chunks = client.toolEmbeddings.get(item.name);
