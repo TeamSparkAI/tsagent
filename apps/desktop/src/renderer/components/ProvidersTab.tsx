@@ -14,6 +14,7 @@ import GeminiLogo from '../assets/gemini.png';
 import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
 import LocalLogo from '../assets/local.png';
+import DockerLogo from '../assets/docker.png';
 
 import './ProvidersTab.css';
 
@@ -26,6 +27,7 @@ const providerLogos: Record<ProviderType, any> = {
   [ProviderType.Claude]: AnthropicLogo,
   [ProviderType.Bedrock]: BedrockLogo,
   [ProviderType.Local]: LocalLogo,
+  [ProviderType.Docker]: DockerLogo,
 };
 
 interface Provider {

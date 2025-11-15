@@ -9,6 +9,7 @@ import { TestProvider } from './test-provider.js';
 import { BedrockProvider } from './bedrock-provider.js';
 import { ClaudeProvider } from './claude-provider.js';
 import { OpenAIProvider } from './openai-provider.js';
+import { DockerProvider } from './docker-provider.js';
 import { GeminiProvider } from './gemini-provider.js';
 import { OllamaProvider } from './ollama-provider.js';
 import { LocalProvider } from './local-provider.js';
@@ -28,6 +29,7 @@ export class ProviderFactory {
       ProviderType.Bedrock,
       ProviderType.Claude,
       ProviderType.OpenAI,
+      ProviderType.Docker,
       ProviderType.Gemini,
       ProviderType.Ollama,
       ProviderType.Local
@@ -41,6 +43,7 @@ export class ProviderFactory {
       [ProviderType.Bedrock]: BedrockProvider.getInfo(),
       [ProviderType.Claude]: ClaudeProvider.getInfo(),
       [ProviderType.OpenAI]: OpenAIProvider.getInfo(),
+      [ProviderType.Docker]: DockerProvider.getInfo(),
       [ProviderType.Gemini]: GeminiProvider.getInfo(),
       [ProviderType.Ollama]: OllamaProvider.getInfo(),
       [ProviderType.Local]: LocalProvider.getInfo(),
@@ -61,6 +64,8 @@ export class ProviderFactory {
         return OllamaProvider.getInfo();
       case ProviderType.OpenAI:
         return OpenAIProvider.getInfo();
+      case ProviderType.Docker:
+        return DockerProvider.getInfo();
       case ProviderType.Local:
         return LocalProvider.getInfo();
       default:
@@ -82,6 +87,8 @@ export class ProviderFactory {
         return OllamaProvider.validateConfiguration(this.agent, config);
       case ProviderType.OpenAI:
         return OpenAIProvider.validateConfiguration(this.agent, config);
+      case ProviderType.Docker:
+        return DockerProvider.validateConfiguration(this.agent, config);
       case ProviderType.Local:
         return LocalProvider.validateConfiguration(this.agent, config);
       default:
@@ -115,6 +122,9 @@ export class ProviderFactory {
       case ProviderType.OpenAI:
         this.logger.info('Creating OpenAI Provider instance');
         return new OpenAIProvider(modelId || 'gpt-3.5-turbo', this.agent, this.logger);
+      case ProviderType.Docker:
+        this.logger.info('Creating Docker Provider instance');
+        return new DockerProvider(modelId || 'gpt-3.5-turbo', this.agent, this.logger);
       case ProviderType.Local:
         this.logger.info('Creating Local Provider instance');
         return new LocalProvider(modelId || '', this.agent, this.logger);

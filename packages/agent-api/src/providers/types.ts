@@ -9,7 +9,8 @@ export enum ProviderType {
   Gemini = 'gemini',
   Ollama = 'ollama',
   Bedrock = 'bedrock',
-  Local = 'local'
+  Local = 'local',
+  Docker = 'docker'
 }
 
 export interface ProviderConfigValue {

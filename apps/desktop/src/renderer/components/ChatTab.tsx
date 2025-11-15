@@ -17,6 +17,7 @@ import GeminiLogo from '../assets/gemini.png';
 import AnthropicLogo from '../assets/anthropic.png';
 import BedrockLogo from '../assets/bedrock.png';
 import LocalLogo from '../assets/local.png';
+import DockerLogo from '../assets/docker.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import { ChatState, SessionContextItem, RequestContext } from '@tsagent/core';
@@ -54,6 +55,7 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
   [ProviderType.Claude]: AnthropicLogo,
   [ProviderType.Bedrock]: BedrockLogo,
   [ProviderType.Local]: LocalLogo,
+  [ProviderType.Docker]: DockerLogo,
 };
 
 interface ChatTabProps extends TabProps {
