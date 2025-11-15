@@ -812,32 +812,62 @@ These are more complex and may require additional infrastructure, but could be a
 ## Query Chunking + Ensemble Embeddings
 
 ### Goal
-Long prompts often pack in multiple sub-questions or topic shifts. A single embedding of the whole prompt can “average away” those nuances, hurting recall. Query chunking combats that by breaking the prompt into smaller, coherent segments (sentences, clauses, bullet points) and embedding each independently.
+Long prompts often pack in multiple sub-questions or topic shifts. A single embedding of the whole prompt can "average away" those nuances, hurting recall. Query chunking combats that by breaking the prompt into smaller, coherent segments (sentences, clauses, bullet points) and embedding each independently.
 
-### Steps
-1. Chunk the Query
-- Split the prompt into logical segments—sentences, clauses, or paragraphs—using simple sentence tokenization or NLP-based segmentation.
-- Optional: filter out extremely short or stopword-only fragments to avoid noisy embeddings.
-2. Embed Each Chunk
-- Run each chunk through the embedding model to get its own vector.
-- To keep cost bounded, you can cap the number of chunks (e.g., take the first N sentences or the N most content-rich ones).
-3. Score Against Context
-- For each chunk embedding, compute cosine similarity to every context chunk vector.
-- You now have multiple similarity scores per context chunk—one per query chunk.
-4. Pool the Scores
-- **Max pooling**: For each context chunk, take the maximum similarity across all query chunks. This gives every answer candidate the benefit of the single query fragment that matches it best, helping surface relevant context even if it only overlaps with one part of a long prompt.
-- **Mean pooling**: Average the similarity scores for each context chunk. This rewards chunks that align well with multiple query fragments and can smooth out noise, but it may penalize context pieces that match only a single niche part of the prompt.
-- **Hybrid**: Use max as the primary score, but keep the mean as a secondary signal—for example, requiring the mean to exceed a threshold before accepting a result.
-5. Aggregate Results
-- Once you have a single score per context chunk (after pooling), continue with the usual ranking, thresholding, and top-N selection.
+### As-Built Implementation
+
+**1. Chunk the Query**
+- Split the query by sentences using sentence boundaries (`.`, `!`, `?`)
+- One chunk per sentence (no combining)
+- Truncate any sentence longer than `maxChunkSize` (default: 500 characters)
+- Implementation: `chunkQueryText()` in `packages/agent-api/src/managers/semantic-indexer.ts`
+
+**2. Embed Each Chunk**
+- Generate embeddings for all query chunks in parallel using `Promise.all()`
+- Each chunk gets its own embedding vector
+- Embeddings are normalized (from `@xenova/transformers` pipeline with `normalize: true`)
+
+**3. Build M×N Scores Matrix**
+- M rows = query chunks
+- N columns = context item chunks
+- Each cell: `{ contextItemIndex: number, score: number }`
+- Compute cosine similarity (dot product, since embeddings are normalized) for each (query chunk, context chunk) pair
+
+**4. Pool the Scores**
+- **Max pooling** (implemented): For each context chunk (column), take the maximum similarity score across all query chunks (rows)
+- If only one query chunk (M=1), use that row directly
+- If multiple query chunks (M>1), compute `max(...columnScores)` per column
+- This gives each context chunk the benefit of the best-matching query chunk
+
+**5. Aggregate Results**
+- After pooling, have N scores (one per context chunk)
+- Sort by score, apply topK filtering
+- Group by context item, keep best score per item
+- Apply topN and includeScore thresholds as usual
 
 ### Advantages
-- Captures multi-topic queries: different query chunks can match different context items.
-- Preserves detail: shorter segments embed more precisely than one long, diluted vector.
+- **Captures multi-topic queries**: Different query chunks can match different context items
+- **Preserves detail**: Shorter segments embed more precisely than one long, diluted vector
+- **Better for topic shifts**: Max pooling ensures items that match any query chunk well are included
+
+### Known Issue: Minimum Representation Per Query Chunk
+
+**Problem**: When query chunks have different score distributions, max pooling can favor one chunk over another. For example:
+- Query chunk 1 matches items with scores [0.9, 0.85, 0.8]
+- Query chunk 2 matches items with scores [0.75, 0.7, 0.65]
+- After max pooling and filtering, only items from chunk 1 may appear in final results
+
+**Potential Solution**: Ensure minimum representation per query chunk in final results:
+- Track which query chunk gave each item its max score
+- After final filtering, check distribution across query chunks
+- If any chunk has fewer than minimum items, promote items that had their max from that chunk
+- This ensures each query chunk contributes to final results, even if its scores are lower
+
+**Status**: Not yet implemented - future enhancement
 
 ### Considerations
-- **Performance**: Embedding every chunk increases runtime roughly linearly with the number of segments. Set sensible caps or pre-filter trivial sentences.
-- **Noise control**: Ensure chunking doesn’t produce junk fragments; otherwise max pooling may amplify noise. Applying a similarity floor or combining max with mean can mitigate that.
-- **Implementation**: The pooling logic lives entirely on our side; @xenova/transformers just produces one embedding per string.
+- **Performance**: Embedding every chunk increases runtime roughly linearly with the number of segments, but parallel embedding generation mitigates this
+- **Chunking strategy**: Sentence-based chunking works well for most queries, but may need adjustment for very long sentences or special formatting
+- **Pooling choice**: Max pooling favors recall (items matching any query chunk), while mean pooling would favor precision (items matching multiple query chunks). Max pooling is better for multi-topic queries.
 
-This approach is often called “ensemble retrieval” or “multi-vector query encoding” in vector search systems.
+This approach is often called "ensemble retrieval" or "multi-vector query encoding" in vector search systems.

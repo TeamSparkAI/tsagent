@@ -18,7 +18,6 @@ export interface IndexedChunk {
   chunkIndex: number;
 }
 
-
 /**
  * Semantic indexer for agent rules, references, and tools using local embeddings
  * Supports JIT (Just-In-Time) indexing - embeddings generated on-demand
@@ -88,9 +87,25 @@ export class SemanticIndexer {
   }
 
   /**
-   * Chunk text into smaller pieces for better semantic matching
+   * Chunk query text into smaller pieces for better semantic matching
+   * Splits by sentences and truncates any sentence longer than maxChunkSize
    */
-  private chunkText(text: string, maxChunkSize: number = 500): string[] {
+  private chunkQueryText(text: string, maxChunkSize: number = 500): string[] {
+    // Split by sentences - one chunk per sentence
+    const sentences = text.split(/[.!?]+\s+/).filter(s => s.trim().length > 0);
+    
+    return sentences.map(sentence => {
+      const trimmed = sentence.trim();
+      // Truncate if longer than maxChunkSize
+      return trimmed.length > maxChunkSize ? trimmed.substring(0, maxChunkSize) : trimmed;
+    }).filter(s => s.length > 0);
+  }
+
+  /**
+   * Chunk context item text into smaller pieces for better semantic matching
+   * Splits by paragraphs and sentences, truncates any paragraph or sentence longer than maxChunkSize
+   */
+  private chunkContextItemText(text: string, maxChunkSize: number = 500): string[] {
     const chunks: string[] = [];
     
     // Try to split by paragraphs first
@@ -197,7 +212,7 @@ export class SemanticIndexer {
     }
 
     // Chunk the text appropriately
-    const textChunks = this.chunkText(fullText);
+    const textChunks = this.chunkContextItemText(fullText);
     const indexedChunks: IndexedChunk[] = [];
     
     // Generate embeddings for each chunk
@@ -243,7 +258,7 @@ export class SemanticIndexer {
     }
 
     // Chunk the text appropriately
-    const textChunks = this.chunkText(fullText);
+    const textChunks = this.chunkContextItemText(fullText);
     const indexedChunks: IndexedChunk[] = [];
     
     // Generate embeddings for each chunk
@@ -408,7 +423,7 @@ export class SemanticIndexer {
     await this.indexContextItems(items, agent);
     
     // Step 2: Collect all chunks from items with their context item metadata
-    const allChunks: Array<{
+    const allContextItemChunks: Array<{
       item: SessionContextItem;
       chunkIndex: number;
       text: string;
@@ -423,7 +438,7 @@ export class SemanticIndexer {
         const rule = agent.getRule(item.name);
         if (rule && rule.embeddings) {
           for (const chunk of rule.embeddings) {
-            allChunks.push({
+            allContextItemChunks.push({
               item,
               chunkIndex: chunk.chunkIndex,
               text: chunk.text,
@@ -435,7 +450,7 @@ export class SemanticIndexer {
         const reference = agent.getReference(item.name);
         if (reference && reference.embeddings) {
           for (const chunk of reference.embeddings) {
-            allChunks.push({
+            allContextItemChunks.push({
               item,
               chunkIndex: chunk.chunkIndex,
               text: chunk.text,
@@ -449,7 +464,7 @@ export class SemanticIndexer {
           const chunks = client.toolEmbeddings.get(item.name);
           if (chunks) {
             for (const chunk of chunks) {
-              allChunks.push({
+              allContextItemChunks.push({
                 item,
                 chunkIndex: chunk.chunkIndex,
                 text: chunk.text,
@@ -461,20 +476,52 @@ export class SemanticIndexer {
       }
     }
 
-    if (allChunks.length === 0) {
+    if (allContextItemChunks.length === 0) {
       return [];
     }
+    
+    // Chunk the query and generate embeddings for all chunks in parallel
+    const queryChunks = this.chunkQueryText(query);
+    const allQueryChunks = await Promise.all(
+      queryChunks.map(async (chunk, index) => {
+        const embeddingResult = await this.generateEmbedding(chunk);
+        return {
+          chunkIndex: index,
+          text: chunk,
+          embedding: embeddingResult.embedding,
+        };
+      })
+    );
 
-    // Generate embedding for query
-    const queryEmbeddingResult = await this.generateEmbedding(query);
-    const queryEmbedding = queryEmbeddingResult.embedding;
+    console.log('allQueryChunks', allQueryChunks);
 
-    // Calculate similarity scores for all chunks
-    const scores = allChunks.map(chunk => ({
-      item: chunk.item,
-      score: this.cosineSimilarity(queryEmbedding, chunk.embedding),
-      chunkText: chunk.text,
-    }));
+    // Build M×N scores matrix: M rows (query chunks) × N columns (context item chunks)
+    // Each cell: { contextItemIndex: number, score: number }
+    const scoresMatrix: Array<Array<{ contextItemIndex: number; score: number }>> = [];
+    
+    for (const queryChunk of allQueryChunks) {
+      const row: Array<{ contextItemIndex: number; score: number }> = [];
+      for (let contextItemIndex = 0; contextItemIndex < allContextItemChunks.length; contextItemIndex++) {
+        const contextChunk = allContextItemChunks[contextItemIndex];
+        const score = this.cosineSimilarity(queryChunk.embedding, contextChunk.embedding);
+        row.push({ contextItemIndex, score });
+      }
+      scoresMatrix.push(row);
+    }
+
+    // If only one row, use it as scores; otherwise compute max per column
+    let scores: Array<{ contextItemIndex: number; score: number }>;
+    if (scoresMatrix.length === 1) {
+      scores = scoresMatrix[0];
+    } else {
+      // Compute max score for each column (context item chunk)
+      scores = [];
+      for (let contextItemIndex = 0; contextItemIndex < allContextItemChunks.length; contextItemIndex++) {
+        const columnScores = scoresMatrix.map(row => row[contextItemIndex].score);
+        const maxScore = Math.max(...columnScores);
+        scores.push({ contextItemIndex, score: maxScore });
+      }
+    }
 
     // Sort by score (descending) and get top K chunk matches
     const topChunkMatches = scores
@@ -486,18 +533,22 @@ export class SemanticIndexer {
     const itemMap = new Map<string, { item: SessionContextItem; score: number }>();
     
     for (const result of topChunkMatches) {
+      // Look up context chunk using contextItemIndex
+      const contextChunk = allContextItemChunks[result.contextItemIndex];
+      const item = contextChunk.item;
+      
       // Create a unique key for each context item
       let key: string;
-      if (result.item.type === 'tool') {
-        key = `${result.item.type}:${result.item.serverName}:${result.item.name}`;
+      if (item.type === 'tool') {
+        key = `${item.type}:${item.serverName}:${item.name}`;
       } else {
-        key = `${result.item.type}:${result.item.name}`;
+        key = `${item.type}:${item.name}`;
       }
       
       const existing = itemMap.get(key);
       if (!existing || result.score > existing.score) {
         itemMap.set(key, {
-          item: result.item,
+          item: item,
           score: result.score,
         });
       }
