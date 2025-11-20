@@ -5,11 +5,12 @@ import log from 'electron-log';
 import * as fs from 'fs';
 import { McpConfig } from '@tsagent/core';
 import { AgentsManager } from './agents-manager';
-import { agentExists, loadAgent, createAgent, cloneAgent } from '@tsagent/core/runtime';
+import { agentExists, loadAgent, createAgent, cloneAgent, loadAgentMetadataOnly } from '@tsagent/core/runtime';
 import { Agent } from '@tsagent/core';
 import { AGENT_FILE_NAME } from '@tsagent/core';
 import { ElectronLoggerAdapter } from './logger-adapter';
 import { SessionToolPermission, SETTINGS_KEY_THEME, ChatMessage } from '@tsagent/core';
+import { createOnePasswordClient } from '@teamsparkai/1password';
 
 const __dirname = path.dirname(__filename);
 
@@ -831,20 +832,8 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('get-agent-metadata-by-path', async (event, agentPath: string) => {
     try {
-      log.info('[MAIN PROCESS] getAgentMetadataByPath called for:', agentPath);
-      
-      // Check if agent exists
-      const exists = await agentExists(agentPath);
-      if (!exists) {
-        log.warn('Agent does not exist at path:', agentPath);
-        return null;
-      }
-
-      // Load the agent to get metadata
-      const agent = await loadAgent(agentPath, new ElectronLoggerAdapter());
-      const metadata = agent.getMetadata();
-      
-      log.info('[MAIN PROCESS] Agent metadata retrieved for path:', agentPath, metadata);
+      // Use lightweight metadata-only loader - much faster, no MCP clients, no supervisors
+      const metadata = await loadAgentMetadataOnly(agentPath, new ElectronLoggerAdapter());
       return metadata;
     } catch (err) {
       log.error('[MAIN PROCESS] Error getting agent metadata by path:', err);
@@ -1385,6 +1374,81 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return {
       isPackaged: app.isPackaged
     };
+  });
+
+  // 1Password availability check
+  ipcMain.handle('is-1password-available', () => {
+    const hasOpServiceAccount = !!process.env.OP_SERVICE_ACCOUNT_TOKEN;
+    const hasOpConnectToken = !!process.env.OP_CONNECT_TOKEN;
+    const available = hasOpServiceAccount || hasOpConnectToken;
+    log.info(`[1Password] Availability check: OP_SERVICE_ACCOUNT_TOKEN=${hasOpServiceAccount}, OP_CONNECT_TOKEN=${hasOpConnectToken}, Available=${available}`);
+    return available;
+  });
+
+  // Helper function to create 1Password client
+  async function create1PasswordClient() {
+    const options: { serviceAccountToken?: string; connectToken?: string; connectHost?: string } = {};
+    if (process.env.OP_SERVICE_ACCOUNT_TOKEN) {
+      options.serviceAccountToken = process.env.OP_SERVICE_ACCOUNT_TOKEN;
+    }
+    if (process.env.OP_CONNECT_TOKEN) {
+      options.connectToken = process.env.OP_CONNECT_TOKEN;
+    }
+    if (process.env.OP_CONNECT_HOST) {
+      options.connectHost = process.env.OP_CONNECT_HOST;
+    }
+    return await createOnePasswordClient(options);
+  }
+
+  // Get 1Password vaults
+  ipcMain.handle('get-1password-vaults', async () => {
+    try {
+      const client = await create1PasswordClient();
+      const vaults = await client.listVaults();
+      return vaults.map(vault => ({
+        id: vault.id || '',
+        name: vault.name || vault.title || ''
+      }));
+    } catch (error) {
+      log.error('[1Password] Failed to list vaults:', error);
+      throw error;
+    }
+  });
+
+  // Get 1Password items in a vault
+  ipcMain.handle('get-1password-items', async (_, vaultId: string) => {
+    try {
+      const client = await create1PasswordClient();
+      const items = await client.listItems(vaultId);
+      return items.map(item => ({
+        id: item.id || '',
+        title: item.title || ''
+      }));
+    } catch (error) {
+      log.error(`[1Password] Failed to list items for vault ${vaultId}:`, error);
+      throw error;
+    }
+  });
+
+  // Get 1Password item fields
+  ipcMain.handle('get-1password-item-fields', async (_, vaultId: string, itemId: string) => {
+    try {
+      const client = await create1PasswordClient();
+      const itemDetail = await client.findItem(vaultId, itemId);
+      if (!itemDetail) {
+        throw new Error(`Item not found: ${vaultId}/${itemId}`);
+      }
+      // Only return fields that have values
+      return (itemDetail.fields || [])
+        .filter(field => field.value !== undefined && field.value !== null && field.value !== '')
+        .map(field => ({
+          id: field.id || field.label || '',
+          label: field.label || field.id || ''
+        }));
+    } catch (error) {
+      log.error(`[1Password] Failed to get fields for item ${vaultId}/${itemId}:`, error);
+      throw error;
+    }
   });
 }
 

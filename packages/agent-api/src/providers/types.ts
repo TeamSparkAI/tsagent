@@ -18,6 +18,7 @@ export interface ProviderConfigValue {
   hint?: string;
   key: string;
   secret?: boolean;
+  credential?: boolean;
   required?: boolean;
   default?: string;
 }

@@ -793,7 +793,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
     setChatSettings(newSettings);
     if (chatApiRef.current) {
       await chatApiRef.current.updateSettings(newSettings);
-      log.info('Chat settings updated');
+      // Use debug level to avoid log spam when sliders are dragged
+      log.debug('Chat settings updated');
     }
   };
 

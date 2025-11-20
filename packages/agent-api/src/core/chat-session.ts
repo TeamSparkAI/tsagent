@@ -54,13 +54,8 @@ export class ChatSessionImpl implements ChatSession {
     this.contextIncludeScore = options.contextIncludeScore;
     let modelDescription = '';
 
-    // Create the LLM instance
+    // Provider will be created lazily when first needed
     if (this.currentProvider && this.currentModelId) {
-      const llm = this.agent.createProvider(this.currentProvider, this.currentModelId);
-      if (!llm) {
-        throw new Error(`Failed to create LLM instance for model ${this.currentProvider}`);
-      }
-      this.provider = llm;
       modelDescription = `You are using the ${this.currentProvider} provider${this.currentModelId ? ` and the ${this.currentModelId} model` : ''}`;
     } else {
       modelDescription = 'No model selected';
@@ -104,7 +99,30 @@ export class ChatSessionImpl implements ChatSession {
     this.supervisionManager = supervisionManager;
   }
 
+  /**
+   * Ensure provider is created (lazy initialization)
+   */
+  private async ensureProvider(): Promise<void> {
+    if (this.provider) {
+      return;
+    }
+
+    if (!this.currentProvider || !this.currentModelId) {
+      throw new Error('No provider configured for this session');
+    }
+
+    const llm = await this.agent.createProvider(this.currentProvider, this.currentModelId);
+    if (!llm) {
+      throw new Error(`Failed to create LLM instance for model ${this.currentProvider}`);
+    }
+    this.provider = llm;
+  }
+
   getState(): ChatState {
+    // Normalize inference parameters: when temperature is 0, topP must be >= 0.01
+    // This prevents validation errors from providers that require topP > 0
+    const normalizedTopP = this.temperature === 0 ? Math.max(this.topP, 0.01) : this.topP;
+    
     return {
       messages: [...this.messages],
       lastSyncId: this.lastSyncId,
@@ -114,7 +132,7 @@ export class ChatSessionImpl implements ChatSession {
       maxChatTurns: this.maxChatTurns,
       maxOutputTokens: this.maxOutputTokens,
       temperature: this.temperature,
-      topP: this.topP,
+      topP: normalizedTopP,
       toolPermission: this.toolPermission,
       contextTopK: this.contextTopK,
       contextTopN: this.contextTopN,
@@ -290,6 +308,7 @@ export class ChatSessionImpl implements ChatSession {
   // - Sometimes we get explanatory text with a tool call (or multiple tool calls)
   //
   async handleMessage(message: string | ChatMessage): Promise<MessageUpdate> {
+    await this.ensureProvider();
     if (!this.provider) {
       throw new Error('No LLM instance available');
     }
@@ -417,6 +436,10 @@ export class ChatSessionImpl implements ChatSession {
     try {
       // Log the model being used for this request
       this.logger.info(`Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
+      await this.ensureProvider();
+      if (!this.provider) {
+        throw new Error('Provider not initialized');
+      }
       const modelResponse = await this.provider.generateResponse(this, messages);
       if (!modelResponse) {
         throw new Error(`Failed to generate response from ${this.currentProvider}`);
@@ -508,7 +531,8 @@ export class ChatSessionImpl implements ChatSession {
       // Update session with new model and LLM
       this.currentProvider = modelType;
       this.currentModelId = modelId;
-      this.provider = llm;
+      // Provider will be created lazily on next use
+      this.provider = undefined;
 
       // Generate a display model name - either the model ID or a descriptive name for the model type
       let displayName = modelId || modelType;
@@ -775,7 +799,8 @@ export class ChatSessionImpl implements ChatSession {
     this.contextTopN = settings.contextTopN;
     this.contextIncludeScore = settings.contextIncludeScore;
     
-    this.logger.info(`Updated chat session settings:`, settings);
+    // Use debug level to avoid log spam when sliders are dragged
+    this.logger.debug(`Updated chat session settings:`, settings);
     return true;
   }
 } 

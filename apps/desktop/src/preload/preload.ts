@@ -21,7 +21,11 @@ const api: API = {
   },
 
   // App details
-  getAppDetails: () => ipcRenderer.invoke('get-app-details'),
+    getAppDetails: () => ipcRenderer.invoke('get-app-details'),
+    is1PasswordAvailable: () => ipcRenderer.invoke('is-1password-available'),
+    get1PasswordVaults: () => ipcRenderer.invoke('get-1password-vaults'),
+    get1PasswordItems: (vaultId: string) => ipcRenderer.invoke('get-1password-items', vaultId),
+    get1PasswordItemFields: (vaultId: string, itemId: string) => ipcRenderer.invoke('get-1password-item-fields', vaultId, itemId),
 
   // References management
   getReferences: () => ipcRenderer.invoke('references:get-references'),

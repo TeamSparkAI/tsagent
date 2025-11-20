@@ -39,7 +39,7 @@ export interface ProvidersManager {
   validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }>;
   getAvailableProviders(): ProviderType[];
   getAvailableProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>>;
-  createProvider(provider: ProviderType, modelId?: string): Provider; // Not serializable
+  createProvider(provider: ProviderType, modelId?: string): Promise<Provider>; // Not serializable
   getProviderInfo(providerType: ProviderType): ProviderInfo;
   getProviderModels(providerType: ProviderType): Promise<ProviderModel[]>;
 }

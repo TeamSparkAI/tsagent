@@ -283,7 +283,8 @@ export class ChatAPI {
   }): Promise<boolean> {
     try {
       await window.api.updateChatSettings(this.tabId, settings);
-      log.info(`Updated chat settings for tab ${this.tabId}`);
+      // Use debug level to avoid log spam when sliders are dragged
+      log.debug(`Updated chat settings for tab ${this.tabId}`);
       return true;
     } catch (error) {
       log.error('Error updating chat settings:', error);

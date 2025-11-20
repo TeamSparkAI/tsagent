@@ -13,7 +13,8 @@ export class ClaudeProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
-  private client!: Anthropic;
+  private readonly config: Record<string, string>;
+  private client: Anthropic;
 
   static getInfo(): ProviderInfo {
     return {
@@ -45,27 +46,18 @@ export class ClaudeProvider implements Provider {
     }
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+    this.config = resolvedConfig;
 
-    const config = this.agent.getInstalledProviderConfig(ProviderType.Claude);
-    if (!config) {
-      throw new Error('Claude configuration is missing.');
+    const apiKey = this.config['ANTHROPIC_API_KEY']!;
+    if (!apiKey) {
+      throw new Error('ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.');
     }
-    
-    try {
-      const apiKey = config['ANTHROPIC_API_KEY']!;
-      if (!apiKey) {
-        throw new Error('ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.');
-      }
-      this.client = new Anthropic({ apiKey });
-      this.logger.info('Claude Provider initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize Claude Provider:', error);
-      throw error;
-    }
+    this.client = new Anthropic({ apiKey });
+    this.logger.info('Claude Provider initialized successfully');
   }
   
   async getModels(): Promise<ProviderModel[]> {
@@ -263,21 +255,37 @@ export class ClaudeProvider implements Provider {
 
       const state = session.getState();
 
+      // Some newer Claude models (e.g., claude-3-7-*) don't support both temperature and top_p
+      // simultaneously. The API returns: "temperature and top_p cannot both be specified for this model"
+      // 
+      // Decision logic for which parameter to use (we can only send one):
+      // - If temperature > 0: Use temperature (it's the primary control for randomness)
+      // - If temperature === 0: Use top_p (user wants deterministic output, top_p provides diversity control)
+      //   Note: top_p is already normalized to >= 0.01 when temperature is 0 (see ChatSession.getState())
+
       let turnCount = 0;
       while (turnCount < state.maxChatTurns) {
         const turn: Turn = { results: [] };
         turnCount++;
         let hasToolUse = false;
 
-        let currentResponse = await this.client.messages.create({
+        // Build request parameters - only include temperature or top_p, not both
+        const requestParams: any = {
           model: this.modelName,
           max_tokens: state.maxOutputTokens,
-          temperature: state.temperature,
-          top_p: state.topP,
           messages: turnMessages,
           system: systemPrompt || undefined, // !!! Is this different on subseqent calls?
           tools,
-        });
+        };
+
+        // Conditionally include either temperature or top_p (never both)
+        if (state.temperature > 0) {
+          requestParams.temperature = state.temperature;
+        } else {
+          requestParams.top_p = state.topP;
+        }
+
+        let currentResponse = await this.client.messages.create(requestParams);
   
         turn.inputTokens = currentResponse.usage?.input_tokens ?? 0;
         turn.outputTokens = currentResponse.usage?.output_tokens ?? 0;

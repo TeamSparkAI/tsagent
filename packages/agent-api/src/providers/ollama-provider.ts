@@ -13,8 +13,8 @@ export class OllamaProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
-
-  private client!: Ollama;
+  private readonly config: Record<string, string>;
+  private client: Ollama;
 
   static getInfo(): ProviderInfo {
     return {
@@ -42,24 +42,15 @@ export class OllamaProvider implements Provider {
     }
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+    this.config = resolvedConfig;
 
-    const config = this.agent.getInstalledProviderConfig(ProviderType.Ollama);
-    if (!config) {
-      throw new Error('Ollama configuration is missing.');
-    }
-    
-    try {
-      const host = config['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434';
-      this.client = new Ollama({ host: host });
-      this.logger.info('Ollama Provider initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize Ollama Provider:', error);
-      throw error;
-    }
+    const host = this.config['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434';
+    this.client = new Ollama({ host: host });
+    this.logger.info('Ollama Provider initialized successfully');
   }
 
   async getModels(): Promise<ProviderModel[]> {

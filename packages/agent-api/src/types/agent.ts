@@ -82,6 +82,7 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   getInstalledProviders(): ProviderType[];
   isProviderInstalled(provider: ProviderType): boolean;
   getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null;
+  getResolvedProviderConfig(provider: ProviderType): Promise<Record<string, string> | null>;
   installProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
   updateProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
   uninstallProvider(provider: ProviderType): Promise<void>;
@@ -90,7 +91,7 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }>;
   getAvailableProviders(): ProviderType[];
   getAvailableProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>>;
-  createProvider(provider: ProviderType, modelId?: string): Provider; // Not serializable
+  createProvider(provider: ProviderType, modelId?: string): Promise<Provider>; // Not serializable
   getProviderInfo(providerType: ProviderType): ProviderInfo;
   getProviderModels(providerType: ProviderType): Promise<ProviderModel[]>;
 

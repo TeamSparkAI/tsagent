@@ -243,4 +243,5 @@
 .form-control {
   width: 100%;
   padding: 4px 8px;
+  box-sizing: border-box;
 } 

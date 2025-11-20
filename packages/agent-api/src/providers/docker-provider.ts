@@ -14,7 +14,8 @@ export class DockerProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
-  private client!: OpenAI;
+  private readonly config: Record<string, string>;
+  private client: OpenAI;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
     return {
@@ -58,27 +59,18 @@ export class DockerProvider implements Provider {
     }
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+    this.config = resolvedConfig;
 
-    const config = this.agent.getInstalledProviderConfig(ProviderType.Docker);
-    if (!config) {
-      throw new Error('Docker configuration is missing.');
+    const baseUrl = this.config['BASE_URL']!;
+    if (!baseUrl) {
+      throw new Error('BASE_URL is missing in the configuration. Please add it to your config.json file.');
     }
-    
-    try {
-      const baseUrl = config['BASE_URL']!;
-      if (!baseUrl) {
-        throw new Error('BASE_URL is missing in the configuration. Please add it to your config.json file.');
-      }
-      this.client = new OpenAI({ apiKey: '', baseURL: baseUrl });
-      this.logger.info('Docker Provider initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize Docker Provider:', error);
-      throw error;
-    }
+    this.client = new OpenAI({ apiKey: '', baseURL: baseUrl });
+    this.logger.info('Docker Provider initialized successfully');
   }
 
   async getModels(): Promise<ProviderModel[]> {

@@ -109,4 +109,10 @@ export interface API {
 
   // App details
   getAppDetails: () => Promise<{ isPackaged: boolean }>;
+
+  // 1Password support
+  is1PasswordAvailable: () => Promise<boolean>;
+  get1PasswordVaults: () => Promise<Array<{id: string, name: string}>>;
+  get1PasswordItems: (vaultId: string) => Promise<Array<{id: string, title: string}>>;
+  get1PasswordItemFields: (vaultId: string, itemId: string) => Promise<Array<{id: string, label: string}>>;
 }

@@ -58,6 +58,7 @@ const mainConfig = {
     electron: 'module electron',
     'node-llama-cpp': 'module node-llama-cpp',
     '@tsagent/core': 'module @tsagent/core',
+    '@teamsparkai/1password': 'module @teamsparkai/1password',
     '@xenova/transformers': 'module @xenova/transformers',
     'onnxruntime-node': 'module onnxruntime-node',
     'sharp': 'module sharp'

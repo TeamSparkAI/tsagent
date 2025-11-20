@@ -14,7 +14,8 @@ export class OpenAIProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
-  private client!: OpenAI;
+  private readonly config: Record<string, string>;
+  private client: OpenAI;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
     return {
@@ -58,27 +59,18 @@ export class OpenAIProvider implements Provider {
     }
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+    this.config = resolvedConfig;
 
-    const config = this.agent.getInstalledProviderConfig(ProviderType.OpenAI);
-    if (!config) {
-      throw new Error('OpenAI configuration is missing.');
+    const apiKey = this.config['OPENAI_API_KEY']!;
+    if (!apiKey) {
+      throw new Error('OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.');
     }
-    
-    try {
-      const apiKey = config['OPENAI_API_KEY']!;
-      if (!apiKey) {
-        throw new Error('OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.');
-      }
-      this.client = new OpenAI({ apiKey });
-      this.logger.info('OpenAI Provider initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize OpenAI Provider:', error);
-      throw error;
-    }
+    this.client = new OpenAI({ apiKey });
+    this.logger.info('OpenAI Provider initialized successfully');
   }
 
   async getModels(): Promise<ProviderModel[]> {

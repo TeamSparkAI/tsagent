@@ -32,7 +32,8 @@ export class LocalProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
-  private modelPath: string;
+  private readonly config: Record<string, string>;
+  private modelPath: string = '';
   private llama: Llama | null = null;
   private model: LlamaModel | null = null;
 
@@ -77,17 +78,13 @@ export class LocalProvider implements Provider {
     }
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
     this.modelName = modelName || '';
     this.agent = agent;
     this.logger = logger;
+    this.config = resolvedConfig;
 
-    const config = this.agent.getInstalledProviderConfig(ProviderType.Local);
-    if (!config) {
-      throw new Error('Local configuration is missing.');
-    }
-    
-    const modelDir = config['MODEL_DIRECTORY'];
+    const modelDir = this.config['MODEL_DIRECTORY'];
     if (!modelDir) {
       throw new Error('MODEL_DIRECTORY is missing in the configuration.');
     }
@@ -149,12 +146,7 @@ export class LocalProvider implements Provider {
   }
   
   async getModels(): Promise<ProviderModel[]> {
-    const config = this.agent.getInstalledProviderConfig(ProviderType.Local);
-    if (!config) {
-      return [];
-    }
-    
-    const modelDir = config['MODEL_DIRECTORY'];
+    const modelDir = this.config['MODEL_DIRECTORY'];
     if (!modelDir || !fs.existsSync(modelDir)) {
       return [];
     }

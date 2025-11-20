@@ -52,9 +52,6 @@ interface EditServerModalProps {
 }
 
 const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCancel }) => {
-    // Add debugging logs
-    console.log("EditServerModal received server:", server);
-    
     const [name, setName] = useState(server?.name || '');
     const [error, setError] = useState<string | null>(null);
     
@@ -156,12 +153,6 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         server?.config.toolInclude?.serverDefault || 'always'
     );
 
-    // Log initial state values
-    useEffect(() => {
-        console.log("EditServerModal initial state:", {
-            name, serverType, effectiveType, command, argsArray, env, url, headers, internalTool
-        });
-    }, []);
 
     // Update form fields when JSON changes
     const updateFormFromJson = () => {
@@ -1019,7 +1010,6 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     const loadServers = async () => {
         const loadedServers = await window.api.getServerConfigs();
-        console.log("Loaded server configs:", loadedServers);
         
         // Sort servers by name
         const sortedServers = loadedServers.sort((a, b) => a.name.localeCompare(b.name));
@@ -1064,7 +1054,6 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     };
 
     const handleEditServer = (server: McpConfig) => {
-        console.log("Editing server:", server);
         setEditingServer(server);
         setShowEditModal(true);
     };

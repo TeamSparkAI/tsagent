@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'events';
+import dotenv from 'dotenv';
 
 import { Agent, AgentConfig, AgentSettings,
   SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_CHAT_TURNS, 
@@ -33,6 +34,7 @@ import { ChatSession, ChatSessionOptions } from '../types/chat.js';
 import { SessionContextItem, RequestContextItem } from '../types/context.js';
 import { AgentStrategy, FileBasedAgentStrategy } from './agent-strategy.js';
 import { SemanticIndexer } from '../managers/semantic-indexer.js';
+import { SecretManager } from '../secrets/secret-manager.js';
 
 // The idea behind the agent strategy is that you might want to serialize agents differenty (for example, in a database for an 
 // online service), or you might want to be able to create ephemral agents where you can set their state however you want and use
@@ -50,6 +52,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   private _id: string;
 
   private providerFactory: ProviderFactory;
+  private secretManager: SecretManager;
 
   // Sub-managers
   public readonly chatSessions: ChatSessionManagerImpl;
@@ -77,6 +80,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this._strategy = strategy;
 
     this.providerFactory = new ProviderFactory(this, logger);
+    this.secretManager = new SecretManager(this, logger);
     
     // Initialize sub-managers with logger
     this.mcpManager = new MCPClientManagerImpl(this, this.logger);
@@ -125,6 +129,10 @@ export class AgentImpl  extends EventEmitter implements Agent {
       throw new Error('Agent does not exist. Call create() to create a new agent.');
     }
 
+    // Load environment variables from .env files
+    // Priority: process.env > agentDir/.env > cwd/.env
+    this.loadEnvironmentVariables();
+
     this._agentData = await this._strategy.loadConfig();
     if (this._agentData && !this._agentData.settings) {
       this._agentData.settings = this.getDefaultSettings();
@@ -140,7 +148,79 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this.logger.info(`[AGENT] Agent loaded successfully, theme: ${this._agentData?.settings?.[SETTINGS_KEY_THEME]}`);
   }
 
+  /**
+   * Load environment variables from .env files
+   * Priority: process.env (highest) > agentDir/.env > cwd/.env (lowest)
+   */
+  private loadEnvironmentVariables(): void {
+    const cwd = process.cwd();
+    const agentDir = this._strategy?.getName() || cwd;
+
+    this.logger.info(`[AGENT] ===== Loading environment variables =====`);
+    this.logger.info(`[AGENT] CWD: ${cwd}`);
+    this.logger.info(`[AGENT] Agent Dir: ${agentDir}`);
+
+    // Load from CWD .env (lower priority, loaded first)
+    const cwdEnvPath = path.join(cwd, '.env');
+    try {
+      const cwdResult = dotenv.config({ path: cwdEnvPath, override: true });
+      if (cwdResult.error) {
+        const errorCode = (cwdResult.error as NodeJS.ErrnoException).code;
+        if (errorCode !== 'ENOENT') {
+          this.logger.warn(`[AGENT] Failed to load .env from CWD: ${cwdResult.error.message}`);
+        } else {
+          this.logger.info(`[AGENT] No .env file found at CWD: ${cwdEnvPath}`);
+        }
+      } else {
+        this.logger.info(`[AGENT] Loaded .env from CWD: ${cwdEnvPath}`);
+        if (cwdResult.parsed) {
+          const keys = Object.keys(cwdResult.parsed);
+          this.logger.info(`[AGENT] Loaded ${keys.length} environment variables from CWD .env: ${keys.join(', ')}`);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`[AGENT] Error loading .env from CWD: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Load from agent directory .env (higher priority, overrides CWD)
+    const agentEnvPath = path.join(agentDir, '.env');
+    try {
+      const agentResult = dotenv.config({ path: agentEnvPath, override: true });
+      if (agentResult.error) {
+        const errorCode = (agentResult.error as NodeJS.ErrnoException).code;
+        if (errorCode !== 'ENOENT') {
+          this.logger.warn(`[AGENT] Failed to load .env from agent directory: ${agentResult.error.message}`);
+        } else {
+          this.logger.info(`[AGENT] No .env file found at agent directory: ${agentEnvPath}`);
+        }
+      } else {
+        this.logger.info(`[AGENT] Loaded .env from agent directory: ${agentEnvPath}`);
+        if (agentResult.parsed) {
+          const keys = Object.keys(agentResult.parsed);
+          this.logger.info(`[AGENT] Loaded ${keys.length} environment variables from agent directory .env: ${keys.join(', ')}`);
+        }
+      }
+    } catch (error) {
+      this.logger.warn(`[AGENT] Error loading .env from agent directory: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+
+    // Check for 1Password environment variables
+    // Availability is determined by OP_SERVICE_ACCOUNT_TOKEN or OP_CONNECT_TOKEN
+    // OP_CONNECT_HOST is optional and only used when OP_CONNECT_TOKEN is present
+    const hasOpServiceAccount = !!process.env.OP_SERVICE_ACCOUNT_TOKEN;
+    const hasOpConnectToken = !!process.env.OP_CONNECT_TOKEN;
+    if (hasOpServiceAccount || hasOpConnectToken) {
+      this.logger.info(`[AGENT] 1Password support detected: OP_SERVICE_ACCOUNT_TOKEN=${hasOpServiceAccount}, OP_CONNECT_TOKEN=${hasOpConnectToken}`);
+    } else {
+      this.logger.info(`[AGENT] 1Password support not available (OP_SERVICE_ACCOUNT_TOKEN and OP_CONNECT_TOKEN not set)`);
+    }
+  }
+
   async create(data?: Partial<AgentConfig>): Promise<void> {
+    // Load environment variables from .env files
+    // Priority: process.env > agentDir/.env > cwd/.env
+    this.loadEnvironmentVariables();
+
     this._agentData = this.getInitialConfig(data);
     this._prompt = AgentImpl.DEFAULT_PROMPT;
     if (this._strategy) {
@@ -290,11 +370,29 @@ export class AgentImpl  extends EventEmitter implements Agent {
 
   getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null {
     const providers = this.getAgentProviders();
-    return providers?.[provider] || null;
+    const rawConfig = providers?.[provider] || null;
+    return rawConfig;
   }
 
-  createProvider(provider: ProviderType, modelId?: string): Provider {
-    return this.providerFactory.create(provider, modelId);
+  /**
+   * Get resolved provider configuration with secrets resolved from their sources
+   */
+  async getResolvedProviderConfig(provider: ProviderType): Promise<Record<string, string> | null> {
+    const rawConfig = this.getInstalledProviderConfig(provider);
+    if (!rawConfig) {
+      return null;
+    }
+
+    try {
+      return await this.secretManager.resolveProviderConfig(rawConfig);
+    } catch (error) {
+      this.logger.error(`Failed to resolve provider config for ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw error;
+    }
+  }
+
+  async createProvider(provider: ProviderType, modelId?: string): Promise<Provider> {
+    return await this.providerFactory.create(provider, modelId);
   }
 
   async installProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
@@ -346,7 +444,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   }
 
   async getProviderModels(providerType: ProviderType): Promise<ProviderModel[]> {
-    const providerInstance = this.providerFactory.create(providerType);
+    const providerInstance = await this.providerFactory.create(providerType);
     return providerInstance.getModels();
   }
 
@@ -503,6 +601,32 @@ export class AgentImpl  extends EventEmitter implements Agent {
 }
 
 export class FileBasedAgentFactory {
+    /**
+     * Lightweight function to load only agent metadata without initializing
+     * the full agent (no MCP clients, no supervisors, no providers, etc.)
+     * This is much faster and should be used for UI display purposes.
+     */
+    static async loadAgentMetadataOnly(agentPath: string, logger: Logger): Promise<AgentMetadata | null> {
+      const normalizedPath = path.normalize(agentPath);
+      
+      // Check if agent exists
+      if (!await FileBasedAgentStrategy.agentExists(normalizedPath)) {
+        return null;
+      }
+
+      try {
+        // Create a minimal strategy just to read the config file
+        const strategy = new FileBasedAgentStrategy(normalizedPath, logger);
+        const config = await strategy.loadConfig();
+        
+        // Extract and return just the metadata
+        return config.metadata || null;
+      } catch (error) {
+        logger.warn(`Failed to load metadata for agent at ${normalizedPath}:`, error);
+        return null;
+      }
+    }
+
     static async loadAgent(agentPath: string, logger: Logger): Promise<AgentImpl> {
       const normalizedPath = path.normalize(agentPath);
       

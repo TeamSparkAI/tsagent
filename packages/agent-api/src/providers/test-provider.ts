@@ -17,7 +17,7 @@ export class TestProvider implements Provider {
     };
   }
   
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig?: Record<string, string>) {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;

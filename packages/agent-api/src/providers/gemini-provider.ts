@@ -13,6 +13,7 @@ export class GeminiProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
+  private readonly config: Record<string, string>;
   private genAI: GoogleGenAI;
 
   private convertPropertyType(prop: any): { type: SchemaType; items?: { type: SchemaType; properties?: Record<string, any>; required?: string[] }; description?: string } {
@@ -120,27 +121,18 @@ export class GeminiProvider implements Provider {
     }
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
+    this.config = resolvedConfig;
 
-    const config = this.agent.getInstalledProviderConfig(ProviderType.Gemini);
-    if (!config) {
-      throw new Error('Gemini configuration is missing.');
+    const apiKey = this.config['GOOGLE_API_KEY'];
+    if (!apiKey) {
+      throw new Error('GOOGLE_API_KEY is missing in the configuration.');
     }
-
-    try {
-      const apiKey = config['GOOGLE_API_KEY'];
-      if (!apiKey) {
-        throw new Error('GOOGLE_API_KEY is missing in the configuration.');
-      }
-      this.genAI = new GoogleGenAI({ apiKey });
-      this.logger.info('Gemini Provider initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize Gemini Provider:', error);
-      throw error;
-    }
+    this.genAI = new GoogleGenAI({ apiKey });
+    this.logger.info('Gemini Provider initialized successfully');
   }
 
   async getModels(): Promise<ProviderModel[]> {

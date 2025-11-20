@@ -14,10 +14,8 @@ export class BedrockProvider implements Provider {
   private readonly agent: Agent;
   private readonly modelName: string;
   private readonly logger: Logger;
-
-  private config: Record<string, string>;
-
-  private client!: BedrockRuntimeClient;
+  private readonly config: Record<string, string>;
+  private client: BedrockRuntimeClient;
 
   static getInfo(): ProviderInfo {
     return {
@@ -28,7 +26,7 @@ export class BedrockProvider implements Provider {
         {
           caption: "Bedrock API access key ID",
           key: "BEDROCK_ACCESS_KEY_ID",
-          secret: false,
+          credential: true,
           required: true,
         },
         {
@@ -42,7 +40,6 @@ export class BedrockProvider implements Provider {
   }
 
   static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
-    console.log('Bedrock Provider validateConfiguration:', config);
     const accessKey = config['BEDROCK_SECRET_ACCESS_KEY'];
     const accessKeyId = config['BEDROCK_ACCESS_KEY_ID'];
     if (!accessKey || !accessKeyId) {
@@ -65,38 +62,26 @@ export class BedrockProvider implements Provider {
     }
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger) {
+  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
     this.modelName = modelName;
     this.agent = agent;
     this.logger = logger;
-    
-    const config = this.agent.getInstalledProviderConfig(ProviderType.Bedrock);
-    if (!config) {
-      throw new Error('Bedrock configuration is missing.');
+    this.config = resolvedConfig;
+
+    const accessKey = this.config['BEDROCK_SECRET_ACCESS_KEY'];
+    const accessKeyId = this.config['BEDROCK_ACCESS_KEY_ID'];
+    if (!accessKey || !accessKeyId) {
+      throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration.');
     }
 
-    this.logger.info('Bedrock Provider config:', config);
-
-    this.config = config;
-
-    try {
-      const accessKey = this.config['BEDROCK_SECRET_ACCESS_KEY'];
-      const accessKeyId = this.config['BEDROCK_ACCESS_KEY_ID'];
-      if (!accessKey || !accessKeyId) {
-        throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration.');
+    this.client = new BedrockRuntimeClient({ 
+      region: 'us-east-1', 
+      credentials: {
+          secretAccessKey: accessKey,
+          accessKeyId: accessKeyId
       }
-      this.client = new BedrockRuntimeClient({ 
-        region: 'us-east-1', 
-        credentials: {
-            secretAccessKey: accessKey,
-            accessKeyId: accessKeyId
-        }
-      });
-      this.logger.info('Bedrock Provider initialized successfully');
-    } catch (error) {
-      this.logger.error('Failed to initialize Bedrock Provider:', error);
-      throw error;
-    }
+    });
+    this.logger.info('Bedrock Provider initialized successfully');
   }
 
   async getModels(): Promise<ProviderModel[]> {
@@ -358,9 +343,11 @@ export class BedrockProvider implements Provider {
             topP: state.topP
           },
 					messages: turnMessages,
-					toolConfig: {
-						tools: tools,
-					}
+					...(tools.length > 0 && {
+						toolConfig: {
+							tools: tools,
+						}
+					})
 				}
 
 				if (systemPrompt) {

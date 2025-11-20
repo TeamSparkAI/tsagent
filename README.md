@@ -111,6 +111,15 @@ tsagent-meta-mcp /path/to/tools-agent
 # Configure in Claude Desktop or other MCP clients
 ```
 
+### Secret Management & 1Password Support
+
+- Secret fields (and “credential” fields such as API key IDs) can store direct values, environment variables, or 1Password references.
+- `.env` files are loaded (with override priority) from both the current working directory and the agent directory, so you can keep provider-specific secrets near each agent if desired.
+- 1Password support is automatically enabled when either `OP_SERVICE_ACCOUNT_TOKEN` or `OP_CONNECT_TOKEN` is present in the environment (you can also set `OP_CONNECT_HOST` when using Connect to override the default value of localhost:8080). These values can also live in the same `.env` files.
+- When 1Password is available, the desktop UI lets you choose **Direct**, **Environment Variable**, or **1Password** for each secret field, and provides a picker to browse vaults/items/fields (returning standard `op://` references).
+- At runtime and during provider validation TsAgent resolves `env://` and `op://` values before passing configs to providers
+- Credentials are never logged or stored in plain text.
+
 ## Agent Types
 
 TsAgent supports three types of agents:

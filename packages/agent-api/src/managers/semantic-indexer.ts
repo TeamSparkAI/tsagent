@@ -493,8 +493,6 @@ export class SemanticIndexer {
       })
     );
 
-    console.log('allQueryChunks', allQueryChunks);
-
     // Build M×N scores matrix: M rows (query chunks) × N columns (context item chunks)
     // Each cell: { contextItemIndex: number, score: number }
     const scoresMatrix: Array<Array<{ contextItemIndex: number; score: number }>> = [];
