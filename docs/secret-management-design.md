@@ -481,8 +481,139 @@ apps/desktop/src/
 - No migration of existing `tsagent.json` files required
 - New features are opt-in via UI selection
 
+## Future Secret Manager Integrations
+
+The modular resolver architecture makes it straightforward to add support for additional secret managers. Below are the most widely supported options for Node.js/TypeScript projects:
+
+### AWS Secrets Manager
+
+**SDK Package**: `@aws-sdk/client-secrets-manager`
+
+**Reference Format**: `aws://region/secret-name` or `aws://secret-arn`
+
+**Key Features**:
+- Automatic secret rotation
+- Tight IAM control
+- CloudTrail auditing
+- Best when running in AWS (EC2, Lambda, EKS)
+
+**Integration Requirements**:
+- AWS credentials configured (via IAM role, credentials file, or environment variables)
+- `ListSecretsCommand` for browsing available secrets
+- `GetSecretValueCommand` for retrieving secret values
+- Secret ARNs (Amazon Resource Names) or region/name pairs for references
+
+**Example Reference**: `aws://us-east-1/my-api-key` or `aws://arn:aws:secretsmanager:us-east-1:123456789012:secret:my-api-key`
+
+### Google Cloud Secret Manager
+
+**SDK Package**: `@google-cloud/secret-manager`
+
+**Reference Format**: `gcp://project-id/secret-name` or `gcp://project-id/secret-name/version`
+
+**Key Features**:
+- IAM-based access control
+- Versioning support
+- Automatic replication
+- Excellent for Cloud Run, GKE, and Cloud Functions
+
+**Integration Requirements**:
+- Google Cloud credentials (via service account key, Application Default Credentials, or environment variables)
+- `listSecrets()` for browsing available secrets
+- `accessSecretVersion()` for retrieving secret values
+- Project ID and secret name for references
+
+**Example Reference**: `gcp://my-project/my-api-key` or `gcp://my-project/my-api-key/1`
+
+### Azure Key Vault
+
+**SDK Package**: `@azure/keyvault-secrets`
+
+**Reference Format**: `azure://vault-name/secret-name` or `azure://vault-url/secret-name`
+
+**Key Features**:
+- Managed Identity for VM/App Service authentication
+- Automated key rotation
+- Integrated with Azure services and Identity
+- Azure-native solution
+
+**Integration Requirements**:
+- Azure credentials (via Managed Identity, service principal, or connection string)
+- `listPropertiesOfSecrets()` for browsing available secrets
+- `getSecret()` for retrieving secret values
+- Key Vault name/URL and secret name for references
+
+**Example Reference**: `azure://my-vault/my-api-key` or `azure://my-vault.vault.azure.net/secrets/my-api-key`
+
+### HashiCorp Vault
+
+**SDK Package**: `node-vault` (community) or official REST API client
+
+**Reference Format**: `vault://path/to/secret` or `vault://engine/path/to/secret`
+
+**Key Features**:
+- Dynamic secrets (short-lived credentials)
+- Robust auditing
+- Extensive authentication methods (Kubernetes, AppRole, etc.)
+- Cloud-agnostic/on-premises solution
+- Best for multi-cloud or complex requirements
+
+**Integration Requirements**:
+- Vault server URL and authentication method (token, AppRole, Kubernetes, etc.)
+- `list()` method on secret engine for browsing available secrets
+- `read()` method for retrieving secret values
+- Secret path (including engine) for references
+
+**Example Reference**: `vault://secret/data/my-api-key` or `vault://kv-v2/my-api-key`
+
+### Implementation Pattern
+
+All future secret manager integrations would follow the same pattern:
+
+1. **Create a new resolver class** implementing `SecretResolver`:
+   ```typescript
+   class AwsSecretsManagerResolver implements SecretResolver {
+     canResolve(reference: string): boolean {
+       return reference.startsWith('aws://');
+     }
+     
+     async resolve(reference: string, context: SecretResolutionContext): Promise<string> {
+       // Parse reference (e.g., aws://region/secret-name)
+       // Initialize AWS SDK client
+       // Call GetSecretValueCommand
+       // Return secret value
+     }
+     
+     getDisplayName(): string {
+       return 'AWS Secrets Manager';
+     }
+   }
+   ```
+
+2. **Add to SecretManager**:
+   ```typescript
+   this.resolvers = [
+     new DirectValueResolver(),
+     new EnvironmentVariableResolver(),
+     new OnePasswordResolver(),
+     new AwsSecretsManagerResolver(), // Add new resolver
+     // ... other resolvers
+   ];
+   ```
+
+3. **Add UI support**:
+   - Add option to secret source selector
+   - Create browser modal (similar to 1Password modal)
+   - Use SDK's list method to browse secrets
+   - Store reference in `aws://`, `gcp://`, `azure://`, or `vault://` format
+
+4. **Add availability detection**:
+   - Check for required environment variables or credentials
+   - Only show option in UI if secret manager is available
+   - Similar to 1Password's `OP_SERVICE_ACCOUNT_TOKEN` / `OP_CONNECT_TOKEN` check
+
 **Future Enhancements** (out of scope for initial implementation):
-- Support for additional secret managers (AWS Secrets Manager, HashiCorp Vault, etc.)
+- Support for additional secret managers (AWS Secrets Manager, Google Cloud Secret Manager, Azure Key Vault, HashiCorp Vault)
 - Secret rotation support
 - Secret versioning
 - Secret sharing between agents

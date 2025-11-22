@@ -31,6 +31,7 @@ TsAgent is a comprehensive platform that enables anyone to:
 | **A2A Server** | [`@tsagent/server`](https://www.npmjs.com/package/@tsagent/server) | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
 | **A2A Orchestrator** | [`@tsagent/orchestrator`](https://www.npmjs.com/package/@tsagent/orchestrator) | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
 | **Meta MCP** | [`@tsagent/meta-mcp`](https://www.npmjs.com/package/@tsagent/meta-mcp) | MCP Server | MCP server that exposes Tools agents as MCP tools with cognitive layer <br>`tsagent-meta-mcp` |
+| **Agent Management MCP** | [`@tsagent/agent-mcp`](https://www.npmjs.com/package/@tsagent/agent-mcp) | MCP Server | MCP server for managing TsAgent agents (create, configure, manage rules, references, tools, providers, and MCP servers) <br>`tsagent-agent-mcp` |
 
 | TsAgent Foundry | TsAgent CLI |
 |-----------------|-------------|
@@ -51,12 +52,13 @@ Download the pre-built installer for your platform:
 
 ```bash
 # Install all developer tools
-npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/orchestrator @tsagent/meta-mcp
+npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/orchestrator @tsagent/meta-mcp @tsagent/agent-mcp
 
 # Or install individual components
 npm install @tsagent/core  # Just the TypeScript library
 npm install @tsagent/cli   # Just the CLI tool
 npm install @tsagent/meta-mcp  # MCP server for Tools agents
+npm install @tsagent/agent-mcp  # MCP server for agent management
 ```
 
 ## Quick Start
@@ -108,6 +110,18 @@ npx @tsagent/meta-mcp /path/to/tools-agent
 tsagent-meta-mcp /path/to/tools-agent
 
 # The agent's tools are now available as MCP tools
+# Configure in Claude Desktop or other MCP clients
+```
+
+### Manage Agents via MCP
+
+```bash
+# Start the Agent Management MCP server
+npx @tsagent/agent-mcp
+# or if installed globally
+tsagent-agent-mcp
+
+# Provides tools to create, configure, and manage agents
 # Configure in Claude Desktop or other MCP clients
 ```
 
