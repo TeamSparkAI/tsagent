@@ -1,0 +1,169 @@
+# @tsagent/acp-server
+
+An ACP (Agent Client Protocol) server implementation that wraps agents created with the @tsagent/core package. This server provides stdio-based communication following the ACP protocol specification, enabling integration with ACP-compatible code editors (like Zed).
+
+## About TSAgent
+
+This package is part of **TSAgent**, an open-source TypeScript-first platform for building, testing, running, and orchestrating AI agents. 
+
+- **Main Project**: [TSAgent Repository](https://github.com/TeamSparkAI/tsagent)
+- **Documentation**: [Full Documentation](https://github.com/TeamSparkAI/tsagent#readme)
+- **Issues & Support**: [GitHub Issues](https://github.com/TeamSparkAI/tsagent/issues)
+
+## Features
+
+- **ACP Protocol Compliance**: Implementation of the Agent Client Protocol specification
+- **stdio Communication**: JSON-RPC over stdio for subprocess-based communication
+- **Agent Integration**: Wraps @tsagent/core agents with ACP protocol interface
+- **Session Management**: Handles multiple concurrent client sessions
+- **Tool Support**: Supports tool calls between client and agent
+- **Graceful Shutdown**: Proper cleanup and resource management
+- **CLI Interface**: Command-line interface for easy server invocation
+
+## Installation
+
+```bash
+npm install @tsagent/acp-server
+```
+
+## Usage
+
+### Command Line Interface
+
+The ACP server is designed to run as a subprocess invoked by ACP-compatible clients (like code editors):
+
+```bash
+# Start ACP server with an agent
+npx @tsagent/acp-server /path/to/my-agent
+
+# Start with verbose logging (for debugging)
+npx @tsagent/acp-server /path/to/my-agent --verbose
+```
+
+### Programmatic Usage
+
+```typescript
+import { ACPServer } from '@tsagent/acp-server';
+
+// Create and start an ACP server for an agent
+const server = new ACPServer('/path/to/agent', {
+  verbose: false
+});
+
+await server.start();
+
+// Server is now ready to communicate via stdio
+// The SDK handles JSON-RPC communication automatically
+```
+
+## Agent Directory Structure
+
+Each agent directory should contain:
+
+```
+/path/to/agent/
+├── tsagent.json         # Agent configuration
+├── prompt.md            # System prompt
+├── rules/               # Optional rules directory
+│   ├── rule1.md
+│   └── rule2.md
+└── refs/                # Optional references directory
+    ├── ref1.md
+    └── ref2.md
+```
+
+## ACP Protocol Methods
+
+The server implements the following ACP protocol methods:
+
+- `initialize` - Negotiate protocol version and capabilities
+- `session/new` - Create a new ACP session
+- `session/prompt` - Send a prompt to the agent within a session
+- `session/cancel` - Cancel an in-progress prompt (notification)
+
+## Architecture
+
+### Communication Model
+
+- **Protocol**: JSON-RPC over stdio (stdin/stdout)
+- **Transport**: Handled automatically by `@agentclientprotocol/sdk`
+- **Sessions**: One ACP session = One agent chat session
+
+### Session Management
+
+- Each ACP session maps to a `@tsagent/core` chat session
+- Sessions maintain conversation history and context
+- Sessions can be created, used for prompts, and closed
+
+### Content Conversion
+
+- **ACP → Agent**: Converts ACP content (Markdown, text, diffs) to agent message format
+- **Agent → ACP**: Converts agent responses to ACP content format (Markdown by default)
+- Tool calls are handled and forwarded between client and agent
+
+## Integration with Code Editors
+
+### Zed Editor
+
+To use this server with [Zed editor](https://zed.dev):
+
+1. Configure Zed to use the ACP server as an agent
+2. Zed will spawn the server as a subprocess
+3. Communication happens via stdio (JSON-RPC)
+
+Example Zed configuration (if applicable):
+```json
+{
+  "acp_agents": {
+    "tsagent": {
+      "command": "npx",
+      "args": ["@tsagent/acp-server", "/path/to/agent"]
+    }
+  }
+}
+```
+
+*Note: Actual configuration format depends on Zed's ACP implementation*
+
+## Development
+
+```bash
+# Build the package
+npm run build
+
+# Run in development mode
+npm run dev /path/to/agent
+
+# Start server
+npm start /path/to/agent
+```
+
+## Implementation Status
+
+⚠️ **Work in Progress**: This package is currently under active development. The core structure is in place, but SDK integration is pending verification of the `@agentclientprotocol/sdk` API.
+
+### Completed
+- ✅ Package structure
+- ✅ Logger implementation
+- ✅ Session manager
+- ✅ Agent handler (content conversion)
+- ✅ Basic server class structure
+- ✅ CLI interface
+
+### Pending
+- ⏳ SDK integration (AgentSideConnection setup)
+- ⏳ Protocol method handler registration
+- ⏳ Transport connection setup
+- ⏳ Testing with ACP clients
+- ⏳ Tool call handling refinement
+
+## Related Packages
+
+- `@tsagent/core` - Core TypeScript agent framework
+- `@tsagent/server` - A2A protocol server (HTTP-based)
+- `@tsagent/cli` - Command-line interface for agent operations
+
+## License
+
+MIT License - see [LICENSE](https://github.com/TeamSparkAI/tsagent/blob/main/LICENSE.md) for details.
+

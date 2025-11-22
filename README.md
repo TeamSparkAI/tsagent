@@ -18,7 +18,7 @@ TsAgent is a comprehensive platform that enables anyone to:
 - **Manage Context**: Use references (memory, ground truth) and rules (prompt guidance) to give agents persistent knowledge
 - **Integrate Tools**: Connect thousands of tools via Model Context Protocol (MCP) support
 - **Orchestrate Workflows**: Chain agents together using the A2A (Agent-to-Agent) protocol
-- **Deploy at Scale**: Expose agents as A2A endpoints or embed them in any TypeScript/Javascript application
+- **Deploy at Scale**: Expose agents as A2A endpoints, ACP servers for code editors, or embed them in any TypeScript/Javascript application
 
 
 ## Platform Components
@@ -29,6 +29,7 @@ TsAgent is a comprehensive platform that enables anyone to:
 | **Foundry** | *(no npm package)* | Desktop App | No-code desktop application for creating, testing, and managing agents |
 | **CLI** | [`@tsagent/cli`](https://www.npmjs.com/package/@tsagent/cli) | CLI Tool | Command-line interface for agent operations and automation <br>`tsagent-cli` |
 | **A2A Server** | [`@tsagent/server`](https://www.npmjs.com/package/@tsagent/server) | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
+| **ACP Server** | [`@tsagent/acp-server`](https://www.npmjs.com/package/@tsagent/acp-server) | ACP Server | ACP (Agent Client Protocol) server for exposing agents via stdio for code editors <br>`tsagent-acp-server` |
 | **A2A Orchestrator** | [`@tsagent/orchestrator`](https://www.npmjs.com/package/@tsagent/orchestrator) | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
 | **Meta MCP** | [`@tsagent/meta-mcp`](https://www.npmjs.com/package/@tsagent/meta-mcp) | MCP Server | MCP server that exposes Tools agents as MCP tools with cognitive layer <br>`tsagent-meta-mcp` |
 | **Agent Management MCP** | [`@tsagent/agent-mcp`](https://www.npmjs.com/package/@tsagent/agent-mcp) | MCP Server | MCP server for managing TsAgent agents (create, configure, manage rules, references, tools, providers, and MCP servers) <br>`tsagent-agent-mcp` |
@@ -52,11 +53,13 @@ Download the pre-built installer for your platform:
 
 ```bash
 # Install all developer tools
-npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/orchestrator @tsagent/meta-mcp @tsagent/agent-mcp
+npm install @tsagent/core @tsagent/cli @tsagent/server @tsagent/acp-server @tsagent/orchestrator @tsagent/meta-mcp @tsagent/agent-mcp
 
 # Or install individual components
 npm install @tsagent/core  # Just the TypeScript library
 npm install @tsagent/cli   # Just the CLI tool
+npm install @tsagent/server  # A2A protocol server (HTTP)
+npm install @tsagent/acp-server  # ACP server (stdio for code editors)
 npm install @tsagent/meta-mcp  # MCP server for Tools agents
 npm install @tsagent/agent-mcp  # MCP server for agent management
 ```
@@ -99,6 +102,18 @@ npx @tsagent/server /path/to/agent --port 3000
 tsagent-server /path/to/agent --port 3000
 
 # Your agent is now available at http://localhost:3000
+```
+
+### Expose Agents via ACP (Agent Client Protocol)
+
+```bash
+# Start an ACP server for code editor integration (like Zed)
+npx @tsagent/acp-server /path/to/agent
+# or if installed globally
+tsagent-acp-server /path/to/agent
+
+# The agent is now available via stdio for ACP-compatible code editors
+# Configure in your code editor's ACP settings
 ```
 
 ### Expose Tools Agents as MCP Tools
