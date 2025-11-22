@@ -77,9 +77,13 @@ Each agent directory should contain:
 The server implements the following ACP protocol methods:
 
 - `initialize` - Negotiate protocol version and capabilities
-- `session/new` - Create a new ACP session
+- `session/new` - Create a new ACP session (supports client-provided MCP servers)
 - `session/prompt` - Send a prompt to the agent within a session
 - `session/cancel` - Cancel an in-progress prompt (notification)
+
+## MCP Tool Sharing
+
+ACP enables clients to pass their own MCP servers to agents during session creation, allowing agents to access client-configured tools and context. See [MCP Tool Sharing Documentation](docs/mcp-tool-sharing.md) for details on how this works and the implementation plan.
 
 ## Architecture
 
