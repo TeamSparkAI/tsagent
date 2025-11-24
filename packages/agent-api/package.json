@@ -48,7 +48,8 @@
     "node-llama-cpp": "^3.14.2",
     "ollama": "^0.5.14",
     "openai": "^4.89.0",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

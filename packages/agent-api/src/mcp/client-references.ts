@@ -4,21 +4,14 @@ import { CallToolResultWithElapsedTime, McpClient } from "./types.js";
 import { SearchArgs, validateSearchArgs } from "./client.js";
 import { Logger } from '../types/common.js';
 import { ChatSession } from "../types/chat.js";
-import { Reference } from "../types/references.js";
+import { Reference, ReferenceSchema } from "../types/references.js";
 import { Agent } from "../types/agent.js";
 import { SessionContextItem } from "../types/context.js";
 
 /**
- * Interface for reference arguments with all fields optional
+ * Reference arguments type - partial Reference for API validation
  */
-export interface ReferenceArgs {
-    name?: string;
-    description?: string;
-    priorityLevel?: number;
-    enabled?: boolean;
-    text?: string;
-    include?: 'always' | 'manual' | 'agent';
-}
+export type ReferenceArgs = Partial<Reference>;
 
 export interface ReferenceSearchResult {
     name: string;
@@ -356,58 +349,23 @@ export class McpClientInternalReferences implements McpClient {
  * @returns Validated arguments typed as ReferenceArgs
  * @throws Error if any field has an invalid type or if a required field is missing
  */
+/**
+ * Validate reference arguments using Zod schema.
+ * Returns partial Reference that matches provided args.
+ */
 export function validateReferenceArgs(args?: Record<string, unknown>, requiredFields: string[] = []): ReferenceArgs {
-    if (!args) {
-        if (requiredFields.length > 0) {
-            throw new Error(`Missing required arguments: ${requiredFields.join(', ')}`);
+    // Use partial schema to allow optional fields
+    const result = ReferenceSchema.partial().parse(args || {});
+    
+    // Check required fields
+    if (requiredFields.length > 0) {
+        const missingFields = requiredFields.filter(field => !(field in result) || result[field as keyof Reference] === undefined);
+        if (missingFields.length > 0) {
+            throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
         }
-        return {};
     }
-
-    const missingFields = requiredFields.filter(field => !(field in args));
-    if (missingFields.length > 0) {
-        throw new Error(`Missing required arguments: ${missingFields.join(', ')}`);
-    }
-
-    const validated: ReferenceArgs = {};
-
-    if ('name' in args) {
-        if (typeof args.name !== 'string') {
-            throw new Error('Reference name must be a string');
-        }
-        validated.name = args.name;
-    }
-
-    if ('description' in args) {
-        if (typeof args.description !== 'string') {
-            throw new Error('Reference description must be a string');
-        }
-        validated.description = args.description;
-    }
-
-    if ('priorityLevel' in args) {
-        if (typeof args.priorityLevel !== 'number' || isNaN(args.priorityLevel)) {
-            throw new Error('Reference priorityLevel must be a number');
-        }
-        validated.priorityLevel = args.priorityLevel;
-    }
-
-
-    if ('text' in args) {
-        if (typeof args.text !== 'string') {
-            throw new Error('Reference text must be a string');
-        }
-        validated.text = args.text;
-    }
-
-    if ('include' in args) {
-        if (typeof args.include !== 'string' || !['always', 'manual', 'agent'].includes(args.include)) {
-            throw new Error('Reference include must be one of: always, manual, agent');
-        }
-        validated.include = args.include as 'always' | 'manual' | 'agent';
-    }
-
-    return validated;
+    
+    return result;
 }
 
 export async function implementCreateReference(agent: Agent, args: ReferenceArgs): Promise<string> {

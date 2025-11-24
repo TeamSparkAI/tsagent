@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'events';
 import dotenv from 'dotenv';
 
-import { Agent, AgentConfig, AgentSettings,
+import { Agent, AgentConfig, AgentConfigSchema, AgentSettings,
   SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_CHAT_TURNS, 
   SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
   SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_KEY_TEMPERATURE, 
@@ -13,7 +13,7 @@ import { Agent, AgentConfig, AgentSettings,
   SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
   SETTINGS_KEY_THEME,
   SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL,
-  AgentMetadata,
+  AgentMetadata, AgentMetadataSchema,
   AgentMode,
   SupervisorConfig
 } from '../types/agent.js';
@@ -29,7 +29,8 @@ import { SupervisionManager, Supervisor } from '../types/supervision.js';
 import { McpClient, MCPClientManager, McpConfig } from '../mcp/types.js';
 import { ProviderFactory } from '../providers/provider-factory.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
-import { Reference, Rule } from '../index.js';
+import { Reference, ReferenceSchema } from '../types/references.js';
+import { Rule, RuleSchema } from '../types/rules.js';
 import { ChatSession, ChatSessionOptions } from '../types/chat.js';
 import { SessionContextItem, RequestContextItem } from '../types/context.js';
 import { AgentStrategy, FileBasedAgentStrategy } from './agent-strategy.js';
@@ -217,6 +218,11 @@ export class AgentImpl  extends EventEmitter implements Agent {
   }
 
   async create(data?: Partial<AgentConfig>): Promise<void> {
+    // Validate partial config if provided
+    if (data) {
+      AgentConfigSchema.partial().parse(data);
+    }
+    
     // Load environment variables from .env files
     // Priority: process.env > agentDir/.env > cwd/.env
     this.loadEnvironmentVariables();
@@ -298,6 +304,9 @@ export class AgentImpl  extends EventEmitter implements Agent {
       throw new Error('Agent not loaded');
     }
     
+    // Validate partial metadata using Zod schema
+    AgentMetadataSchema.partial().parse(metadata);
+    
     this._agentData.metadata = { ...this._agentData.metadata, ...metadata };
     
     if (this._strategy) {
@@ -314,8 +323,10 @@ export class AgentImpl  extends EventEmitter implements Agent {
   getRule(name: string): Rule | null {
     return this.rules.getRule(name);
   }
-  addRule(rule: Rule): Promise<void> {
-    return this.rules.addRule(this._strategy, rule);
+  async addRule(rule: Rule): Promise<void> {
+    // Validate rule using Zod schema
+    const validatedRule = RuleSchema.parse(rule);
+    return this.rules.addRule(this._strategy, validatedRule);
   }
   deleteRule(name: string): Promise<boolean> {
     return this.rules.deleteRule(this._strategy, name);
@@ -331,8 +342,10 @@ export class AgentImpl  extends EventEmitter implements Agent {
     return this.references.getReference(name);
   }
 
-  addReference(reference: Reference): Promise<void> {
-    return this.references.addReference(this._strategy, reference);
+  async addReference(reference: Reference): Promise<void> {
+    // Validate reference using Zod schema
+    const validatedReference = ReferenceSchema.parse(reference);
+    return this.references.addReference(this._strategy, validatedReference);
   }
   deleteReference(name: string): Promise<boolean> {
     return this.references.deleteReference(this._strategy, name);

@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { ChatMessage, MessageUpdate, ChatSession } from './chat.js';
 import { Agent } from './agent.js';
 
@@ -94,13 +95,17 @@ export interface SupervisionManager {
 
 /**
  * Configuration for a supervisor
+ * SupervisorConfig schema - single source of truth.
  */
-export interface SupervisorConfig {
-  type: 'agent' | 'guardian' | 'architect' | 'collection';
-  id: string;
-  name: string;
-  config: any; // Type-specific config passed directly to constructor
-}
+export const SupervisorConfigSchema = z.object({
+  type: z.enum(['agent', 'guardian', 'architect', 'collection']),
+  id: z.string().min(1, "Supervisor ID is required"),
+  name: z.string().min(1, "Supervisor name is required"),
+  config: z.any(), // Type-specific config passed directly to constructor
+});
+
+// Type inferred from schema
+export type SupervisorConfig = z.infer<typeof SupervisorConfigSchema>;
 
 // Missing types that supervisors need
 export interface ArchitectAnalysis {

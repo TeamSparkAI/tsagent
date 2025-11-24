@@ -2,10 +2,10 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'js-yaml';
 import { ProviderType } from '../providers/types.js';
-import { Rule } from '../types/rules.js';
-import { Reference } from '../types/references.js';
+import { Rule, RuleSchema } from '../types/rules.js';
+import { Reference, ReferenceSchema } from '../types/references.js';
 import { McpConfig } from '../mcp/types.js';
-import { Agent, AgentConfig } from '../types/agent.js';
+import { Agent, AgentConfig, AgentConfigSchema } from '../types/agent.js';
 import { AGENT_FILE_NAME } from '../index.js';
 import { Logger } from '../types/common.js';
 import { AgentImpl } from './agent-api.js';
@@ -146,7 +146,22 @@ export class FileBasedAgentStrategy implements AgentStrategy {
     }
     
     const content = fs.readFileSync(this.agentFile, 'utf-8');
-    return JSON.parse(content) as AgentConfig;
+    const data = JSON.parse(content);
+    
+    // Validate and apply defaults using Zod schema
+    try {
+      return AgentConfigSchema.parse(data);
+    } catch (error: any) {
+      if (error?.issues) {
+        // Zod validation error
+        const errorMessages = error.issues.map((issue: any) => {
+          const path = issue.path.join('.') || 'root';
+          return `${path}: ${issue.message}`;
+        });
+        throw new Error(`Agent config validation failed:\n${errorMessages.join('\n')}`);
+      }
+      throw error;
+    }
   }
 
   async saveConfig(config: AgentConfig): Promise<void> {
@@ -208,16 +223,20 @@ export class FileBasedAgentStrategy implements AgentStrategy {
       try {
         const parts = content.split('---\n');
         if (parts.length >= 3) {
-          const metadata = yaml.load(parts[1]) as Partial<Rule>;
+          const metadataRaw = yaml.load(parts[1]);
           const text = parts.slice(2).join('---\n').trim();
           
-          const rule: Rule = {
+          // Validate metadata using Zod schema (partial for loading from file)
+          const metadata = RuleSchema.partial().parse(metadataRaw || {});
+          
+          // Build complete rule with defaults
+          const rule: Rule = RuleSchema.parse({
             name: metadata.name || path.basename(file, FileBasedAgentStrategy.RULE_FILE_EXTENSION),
             description: metadata.description || '',
             priorityLevel: metadata.priorityLevel || 500,
             text: text,
             include: metadata.include || 'manual'
-          };
+          });
           rules.push(rule);
         }
       } catch (error) {
@@ -243,21 +262,24 @@ export class FileBasedAgentStrategy implements AgentStrategy {
   }
 
   async addRule(rule: Rule): Promise<void> {
-    if (!this.validateRuleName(rule.name)) {
+    // Validate rule using Zod schema
+    const validatedRule = RuleSchema.parse(rule);
+    
+    if (!this.validateRuleName(validatedRule.name)) {
       throw new Error('Rule name can only contain letters, numbers, underscores, and dashes');
     }
 
-    const fileName = `${rule.name}${FileBasedAgentStrategy.RULE_FILE_EXTENSION}`;
+    const fileName = `${validatedRule.name}${FileBasedAgentStrategy.RULE_FILE_EXTENSION}`;
     const filePath = path.join(this.rulesDir, fileName);
     
     const metadata = {
-      name: rule.name,
-      description: rule.description,
-      priorityLevel: rule.priorityLevel,
-      include: rule.include
+      name: validatedRule.name,
+      description: validatedRule.description,
+      priorityLevel: validatedRule.priorityLevel,
+      include: validatedRule.include
     };
 
-    const content = `---\n${JSON.stringify(metadata, null, 2)}---\n${rule.text}`;
+    const content = `---\n${JSON.stringify(metadata, null, 2)}---\n${validatedRule.text}`;
     fs.writeFileSync(filePath, content, 'utf-8');
     this.logger.info(`Rule saved to: ${filePath}`);
   }
@@ -290,16 +312,20 @@ export class FileBasedAgentStrategy implements AgentStrategy {
       try {
         const parts = content.split('---\n');
         if (parts.length >= 3) {
-          const metadata = yaml.load(parts[1]) as Partial<Reference>;
+          const metadataRaw = yaml.load(parts[1]);
           const text = parts.slice(2).join('---\n').trim();
           
-          const reference: Reference = {
+          // Validate metadata using Zod schema (partial for loading from file)
+          const metadata = ReferenceSchema.partial().parse(metadataRaw || {});
+          
+          // Build complete reference with defaults
+          const reference: Reference = ReferenceSchema.parse({
             name: metadata.name || path.basename(file, FileBasedAgentStrategy.REFERENCE_FILE_EXTENSION),
             description: metadata.description || '',
             priorityLevel: metadata.priorityLevel || 500,
             text: text,
             include: metadata.include || 'manual'
-          };
+          });
           references.push(reference);
         }
       } catch (error) {
@@ -325,21 +351,24 @@ export class FileBasedAgentStrategy implements AgentStrategy {
   }
 
   async addReference(reference: Reference): Promise<void> {
-    if (!this.validateReferenceName(reference.name)) {
+    // Validate reference using Zod schema
+    const validatedReference = ReferenceSchema.parse(reference);
+    
+    if (!this.validateReferenceName(validatedReference.name)) {
       throw new Error('Reference name can only contain letters, numbers, underscores, and dashes');
     }
 
-    const fileName = `${reference.name}${FileBasedAgentStrategy.REFERENCE_FILE_EXTENSION}`;
+    const fileName = `${validatedReference.name}${FileBasedAgentStrategy.REFERENCE_FILE_EXTENSION}`;
     const filePath = path.join(this.referencesDir, fileName);
     
     const metadata = {
-      name: reference.name,
-      description: reference.description,
-      priorityLevel: reference.priorityLevel,
-      include: reference.include
+      name: validatedReference.name,
+      description: validatedReference.description,
+      priorityLevel: validatedReference.priorityLevel,
+      include: validatedReference.include
     };
 
-    const content = `---\n${JSON.stringify(metadata, null, 2)}---\n${reference.text}`;
+    const content = `---\n${JSON.stringify(metadata, null, 2)}---\n${validatedReference.text}`;
     fs.writeFileSync(filePath, content, 'utf-8');
     this.logger.info(`Reference saved to: ${filePath}`);
   }

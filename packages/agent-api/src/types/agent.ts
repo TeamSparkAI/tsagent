@@ -1,10 +1,11 @@
+import { z } from 'zod';
 import { Reference, Rule } from '../index.js';
 import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types.js';
 import { McpClient, McpConfig } from '../mcp/types.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
 import { ChatSession, ChatSessionOptions } from './chat.js';
-import { SupervisionManager, Supervisor, SupervisorConfig } from './supervision.js';
-import { ToolInputSchema } from './json-schema.js';
+import { SupervisionManager, Supervisor, SupervisorConfig, SupervisorConfigSchema } from './supervision.js';
+import { ToolInputSchema, ToolInputSchemaSchema } from './json-schema.js';
 import { SessionContextItem, RequestContextItem } from './context.js';
 
 export { SupervisorConfig };
@@ -19,9 +20,6 @@ export const SETTINGS_KEY_THEME = 'theme';
 export const SETTINGS_KEY_CONTEXT_TOP_K = 'contextTopK';
 export const SETTINGS_KEY_CONTEXT_TOP_N = 'contextTopN';
 export const SETTINGS_KEY_CONTEXT_INCLUDE_SCORE = 'contextIncludeScore';
-
-// Tool Permission Settings
-export type SessionToolPermission = 'always' | 'never' | 'tool';
 
 // Constants for session-level permissions
 export const SESSION_TOOL_PERMISSION_KEY = 'toolPermission';
@@ -38,6 +36,10 @@ export const SETTINGS_DEFAULT_TOP_P = 0.5;
 export const SETTINGS_DEFAULT_CONTEXT_TOP_K = 20;
 export const SETTINGS_DEFAULT_CONTEXT_TOP_N = 5;
 export const SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE = 0.7;
+
+// Tool Permission Settings
+export const SessionToolPermissionSchema = z.enum(['always', 'never', 'tool']);
+export type SessionToolPermission = z.infer<typeof SessionToolPermissionSchema>;
 
 export type AgentMode = 'interactive' | 'autonomous' | 'tools';
 
@@ -139,58 +141,88 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
 }
 
 // This is a subset of the AgentSkill interface from the A2A protocol
-export interface AgentSkill {
-  id: string;          // A unique identifier for the agent's skill
-  name: string;        // A human-readable name for the skill
-  description: string; // A detailed description of the skill, intended to help clients or users understand its purpose and functionality
-  tags: string[];      // A set of keywords describing the skill's capabilities - ["cooking", "customer support", "billing"]
-  examples?: string[]; // Example prompts or scenarios that this skill can handle. Provides a hint to the client on how to use the skill
-}
+/**
+ * AgentSkill schema - single source of truth.
+ */
+export const AgentSkillSchema = z.object({
+  id: z.string().min(1, "Skill ID is required"),
+  name: z.string().min(1, "Skill name is required"),
+  description: z.string(),
+  tags: z.array(z.string()),
+  examples: z.array(z.string()).optional(),
+});
+
+// Type inferred from schema
+export type AgentSkill = z.infer<typeof AgentSkillSchema>;
 
 // Tool definition for Tools agent mode (MCP server with cognitive layer)
-export interface AgentTool {
-  name: string;        // Tool identifier (used in MCP)
-  description: string; // Human-readable tool description (used in MCP tool description)
-  parameters: ToolInputSchema; // JSON Schema object defining tool parameters (root must be object)
-  prompt: string;      // Prompt template with {} substitution for tool parameters
-}
+/**
+ * AgentTool schema - single source of truth.
+ */
+export const AgentToolSchema = z.object({
+  name: z.string().min(1, "Tool name is required"),
+  description: z.string(),
+  parameters: ToolInputSchemaSchema,
+  prompt: z.string(),
+});
 
-export interface AgentMetadata {
-  name: string;
-  version?: string;
-  description?: string;
-  iconUrl?: string;
-  documentationUrl?: string;
-  provider?: {
-    organization: string;
-    url: string;
-  };
-  skills?: AgentSkill[];
-  tools?: AgentTool[];
-  created: string;
-  lastAccessed: string;
-}
+// Type inferred from schema
+export type AgentTool = z.infer<typeof AgentToolSchema>;
 
-export interface AgentSettings {
-  [SETTINGS_KEY_MAX_CHAT_TURNS]: string;
-  [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: string;
-  [SETTINGS_KEY_TEMPERATURE]: string;
-  [SETTINGS_KEY_TOP_P]: string;
-  [SETTINGS_KEY_THEME]: string;
-  [SETTINGS_KEY_CONTEXT_TOP_K]: string;
-  [SETTINGS_KEY_CONTEXT_TOP_N]: string;
-  [SETTINGS_KEY_CONTEXT_INCLUDE_SCORE]: string;
-  [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
-  [key: string]: string | SessionToolPermission | undefined;
-}
+/**
+ * AgentMetadata schema - single source of truth.
+ */
+export const AgentMetadataSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  version: z.string().optional(),
+  description: z.string().optional(),
+  iconUrl: z.string().optional(),
+  documentationUrl: z.string().optional(),
+  provider: z.object({
+    organization: z.string(),
+    url: z.string(),
+  }).optional(),
+  skills: z.array(AgentSkillSchema).optional(),
+  tools: z.array(AgentToolSchema).optional(),
+  created: z.string(),
+  lastAccessed: z.string(),
+});
 
-export interface AgentConfig {
-  metadata: AgentMetadata;
-  settings: AgentSettings;
-  providers?: Record<string, any>;
-  mcpServers?: Record<string, any>;
-  supervisors?: SupervisorConfig[];
-}
+// Type inferred from schema
+export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
+
+/**
+ * AgentSettings schema - single source of truth.
+ * Settings are stored as string key-value pairs, with optional toolPermission enum.
+ */
+export const AgentSettingsSchema = z.object({
+  [SETTINGS_KEY_MAX_CHAT_TURNS]: z.string().optional(),
+  [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: z.string().optional(),
+  [SETTINGS_KEY_TEMPERATURE]: z.string().optional(),
+  [SETTINGS_KEY_TOP_P]: z.string().optional(),
+  [SETTINGS_KEY_THEME]: z.string().optional(),
+  [SETTINGS_KEY_CONTEXT_TOP_K]: z.string().optional(),
+  [SETTINGS_KEY_CONTEXT_TOP_N]: z.string().optional(),
+  [SETTINGS_KEY_CONTEXT_INCLUDE_SCORE]: z.string().optional(),
+  [SESSION_TOOL_PERMISSION_KEY]: SessionToolPermissionSchema.optional(),
+}).catchall(z.union([z.string(), SessionToolPermissionSchema]).optional());
+
+// Type inferred from schema
+export type AgentSettings = z.infer<typeof AgentSettingsSchema>;
+
+/**
+ * AgentConfig schema - single source of truth.
+ */
+export const AgentConfigSchema = z.object({
+  metadata: AgentMetadataSchema,
+  settings: AgentSettingsSchema,
+  providers: z.record(z.string(), z.any()).optional(),
+  mcpServers: z.record(z.string(), z.any()).optional(),
+  supervisors: z.array(SupervisorConfigSchema).optional(),
+});
+
+// Type inferred from schema
+export type AgentConfig = z.infer<typeof AgentConfigSchema>;
 
 function getProviderByName(name: string): ProviderType | undefined {
   const providerType = Object.values(ProviderType).find(

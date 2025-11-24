@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 /**
  * JSON Schema Type Definitions for MCP Tool Parameters
  * 
@@ -67,4 +69,24 @@ export type JsonSchemaDefinition =
 
 // For MCP tools (inputSchema root must be an object)
 export type ToolInputSchema = ObjectSchema;
+
+/**
+ * ToolInputSchema schema - single source of truth.
+ * 
+ * Note: JSON Schema is complex with discriminated unions, so we use a flexible validation
+ * that requires type: 'object' and validates basic structure. Full validation of nested
+ * JSON Schema structures can be enhanced later if needed.
+ */
+export const ToolInputSchemaSchema = z.object({
+  type: z.literal('object'),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  properties: z.record(z.string(), z.any()).optional(),
+  required: z.array(z.string()).optional(),
+  additionalProperties: z.union([z.boolean(), z.any()]).optional(),
+  minProperties: z.number().int().optional(),
+  maxProperties: z.number().int().optional(),
+}).passthrough() as z.ZodType<ToolInputSchema>; // Allow additional JSON Schema properties
+
+// Type is already defined above, but we validate against it
 
