@@ -1,6 +1,6 @@
 {
   "name": "tsagent",
-  "version": "1.2.12",
+  "version": "1.2.13",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -10,6 +10,8 @@
     "start:desktop": "cd apps/desktop && npm run start",
     "start:cli": "cd apps/cli && npm run start --",
     "dev:desktop": "cd apps/desktop && npm run watch",
-    "dev:cli": "cd apps/cli && npm run dev"
+    "dev:cli": "cd apps/cli && npm run dev",
+    "publish:all": "./scripts/publish.sh",
+    "publish:dry-run": "./scripts/publish.sh --dry-run"
   }
 }

@@ -257,7 +257,7 @@ When agent returns tool calls:
 {
   "dependencies": {
     "@agentclientprotocol/sdk": "^latest",
-    "@tsagent/core": "^1.2.12"
+    "@tsagent/core": "^1.2.13"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
