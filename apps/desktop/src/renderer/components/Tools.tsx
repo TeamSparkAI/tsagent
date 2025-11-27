@@ -1100,7 +1100,10 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                 } else if (resultContent?.type === 'image') {
                     resultText = `[Image: ${resultContent.mimeType}]`;
                 } else if (resultContent?.type === 'resource') {
-                    resultText = `[Resource: ${resultContent.mimeType}]`;
+                    const mimeType = 'resource' in resultContent && resultContent.resource && typeof resultContent.resource === 'object' && 'mimeType' in resultContent.resource 
+                        ? resultContent.resource.mimeType 
+                        : undefined;
+                    resultText = `[Resource: ${mimeType || 'unknown'}]`;
                 } else {
                     resultText = JSON.stringify(resultContent);
                 }

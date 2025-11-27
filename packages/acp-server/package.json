@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/acp-server",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "description": "ACP (Agent Client Protocol) server that wraps @tsagent/core agents",
   "type": "module",
   "bin": {
@@ -31,7 +31,7 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.5.1",
-    "@tsagent/core": "^1.2.14"
+    "@tsagent/core": "^1.2.15"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -43,4 +43,3 @@
     "tsx": "^4.7.0"
   }
 }
-

@@ -1,7 +1,7 @@
 {
   "name": "tsagent-foundry",
   "productName": "TsAgent Foundry",
-  "version": "1.2.14",
+  "version": "1.2.15",
   "description": "Agent builder application supporting multi-LLMs, tool calling, and agent orchestration",
   "author": {
     "name": "TeamSpark",
@@ -34,13 +34,12 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "@tsagent/core": "^1.2.14",
-    "@teamsparkai/1password": "^1.0.1",
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock": "^3.787.0",
     "@aws-sdk/client-bedrock-runtime": "^3.785.0",
     "@google/genai": "^0.9.0",
-    "@modelcontextprotocol/sdk": "^1.18.1",
+    "@teamsparkai/1password": "^1.0.1",
+    "@tsagent/core": "^1.2.15",
     "@types/react": "^19.0.12",
     "@types/react-dom": "^19.0.4",
     "@types/uuid": "^10.0.0",
@@ -52,11 +51,11 @@
     "ollama": "^0.5.14",
     "onnxruntime-node": "^1.14.0",
     "openai": "^4.89.0",
-    "sharp": "^0.32.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-markdown": "^10.1.0",
     "remark-gfm": "^4.0.1",
+    "sharp": "^0.32.0",
     "uuid": "^11.1.0"
   },
   "build": {

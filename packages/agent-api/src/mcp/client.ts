@@ -1,4 +1,4 @@
-import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResult, Tool } from "./types.js";
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
@@ -23,8 +23,7 @@ export abstract class McpClientBase {
         this.logger = logger;
         this.mcp = new Client({
             name: "mcp-client",
-            version: "1.0.0",
-            transport: null
+            version: "1.0.0"
         });
     }
 

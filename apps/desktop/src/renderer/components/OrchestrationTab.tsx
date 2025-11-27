@@ -138,7 +138,7 @@ export const OrchestrationTab: React.FC<TabProps> = ({ id, activeTabId, name, ty
       // Extract response from result
       if (result && result.structuredContent && result.structuredContent.response) {
         setTestResult(String(result.structuredContent.response));
-      } else if (result && result.content && result.content[0] && result.content[0].text) {
+      } else if (result && result.content && result.content[0] && result.content[0].type === 'text' && result.content[0].text) {
         setTestResult(String(result.content[0].text));
       } else {
         setTestResult('Message sent successfully');

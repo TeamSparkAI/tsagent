@@ -1,4 +1,4 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Tool } from "./types.js";
 import { McpClient, CallToolResultWithElapsedTime } from "./types.js";
 import { SearchArgs, validateSearchArgs } from "./client.js";
 import { ChatSession } from "../types/chat.js";

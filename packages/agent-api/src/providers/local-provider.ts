@@ -1,4 +1,4 @@
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { Tool } from '../mcp/types.js';
 import * as fs from 'fs';
 import * as path from 'path';
 import { LlamaChatSession, type LLamaChatPromptOptions, Llama, LlamaModel, LlamaContext, getLlama, ChatModelFunctionCall, ChatHistoryItem } from 'node-llama-cpp';
@@ -434,7 +434,10 @@ export class LocalProvider implements Provider {
 
                 try {
                   const toolResult = await ProviderHelper.callTool(this.agent, tool.name, params, session);
-                  const resultText = (toolResult.content[0]?.text as string) || 'Tool executed successfully';
+                  const firstContent = toolResult.content[0];
+                  const resultText = (firstContent && firstContent.type === 'text' && firstContent.text) 
+                    ? firstContent.text 
+                    : 'Tool executed successfully';
                   enqueueToolExecutionResult(resultText, typeof toolResult.elapsedTimeMs === 'number' ? toolResult.elapsedTimeMs : 0, String(tool.name));
                   this.logger.info('Tool result:', resultText);
                   return resultText;

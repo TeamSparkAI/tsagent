@@ -1,4 +1,4 @@
-import { Tool } from '@modelcontextprotocol/sdk/types.js';
+import { Tool } from '../mcp/types.js';
 
 import { ChatResponse, Message, Ollama, Tool as OllamaTool } from 'ollama';
 

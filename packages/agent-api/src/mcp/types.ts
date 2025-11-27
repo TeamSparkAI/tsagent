@@ -1,9 +1,12 @@
-import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
+import { CallToolResultSchema, ToolSchema } from "@modelcontextprotocol/sdk/types.js";
+import { z } from "zod";
 
 import { ChatSession } from "../types/chat.js";
 
-// Re-export the imported types
-export { CallToolResult, Tool };
+// Generate our own types from the MCP SDK Zod schemas
+// This ensures TypeScript resolves these types from our package, not from the consumer's node_modules
+export type Tool = z.infer<typeof ToolSchema>;
+export type CallToolResult = z.infer<typeof CallToolResultSchema>;
 
 export interface CallToolResultWithElapsedTime extends CallToolResult {
     elapsedTimeMs: number;

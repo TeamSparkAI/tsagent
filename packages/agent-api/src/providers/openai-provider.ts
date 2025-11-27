@@ -1,4 +1,4 @@
-import { Tool } from "@modelcontextprotocol/sdk/types.js";
+import { Tool } from "../mcp/types.js";
 
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
