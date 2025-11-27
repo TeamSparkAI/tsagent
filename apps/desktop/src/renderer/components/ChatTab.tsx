@@ -9,7 +9,7 @@ import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from '@tsagent/core
 import log from 'electron-log';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import type { ProviderModel as ILLMModel } from '@tsagent/core';
-import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MOST_RECENT_MODEL, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SETTINGS_DEFAULT_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '@tsagent/core';
+import { getDefaultSettings } from '@tsagent/core';
 import TestLogo from '../assets/frosty.png';
 import OllamaLogo from '../assets/ollama.png';
 import OpenAILogo from '../assets/openai.png';
@@ -21,7 +21,7 @@ import DockerLogo from '../assets/docker.png';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import { ChatState, SessionContextItem, RequestContext } from '@tsagent/core';
-import { TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_DENY, ToolCallDecision } from '@tsagent/core';
+import { ToolCallDecision } from '@tsagent/core';
 import { ReferencesModal } from './ReferencesModal';
 import { RulesModal } from './RulesModal';
 import { ToolsModal } from './ToolsModal';
@@ -99,15 +99,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const [selectedRequestContext, setSelectedRequestContext] = useState<RequestContext | undefined>(undefined);
   const [isNewSession, setIsNewSession] = useState(true);
   const [expandedToolServers, setExpandedToolServers] = useState<Set<string>>(new Set());
-  const [chatSettings, setChatSettings] = useState<ChatSettings>({
-    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-    temperature: SETTINGS_DEFAULT_TEMPERATURE,
-    topP: SETTINGS_DEFAULT_TOP_P,
-    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
-    contextTopK: SETTINGS_DEFAULT_CONTEXT_TOP_K,
-    contextTopN: SETTINGS_DEFAULT_CONTEXT_TOP_N,
-    contextIncludeScore: SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
+  const [chatSettings, setChatSettings] = useState<ChatSettings>(() => {
+    const defaults = getDefaultSettings();
+    return {
+      maxChatTurns: defaults.maxChatTurns!,
+      maxOutputTokens: defaults.maxOutputTokens!,
+      temperature: defaults.temperature!,
+      topP: defaults.topP!,
+      toolPermission: defaults.toolPermission ?? 'tool',
+      contextTopK: defaults.contextTopK!,
+      contextTopN: defaults.contextTopN!,
+      contextIncludeScore: defaults.contextIncludeScore!
+    };
   });
 
   // Helper to find the disposition for a tool call by looking at the previous message
@@ -199,7 +202,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             const installedProviders = await window.api.getInstalledProviders();
 
             // Attempt to get the most recent model from settings
-            const mostRecentModel = await window.api.getSettingsValue(SETTINGS_KEY_MOST_RECENT_MODEL);
+            const settings = await window.api.getSettings();
+            const mostRecentModel = settings?.mostRecentModel;
             if (mostRecentModel) {
               const colonIndex = mostRecentModel.indexOf(':');
               if (colonIndex !== -1) {
@@ -260,17 +264,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             setChatState(newChatState);
 
             // Update the chat settings
+            const defaults = getDefaultSettings();
             setChatSettings({
-              maxChatTurns: state.maxChatTurns ?? SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-              maxOutputTokens: state.maxOutputTokens ?? SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-              temperature: state.temperature ?? SETTINGS_DEFAULT_TEMPERATURE,
-              topP: state.topP ?? SETTINGS_DEFAULT_TOP_P,
-              toolPermission: (state.toolPermission === SESSION_TOOL_PERMISSION_TOOL || state.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || state.toolPermission === SESSION_TOOL_PERMISSION_NEVER)
-                ? state.toolPermission as SessionToolPermission
-                : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
-              contextTopK: state.contextTopK ?? SETTINGS_DEFAULT_CONTEXT_TOP_K,
-              contextTopN: state.contextTopN ?? SETTINGS_DEFAULT_CONTEXT_TOP_N,
-              contextIncludeScore: state.contextIncludeScore ?? SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
+              maxChatTurns: state.maxChatTurns ?? defaults.maxChatTurns!,
+              maxOutputTokens: state.maxOutputTokens ?? defaults.maxOutputTokens!,
+              temperature: state.temperature ?? defaults.temperature!,
+              topP: state.topP ?? defaults.topP!,
+              toolPermission: state.toolPermission ?? defaults.toolPermission ?? 'tool',
+              contextTopK: state.contextTopK ?? defaults.contextTopK!,
+              contextTopN: state.contextTopN ?? defaults.contextTopN!,
+              contextIncludeScore: state.contextIncludeScore ?? defaults.contextIncludeScore!
             });
             
             setIsInitialized(true);
@@ -670,7 +673,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
           
           // Save the most recent model selection to agent settings
           const modelValue = modelId ? `${model}:${modelId}` : model;
-          await window.api.setSettingsValue(SETTINGS_KEY_MOST_RECENT_MODEL, modelValue);
+          await window.api.updateSettings({ mostRecentModel: modelValue });
           
           log.info(`Changed model to ${model} (${modelName || modelId || 'default'})`);
         } else {
@@ -820,11 +823,11 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
 
     let toolCallDecision: ToolCallDecision;
     if (decision === 'allow-session') {
-      toolCallDecision = TOOL_CALL_DECISION_ALLOW_SESSION;
+      toolCallDecision = 'allow-session';
     } else if (decision === 'allow-once') {
-      toolCallDecision = TOOL_CALL_DECISION_ALLOW_ONCE;
+      toolCallDecision = 'allow-once';
     } else {
-      toolCallDecision = TOOL_CALL_DECISION_DENY;
+      toolCallDecision = 'deny';
     }
 
     // Add the new disposition to pending dispositions
@@ -1460,10 +1463,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                             </span>
                                           )}
                                           {disposition && (
-                                            <span className={`disposition-status ${disposition === TOOL_CALL_DECISION_ALLOW_ONCE || disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'approved' : 'denied'}`}>
+                                            <span className={`disposition-status ${disposition === 'allow-once' || disposition === 'allow-session' ? 'approved' : 'denied'}`}>
                                               {' - '}
-                                              {disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved (once)' :
-                                               disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved (session)' :
+                                              {disposition === 'allow-once' ? 'Approved (once)' :
+                                               disposition === 'allow-session' ? 'Approved (session)' :
                                                'Denied'}
                                             </span>
                                           )}
@@ -1473,7 +1476,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleToolCallApproval(result.toolCall, TOOL_CALL_DECISION_ALLOW_SESSION);
+                                                handleToolCallApproval(result.toolCall, 'allow-session');
                                               }}
                                               className="btn btn-primary btn-sm"
                                             >
@@ -1482,7 +1485,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleToolCallApproval(result.toolCall, TOOL_CALL_DECISION_ALLOW_ONCE);
+                                                handleToolCallApproval(result.toolCall, 'allow-once');
                                               }}
                                               className="btn btn-primary btn-sm"
                                             >
@@ -1491,7 +1494,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                             <button
                                               onClick={(e) => {
                                                 e.stopPropagation();
-                                                handleToolCallApproval(result.toolCall, TOOL_CALL_DECISION_DENY);
+                                                handleToolCallApproval(result.toolCall, 'deny');
                                               }}
                                               className="btn remove-button btn-sm"
                                             >
@@ -1587,10 +1590,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                           </span>
                                         )}
                                         {disposition && (
-                                          <span className={`disposition-status ${disposition === TOOL_CALL_DECISION_ALLOW_ONCE || disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'approved' : 'denied'}`}>
+                                          <span className={`disposition-status ${disposition === 'allow-once' || disposition === 'allow-session' ? 'approved' : 'denied'}`}>
                                             {' - '}
-                                            {disposition === TOOL_CALL_DECISION_ALLOW_ONCE ? 'Approved (once)' :
-                                             disposition === TOOL_CALL_DECISION_ALLOW_SESSION ? 'Approved (session)' :
+                                            {disposition === 'allow-once' ? 'Approved (once)' :
+                                             disposition === 'allow-session' ? 'Approved (session)' :
                                              'Denied'}
                                           </span>
                                         )}
@@ -1600,7 +1603,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_ALLOW_SESSION);
+                                              handleToolCallApproval(toolCall, 'allow-session');
                                             }}
                                             className="btn btn-primary btn-sm"
                                           >
@@ -1609,7 +1612,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_ALLOW_ONCE);
+                                              handleToolCallApproval(toolCall, 'allow-once');
                                             }}
                                             className="btn btn-primary btn-sm"
                                           >
@@ -1618,7 +1621,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
                                           <button
                                             onClick={(e) => {
                                               e.stopPropagation();
-                                              handleToolCallApproval(toolCall, TOOL_CALL_DECISION_DENY);
+                                              handleToolCallApproval(toolCall, 'deny');
                                             }}
                                             className="btn remove-button btn-sm"
                                           >

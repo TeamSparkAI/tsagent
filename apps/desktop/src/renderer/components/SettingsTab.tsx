@@ -1,18 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import log from 'electron-log';
-import { v4 as uuidv4 } from 'uuid';
 import { TabProps } from '../types/TabProps';
 import { AboutView } from './AboutView';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import './SettingsTab.css';
 import { 
-  SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, 
-  SETTINGS_DEFAULT_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE,
-  SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, 
-  SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
-  SETTINGS_KEY_SYSTEM_PATH, SETTINGS_KEY_THEME, SESSION_TOOL_PERMISSION_KEY, 
-  SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_NEVER,
   SessionToolPermission, AgentMetadata, AgentSkill, AgentTool, AgentMode,
+  getDefaultSettings, AgentSettings,
 } from '@tsagent/core';
 
 interface EditSkillModalProps {
@@ -1673,45 +1667,51 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('');
   const [initialSystemPrompt, setInitialSystemPrompt] = useState<string>('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
-  const [toolPermission, setToolPermission] = useState<string>(SESSION_TOOL_PERMISSION_TOOL);
-  const [currentChatSettings, setCurrentChatSettings] = useState<ChatSettings>({
-    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-    temperature: SETTINGS_DEFAULT_TEMPERATURE,
-    topP: SETTINGS_DEFAULT_TOP_P,
-    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
-    contextTopK: SETTINGS_DEFAULT_CONTEXT_TOP_K,
-    contextTopN: SETTINGS_DEFAULT_CONTEXT_TOP_N,
-    contextIncludeScore: SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
+  const buildChatSettings = (source?: Partial<AgentSettings> | null): ChatSettings => {
+    const defaults = getDefaultSettings();
+    const merged = { ...defaults, ...(source ?? {}) };
+    return {
+      maxChatTurns: merged.maxChatTurns!,
+      maxOutputTokens: merged.maxOutputTokens!,
+      temperature: merged.temperature!,
+      topP: merged.topP!,
+      toolPermission: merged.toolPermission ?? 'tool',
+      contextTopK: merged.contextTopK!,
+      contextTopN: merged.contextTopN!,
+      contextIncludeScore: merged.contextIncludeScore!
+    };
+  };
+  const chatSettingsToPartial = (settings: ChatSettings): Partial<AgentSettings> => ({
+    maxChatTurns: settings.maxChatTurns,
+    maxOutputTokens: settings.maxOutputTokens,
+    temperature: settings.temperature,
+    topP: settings.topP,
+    toolPermission: settings.toolPermission,
+    contextTopK: settings.contextTopK,
+    contextTopN: settings.contextTopN,
+    contextIncludeScore: settings.contextIncludeScore,
   });
-  const [initialChatSettings, setInitialChatSettings] = useState<ChatSettings>({
-    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-    temperature: SETTINGS_DEFAULT_TEMPERATURE,
-    topP: SETTINGS_DEFAULT_TOP_P,
-    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
-    contextTopK: SETTINGS_DEFAULT_CONTEXT_TOP_K,
-    contextTopN: SETTINGS_DEFAULT_CONTEXT_TOP_N,
-    contextIncludeScore: SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
-  });
+  const [currentChatSettings, setCurrentChatSettings] = useState<ChatSettings>(() => buildChatSettings());
+  const [initialChatSettings, setInitialChatSettings] = useState<ChatSettings>(() => buildChatSettings());
   const [currentSystemPath, setCurrentSystemPath] = useState<string>('');
   const [initialSystemPath, setInitialSystemPath] = useState<string>('');
 
   useEffect(() => {
     const loadSettings = async () => {
       try {
-        // Load theme
-        const savedTheme = await window.api.getSettingsValue(SETTINGS_KEY_THEME);
-        if (savedTheme) {
-          setTheme(savedTheme as 'light' | 'dark');
-          document.documentElement.setAttribute('data-theme', savedTheme);
+        const agentSettings = await window.api.getSettings();
+        const mergedSettings = { ...getDefaultSettings(), ...(agentSettings ?? {}) };
+
+        // Load theme (fall back to system preference if not set)
+        if (mergedSettings.theme === 'light' || mergedSettings.theme === 'dark') {
+          setTheme(mergedSettings.theme);
+          document.documentElement.setAttribute('data-theme', mergedSettings.theme);
         } else {
-          // Check system preference
           const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
           const defaultTheme = prefersDark ? 'dark' : 'light';
           setTheme(defaultTheme);
           document.documentElement.setAttribute('data-theme', defaultTheme);
-          await window.api.setSettingsValue(SETTINGS_KEY_THEME, defaultTheme);
+          await window.api.updateSettings({ theme: defaultTheme });
         }
 
         // Load system prompt
@@ -1720,35 +1720,14 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
         setInitialSystemPrompt(systemPrompt || '');
         
         // Load chat settings
-        const maxChatTurns = await window.api.getSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS);
-        const maxOutputTokens = await window.api.getSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS);
-        const temperature = await window.api.getSettingsValue(SETTINGS_KEY_TEMPERATURE);
-        const topP = await window.api.getSettingsValue(SETTINGS_KEY_TOP_P);
-        const toolPermission = await window.api.getSettingsValue(SESSION_TOOL_PERMISSION_KEY);
-        const contextTopK = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_TOP_K);
-        const contextTopN = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_TOP_N);
-        const contextIncludeScore = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_INCLUDE_SCORE);
-
-        const loadedChatSettings: ChatSettings = {
-          maxChatTurns: maxChatTurns ? parseInt(maxChatTurns) : SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-          maxOutputTokens: maxOutputTokens ? parseInt(maxOutputTokens) : SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-          temperature: temperature ? parseFloat(temperature) : SETTINGS_DEFAULT_TEMPERATURE,
-          topP: topP ? parseFloat(topP) : SETTINGS_DEFAULT_TOP_P,
-          toolPermission: (toolPermission === SESSION_TOOL_PERMISSION_TOOL || toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || toolPermission === SESSION_TOOL_PERMISSION_NEVER) 
-            ? toolPermission as SessionToolPermission 
-            : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
-          contextTopK: contextTopK ? parseInt(contextTopK) : SETTINGS_DEFAULT_CONTEXT_TOP_K,
-          contextTopN: contextTopN ? parseInt(contextTopN) : SETTINGS_DEFAULT_CONTEXT_TOP_N,
-          contextIncludeScore: contextIncludeScore ? parseFloat(contextIncludeScore) : SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
-        };
-
+        const loadedChatSettings = buildChatSettings(mergedSettings);
         setCurrentChatSettings(loadedChatSettings);
         setInitialChatSettings(loadedChatSettings);
 
         // Load system path
-        const systemPath = await window.api.getSettingsValue(SETTINGS_KEY_SYSTEM_PATH);
-        setCurrentSystemPath(systemPath || '');
-        setInitialSystemPath(systemPath || '');
+        const resolvedSystemPath = mergedSettings.systemPath ? String(mergedSettings.systemPath) : '';
+        setCurrentSystemPath(resolvedSystemPath);
+        setInitialSystemPath(resolvedSystemPath);
 
         // Load agent metadata to determine mode
         const agentMetadata = await window.api.getAgentMetadata();
@@ -1773,7 +1752,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
     document.documentElement.setAttribute('data-theme', newTheme);
-            await window.api.setSettingsValue(SETTINGS_KEY_THEME, newTheme);
+    await window.api.updateSettings({ theme: newTheme });
   };
 
   const handleSaveSystemPrompt = async () => {
@@ -1792,14 +1771,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const handleSaveChatSettings = async () => {
     try {
-              await window.api.setSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS, currentChatSettings.maxChatTurns.toString());
-        await window.api.setSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS, currentChatSettings.maxOutputTokens.toString());
-        await window.api.setSettingsValue(SETTINGS_KEY_TEMPERATURE, currentChatSettings.temperature.toString());
-        await window.api.setSettingsValue(SETTINGS_KEY_TOP_P, currentChatSettings.topP.toString());
-      await window.api.setSettingsValue(SESSION_TOOL_PERMISSION_KEY, currentChatSettings.toolPermission);
-      await window.api.setSettingsValue(SETTINGS_KEY_CONTEXT_TOP_K, currentChatSettings.contextTopK.toString());
-      await window.api.setSettingsValue(SETTINGS_KEY_CONTEXT_TOP_N, currentChatSettings.contextTopN.toString());
-      await window.api.setSettingsValue(SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, currentChatSettings.contextIncludeScore.toString());
+      await window.api.updateSettings(chatSettingsToPartial(currentChatSettings));
       setInitialChatSettings(currentChatSettings);
       log.info('Chat settings saved successfully');
     } catch (error) {
@@ -1813,7 +1785,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const handleSaveSystemPath = async () => {
     try {
-              await window.api.setSettingsValue(SETTINGS_KEY_SYSTEM_PATH, currentSystemPath);
+      await window.api.updateSettings({ systemPath: currentSystemPath });
       setInitialSystemPath(currentSystemPath);
       log.info('System path saved successfully');
     } catch (error) {

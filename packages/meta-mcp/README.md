@@ -24,11 +24,11 @@ tsagent-meta-mcp [--debug|-d] <agent-path>
 **Examples:**
 ```bash
 # Normal mode (returns only final message)
-tsagent-meta-mcp /path/to/agent
+tsagent-meta-mcp /path/to/agent.yaml
 
 # Debug mode (returns full message payload)
-tsagent-meta-mcp --debug /path/to/agent
-tsagent-meta-mcp -d /path/to/agent
+tsagent-meta-mcp --debug /path/to/agent.yaml
+tsagent-meta-mcp -d /path/to/agent.yaml
 ```
 
 The server will:
@@ -89,7 +89,7 @@ npm run dev <agent-path>
 
 Example:
 ```bash
-npm run dev /path/to/my-tools-agent
+npm run dev /path/to/my-tools-agent.yaml
 ```
 
 #### Production Mode (after building)
@@ -103,6 +103,7 @@ Or using the binary:
 npm link  # Link the package globally (if you want)
 tsagent-meta-mcp <agent-path>
 ```
+
 
 ### Testing with MCP Clients
 
@@ -123,7 +124,7 @@ tsagent-meta-mcp <agent-path>
          "command": "node",
          "args": [
            "/absolute/path/to/tsagent/packages/meta-mcp/dist/index.js",
-           "/absolute/path/to/your/tools-agent"
+           "/absolute/path/to/your/tools-agent.yaml"
          ]
        }
      }
@@ -145,7 +146,7 @@ npm install -g @modelcontextprotocol/inspector
 # Run the inspector with the meta-mcp server
 npx @modelcontextprotocol/inspector \
   node /path/to/tsagent/packages/meta-mcp/dist/index.js \
-  /path/to/your/tools-agent
+  /path/to/your/tools-agent.yaml
 ```
 
 #### Manual Testing
@@ -153,7 +154,7 @@ npx @modelcontextprotocol/inspector \
 1. **Create a test Tools agent** with at least one tool defined
 2. **Start the server:**
    ```bash
-   npm run dev /path/to/test-agent
+   npm run dev /path/to/test-agent.yaml
    ```
 3. **Send MCP requests via stdio** - The server communicates via stdio following the MCP protocol
 
@@ -167,11 +168,11 @@ npx @modelcontextprotocol/inspector \
      - Parameters: Add a parameter `message` (type: string)
      - Prompt: `The user said: {message}. Please respond appropriately.`
 
-2. **Test the agent path** - Note the full path to your agent
+2. **Test the agent path** - Note the full path to your agent (should be a `.yaml` file)
 
 3. **Run the meta-mcp server:**
    ```bash
-   npm run dev /path/to/your/test-agent
+   npm run dev /path/to/your/test-agent.yaml
    ```
 
 ### Troubleshooting

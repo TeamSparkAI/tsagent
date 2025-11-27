@@ -1,41 +1,15 @@
 import { z } from 'zod';
-import { Reference, Rule } from '../index.js';
+import { Rule, RuleSchema } from '../types/rules.js';
+import { Reference, ReferenceSchema } from '../types/references.js';
 import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types.js';
 import { McpClient, McpConfig } from '../mcp/types.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
 import { ChatSession, ChatSessionOptions } from './chat.js';
 import { SupervisionManager, Supervisor, SupervisorConfig, SupervisorConfigSchema } from './supervision.js';
-import { ToolInputSchema, ToolInputSchemaSchema } from './json-schema.js';
+import { ToolInputSchemaSchema } from './json-schema.js';
 import { SessionContextItem, RequestContextItem } from './context.js';
 
 export { SupervisorConfig };
-
-export const SETTINGS_KEY_MAX_CHAT_TURNS = 'maxChatTurns';
-export const SETTINGS_KEY_MAX_OUTPUT_TOKENS = 'maxOutputTokens';
-export const SETTINGS_KEY_TEMPERATURE = 'temperature';
-export const SETTINGS_KEY_TOP_P = 'topP';
-export const SETTINGS_KEY_SYSTEM_PATH = 'systemPath';
-export const SETTINGS_KEY_MOST_RECENT_MODEL = 'mostRecentModel';
-export const SETTINGS_KEY_THEME = 'theme';
-export const SETTINGS_KEY_CONTEXT_TOP_K = 'contextTopK';
-export const SETTINGS_KEY_CONTEXT_TOP_N = 'contextTopN';
-export const SETTINGS_KEY_CONTEXT_INCLUDE_SCORE = 'contextIncludeScore';
-
-// Constants for session-level permissions
-export const SESSION_TOOL_PERMISSION_KEY = 'toolPermission';
-export const SESSION_TOOL_PERMISSION_ALWAYS: SessionToolPermission = 'always';
-export const SESSION_TOOL_PERMISSION_NEVER: SessionToolPermission = 'never';
-export const SESSION_TOOL_PERMISSION_TOOL: SessionToolPermission = 'tool';
-export const SESSION_TOOL_PERMISSION_DEFAULT: SessionToolPermission = SESSION_TOOL_PERMISSION_TOOL;
-
-// Default values for settings (Agent or ChatSession)
-export const SETTINGS_DEFAULT_MAX_CHAT_TURNS = 20;
-export const SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS = 1000;
-export const SETTINGS_DEFAULT_TEMPERATURE = 0.5;
-export const SETTINGS_DEFAULT_TOP_P = 0.5;
-export const SETTINGS_DEFAULT_CONTEXT_TOP_K = 20;
-export const SETTINGS_DEFAULT_CONTEXT_TOP_N = 5;
-export const SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE = 0.7;
 
 // Tool Permission Settings
 export const SessionToolPermissionSchema = z.enum(['always', 'never', 'tool']);
@@ -57,8 +31,8 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   delete(): Promise<void>;
   
   // Settings
-  getSetting(key: string): string | null;
-  setSetting(key: string, value: string): Promise<void>;
+  getSettings(): AgentSettings;
+  updateSettings(settings: Partial<AgentSettings>): Promise<void>;
   
   // System prompt
   getSystemPrompt(): Promise<string>;
@@ -138,6 +112,9 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
       includeScore?: number;  // Always include items with this score or higher (default: 0.7)
     }
   ): Promise<RequestContextItem[]>;
+
+  // Config persistence
+  save(): Promise<void>;
 }
 
 // This is a subset of the AgentSkill interface from the A2A protocol
@@ -193,29 +170,41 @@ export type AgentMetadata = z.infer<typeof AgentMetadataSchema>;
 
 /**
  * AgentSettings schema - single source of truth.
- * Settings are stored as string key-value pairs, with optional toolPermission enum.
+ * Numeric settings are stored as numbers. Integer settings use .int() validation.
+ * String settings (like theme) remain strings.
  */
 export const AgentSettingsSchema = z.object({
-  [SETTINGS_KEY_MAX_CHAT_TURNS]: z.string().optional(),
-  [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: z.string().optional(),
-  [SETTINGS_KEY_TEMPERATURE]: z.string().optional(),
-  [SETTINGS_KEY_TOP_P]: z.string().optional(),
-  [SETTINGS_KEY_THEME]: z.string().optional(),
-  [SETTINGS_KEY_CONTEXT_TOP_K]: z.string().optional(),
-  [SETTINGS_KEY_CONTEXT_TOP_N]: z.string().optional(),
-  [SETTINGS_KEY_CONTEXT_INCLUDE_SCORE]: z.string().optional(),
-  [SESSION_TOOL_PERMISSION_KEY]: SessionToolPermissionSchema.optional(),
-}).catchall(z.union([z.string(), SessionToolPermissionSchema]).optional());
+  maxChatTurns: z.number().int().default(20).optional(),
+  maxOutputTokens: z.number().int().default(1000).optional(),
+  temperature: z.number().default(0.5).optional(), // Float (0.0-1.0)
+  topP: z.number().default(0.5).optional(), // Float (0.0-1.0)
+  theme: z.string().default('light').optional(),
+  systemPath: z.string().optional(),
+  mostRecentModel: z.string().optional(),
+  contextTopK: z.number().int().default(20).optional(),
+  contextTopN: z.number().int().default(5).optional(),
+  contextIncludeScore: z.number().default(0.7).optional(), // Float (0.0-1.0)
+  toolPermission: SessionToolPermissionSchema.default('tool').optional(),
+});
 
 // Type inferred from schema
 export type AgentSettings = z.infer<typeof AgentSettingsSchema>;
 
+// Default values are defined in AgentSettingsSchema - extract them from the schema
+// This ensures the schema is the single source of truth
+export const getDefaultSettings = (): AgentSettings => AgentSettingsSchema.parse({});
+
+
 /**
  * AgentConfig schema - single source of truth.
+ * All content (prompt, rules, references) is embedded in the YAML file.
  */
 export const AgentConfigSchema = z.object({
   metadata: AgentMetadataSchema,
   settings: AgentSettingsSchema,
+  systemPrompt: z.string().default(''), // Embedded system prompt (previously prompt.md)
+  rules: z.array(RuleSchema).default([]), // Embedded rules array (previously rules/*.mdt)
+  references: z.array(ReferenceSchema).default([]), // Embedded references array (previously refs/*.mdt)
   providers: z.record(z.string(), z.any()).optional(),
   mcpServers: z.record(z.string(), z.any()).optional(),
   supervisors: z.array(SupervisorConfigSchema).optional(),
@@ -236,8 +225,9 @@ export function populateModelFromSettings(agent: Agent, chatSessionOptions: Chat
     return;
   }
 
-  const mostRecentModel = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
-  if (mostRecentModel) {
+  const settings = agent.getSettings();
+  const mostRecentModel = settings.mostRecentModel;
+  if (mostRecentModel && typeof mostRecentModel === 'string') {
     const colonIndex = mostRecentModel.indexOf(':');
     if (colonIndex !== -1) {
       const providerId = mostRecentModel.substring(0, colonIndex);

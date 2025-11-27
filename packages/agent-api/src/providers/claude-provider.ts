@@ -4,7 +4,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 
 import { ModelReply, Provider, ProviderModel, ProviderType, ProviderInfo, Turn } from './types.js';
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat.js';
+import { ChatMessage, ChatSession } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
@@ -191,10 +191,10 @@ export class ClaudeProvider implements Provider {
             ]
           });
 
-          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
+          if (toolCallApproval.decision === 'allow-session') {
             session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
           }
-          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
+          if (toolCallApproval.decision === 'allow-session' || toolCallApproval.decision === 'allow-once') {
             // Run the tool
             const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
@@ -223,7 +223,7 @@ export class ClaudeProvider implements Provider {
                 ]
               });
             }
-          } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+          } else if (toolCallApproval.decision === 'deny') {
             // Record the tool call and "denied" result
             turn.results!.push({
               type: 'toolCall',

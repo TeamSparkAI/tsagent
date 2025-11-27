@@ -26,7 +26,7 @@ import { loadAgent } from '@tsagent/core/runtime';
 const logger = console as any; // Any object with info/debug/error is fine
 
 // Load an existing agent
-const agent = await loadAgent('./my-agent', logger);
+const agent = await loadAgent('./my-agent.yaml', logger);
 
 // Create a chat session
 const session = agent.createChatSession('session-1');
@@ -44,7 +44,7 @@ import { createAgent } from '@tsagent/core/runtime';
 const logger = console as any;
 
 // Create a new agent
-await createAgent('./new-agent', logger, {
+await createAgent('./new-agent.yaml', logger, {
   metadata: {
     name: 'My Assistant',
     description: 'A helpful AI assistant'
@@ -64,7 +64,7 @@ await createAgent('./new-agent', logger, {
 
 ### Agent Management
 - **Agent Lifecycle**: Create, load, save, and manage agents
-- **Configuration**: Flexible agent configuration with `tsagent.json`
+- **Configuration**: Flexible agent configuration with YAML format (`.yaml` or `.yml`)
 - **State Management**: Persistent agent state and conversation history
 - **Error Handling**: Robust error handling and recovery
 
@@ -128,64 +128,91 @@ const client = await agent.getMcpClient('filesystem');
 
 ## Agent Configuration
 
-Agents are configured using a `tsagent.json` file:
+Agents are configured using a single YAML file (`.yaml` or `.yml`). All agent content (system prompt, rules, references) is embedded in the file:
 
-```json
-{
-  "metadata": {
-    "name": "xxxx",
-    "description": "xxxx",
-    "version": "1.0.1",
-    "skills": [],
-    "iconUrl": "xxxx",
-    "documentationUrl": "xxxx",
-    "provider": {
-      "organization": "xxxx",
-      "url": "xxxx"
-    },
-    "created": "2025-04-07T17:32:29.081Z",
-    "lastAccessed": "2025-04-07T17:32:29.081Z",
-    "version": "1.0.0"
-  },
-  "settings": {
-    "maxChatTurns": "10",
-    "maxOutputTokens": "1000",
-    "temperature": "0.5",
-    "topP": "0.5",
-    "maxTurns": "25",
-    "mostRecentModel": "gemini:gemini-2.0-flash"
-  },
-  "providers": {
-    "anthropic": {
-      "ANTHROPIC_API_KEY": "xxxxx"
-    },
-    "gemini": {
-      "GOOGLE_API_KEY": "xxxxx"
-    },
-    "openai": {
-      "OPENAI_API_KEY": "xxxxx"
-    },
-    "bedrock": {
-      "BEDROCK_ACCESS_KEY_ID": "xxxxx",
-      "BEDROCK_SECRET_ACCESS_KEY": "xxxxx"
-    },
-    "ollama": {
-      "OLLAMA_HOST": "xxxxx" (optional)
-    }
-  },
-  "mcpServers": {
-    "filesystem": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "./test_files"
-      ]
-    }
-  }
-}
+> **Note**: For a limited time, the system will automatically convert older JSON-based agents (directory structure with `tsagent.json`) to the new YAML format when you load them. The conversion happens transparently on first load, and the original JSON file is preserved. After conversion, the agent uses the new YAML file.
+
+```yaml
+metadata:
+  name: "My Assistant"
+  description: "A helpful AI assistant"
+  version: "1.0.1"
+  skills: []
+  iconUrl: "https://example.com/icon.png"
+  documentationUrl: "https://example.com/docs"
+  provider:
+    organization: "Example Org"
+    url: "https://example.com"
+  created: "2025-04-07T17:32:29.081Z"
+  lastAccessed: "2025-04-07T17:32:29.081Z"
+
+systemPrompt: |
+  You are a helpful AI assistant.
+  This is a multi-line system prompt.
+  Supports markdown formatting.
+
+settings:
+  maxChatTurns: 20
+  maxOutputTokens: 1000
+  temperature: 0.5
+  topP: 0.5
+  theme: "light"
+  mostRecentModel: "gemini:gemini-2.0-flash"
+
+rules:
+  - name: "example-rule"
+    description: "An example rule"
+    priorityLevel: 500
+    text: |
+      Rule content here.
+      Supports markdown.
+    include: "always"
+
+references:
+  - name: "example-reference"
+    description: "An example reference"
+    priorityLevel: 500
+    text: |
+      Reference content here.
+      Supports markdown.
+    include: "manual"
+
+providers:
+  anthropic:
+    ANTHROPIC_API_KEY: "xxxxx"
+  gemini:
+    GOOGLE_API_KEY: "xxxxx"
+  openai:
+    OPENAI_API_KEY: "xxxxx"
+  bedrock:
+    BEDROCK_ACCESS_KEY_ID: "xxxxx"
+    BEDROCK_SECRET_ACCESS_KEY: "xxxxx"
+  ollama:
+    OLLAMA_HOST: "localhost:11434"  # optional
+
+mcpServers:
+  filesystem:
+    type: "stdio"
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "./test_files"
+    toolPermissionRequired:
+      serverDefault: false
+      tools:
+        read_text_file: true
+    toolInclude:
+      serverDefault: "agent"
+      tools:
+        directory_tree: "manual"
+    # toolEmbeddings: Automatically managed - contains semantic embeddings for tools
+    #   tools:
+    #     tool_name:
+    #       embeddings: [[...]]
+    #       hash: "..."
 ```
+
 
 ## TypeScript Support
 

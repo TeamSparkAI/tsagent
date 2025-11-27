@@ -1,76 +1,103 @@
 import { EventEmitter } from 'events';
-import { Rule } from '../types/rules.js';
+import { Rule, RuleSchema } from '../types/rules.js';
 import { Logger } from '../types/common.js';
-import { AgentStrategy } from '../core/agent-strategy.js';
+import { AgentConfig } from '../types/agent.js';
+
+/**
+ * Interface for updating agent config and saving it
+ */
+export interface ConfigUpdater {
+  getConfig(): AgentConfig | null;
+  updateConfig(updater: (config: AgentConfig) => void): Promise<void>;
+}
 
 export class RulesManager extends EventEmitter {
-  private rules: Rule[] = [];
-
-  constructor(private logger: Logger) {
+  constructor(
+    private logger: Logger,
+    private configUpdater: ConfigUpdater | null = null
+  ) {
     super();
   }
 
-  async loadRules(strategy: AgentStrategy | null): Promise<void> {
-    this.rules = [];
-    if (strategy) {
-      this.rules = await strategy.loadRules();
-    }
-  }
-
-  async deleteRules(strategy: AgentStrategy | null  ): Promise<void> {
-    if (strategy) {
-      await strategy.deleteRules();
-    }
+  private getRules(): Rule[] {
+    const config = this.configUpdater?.getConfig();
+    if (!config) return [];
+    
+    // Return sorted copy (don't mutate source)
+    const rules = [...(config.rules || [])];
+    this.sortRules(rules);
+    return rules;
   }
 
   getAllRules(): Rule[] {
-    return [...this.rules];
+    return this.getRules();
   }
 
   getRule(name: string): Rule | null {
-    return this.rules.find(rule => rule.name === name) || null;
+    return this.getRules().find(rule => rule.name === name) || null;
   }
 
-  async addRule(strategy: AgentStrategy | null, rule: Rule): Promise<void> {
-    if (strategy) {
-      await strategy.addRule(rule);
+  async addRule(rule: Rule): Promise<void> {
+    if (!this.configUpdater) {
+      throw new Error('Cannot add rule: no config updater available');
     }
 
-    // Update the rules list - replace existing rule if it exists, otherwise add new one
-    const existingIndex = this.rules.findIndex(r => r.name === rule.name);
-    if (existingIndex >= 0) {
-      // Clear embeddings when updating existing rule (cache invalidation)
-      rule.embeddings = undefined;
-      this.rules[existingIndex] = rule;
-    } else {
-      // New rule - embeddings will be generated on demand via JIT indexing
-      this.rules.push(rule);
+    // Validate rule using Zod schema
+    const validatedRule = RuleSchema.parse(rule);
+    
+    if (!this.validateRuleName(validatedRule.name)) {
+      throw new Error('Rule name can only contain letters, numbers, underscores, and dashes');
     }
-    this.sortRules();
+
+    await this.configUpdater.updateConfig((config) => {
+      if (!config.rules) {
+        config.rules = [];
+      }
+      
+      const existingIndex = config.rules.findIndex(r => r.name === validatedRule.name);
+      if (existingIndex >= 0) {
+        // Clear embeddings when updating existing rule (cache invalidation)
+        validatedRule.embeddings = undefined;
+        config.rules[existingIndex] = validatedRule;
+      } else {
+        // New rule - embeddings will be generated on demand via JIT indexing
+        config.rules.push(validatedRule);
+      }
+      
+      // Sort rules by priority
+      this.sortRules(config.rules);
+    });
     
     // Emit change event
     this.emit('rulesChanged');
+    this.logger.info(`Rule saved to agent config: ${validatedRule.name}`);
   }
 
-  async deleteRule(strategy: AgentStrategy | null, name: string): Promise<boolean> {
-    const rule = this.getRule(name);
-    if (!rule) return false;
-
-    if (strategy) {
-      await strategy.deleteRule(name);
+  async deleteRule(name: string): Promise<boolean> {
+    if (!this.configUpdater) {
+      throw new Error('Cannot delete rule: no config updater available');
     }
 
-    // Update the rules list
-    this.rules = this.rules.filter(r => r.name !== name);
-    this.sortRules();
-      
+    const config = this.configUpdater.getConfig();
+    if (!config?.rules) return false;
+
+    const index = config.rules.findIndex(r => r.name === name);
+    if (index < 0) return false;
+
+    await this.configUpdater.updateConfig((config) => {
+      if (config.rules) {
+        config.rules.splice(index, 1);
+      }
+    });
+    
     // Emit change event
     this.emit('rulesChanged');
+    this.logger.info(`Rule deleted from agent config: ${name}`);
     return true;
   }
 
-  private sortRules(): void {
-    this.rules.sort((a, b) => {
+  private sortRules(rules: Rule[]): void {
+    rules.sort((a, b) => {
       if (a.priorityLevel !== b.priorityLevel) {
         return a.priorityLevel - b.priorityLevel;
       }
@@ -82,4 +109,3 @@ export class RulesManager extends EventEmitter {
     return /^[a-zA-Z0-9_-]+$/.test(name);
   }
 }
-

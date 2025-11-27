@@ -4,7 +4,7 @@ MCP server for managing TsAgent agents. Provides tools to create, configure, and
 
 ## Overview
 
-This package provides an MCP server that exposes a comprehensive set of tools for managing TsAgent agents. All tools use an `agentTarget` parameter to identify which agent to operate on (specified as the directory path containing `tsagent.json`).
+This package provides an MCP server that exposes a comprehensive set of tools for managing TsAgent agents. All tools use an `agentTarget` parameter to identify which agent to operate on (specified as the file path to a `.yaml` agent file).
 
 ## Installation
 
@@ -27,7 +27,7 @@ tsagent-agent-mcp [--debug|-d]
 
 ### Agent Discovery & Lifecycle
 
-- **`agent_list`**: List all available agents. If `basePath` is provided, recursively searches for directories containing `tsagent.json`. Otherwise, returns agents from the internal registry.
+- **`agent_list`**: List all available agents. If `basePath` is provided, recursively searches for `.yaml` or `.yml` agent files. Otherwise, returns agents from the internal registry.
 - **`agent_get_info`**: Get detailed information about a specific agent
 - **`agent_create`**: Create a new agent
 - **`agent_delete`**: Delete an agent and all its associated files (requires `confirm: true`)
@@ -85,12 +85,11 @@ tsagent-agent-mcp [--debug|-d]
 
 ## Agent Target Identification
 
-All tools that operate on an agent require an `agentTarget` parameter. This parameter should be the **directory path** containing the `tsagent.json` file (not including the filename itself).
+All tools that operate on an agent require an `agentTarget` parameter. This parameter should be the **file path** to a `.yaml` or `.yml` agent file.
 
 Examples:
-- `./agents/my-agent`
-- `/absolute/path/to/agent`
-- `../relative/path/to/agent`
+- `./agents/my-agent.yaml`
+- `/absolute/path/to/agent.yaml`
 
 The server maintains an internal registry of loaded agents to avoid repeated file I/O. Agents are loaded on-demand when first accessed.
 
@@ -124,7 +123,7 @@ The server maintains an internal registry of loaded agents to avoid repeated fil
 {
   "name": "agent_create",
   "arguments": {
-    "agentPath": "./agents/my-new-agent",
+    "agentPath": "./agents/my-new-agent.yaml",
     "name": "My New Agent",
     "description": "A helpful assistant",
     "mode": "interactive",
@@ -139,7 +138,7 @@ The server maintains an internal registry of loaded agents to avoid repeated fil
 {
   "name": "agent_add_rule",
   "arguments": {
-    "agentTarget": "./agents/my-agent",
+    "agentTarget": "./agents/my-agent.yaml",
     "rule": {
       "name": "be-polite",
       "description": "Always be polite",
@@ -157,7 +156,7 @@ The server maintains an internal registry of loaded agents to avoid repeated fil
 {
   "name": "agent_install_provider",
   "arguments": {
-    "agentTarget": "./agents/my-agent",
+    "agentTarget": "./agents/my-agent.yaml",
     "providerType": "openai",
     "config": {
       "OPENAI_API_KEY": "op://vault/item/field"

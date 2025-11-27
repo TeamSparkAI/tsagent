@@ -1,7 +1,6 @@
 import { CallToolResult, Tool } from "@modelcontextprotocol/sdk/types.js";
 
 import { ChatSession } from "../types/chat.js";
-import type { IndexedChunk } from '../managers/semantic-indexer.js';
 
 // Re-export the imported types
 export { CallToolResult, Tool };
@@ -10,16 +9,9 @@ export interface CallToolResultWithElapsedTime extends CallToolResult {
     elapsedTimeMs: number;
 }
 
-// Constants for server-level permissions
-export const SERVER_PERMISSION_REQUIRED = 'required';
-export const SERVER_PERMISSION_NOT_REQUIRED = 'not_required';
-export const TOOL_PERMISSION_SERVER_DEFAULT = 'server_default';
-export const TOOL_PERMISSION_REQUIRED = 'required';
-export const TOOL_PERMISSION_NOT_REQUIRED = 'not_required';
-
 // Server-level permission settings
-export type ServerDefaultPermission = typeof SERVER_PERMISSION_REQUIRED | typeof SERVER_PERMISSION_NOT_REQUIRED;
-export type ToolPermissionSetting = typeof TOOL_PERMISSION_SERVER_DEFAULT | typeof TOOL_PERMISSION_REQUIRED | typeof TOOL_PERMISSION_NOT_REQUIRED;
+export type ServerDefaultPermission = 'required' | 'not_required';
+export type ToolPermissionSetting = 'server_default' | 'required' | 'not_required';
 
 
 export interface ServerToolPermissionRequiredConfig {
@@ -33,10 +25,21 @@ export interface ServerToolIncludeConfig {
     tools?: Record<string, 'always' | 'manual' | 'agent'>;
 }
 
+// Tool embedding data (for serialization)
+export interface ToolEmbeddingData {
+  embeddings: number[][];  // Array of embedding vectors
+  hash: string;  // SHA-256 hash of the text chunk used to generate embeddings
+}
+
+// Server-level tool embeddings settings
+export interface ServerToolEmbeddingsConfig {
+  tools?: Record<string, ToolEmbeddingData>;  // toolName -> embedding data (embeddings + hash)
+}
+
 export type McpConfigFileServerConfig = 
-  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
-  | { type: 'sse'; url: string; headers?: Record<string, string>; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig }
-  | { type: 'internal'; tool: 'rules' | 'references' | 'supervision' | 'tools'; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig };
+  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig; toolEmbeddings?: ServerToolEmbeddingsConfig }
+  | { type: 'sse'; url: string; headers?: Record<string, string>; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig; toolEmbeddings?: ServerToolEmbeddingsConfig }
+  | { type: 'internal'; tool: 'rules' | 'references' | 'supervision' | 'tools'; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig; toolEmbeddings?: ServerToolEmbeddingsConfig };
 
 export interface McpConfig {
   name: string;
@@ -185,7 +188,7 @@ export interface McpClient {
   getErrorLog(): string[];
   isConnected(): boolean;
   ping(): Promise<{ elapsedTimeMs: number }>;
-  toolEmbeddings?: Map<string, IndexedChunk[]>;  // Semantic embeddings for JIT indexing (Phase 5a)
+  toolEmbeddings?: Map<string, { embeddings: number[][]; hash: string }>;  // Semantic embeddings for JIT indexing (embeddings + hash)
 }
 
 export interface MCPClientManager {

@@ -34,10 +34,10 @@ The ACP server is designed to run as a subprocess invoked by ACP-compatible clie
 
 ```bash
 # Start ACP server with an agent
-npx @tsagent/acp-server /path/to/my-agent
+npx @tsagent/acp-server /path/to/my-agent.yaml
 
 # Start with verbose logging (for debugging)
-npx @tsagent/acp-server /path/to/my-agent --verbose
+npx @tsagent/acp-server /path/to/my-agent.yaml --verbose
 ```
 
 ### Programmatic Usage
@@ -46,7 +46,7 @@ npx @tsagent/acp-server /path/to/my-agent --verbose
 import { ACPServer } from '@tsagent/acp-server';
 
 // Create and start an ACP server for an agent
-const server = new ACPServer('/path/to/agent', {
+const server = new ACPServer('/path/to/agent.yaml', {
   verbose: false
 });
 
@@ -56,21 +56,42 @@ await server.start();
 // The SDK handles JSON-RPC communication automatically
 ```
 
-## Agent Directory Structure
+## Agent Configuration
 
-Each agent directory should contain:
+Agents are configured using a single YAML file (`.yaml` or `.yml`). All agent content (system prompt, rules, references) is embedded in the file:
 
+```yaml
+metadata:
+  name: "My Assistant"
+  description: "A helpful AI assistant"
+  # ... other metadata fields
+
+systemPrompt: |
+  You are a helpful AI assistant.
+  This is a multi-line system prompt.
+  Supports markdown formatting.
+
+rules:
+  - name: "example-rule"
+    description: "An example rule"
+    priorityLevel: 500
+    text: |
+      Rule content here.
+      Supports markdown.
+    include: "always"
+
+references:
+  - name: "example-reference"
+    description: "An example reference"
+    priorityLevel: 500
+    text: |
+      Reference content here.
+      Supports markdown.
+    include: "manual"
+
+# ... providers, mcpServers, etc.
 ```
-/path/to/agent/
-├── tsagent.json         # Agent configuration
-├── prompt.md            # System prompt
-├── rules/               # Optional rules directory
-│   ├── rule1.md
-│   └── rule2.md
-└── refs/                # Optional references directory
-    ├── ref1.md
-    └── ref2.md
-```
+
 
 ## ACP Protocol Methods
 
@@ -121,7 +142,7 @@ Example Zed configuration (if applicable):
   "acp_agents": {
     "tsagent": {
       "command": "npx",
-      "args": ["@tsagent/acp-server", "/path/to/agent"]
+      "args": ["@tsagent/acp-server", "/path/to/agent.yaml"]
     }
   }
 }
@@ -136,10 +157,10 @@ Example Zed configuration (if applicable):
 npm run build
 
 # Run in development mode
-npm run dev /path/to/agent
+npm run dev /path/to/agent.yaml
 
 # Start server
-npm start /path/to/agent
+npm start /path/to/agent.yaml
 ```
 
 ## Implementation Status

@@ -7,39 +7,19 @@ import * as fs from 'fs';
 import { PRODUCT_NAME } from './main.js';
 
 import { 
-  Agent, 
+  Agent,
+  AgentSettings,
   ChatMessage, 
   ChatSessionOptionsWithRequiredSettings,
   MessageUpdate, 
   ModelReply,
   ProviderType, 
   SessionToolPermission,
+  SessionToolPermissionSchema,
   Tool,
   ToolCallApproval, 
   ToolCallDecision, 
-  SETTINGS_KEY_MAX_CHAT_TURNS, 
-  SETTINGS_DEFAULT_MAX_CHAT_TURNS, 
-  SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
-  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, 
-  SETTINGS_KEY_MOST_RECENT_MODEL,
-  SESSION_TOOL_PERMISSION_KEY,
-  SESSION_TOOL_PERMISSION_DEFAULT,
-  SESSION_TOOL_PERMISSION_ALWAYS,
-  SESSION_TOOL_PERMISSION_NEVER,
-  SESSION_TOOL_PERMISSION_TOOL,
-  SETTINGS_KEY_TEMPERATURE, 
-  SETTINGS_DEFAULT_TEMPERATURE, 
-  SETTINGS_KEY_CONTEXT_TOP_K,
-  SETTINGS_DEFAULT_CONTEXT_TOP_K,
-  SETTINGS_KEY_CONTEXT_TOP_N,
-  SETTINGS_DEFAULT_CONTEXT_TOP_N,
-  SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
-  SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE,
-  TOOL_CALL_DECISION_ALLOW_SESSION, 
-  TOOL_CALL_DECISION_ALLOW_ONCE, 
-  TOOL_CALL_DECISION_DENY, 
-  SETTINGS_KEY_TOP_P, 
-  SETTINGS_DEFAULT_TOP_P,
+  getDefaultSettings,
   populateModelFromSettings
 } from '@tsagent/core';
 
@@ -63,6 +43,34 @@ const COMMANDS = {
   REFERENCES: '/references',
   STATS: '/stats',
   AGENT: '/agent'
+};
+
+const MAIN_SETTING_KEYS = ['maxChatTurns', 'maxOutputTokens', 'temperature', 'topP'] as const;
+const CONTEXT_SETTING_KEYS = ['contextTopK', 'contextTopN', 'contextIncludeScore'] as const;
+const TOOL_PERMISSION_KEY = 'toolPermission' as const;
+
+type NumericSettingKey = typeof MAIN_SETTING_KEYS[number] | typeof CONTEXT_SETTING_KEYS[number];
+type ChatSettingKey = NumericSettingKey | typeof TOOL_PERMISSION_KEY;
+
+const ALL_SETTING_KEYS = [...MAIN_SETTING_KEYS, TOOL_PERMISSION_KEY, ...CONTEXT_SETTING_KEYS] as const;
+
+const numericSettingConstraints: Record<NumericSettingKey, { parse: (value: string) => number; min: number; max: number; error: string }> = {
+  maxChatTurns: { parse: (value) => parseInt(value, 10), min: 1, max: 500, error: 'Invalid max chat turns (must be between 1 and 500)' },
+  maxOutputTokens: { parse: (value) => parseInt(value, 10), min: 1, max: 100000, error: 'Invalid max output tokens (must be between 1 and 100000)' },
+  temperature: { parse: (value) => parseFloat(value), min: 0, max: 1, error: 'Invalid temperature (must be between 0 and 1)' },
+  topP: { parse: (value) => parseFloat(value), min: 0, max: 1, error: 'Invalid topP (must be between 0 and 1)' },
+  contextTopK: { parse: (value) => parseInt(value, 10), min: 1, max: 100, error: 'Invalid context top K (must be between 1 and 100)' },
+  contextTopN: { parse: (value) => parseInt(value, 10), min: 1, max: 50, error: 'Invalid context top N (must be between 1 and 50)' },
+  contextIncludeScore: { parse: (value) => parseFloat(value), min: 0, max: 1, error: 'Invalid context include score (must be between 0 and 1)' },
+};
+
+const isNumericSettingKey = (key: ChatSettingKey): key is NumericSettingKey =>
+  Object.prototype.hasOwnProperty.call(numericSettingConstraints, key);
+
+const parseSettingKey = (value: string): ChatSettingKey | null => {
+  return (ALL_SETTING_KEYS as readonly string[]).includes(value)
+    ? (value as ChatSettingKey)
+    : null;
 };
 
 async function toolsCommand(agent: Agent, chatSession: any, logger: WinstonLoggerAdapter) {
@@ -175,22 +183,6 @@ function indent(text: string, indent: number = 2, allLines: boolean = true): str
   return lines[0] + '\n' + lines.slice(1).map(line => ' '.repeat(indent) + line).join('\n');
 }
 
-function getSettingsValue(agent: Agent, key: string, defaultValue: number): number {
-  const settingsValue = agent.getSetting(key);
-  return settingsValue ? parseFloat(settingsValue) : defaultValue;
-}
-
-function getToolPermissionValue(agent: Agent, key: string, defaultValue: SessionToolPermission): SessionToolPermission {
-  const value = agent.getSetting(key);
-  if (!value) return defaultValue;
-  if (value !== SESSION_TOOL_PERMISSION_ALWAYS && 
-      value !== SESSION_TOOL_PERMISSION_NEVER && 
-      value !== SESSION_TOOL_PERMISSION_TOOL) {
-    return defaultValue;
-  }
-  return value as SessionToolPermission;
-}
-
 function getProviderByName(name: string): ProviderType | undefined {
   const providerType = Object.values(ProviderType).find(
     (p: ProviderType) => p.toLowerCase() === name.toLowerCase()
@@ -198,16 +190,24 @@ function getProviderByName(name: string): ProviderType | undefined {
   return providerType;
 }
 
+// Convert AgentSettings to ChatSessionOptionsWithRequiredSettings
+// Uses schema defaults (single source of truth) for any missing values
 function getAgentSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings {
+  const agentSettings = agent.getSettings();
+  const defaults = getDefaultSettings();
+  
+  // Merge agent settings with schema defaults - schema is single source of truth
+  const merged = { ...defaults, ...agentSettings };
+  
   return {
-    maxChatTurns: getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS),
-    maxOutputTokens: getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS),
-    temperature: getSettingsValue(agent, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE),
-    topP: getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P),
-    toolPermission: getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT),
-    contextTopK: getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_K),
-    contextTopN: getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_TOP_N),
-    contextIncludeScore: getSettingsValue(agent, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE)
+    maxChatTurns: merged.maxChatTurns!,
+    maxOutputTokens: merged.maxOutputTokens!,
+    temperature: merged.temperature!,
+    topP: merged.topP!,
+    toolPermission: merged.toolPermission!,
+    contextTopK: merged.contextTopK!,
+    contextTopN: merged.contextTopN!,
+    contextIncludeScore: merged.contextIncludeScore!
   };
 }
 
@@ -222,10 +222,9 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
   showHelp();
 
   const updatedMostRecentProvider = async (provider: ProviderType, modelId: string) => {
-    const mostRecentProvider = agent.getSetting(SETTINGS_KEY_MOST_RECENT_MODEL);
-    if (mostRecentProvider) {
-      await agent.setSetting(SETTINGS_KEY_MOST_RECENT_MODEL, `${provider}:${modelId}`);
-    }
+    await agent.updateSettings({
+      mostRecentModel: `${provider}:${modelId}`
+    });
   };
 
   let currentProvider: ProviderType | undefined;
@@ -459,42 +458,35 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
 
         case COMMANDS.SETTINGS:
           if (args.length === 0) {
-            const settings = chatSession.getState();
+            const sessionSettings = chatSession.getState();
+            const agentSettings = getAgentSettings(agent);
+            
             console.log(chalk.cyan('\nSettings:'));
-            const sessionMaxChatTurns = settings.maxChatTurns;
-            const agentMaxChatTurns = getSettingsValue(agent, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS);
-            const sessionMaxOutputTokens = settings.maxOutputTokens;
-            const agentMaxOutputTokens = getSettingsValue(agent, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS);
-            const sessionTemperature = settings.temperature;
-            const agentTemperature = getSettingsValue(agent, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE);
-            const sessionTopP = settings.topP;
-            const agentTopP = getSettingsValue(agent, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P);
-            const sessionToolPermission = settings.toolPermission;
-            const agentToolPermission = getToolPermissionValue(agent, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_DEFAULT);
-            const sessionContextTopK = settings.contextTopK;
-            const agentContextTopK = getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_K);
-            const sessionContextTopN = settings.contextTopN;
-            const agentContextTopN = getSettingsValue(agent, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_TOP_N);
-            const sessionContextIncludeScore = settings.contextIncludeScore;
-            const agentContextIncludeScore = getSettingsValue(agent, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE);
-            // Only if values are different, append "(agent default: <value>)"
-            const maxChatTurns = sessionMaxChatTurns === agentMaxChatTurns ? sessionMaxChatTurns : `${sessionMaxChatTurns} (overrides agent default: ${agentMaxChatTurns})`;
-            const maxOutputTokens = sessionMaxOutputTokens === agentMaxOutputTokens ? sessionMaxOutputTokens : `${sessionMaxOutputTokens} (overrides agent default: ${agentMaxOutputTokens})`;
-            const temperature = sessionTemperature === agentTemperature ? sessionTemperature : `${sessionTemperature} (overrides agent default: ${agentTemperature})`;
-            const topP = sessionTopP === agentTopP ? sessionTopP : `${sessionTopP} (overrides agent default: ${agentTopP})`;
-            const toolPermission = sessionToolPermission === agentToolPermission ? sessionToolPermission : `${sessionToolPermission} (overrides agent default: ${agentToolPermission})`;
-            const contextTopK = sessionContextTopK === agentContextTopK ? sessionContextTopK : `${sessionContextTopK} (overrides agent default: ${agentContextTopK})`;
-            const contextTopN = sessionContextTopN === agentContextTopN ? sessionContextTopN : `${sessionContextTopN} (overrides agent default: ${agentContextTopN})`;
-            const contextIncludeScore = sessionContextIncludeScore === agentContextIncludeScore ? sessionContextIncludeScore : `${sessionContextIncludeScore} (overrides agent default: ${agentContextIncludeScore})`;
-            console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_CHAT_TURNS}: ${maxChatTurns}`));
-            console.log(chalk.yellow(`  ${SETTINGS_KEY_MAX_OUTPUT_TOKENS}: ${maxOutputTokens}`));
-            console.log(chalk.yellow(`  ${SETTINGS_KEY_TEMPERATURE}: ${temperature}`));
-            console.log(chalk.yellow(`  ${SETTINGS_KEY_TOP_P}: ${topP}`));
-            console.log(chalk.yellow(`  ${SESSION_TOOL_PERMISSION_KEY}: ${toolPermission}`));
+            
+            // Helper to format setting display
+            const formatSetting = (sessionValue: any, agentValue: any): string => {
+              return sessionValue === agentValue 
+                ? String(sessionValue)
+                : `${sessionValue} (overrides agent default: ${agentValue})`;
+            };
+            
+            // Display main settings
+            MAIN_SETTING_KEYS.forEach((settingKey) => {
+              console.log(
+                chalk.yellow(`  ${settingKey}: ${formatSetting(sessionSettings[settingKey], agentSettings[settingKey])}`)
+              );
+            });
+            console.log(
+              chalk.yellow(`  ${TOOL_PERMISSION_KEY}: ${formatSetting(sessionSettings.toolPermission, agentSettings.toolPermission)}`)
+            );
+            
+            // Display context settings
             console.log(chalk.cyan('\n  Agent Context Selection:'));
-            console.log(chalk.yellow(`    ${SETTINGS_KEY_CONTEXT_TOP_K}: ${contextTopK}`));
-            console.log(chalk.yellow(`    ${SETTINGS_KEY_CONTEXT_TOP_N}: ${contextTopN}`));
-            console.log(chalk.yellow(`    ${SETTINGS_KEY_CONTEXT_INCLUDE_SCORE}: ${contextIncludeScore}`));
+            CONTEXT_SETTING_KEYS.forEach((settingKey) => {
+              console.log(
+                chalk.yellow(`    ${settingKey}: ${formatSetting(sessionSettings[settingKey], agentSettings[settingKey])}`)
+              );
+            });
             console.log('');
           } else if (args[0] == 'clear') {
             const settings = getAgentSettings(agent);
@@ -502,14 +494,16 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
             console.log(chalk.cyan('\nChat session settings restored to agent defaults'));
           } else if (args[0] == 'save') {
             const settings = chatSession.getState();
-            await agent.setSetting(SETTINGS_KEY_MAX_CHAT_TURNS, settings.maxChatTurns.toString());
-            await agent.setSetting(SETTINGS_KEY_MAX_OUTPUT_TOKENS, settings.maxOutputTokens.toString());
-            await agent.setSetting(SETTINGS_KEY_TEMPERATURE, settings.temperature.toString());
-            await agent.setSetting(SETTINGS_KEY_TOP_P, settings.topP.toString());
-            await agent.setSetting(SESSION_TOOL_PERMISSION_KEY, settings.toolPermission);
-            await agent.setSetting(SETTINGS_KEY_CONTEXT_TOP_K, settings.contextTopK.toString());
-            await agent.setSetting(SETTINGS_KEY_CONTEXT_TOP_N, settings.contextTopN.toString());
-            await agent.setSetting(SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, settings.contextIncludeScore.toString());
+            await agent.updateSettings({
+              maxChatTurns: settings.maxChatTurns,
+              maxOutputTokens: settings.maxOutputTokens,
+              temperature: settings.temperature,
+              topP: settings.topP,
+              toolPermission: settings.toolPermission,
+              contextTopK: settings.contextTopK,
+              contextTopN: settings.contextTopN,
+              contextIncludeScore: settings.contextIncludeScore
+            });
             console.log(chalk.cyan('\nChat session settings saved to agent'));
           } else {
             console.log(chalk.cyan('\nUnknown settings command: '), chalk.yellow(args[1]));
@@ -517,71 +511,46 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           break;
 
         case COMMANDS.SETTING:
-          const key = args[0];
-          const value = args[1];
-          const settings = chatSession.getState();
-          if (key == SETTINGS_KEY_MAX_CHAT_TURNS) {
-            const maxChatTurns = parseInt(value);
-            if (isNaN(maxChatTurns) || maxChatTurns < 1 || maxChatTurns > 500) {
-              console.log(chalk.red('Invalid max chat turns (must be between 1 and 500): '), chalk.yellow(value));
+          {
+            const keyInput = args[0];
+            const valueInput = args[1];
+            if (!keyInput || valueInput === undefined) {
+              console.log(chalk.red('Usage: /setting <key> <value>'));
               break;
             }
-            chatSession.updateSettings({...settings, maxChatTurns});
-          } else if (key == SETTINGS_KEY_MAX_OUTPUT_TOKENS) {
-            const maxOutputTokens = parseInt(value);
-            if (isNaN(maxOutputTokens) || maxOutputTokens < 1 || maxOutputTokens > 100000) {
-              console.log(chalk.red('Invalid max output tokens (must be between 1 and 100000): '), chalk.yellow(value));
+
+            const parsedKey = parseSettingKey(keyInput);
+            if (!parsedKey) {
+              console.log(chalk.red('Unknown setting: '), chalk.yellow(keyInput));
               break;
             }
-            chatSession.updateSettings({...settings, maxOutputTokens});
-          } else if (key == SETTINGS_KEY_TEMPERATURE) {
-            const temperature = parseFloat(value);
-            if (isNaN(temperature) || temperature < 0 || temperature > 1) {
-              console.log(chalk.red('Invalid temperature (must be between 0 and 1): '), chalk.yellow(value));
-              break;
+
+            const settings = chatSession.getState();
+
+            if (isNumericSettingKey(parsedKey)) {
+              const constraint = numericSettingConstraints[parsedKey];
+              const parsedValue = constraint.parse(valueInput);
+              if (isNaN(parsedValue) || parsedValue < constraint.min || parsedValue > constraint.max) {
+                console.log(chalk.red(`${constraint.error}: `), chalk.yellow(valueInput));
+                break;
+              }
+              chatSession.updateSettings({ ...settings, [parsedKey]: parsedValue });
+            } else if (parsedKey === TOOL_PERMISSION_KEY) {
+              const parseResult = SessionToolPermissionSchema.safeParse(valueInput);
+              if (!parseResult.success) {
+                // Extract valid values from the schema enum definition
+                const validValues = (SessionToolPermissionSchema._def as any).values.join(', ');
+                console.log(
+                  chalk.red('Invalid tool permission: '),
+                  chalk.yellow(valueInput),
+                  chalk.dim(` (must be one of: ${validValues})`)
+                );
+                break;
+              }
+              chatSession.updateSettings({ ...settings, toolPermission: parseResult.data });
             }
-            chatSession.updateSettings({...settings, temperature});
-          } else if (key == SETTINGS_KEY_TOP_P) {
-            const topP = parseFloat(value);
-            if (isNaN(topP) || topP < 0 || topP > 1) {
-              console.log(chalk.red('Invalid topP (must be between 0 and 1): '), chalk.yellow(value));
-              break;
-            }
-            chatSession.updateSettings({...settings, topP});
-          } else if (key == SESSION_TOOL_PERMISSION_KEY) {
-            if (value !== SESSION_TOOL_PERMISSION_ALWAYS && 
-                value !== SESSION_TOOL_PERMISSION_NEVER && 
-                value !== SESSION_TOOL_PERMISSION_TOOL) {
-              console.log(chalk.red('Invalid tool permission (must be one of: always, never, tool): '), chalk.yellow(value));
-              break;
-            }
-            chatSession.updateSettings({...settings, toolPermission: value as SessionToolPermission});
-          } else if (key == SETTINGS_KEY_CONTEXT_TOP_K) {
-            const contextTopK = parseInt(value);
-            if (isNaN(contextTopK) || contextTopK < 1 || contextTopK > 100) {
-              console.log(chalk.red('Invalid context top K (must be between 1 and 100): '), chalk.yellow(value));
-              break;
-            }
-            chatSession.updateSettings({...settings, contextTopK});
-          } else if (key == SETTINGS_KEY_CONTEXT_TOP_N) {
-            const contextTopN = parseInt(value);
-            if (isNaN(contextTopN) || contextTopN < 1 || contextTopN > 50) {
-              console.log(chalk.red('Invalid context top N (must be between 1 and 50): '), chalk.yellow(value));
-              break;
-            }
-            chatSession.updateSettings({...settings, contextTopN});
-          } else if (key == SETTINGS_KEY_CONTEXT_INCLUDE_SCORE) {
-            const contextIncludeScore = parseFloat(value);
-            if (isNaN(contextIncludeScore) || contextIncludeScore < 0 || contextIncludeScore > 1) {
-              console.log(chalk.red('Invalid context include score (must be between 0 and 1): '), chalk.yellow(value));
-              break;
-            }
-            chatSession.updateSettings({...settings, contextIncludeScore});
-          } else {
-            console.log(chalk.red('Unknown setting: '), chalk.yellow(key));
-            break;
+            console.log(chalk.green(`Set ${parsedKey} to`), chalk.yellow(valueInput));
           }
-          console.log(chalk.green(`Set ${key} to`), chalk.yellow(value));
           break;
 
         case COMMANDS.STATS:
@@ -973,11 +942,11 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               });
               
               if (answer.toLowerCase() === 's') {
-                decision = TOOL_CALL_DECISION_ALLOW_SESSION;
+                decision = 'allow-session';
               } else if (answer.toLowerCase() === 'o') {
-                decision = TOOL_CALL_DECISION_ALLOW_ONCE;
+                decision = 'allow-once';
               } else if (answer.toLowerCase() === 'd') {
-                decision = TOOL_CALL_DECISION_DENY;
+                decision = 'deny';
               } else {
                 console.log(chalk.red('Invalid answer. Please enter s, o, or d.'));
               }

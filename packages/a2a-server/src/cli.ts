@@ -1,7 +1,5 @@
 #!/usr/bin/env node
 
-import { AGENT_FILE_NAME } from '@tsagent/core';
-
 import { A2AServer, MultiA2AServer } from './index.js';
 import { ConsoleLogger } from './logger.js';
 
@@ -49,7 +47,7 @@ Usage:
   tsagent-server <agent-path> [agent-path...] [options]
 
 Arguments:
-  agent-path          Path to the agent directory (at least one required)
+  agent-path          Path to the agent file (at least one required)
 
 Options:
   --port, -p <number> Port to run the server on (default: 4000)
@@ -67,12 +65,6 @@ Examples:
   
   # Single agent with custom port
   tsagent-server /path/to/my-agent --port 5000
-
-The agent directory should contain:
-  - ${AGENT_FILE_NAME} (agent configuration)
-  - prompt.md (system prompt)
-  - rules/ (optional rules directory)
-  - refs/ (optional references directory)
 
 Multi-Agent Mode:
   When multiple agents are provided, each agent will be available at:

@@ -30,17 +30,17 @@ npm install @tsagent/server
 ### Command Line Interface
 
 ```bash
-# Single agent (backward compatible)
-npx @tsagent/server /path/to/my-agent
+# Single agent
+npx @tsagent/server /path/to/my-agent.yaml
 
 # Multiple agents
-npx @tsagent/server /path/to/agent1 /path/to/agent2 /path/to/agent3
+npx @tsagent/server /path/to/agent1.yaml /path/to/agent2.yaml /path/to/agent3.yaml
 
 # Multiple agents with custom port
-npx @tsagent/server --port 3000 /path/to/agent1 /path/to/agent2
+npx @tsagent/server --port 3000 /path/to/agent1.yaml /path/to/agent2.yaml
 
 # Single agent with custom port
-npx @tsagent/server /path/to/my-agent --port 5000
+npx @tsagent/server /path/to/my-agent.yaml --port 5000
 
 # Show help
 npx @tsagent/server --help
@@ -54,7 +54,7 @@ npx @tsagent/server --help
 import { A2AServer } from '@tsagent/server';
 
 // Create and start a server for a single agent
-const server = new A2AServer('/path/to/agent', 4000);
+const server = new A2AServer('/path/to/agent.yaml', 4000);
 await server.start();
 
 console.log('A2A Server started on port 4000');
@@ -69,28 +69,49 @@ import { MultiA2AServer } from '@tsagent/server';
 const server = new MultiA2AServer();
 
 // Add agents
-await server.addAgent('/path/to/agent1', 'agent1');
-await server.addAgent('/path/to/agent2', 'agent2');
+await server.addAgent('/path/to/agent1.yaml', 'agent1');
+await server.addAgent('/path/to/agent2.yaml', 'agent2');
 
 // Start the server
 await server.start(4000);
 ```
 
-## Agent Directory Structure
+## Agent Configuration
 
-Each agent directory should contain:
+Agents are configured using a single YAML file (`.yaml` or `.yml`). All agent content (system prompt, rules, references) is embedded in the file:
 
+```yaml
+metadata:
+  name: "My Assistant"
+  description: "A helpful AI assistant"
+  # ... other metadata fields
+
+systemPrompt: |
+  You are a helpful AI assistant.
+  This is a multi-line system prompt.
+  Supports markdown formatting.
+
+rules:
+  - name: "example-rule"
+    description: "An example rule"
+    priorityLevel: 500
+    text: |
+      Rule content here.
+      Supports markdown.
+    include: "always"
+
+references:
+  - name: "example-reference"
+    description: "An example reference"
+    priorityLevel: 500
+    text: |
+      Reference content here.
+      Supports markdown.
+    include: "manual"
+
+# ... providers, mcpServers, etc.
 ```
-/path/to/agent/
-├── tsagent.json         # Agent configuration
-├── prompt.md            # System prompt
-├── rules/               # Optional rules directory
-│   ├── rule1.md
-│   └── rule2.md
-└── refs/                # Optional references directory
-    ├── ref1.md
-    └── ref2.md
-```
+
 
 ## A2A Protocol Endpoints
 
@@ -113,7 +134,7 @@ When running multiple agents, each agent has its own path:
 Usage: @tsagent/server <agent-path> [agent-path...] [options]
 
 Arguments:
-  agent-path          Path to the agent directory (at least one required)
+  agent-path          Path to the agent file (.yaml or .yml) (at least one required)
 
 Options:
   --port, -p <number> Port to run the server on (default: 4000)
@@ -126,7 +147,7 @@ Options:
 
 ```bash
 # Start server with a single agent
-npx @tsagent/server ./my-agent --port 4000
+npx @tsagent/server ./my-agent.yaml --port 4000
 
 # The agent will be available at:
 # - http://localhost:4000/.well-known/agent-card.json
@@ -136,7 +157,7 @@ npx @tsagent/server ./my-agent --port 4000
 
 ```bash
 # Start server with multiple agents
-npx @tsagent/server ./assistant-agent ./coding-agent ./research-agent --port 4000
+npx @tsagent/server ./assistant-agent.yaml ./coding-agent.yaml ./research-agent.yaml --port 4000
 
 # Each agent will be available at:
 # - http://localhost:4000/agents/assistant-agent/.well-known/agent-card.json

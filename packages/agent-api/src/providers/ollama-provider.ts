@@ -3,7 +3,7 @@ import { Tool } from '@modelcontextprotocol/sdk/types.js';
 import { ChatResponse, Message, Ollama, Tool as OllamaTool } from 'ollama';
 
 import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat.js';
+import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
@@ -192,10 +192,10 @@ export class OllamaProvider implements Provider {
             ]
           });
 
-          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
+          if (toolCallApproval.decision === 'allow-session') {
             session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
           }
-          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
+          if (toolCallApproval.decision === 'allow-session' || toolCallApproval.decision === 'allow-once') {
             // Run the tool
             const toolResult = await ProviderHelper.callTool(this.agent, functionName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
@@ -218,7 +218,7 @@ export class OllamaProvider implements Provider {
                 content: resultText,
               });
             }
-          } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+          } else if (toolCallApproval.decision === 'deny') {
             // Record the tool call and "denied" result
             turn.results!.push({
               type: 'toolCall',

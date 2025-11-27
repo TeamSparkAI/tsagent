@@ -1,7 +1,7 @@
 {
   "name": "tsagent-foundry",
   "productName": "TsAgent Foundry",
-  "version": "1.2.13",
+  "version": "1.2.14",
   "description": "Agent builder application supporting multi-LLMs, tool calling, and agent orchestration",
   "author": {
     "name": "TeamSpark",
@@ -34,7 +34,7 @@
     "webpack-cli": "^6.0.1"
   },
   "dependencies": {
-    "@tsagent/core": "^1.2.13",
+    "@tsagent/core": "^1.2.14",
     "@teamsparkai/1password": "^1.0.1",
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock": "^3.787.0",

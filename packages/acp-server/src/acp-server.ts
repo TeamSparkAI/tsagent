@@ -1,5 +1,5 @@
 import { Agent, Logger } from '@tsagent/core';
-import { loadAgent } from '@tsagent/core/runtime';
+import { loadAndInitializeAgent } from '@tsagent/core/runtime';
 import { AgentSideConnection, ndJsonStream, type Agent as ACPAgent, type InitializeRequest, type InitializeResponse, type NewSessionRequest, type NewSessionResponse, type PromptRequest, type PromptResponse, type CancelNotification } from '@agentclientprotocol/sdk';
 import { SessionManager, ACPSession } from './session-manager.js';
 import { ConsoleLogger } from './logger.js';
@@ -203,7 +203,7 @@ export class ACPServer {
     try {
       // Load the agent
       this.logger.info(`Loading agent from: ${this.agentPath}`);
-      this.agent = await loadAgent(this.agentPath, this.logger);
+      this.agent = await loadAndInitializeAgent(this.agentPath, this.logger);
       this.logger.info(`Agent loaded successfully: ${this.agent.name}`);
 
       // Initialize session manager

@@ -13,7 +13,7 @@ import {
 import { A2AExpressApp } from '@a2a-js/sdk/server/express';
 import { AgentCard, Message } from '@a2a-js/sdk';
 import { Agent } from '@tsagent/core';
-import { loadAgent } from '@tsagent/core/runtime';
+import { loadAndInitializeAgent } from '@tsagent/core/runtime';
 
 import { ConsoleLogger } from './logger.js';
 
@@ -291,7 +291,7 @@ export class MultiA2AServer {
   public async registerAgent(agentPath: string): Promise<void> {
     try {
       this.logger.info(`Loading agent from: ${agentPath}`);
-      const agent = await loadAgent(agentPath, this.logger);
+      const agent = await loadAndInitializeAgent(agentPath, this.logger);
       this.logger.info(`Agent loaded successfully: ${agent.name}`);
       
       // Generate deterministic path segment based on agent path and name
@@ -420,7 +420,7 @@ export class A2AServer {
   private async initialize(agentPath: string): Promise<void> {
     try {
       this.logger.info(`Loading agent from: ${agentPath}`);
-      this.agent = await loadAgent(agentPath, this.logger);
+      this.agent = await loadAndInitializeAgent(agentPath, this.logger);
       this.logger.info(`Agent loaded successfully: ${this.agent.name}`);
       
       // Load agent metadata

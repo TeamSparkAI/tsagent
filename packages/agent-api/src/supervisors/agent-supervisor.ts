@@ -2,7 +2,7 @@ import { Supervisor, RequestSupervisionResult, ResponseSupervisionResult, Superv
 import { ChatSession, ChatMessage, MessageUpdate } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
-import { loadAgent } from '../runtime.js';
+import { loadAgent, loadAndInitializeAgent } from '../runtime.js';
 
 export interface AgentSupervisorConfig {
   systemPrompt: string;
@@ -37,7 +37,7 @@ export class AgentSupervisor implements Supervisor {
     }
     
     // Load the supervisor agent from the specified path
-    this.agent = await loadAgent(this.agentPath, this.logger);
+    this.agent = await loadAndInitializeAgent(this.agentPath, this.logger);
     
     this.initialized = true;
     this.logger.info(`Initialized agent supervisor: ${this.agentPath}`);

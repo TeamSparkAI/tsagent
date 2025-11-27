@@ -1,23 +1,10 @@
 import { ModelReply, Provider, ProviderType } from '../providers/types.js';
-import { 
-  SETTINGS_KEY_MAX_CHAT_TURNS, 
-  SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
-  SETTINGS_KEY_TOP_P, SessionToolPermission, 
-  SETTINGS_KEY_TEMPERATURE, 
-  SETTINGS_KEY_CONTEXT_TOP_K,
-  SETTINGS_KEY_CONTEXT_TOP_N,
-  SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
-  SESSION_TOOL_PERMISSION_KEY 
-} from './agent.js';
+import { SessionToolPermission } from './agent.js';
 import { RequestContext, SessionContextItem } from './context.js';
 
 // These represent the Electron-side chat history (requests and responses)
 
-export const TOOL_CALL_DECISION_ALLOW_SESSION = 'allow-session';
-export const TOOL_CALL_DECISION_ALLOW_ONCE = 'allow-once';
-export const TOOL_CALL_DECISION_DENY = 'deny';
-
-export type ToolCallDecision = typeof TOOL_CALL_DECISION_ALLOW_SESSION | typeof TOOL_CALL_DECISION_ALLOW_ONCE | typeof TOOL_CALL_DECISION_DENY;
+export type ToolCallDecision = 'allow-session' | 'allow-once' | 'deny';
 
 export interface ToolCallApproval extends ToolCallRequest {
   decision: ToolCallDecision;
@@ -57,14 +44,14 @@ export interface MessageUpdate {
 }
 
 export interface ChatSessionSettings {
-    [SETTINGS_KEY_MAX_CHAT_TURNS]: string;
-    [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: string;
-    [SETTINGS_KEY_TEMPERATURE]: string;
-    [SETTINGS_KEY_TOP_P]: string;
-    [SETTINGS_KEY_CONTEXT_TOP_K]: string;
-    [SETTINGS_KEY_CONTEXT_TOP_N]: string;
-    [SETTINGS_KEY_CONTEXT_INCLUDE_SCORE]: string;
-    [SESSION_TOOL_PERMISSION_KEY]?: SessionToolPermission;
+  maxChatTurns: string;
+  maxOutputTokens: string;
+  temperature: string;
+  topP: string;
+  contextTopK: string;
+  contextTopN: string;
+  contextIncludeScore: string;
+  toolPermission?: SessionToolPermission;
 }
 
 export interface ChatSessionOptions {

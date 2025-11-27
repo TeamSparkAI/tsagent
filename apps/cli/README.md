@@ -61,14 +61,14 @@ npx @tsagent/cli
 # Or if installed globally
 tsagent-cli
 
-# Start CLI with specific agent path
-npx @tsagent/cli --agent /path/to/agent
+# Start CLI with specific agent file path
+npx @tsagent/cli --agent /path/to/agent.yaml
 
 # Create new agent
 npx @tsagent/cli --create
 
-# Create new agent in specific directory
-npx @tsagent/cli --agent /path/to/new/agent --create
+# Create new agent with specific file path
+npx @tsagent/cli --agent /path/to/new-agent.yaml --create
 
 # Enable verbose logging
 npx @tsagent/cli --verbose
@@ -76,7 +76,7 @@ npx @tsagent/cli --verbose
 
 ### Command Line Options
 
-- `--agent <path>`: Specify agent directory path (defaults to current working directory)
+- `--agent <path>`: Specify agent file path (`.yaml` or `.yml`) (defaults to current working directory)
 - `--create`: Create new agent if it doesn't exist
 - `--verbose`: Enable verbose logging
 - `--help`: Show help information
@@ -121,13 +121,16 @@ Once in the CLI, you can use the following commands:
 
 ### Agent Configuration
 
-Agents are configured using a `tsagent.json` file in the agent directory. This file contains:
+Agents are configured using a single YAML file (`.yaml` or `.yml`). This file contains:
 
 - Agent metadata (name, description, etc.)
+- System prompt (embedded)
+- Rules (embedded array)
+- References (embedded array)
 - Provider configurations
 - MCP server configurations
-- Rules and references
 - Default settings
+
 
 ### Logging
 

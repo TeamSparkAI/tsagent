@@ -2,7 +2,7 @@
 // Runtime code (that requires node.js) is exported from './runtime'
 
 // Export agent types
-export type { Agent, AgentConfig, AgentMetadata, AgentSkill, AgentTool, AgentMode, SessionToolPermission } from './types/agent.js';
+export type { Agent, AgentConfig, AgentMetadata, AgentSettings, AgentSkill, AgentTool, AgentMode, SessionToolPermission } from './types/agent.js';
 
 // Export JSON Schema types
 export type { JsonSchemaDefinition, ToolInputSchema } from './types/json-schema.js';
@@ -16,10 +16,12 @@ export type { ProviderInfo, ProviderModel, ModelReply } from './providers/types.
 
 // Export rule and reference types
 export type { Rule } from './types/rules.js';
+export { RuleSchema } from './types/rules.js';
 export type { Reference } from './types/references.js';
+export { ReferenceSchema } from './types/references.js';
 
 // Export chat types
-export { 
+export type { 
   ChatMessage,
   MessageUpdate,
   ToolCallDecision,
@@ -29,10 +31,7 @@ export {
   ToolCallRequest,
   ChatState,
   ChatSessionOptionsWithRequiredSettings,
-  ChatSessionResponse,
-  TOOL_CALL_DECISION_ALLOW_SESSION, 
-  TOOL_CALL_DECISION_ALLOW_ONCE, 
-  TOOL_CALL_DECISION_DENY
+  ChatSessionResponse
  } from './types/chat.js';
 
 // Export context types
@@ -43,12 +42,9 @@ export type {
   RequestContext
  } from './types/context.js';
 
-// Export semantic indexer types
-// Note: SemanticIndexer class is NOT exported here - it's only used internally in AgentImpl
-// Exporting it would pull in Node.js dependencies that can't run in the browser/renderer
-export type { 
-  IndexedChunk
-} from './managers/semantic-indexer.js';
+// Note: SemanticIndexer class and computeTextHash are NOT exported here
+// They are only used internally in AgentImpl and client-manager (main process only)
+// Exporting them would pull in Node.js dependencies that can't run in the browser/renderer
 
 // Export MCP types and constants 
 export { 
@@ -63,11 +59,6 @@ export {
   ToolPermissionSetting,
   ServerToolIncludeConfig,
   ServerToolPermissionRequiredConfig,
-  SERVER_PERMISSION_REQUIRED,
-  SERVER_PERMISSION_NOT_REQUIRED,
-  TOOL_PERMISSION_SERVER_DEFAULT,
-  TOOL_PERMISSION_REQUIRED,
-  TOOL_PERMISSION_NOT_REQUIRED,
   isToolPermissionServerDefaultRequired,
   getToolPermissionState,
   isToolPermissionRequired,
@@ -79,34 +70,11 @@ export {
   isToolAvailableForAgent
 } from './mcp/types.js';
 
-// Export constants that are needed by implementation
+// Export constants and validation functions that are needed by implementation
 export {
-  SETTINGS_KEY_MAX_CHAT_TURNS,
-  SETTINGS_KEY_MAX_OUTPUT_TOKENS,
-  SETTINGS_KEY_TEMPERATURE,
-  SETTINGS_KEY_TOP_P,
-  SETTINGS_KEY_CONTEXT_TOP_K,
-  SETTINGS_KEY_CONTEXT_TOP_N,
-  SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
-  SETTINGS_KEY_THEME,
-  SETTINGS_KEY_SYSTEM_PATH,
-  SETTINGS_KEY_MOST_RECENT_MODEL,
-  SESSION_TOOL_PERMISSION_KEY,
-  SESSION_TOOL_PERMISSION_ALWAYS,
-  SESSION_TOOL_PERMISSION_NEVER,
-  SESSION_TOOL_PERMISSION_TOOL,
-  SESSION_TOOL_PERMISSION_DEFAULT,
-  SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-  SETTINGS_DEFAULT_TEMPERATURE,
-  SETTINGS_DEFAULT_TOP_P,
-  SETTINGS_DEFAULT_CONTEXT_TOP_K,
-  SETTINGS_DEFAULT_CONTEXT_TOP_N,
-  SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
+  getDefaultSettings,
+  SessionToolPermissionSchema
 } from './types/agent.js';
 
 // Export function to populate model from settings
 export { populateModelFromSettings } from './types/agent.js';
-
-// Export agent filename constant
-export const AGENT_FILE_NAME = 'tsagent.json';

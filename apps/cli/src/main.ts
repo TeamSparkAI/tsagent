@@ -3,9 +3,8 @@
 import { program } from 'commander';
 import path from 'path';
 import chalk from 'chalk';
-import { agentExists, loadAgent, createAgent } from '@tsagent/core/runtime';
+import { agentExists, loadAndInitializeAgent, createAgent } from '@tsagent/core/runtime';
 import { Agent } from '@tsagent/core';
-import { AGENT_FILE_NAME } from '@tsagent/core';
 import { WinstonLoggerAdapter } from './logger.js';
 import { setupCLI } from './cli.js';
 
@@ -57,8 +56,8 @@ async function main() {
     try {
       // First check if agent exists
       if (!(await agentExists(agentPath))) {
-        console.log(chalk.red(`${PRODUCT_NAME} failed to locate agent (${AGENT_FILE_NAME}) in directory: `), agentPath);
-        console.log(chalk.dim('  Use '), chalk.bold('--agent <path>'), chalk.dim(` absolute or relative path to a agent directory (where ${AGENT_FILE_NAME} will be found or created)`));
+        console.log(chalk.red(`${PRODUCT_NAME} failed to locate agen tat path: agentPath`));
+        console.log(chalk.dim('  Use '), chalk.bold('--agent <path>'), chalk.dim(` absolute or relative path to an agent file, where the agent will be found or created)`));
         console.log(chalk.dim('  Use '), chalk.bold('--create'), chalk.dim(' to create a new agent in the specified directory, or current working directory if agent path not specified'));
         logger.error(`Agent not found at path: ${agentPath}`);
         process.exit(1);
@@ -66,7 +65,7 @@ async function main() {
       
       // Agent exists, try to load it
       logger.info('Loading existing agent');
-      agent = await loadAgent(agentPath, logger);
+      agent = await loadAndInitializeAgent(agentPath, logger);
     } catch (error) {
       console.log(chalk.red(`Error loading agent: ${error instanceof Error ? error.message : 'Unknown error'}`));
       logger.error('Error loading agent:', error);

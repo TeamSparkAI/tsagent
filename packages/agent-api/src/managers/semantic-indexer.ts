@@ -7,15 +7,15 @@ import type { Logger } from '../types/common.js';
 import { McpClient } from '../mcp/types.js';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 /**
- * Indexed chunk with embedding
- * Used for storing embeddings on rules/references
+ * Compute SHA-256 hash of text chunk (used for embedding validation)
+ * @param text The text to hash
+ * @returns Hexadecimal hash string
  */
-export interface IndexedChunk {
-  text: string;
-  embedding: number[];
-  chunkIndex: number;
+export function computeTextHash(text: string): string {
+  return crypto.createHash('sha256').update(text).digest('hex');
 }
 
 /**
@@ -213,7 +213,7 @@ export class SemanticIndexer {
 
     // Chunk the text appropriately
     const textChunks = this.chunkContextItemText(fullText);
-    const indexedChunks: IndexedChunk[] = [];
+    const embeddings: number[][] = [];
     
     // Generate embeddings for each chunk
     for (let i = 0; i < textChunks.length; i++) {
@@ -221,18 +221,14 @@ export class SemanticIndexer {
       
       try {
         const embeddingResult = await this.generateEmbedding(chunk);
-        indexedChunks.push({
-          text: chunk,
-          embedding: embeddingResult.embedding,
-          chunkIndex: i,
-        });
+        embeddings.push(embeddingResult.embedding);
       } catch (error) {
         this.logger.error(`Failed to generate embedding for chunk ${i} of rule ${rule.name}:`, error);
       }
     }
 
-    // Store embeddings on the rule
-    rule.embeddings = indexedChunks;
+    // Store embeddings on the rule (just the vectors, no text/chunkIndex)
+    rule.embeddings = embeddings;
     return true;
   }
 
@@ -259,7 +255,7 @@ export class SemanticIndexer {
 
     // Chunk the text appropriately
     const textChunks = this.chunkContextItemText(fullText);
-    const indexedChunks: IndexedChunk[] = [];
+    const embeddings: number[][] = [];
     
     // Generate embeddings for each chunk
     for (let i = 0; i < textChunks.length; i++) {
@@ -267,18 +263,14 @@ export class SemanticIndexer {
       
       try {
         const embeddingResult = await this.generateEmbedding(chunk);
-        indexedChunks.push({
-          text: chunk,
-          embedding: embeddingResult.embedding,
-          chunkIndex: i,
-        });
+        embeddings.push(embeddingResult.embedding);
       } catch (error) {
         this.logger.error(`Failed to generate embedding for chunk ${i} of reference ${reference.name}:`, error);
       }
     }
 
-    // Store embeddings on the reference
-    reference.embeddings = indexedChunks;
+    // Store embeddings on the reference (just the vectors, no text/chunkIndex)
+    reference.embeddings = embeddings;
     return true;
   }
 
@@ -307,14 +299,13 @@ export class SemanticIndexer {
 
     try {
       const embeddingResult = await this.generateEmbedding(text);
-      const indexedChunk: IndexedChunk = {
-        text: text,
-        embedding: embeddingResult.embedding,
-        chunkIndex: 0,
-      };
+      const hash = computeTextHash(text);
       
-      // Store embeddings on the client
-      client.toolEmbeddings.set(tool.name, [indexedChunk]);
+      // Store embeddings and hash on the client (number[][] format, matching rules/references)
+      client.toolEmbeddings.set(tool.name, {
+        embeddings: [embeddingResult.embedding],
+        hash: hash
+      });
       return true;
     } catch (error) {
       this.logger.error(`Failed to generate embedding for tool ${tool.name}:`, error);
@@ -323,11 +314,10 @@ export class SemanticIndexer {
   }
 
   /**
-   * Index context items (JIT - generates embeddings if missing)
-   * Works with SessionContextItem[] and accesses underlying Rule/Reference/Tool objects via agent
-   * Note: Requires embeddings fields on items/clients (added in Phases 5b/5c)
+   * Check which items need indexing (without loading the model)
+   * Returns array of items that need indexing
    */
-  async indexContextItems(items: SessionContextItem[], agent: Agent): Promise<void> {
+  private checkItemsNeedingIndex(items: SessionContextItem[], agent: Agent): SessionContextItem[] {
     const toIndex: SessionContextItem[] = [];
 
     // Collect items that need indexing
@@ -354,14 +344,30 @@ export class SemanticIndexer {
       }
     }
 
-    if (toIndex.length === 0) {
+    return toIndex;
+  }
+
+  /**
+   * Index context items (JIT - generates embeddings if missing)
+   * Works with SessionContextItem[] and accesses underlying Rule/Reference/Tool objects via agent
+   * Note: Requires embeddings fields on items/clients (added in Phases 5b/5c)
+   * Only loads the model if items actually need indexing
+   * 
+   * @param items - Items to index (should already be filtered to only items needing index)
+   * @param agent - Agent to access rules/references/tools from
+   */
+  async indexContextItems(items: SessionContextItem[], agent: Agent): Promise<void> {
+    if (items.length === 0) {
       return;
     }
 
-    this.logger.debug(`Indexing ${toIndex.length} context item(s)`);
+    this.logger.debug(`Indexing ${items.length} context item(s)`);
+
+    // Track which tools were indexed (for persisting to config)
+    const indexedTools: Array<{ serverName: string; toolName: string }> = [];
 
     // Index items by type
-    for (const item of toIndex) {
+    for (const item of items) {
       try {
         if (item.type === 'rule') {
           const rule = agent.getRule(item.name);
@@ -380,7 +386,10 @@ export class SemanticIndexer {
             // Find the tool in the client's serverTools
             const tool = client.serverTools?.find(t => t.name === item.name);
             if (tool) {
-              await this.indexTool(tool, client);
+              const wasIndexed = await this.indexTool(tool, client);
+              if (wasIndexed) {
+                indexedTools.push({ serverName: item.serverName, toolName: item.name });
+              }
             }
           }
         }
@@ -388,6 +397,64 @@ export class SemanticIndexer {
         this.logger.error(`Failed to index ${item.type} ${item.name}:`, error);
       }
     }
+
+    // Persist tool embeddings to config after batch indexing
+    if (indexedTools.length > 0) {
+      const clients = agent.getAllMcpClientsSync();
+      const serversToUpdate = new Map<string, Set<string>>(); // serverName -> Set of toolNames
+
+      // Collect tools by server
+      for (const { serverName, toolName } of indexedTools) {
+        if (!serversToUpdate.has(serverName)) {
+          serversToUpdate.set(serverName, new Set());
+        }
+        serversToUpdate.get(serverName)!.add(toolName);
+      }
+
+      // Update each server config
+      for (const [serverName, toolNames] of serversToUpdate) {
+        try {
+          const serverConfig = await agent.getMcpServer(serverName);
+          if (!serverConfig) {
+            this.logger.warn(`Server ${serverName} not found, skipping tool embeddings persistence`);
+            continue;
+          }
+
+          const client = clients[serverName];
+          if (!client || !client.toolEmbeddings) {
+            continue;
+          }
+
+          // Initialize toolEmbeddings in config if needed
+          if (!serverConfig.config.toolEmbeddings) {
+            serverConfig.config.toolEmbeddings = { tools: {} };
+          }
+          if (!serverConfig.config.toolEmbeddings.tools) {
+            serverConfig.config.toolEmbeddings.tools = {};
+          }
+
+          // Update each tool's embeddings in config
+          for (const toolName of toolNames) {
+            const embeddingData = client.toolEmbeddings.get(toolName);
+            if (embeddingData) {
+              serverConfig.config.toolEmbeddings.tools![toolName] = {
+                embeddings: embeddingData.embeddings,
+                hash: embeddingData.hash
+              };
+            }
+          }
+
+          // Save the updated server config
+          await agent.saveMcpServer(serverConfig);
+        } catch (error) {
+          this.logger.error(`Failed to persist tool embeddings for server ${serverName}:`, error);
+        }
+      }
+    }
+
+    // Save agent config after batch indexing to persist embeddings
+    // This ensures all embeddings generated in this batch are saved in a single operation
+    await agent.save();
   }
 
   /**
@@ -419,14 +486,18 @@ export class SemanticIndexer {
     const includeScore = options.includeScore ?? 0.7;  // Default: always include items with score >= 0.7
     const startTime = Date.now();
     
-    // Step 1: Ensure all items are indexed (JIT indexing)
-    await this.indexContextItems(items, agent);
+    // Step 1: Check if any items need indexing (before loading model)
+    const itemsNeedingIndex = this.checkItemsNeedingIndex(items, agent);
     
-    // Step 2: Collect all chunks from items with their context item metadata
+    // Step 2: Only index if items actually need indexing (JIT - loads model only when needed)
+    if (itemsNeedingIndex.length > 0) {
+      await this.indexContextItems(itemsNeedingIndex, agent);
+    }
+    
+    // Step 3: Collect all chunks from items with their context item metadata
     const allContextItemChunks: Array<{
       item: SessionContextItem;
       chunkIndex: number;
-      text: string;
       embedding: number[];
     }> = [];
 
@@ -436,50 +507,49 @@ export class SemanticIndexer {
     for (const item of items) {
       if (item.type === 'rule') {
         const rule = agent.getRule(item.name);
-        if (rule && rule.embeddings) {
-          for (const chunk of rule.embeddings) {
+        if (rule && rule.embeddings && rule.embeddings.length > 0) {
+          rule.embeddings.forEach((embedding, chunkIndex) => {
             allContextItemChunks.push({
               item,
-              chunkIndex: chunk.chunkIndex,
-              text: chunk.text,
-              embedding: chunk.embedding,
+              chunkIndex,
+              embedding,
             });
-          }
+          });
         }
       } else if (item.type === 'reference') {
         const reference = agent.getReference(item.name);
-        if (reference && reference.embeddings) {
-          for (const chunk of reference.embeddings) {
+        if (reference && reference.embeddings && reference.embeddings.length > 0) {
+          reference.embeddings.forEach((embedding, chunkIndex) => {
             allContextItemChunks.push({
               item,
-              chunkIndex: chunk.chunkIndex,
-              text: chunk.text,
-              embedding: chunk.embedding,
+              chunkIndex,
+              embedding,
             });
-          }
+          });
         }
       } else if (item.type === 'tool') {
         const client = clients[item.serverName];
         if (client && client.toolEmbeddings) {
-          const chunks = client.toolEmbeddings.get(item.name);
-          if (chunks) {
-            for (const chunk of chunks) {
+          const embeddingData = client.toolEmbeddings.get(item.name);
+          if (embeddingData && embeddingData.embeddings && embeddingData.embeddings.length > 0) {
+            embeddingData.embeddings.forEach((embedding, chunkIndex) => {
               allContextItemChunks.push({
                 item,
-                chunkIndex: chunk.chunkIndex,
-                text: chunk.text,
-                embedding: chunk.embedding,
+                chunkIndex,
+                embedding,
               });
-            }
+            });
           }
         }
       }
     }
 
+    // Early return if no chunks available (no model needed for query embeddings)
     if (allContextItemChunks.length === 0) {
       return [];
     }
     
+    // Step 4: Generate query embeddings (only if we have context chunks to search)
     // Chunk the query and generate embeddings for all chunks in parallel
     const queryChunks = this.chunkQueryText(query);
     const allQueryChunks = await Promise.all(

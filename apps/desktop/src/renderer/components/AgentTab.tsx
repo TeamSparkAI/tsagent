@@ -13,17 +13,25 @@ interface AgentInfoProps {
 
 const AgentInfo: React.FC<AgentInfoProps> = ({ agentPath, showPath = true }) => {
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
+  const [actualPath, setActualPath] = useState<string>(agentPath);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const loadMetadata = async () => {
       try {
         setIsLoading(true);
-        const agentMetadata = await window.api.getAgentMetadataByPath(agentPath);
-        setMetadata(agentMetadata);
+        const result = await window.api.getAgentMetadataByPath(agentPath);
+        if (result) {
+          setMetadata(result.metadata);
+          setActualPath(result.path); // Use actual path after migration
+        } else {
+          setMetadata(null);
+          setActualPath(agentPath);
+        }
       } catch (err) {
         log.error('Error loading agent metadata:', err);
         setMetadata(null);
+        setActualPath(agentPath);
       } finally {
         setIsLoading(false);
       }
@@ -36,7 +44,7 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ agentPath, showPath = true }) => 
     return (
       <div className="agent-info">
         <div className="agent-name">Loading...</div>
-        {showPath && <div className="agent-path">{agentPath}</div>}
+        {showPath && <div className="agent-path">{actualPath}</div>}
       </div>
     );
   }
@@ -45,7 +53,7 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ agentPath, showPath = true }) => 
     return (
       <div className="agent-info">
         <div className="agent-name">Unknown Agent</div>
-        {showPath && <div className="agent-path">{agentPath}</div>}
+        {showPath && <div className="agent-path">{actualPath}</div>}
       </div>
     );
   }
@@ -71,7 +79,7 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ agentPath, showPath = true }) => 
       {metadata.description && (
         <div className="agent-description">{truncateDescription(metadata.description)}</div>
       )}
-      {showPath && <div className="agent-path">{agentPath}</div>}
+      {showPath && <div className="agent-path">{actualPath}</div>}
     </div>
   );
 };

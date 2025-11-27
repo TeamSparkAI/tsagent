@@ -2,9 +2,9 @@ import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession,
 import { Provider, ProviderType } from '../providers/types.js';
 import { Agent, populateModelFromSettings } from '../types/agent.js';
 import { Logger } from '../types/common.js';
-import { SessionToolPermission, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER } from '../types/agent.js';
+import { SessionToolPermission } from '../types/agent.js';
 import { isToolPermissionRequired, getToolEffectiveIncludeMode, getToolIncludeServerDefault } from '../mcp/types.js';
-import { SupervisionManager, RequestSupervisionResult, ResponseSupervisionResult } from '../types/supervision.js';
+import { SupervisionManager } from '../types/supervision.js';
 import { SessionContextItem, RequestContextItem, RequestContext } from '../types/context.js';
 
 export class ChatSessionImpl implements ChatSession {
@@ -46,9 +46,7 @@ export class ChatSessionImpl implements ChatSession {
     this.maxOutputTokens = options.maxOutputTokens;
     this.temperature = options.temperature;
     this.topP = options.topP;
-    this.toolPermission = (options.toolPermission === SESSION_TOOL_PERMISSION_TOOL || options.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || options.toolPermission === SESSION_TOOL_PERMISSION_NEVER)
-      ? options.toolPermission
-      : SESSION_TOOL_PERMISSION_TOOL;
+    this.toolPermission = options.toolPermission ?? 'tool';
     this.contextTopK = options.contextTopK;
     this.contextTopN = options.contextTopN;
     this.contextIncludeScore = options.contextIncludeScore;
@@ -435,7 +433,7 @@ export class ChatSessionImpl implements ChatSession {
 
     try {
       // Log the model being used for this request
-      this.logger.info(`Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
+      this.logger.info(`[ChatSession] Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
       await this.ensureProvider();
       if (!this.provider) {
         throw new Error('Provider not initialized');
@@ -756,13 +754,13 @@ export class ChatSessionImpl implements ChatSession {
     }
 
     // If the tool is not approved for this session, then we need to check the tool permission
-    if (this.toolPermission === SESSION_TOOL_PERMISSION_ALWAYS) {
+    if (this.toolPermission === 'always') {
       this.logger.info(`Tool ${toolId} - permission always required for all tools, returning true`);
       return true;
-    } else if (this.toolPermission === SESSION_TOOL_PERMISSION_NEVER) {
+    } else if (this.toolPermission === 'never') {
       this.logger.info(`Tool ${toolId} - permission never required for all tools, returning false`);
       return false;
-    } else { // SESSION_TOOL_PERMISSION_TOOL
+    } else { // 'tool'
       this.logger.info(`Tool ${toolId} - permission tool required, checking server config`);
       // Check the permission required for the tool
       const serverConfig = this.agent.getMcpServer(serverId)?.config;

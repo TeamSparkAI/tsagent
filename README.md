@@ -71,10 +71,10 @@ npm install @tsagent/agent-mcp  # MCP server for agent management
 Launch the TsAgent Foundry desktop app (after downloading and installing)
 
 Or create an agent via CLI by either running the CLI in the directory of the desired agent (or new agent)
-or passing the agent directory to the CLI as the `--agent` argument.  Use `--create` to create a new agent.
+or passing the agent file path to the CLI as the `--agent` argument.  Use `--create` to create a new agent.
 
 ```bash
-npx @tsagent/cli --agent ./my-agent --create
+npx @tsagent/cli --agent ./my-agent.yaml --create
 ```
 
 ### Use Agents Programmatically
@@ -83,7 +83,7 @@ npx @tsagent/cli --agent ./my-agent --create
 import { loadAgent } from '@tsagent/core';
 
 // Load an existing agent
-const agent = await loadAgent('./my-agent', logger);
+const agent = await loadAgent('./my-agent.yaml', logger);
 
 // Create a chat session
 const session = agent.createChatSession('session-1');
@@ -97,9 +97,9 @@ console.log(response.updates[1].modelReply);
 
 ```bash
 # Start an A2A server (for Autonomous agents)
-npx @tsagent/server /path/to/agent --port 3000
+npx @tsagent/server /path/to/agent.yaml --port 3000
 # or if installed globally
-tsagent-server /path/to/agent --port 3000
+tsagent-server /path/to/agent.yaml --port 3000
 
 # Your agent is now available at http://localhost:3000
 ```
@@ -108,9 +108,9 @@ tsagent-server /path/to/agent --port 3000
 
 ```bash
 # Start an ACP server for code editor integration (like Zed)
-npx @tsagent/acp-server /path/to/agent
+npx @tsagent/acp-server /path/to/agent.yaml
 # or if installed globally
-tsagent-acp-server /path/to/agent
+tsagent-acp-server /path/to/agent.yaml
 
 # The agent is now available via stdio for ACP-compatible code editors
 # Configure in your code editor's ACP settings
@@ -120,9 +120,9 @@ tsagent-acp-server /path/to/agent
 
 ```bash
 # Start a Meta MCP server (for Tools agents)
-npx @tsagent/meta-mcp /path/to/tools-agent
+npx @tsagent/meta-mcp /path/to/tools-agent.yaml
 # or if installed globally
-tsagent-meta-mcp /path/to/tools-agent
+tsagent-meta-mcp /path/to/tools-agent.yaml
 
 # The agent's tools are now available as MCP tools
 # Configure in Claude Desktop or other MCP clients

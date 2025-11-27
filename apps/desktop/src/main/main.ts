@@ -5,11 +5,10 @@ import log from 'electron-log';
 import * as fs from 'fs';
 import { McpConfig } from '@tsagent/core';
 import { AgentsManager } from './agents-manager';
-import { agentExists, loadAgent, createAgent, cloneAgent, loadAgentMetadataOnly } from '@tsagent/core/runtime';
+import { agentExists, loadAgent, loadAndInitializeAgent, cloneAgent } from '@tsagent/core/runtime';
 import { Agent } from '@tsagent/core';
-import { AGENT_FILE_NAME } from '@tsagent/core';
 import { ElectronLoggerAdapter } from './logger-adapter';
-import { SessionToolPermission, SETTINGS_KEY_THEME, ChatMessage } from '@tsagent/core';
+import { SessionToolPermission, ChatMessage, AgentSettings } from '@tsagent/core';
 import { createOnePasswordClient } from '@teamsparkai/1password';
 
 const __dirname = path.dirname(__filename);
@@ -53,7 +52,7 @@ async function createWindow(agent?: Agent): Promise<BrowserWindow> {
   if (agent) {
     agentsManager.registerWindow(window.id.toString(), agent);
     // Set initial theme from agent
-    const theme = agent.getSetting(SETTINGS_KEY_THEME);
+    const { theme } = agent.getSettings();
     if (theme) {
       window.webContents.executeJavaScript(`document.documentElement.setAttribute('data-theme', '${theme}')`);
     }
@@ -234,9 +233,9 @@ async function startApp() {
     if (agentPath) {
       log.info(`Opening agent from command line: ${agentPath}`);
       const logger = new ElectronLoggerAdapter();
-      const agent = await loadAgent(agentPath, logger);
+      const agent = await loadAndInitializeAgent(agentPath, logger);
       if (!agent) {
-        log.error(`Failed to find agent (${AGENT_FILE_NAME}) in directory provide on launch command line: `, agentPath);
+        log.error(`Failed to find agent at path: ${agentPath}`);
         // !!! Ideally we should show the user this message in the UX
         mainWindow = await createWindow();
       } else {
@@ -248,9 +247,9 @@ async function startApp() {
       if (mostRecentlyUsedAgent.length > 0) {
         log.info(`Opening most recently used agent: ${mostRecentlyUsedAgent[0]}`);
         const logger = new ElectronLoggerAdapter();
-        const agent = await loadAgent(mostRecentlyUsedAgent[0], logger);
+        const agent = await loadAndInitializeAgent(mostRecentlyUsedAgent[0], logger);
         if (!agent) {
-          log.error(`Failed to find agent (${AGENT_FILE_NAME}) in most recently used directory: `, mostRecentlyUsedAgent[0]);
+          log.error(`Failed to find most recently used agent: `, mostRecentlyUsedAgent[0]);
           // !!! Ideally we should show the user this message in the UX
           mainWindow = await createWindow();
         } else {
@@ -832,9 +831,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('get-agent-metadata-by-path', async (event, agentPath: string) => {
     try {
-      // Use lightweight metadata-only loader - much faster, no MCP clients, no supervisors
-      const metadata = await loadAgentMetadataOnly(agentPath, new ElectronLoggerAdapter());
-      return metadata;
+      // Load agent config only (lightweight - no MCP clients, no supervisors)
+      const agent = await loadAgent(agentPath, new ElectronLoggerAdapter());
+      return {
+        metadata: agent.getMetadata(),
+        path: agent.path
+      };
     } catch (err) {
       log.error('[MAIN PROCESS] Error getting agent metadata by path:', err);
       return null;
@@ -1034,10 +1036,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('agent:openAgent', async (_, filePath: string) => {
     log.info(`[AGENT OPEN] IPC handler called for agent:openAgent ${filePath}`);
     const logger = new ElectronLoggerAdapter();
-    const agent = await loadAgent(filePath, logger);
+    const agent = await loadAndInitializeAgent(filePath, logger);
     if (!agent) {
       // This is a directory the user just picked, so it should always be a valid agent
-      log.error(`Failed to find agent (${AGENT_FILE_NAME}) in directory provided: `, filePath);
+      log.error(`Failed to find agent at path: `, filePath);
       // !!! Ideally we should show the user this message in the UX
       return null;
     }
@@ -1064,12 +1066,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     log.info(`[AGENT OPEN] Opening agent ${filePath} in a new window`);
     log.info(`[AGENT OPEN] IPC handler called for agent:openInNewWindow ${filePath}`);
     const logger = new ElectronLoggerAdapter();
-    const agent = await loadAgent(filePath, logger);
+    const agent = await loadAndInitializeAgent(filePath, logger);
     
     // Always create a new window
     if (!agent) {
       // This is a directory the user just picked, so it should always be a valid agent
-      log.error(`Failed to find agent (${AGENT_FILE_NAME}) in directory provided: `, filePath);
+      log.error(`Failed to find agent at path: ${filePath}`);
       // !!! Ideally we should show the user this message in the UX
       return null;
     }
@@ -1086,7 +1088,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const windowIdStr = windowId.toString();
 
     const logger = new ElectronLoggerAdapter();
-    const agent = await loadAgent(agentPath, logger);
+    const agent = await loadAndInitializeAgent(agentPath, logger);
 
     log.info(`[AGENT SWITCH] Agent found: ${agent.path}`);
     await agentsManager.switchAgent(windowIdStr, agent);
@@ -1098,7 +1100,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('agent:createAgentInNewWindow', async (_, agentPath: string) => {
     log.info(`[AGENT CREATE] IPC handler called for agent:createAgentInNewWindow ${agentPath}`);
     const logger = new ElectronLoggerAdapter();
-    const agent = await loadAgent(agentPath, logger);
+    const agent = await loadAndInitializeAgent(agentPath, logger);
     const window = await createWindow(agent);
     return window.id;
   });
@@ -1143,9 +1145,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       const windowIdStr = windowId.toString();
 
       const logger = new ElectronLoggerAdapter();
-      const agent = await loadAgent(agentPath, logger);
+      const agent = await loadAndInitializeAgent(agentPath, logger);
       if (!agent) {
-        log.error(`[AGENT SWITCH] Failed to find agent (${AGENT_FILE_NAME}) in directory provided: `, agentPath);
+        log.error(`[AGENT SWITCH] Failed to find agent at path: ${agentPath}`);
         // !!! Ideally we should show the user this message in the UX
         return false;
       }
@@ -1315,29 +1317,30 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   });
 
   // Settings IPC handlers
-  ipcMain.handle('get-settings-value', (event, key: string) => {
+  ipcMain.handle('agent:get-settings', (event) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     if (!agent) {
       log.warn('No agent found for window:', windowId);
       return null;
     }
-    return agent.getSetting(key);
+    return agent.getSettings();
   });
 
-  ipcMain.handle('set-settings-value', async (event, key: string, value: string) => {
+  ipcMain.handle('agent:update-settings', async (event, partialSettings: Partial<AgentSettings>) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     if (!agent) {
       log.warn('No agent found for window:', windowId);
-      return false;
+      return null;
     }
+
     try {
-      await agent.setSetting(key, value);
-      return true;
+      await agent.updateSettings(partialSettings);
+      return agent.getSettings();
     } catch (error) {
-      log.error(`Error setting setting ${key}:`, error);
-      return false;
+      log.error('Error updating agent settings:', error);
+      throw error;
     }
   });
 

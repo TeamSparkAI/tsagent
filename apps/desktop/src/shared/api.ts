@@ -1,6 +1,7 @@
 import { Rule, Reference } from '@tsagent/core';
 import { McpConfig, CallToolResultWithElapsedTime } from '@tsagent/core';
 import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from '@tsagent/core';
+import { AgentSettings } from '@tsagent/core';
 import { AgentWindow } from '../main/agents-manager';
 import { ProviderType } from '@tsagent/core';
 import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
@@ -41,8 +42,8 @@ export interface API {
   setProviderConfig: (provider: ProviderType, key: string, value: string) => Promise<boolean>;
 
   // Settings API
-  getSettingsValue: (key: string) => Promise<string | null>;
-  setSettingsValue: (key: string, value: string) => Promise<boolean>;
+  getSettings: () => Promise<AgentSettings | null>;
+  updateSettings: (settings: Partial<AgentSettings>) => Promise<AgentSettings | null>;
 
   // Other existing methods
   getServerConfigs: () => Promise<McpConfig[]>;
@@ -57,7 +58,7 @@ export interface API {
   saveSystemPrompt: (prompt: string) => Promise<void>;
   getAgentMetadata: () => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } | null>;
   updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[] }>) => Promise<{ success: boolean; error?: string }>;
-  getAgentMetadataByPath: (agentPath: string) => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } | null>;
+  getAgentMetadataByPath: (agentPath: string) => Promise<{ metadata: { name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[]; created: string; lastAccessed: string }; path: string } | null>;
   showChatMenu: (hasSelection: boolean, x: number, y: number) => Promise<void>;
   showEditControlMenu: (editFlags: { 
     canUndo: boolean;

@@ -2,8 +2,8 @@
 
 ## Agent functionality
 
-We now have agent-api where all of our agent functionality lives.  The current implementation is FileSystemAgent which
-works off of the tsagent.json file and other related files in the agent directory.  It should be pretty easy to create
+We now have agent-api where all of our agent functionality lives.  The current implementation is FileBasedAgentStrategy which
+works off of a single YAML file (`.yaml` or `.yml`) containing all agent configuration and content.  It should be pretty easy to create
 an ephemeral agent (that just manages everything in memory, with no serialization - the client just loads it on create,
 and is free to interrogate its contents and save if desired).
 
@@ -13,67 +13,93 @@ We could also return an in memory Agent that had a pluggable serialization strat
 
 agents.json (in app files directory) - list of recent agents (used by GUI app only)
 
-## Agent
+## Agent Configuration
 
-tsagent.json - in root of agent
+Agents are now configured using a single YAML file (e.g., `my-agent.yaml`). All agent content is embedded in the file:
 
-{
-  "metadata": {
-    "name": "xxxx",
-    "description": "xxxxxx",
-    "created": "2025-04-07T17:32:29.081Z",
-    "lastAccessed": "2025-04-07T17:32:29.081Z",
-    "version": "1.0.0"
-  },
-  "settings": {
-    "maxChatTurns": "10",
-    "maxOutputTokens": "1000",
-    "temperature": "0.5",
-    "topP": "0.5",
-    "maxTurns": "25",
-    "mostRecentModel": "gemini:gemini-2.0-flash"
-  }
-  "providers": {
-    "anthropic": {
-      "ANTHROPIC_API_KEY": "xxxxx"
-    },
-    "gemini": {
-      "GOOGLE_API_KEY": "xxxxx"
-    },
-    "openai": {
-      "OPENAI_API_KEY": "xxxxx"
-    },
-    "bedrock": {
-      "BEDROCK_ACCESS_KEY_ID": "xxxxx",
-      "BEDROCK_SECRET_ACCESS_KEY": "xxxxx"
-    },
-    "ollama": {
-      "OLLAMA_HOST": "xxxxx" (optional)
-    }
-  },
-  "mcpServers": {
-    "filesystem": {
-      "type": "stdio",
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "./test_files"
-      ]
-    },
-    "weather": {
-      "type": "sse",
-      "url": "http://0.0.0.0:8080/sse",
-      "headers": {}
-    }
-  }
-}
+```yaml
+metadata:
+  name: "My Assistant"
+  description: "A helpful AI assistant"
+  created: "2025-04-07T17:32:29.081Z"
+  lastAccessed: "2025-04-07T17:32:29.081Z"
+  version: "1.0.0"
 
-## Other agent files
+systemPrompt: |
+  You are a helpful AI assistant.
+  This is a multi-line system prompt.
+  Supports markdown formatting.
 
-/prompt.md (GFM)
-/references/*.mdt (YAML frontmatter + GFM text)
-/rules/*.mdt (YAML frontmatter + GFM text)
+settings:
+  maxChatTurns: 20
+  maxOutputTokens: 1000
+  temperature: 0.5
+  topP: 0.5
+  theme: "light"
+  mostRecentModel: "gemini:gemini-2.0-flash"
+
+rules:
+  - name: "example-rule"
+    description: "An example rule"
+    priorityLevel: 500
+    text: |
+      Rule content here.
+      Supports markdown.
+    include: "always"
+    # embeddings: Automatically generated for semantic search (regenerated when rule text changes)
+
+references:
+  - name: "example-reference"
+    description: "An example reference"
+    priorityLevel: 500
+    text: |
+      Reference content here.
+      Supports markdown.
+    include: "manual"
+    # embeddings: Automatically generated for semantic search (regenerated when reference text changes)
+
+providers:
+  anthropic:
+    ANTHROPIC_API_KEY: "xxxxx"
+  gemini:
+    GOOGLE_API_KEY: "xxxxx"
+  openai:
+    OPENAI_API_KEY: "xxxxx"
+  bedrock:
+    BEDROCK_ACCESS_KEY_ID: "xxxxx"
+    BEDROCK_SECRET_ACCESS_KEY: "xxxxx"
+  ollama:
+    OLLAMA_HOST: "localhost:11434"  # optional
+
+mcpServers:
+  filesystem:
+    type: "stdio"
+    command: "npx"
+    args:
+      - "-y"
+      - "@modelcontextprotocol/server-filesystem"
+      - "./test_files"
+    toolPermissionRequired:
+      serverDefault: false
+      tools:
+        read_text_file: true
+    toolInclude:
+      serverDefault: "agent"
+      tools:
+        directory_tree: "manual"
+    # toolEmbeddings: Automatically managed - contains semantic embeddings for tools
+    #   # Embeddings enable semantic search to find relevant tools based on user queries
+    #   # Hash validates that tool descriptions haven't changed (embeddings regenerated if hash mismatches)
+    #   tools:
+    #     tool_name:
+    #       embeddings: [[...]]  # Array of embedding vectors (typically one per tool)
+    #       hash: "..."  # SHA-256 hash of tool text used to validate embeddings are still valid
+  weather:
+    type: "sse"
+    url: "http://0.0.0.0:8080/sse"
+    headers: {}
+```
+
 
 ## Agent mode-specific metadata
 

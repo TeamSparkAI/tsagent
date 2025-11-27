@@ -10,7 +10,7 @@ import {
   CallToolResult,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Agent, AgentTool, ToolInputSchema, Logger, MessageUpdate, ChatMessage, Turn, JsonSchemaDefinition } from '@tsagent/core';
-import { loadAgent } from '@tsagent/core/runtime';
+import { loadAndInitializeAgent } from '@tsagent/core/runtime';
 import { ConsoleLogger } from './logger.js';
 
 /**
@@ -72,7 +72,7 @@ export class MetaMCPServer {
   async start(): Promise<void> {
     // Log to stderr only during startup, before connecting to stdio transport
     this.logger.info(`Loading Tools agent from: ${this.agentPath}`);
-    this.agent = await loadAgent(this.agentPath, this.logger);
+    this.agent = await loadAndInitializeAgent(this.agentPath, this.logger);
     this.logger.info(`Agent loaded successfully: ${this.agent.name}`);
     
     // Verify this is a Tools agent

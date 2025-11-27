@@ -4,7 +4,7 @@ import * as path from 'path';
 import { LlamaChatSession, type LLamaChatPromptOptions, Llama, LlamaModel, LlamaContext, getLlama, ChatModelFunctionCall, ChatHistoryItem } from 'node-llama-cpp';
 
 import { ModelReply, Provider, ProviderModel, ProviderType, ProviderInfo, Turn } from './types.js';
-import { ChatMessage, TOOL_CALL_DECISION_ALLOW_ONCE, TOOL_CALL_DECISION_ALLOW_SESSION, TOOL_CALL_DECISION_DENY, ChatSession } from '../types/chat.js';
+import { ChatMessage, ChatSession } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
@@ -283,13 +283,13 @@ export class LocalProvider implements Provider {
         for (const toolCallApproval of lastChatMessage.toolCallApprovals) {
           const turn: Turn = {};
           
-          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION) {
+          if (toolCallApproval.decision === 'allow-session') {
             session.toolIsApprovedForSession(toolCallApproval.serverName, toolCallApproval.toolName);
           }
 
           this.logger.info('Processing tool call approval:', JSON.stringify(toolCallApproval, null, 2));
           
-          if (toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_SESSION || toolCallApproval.decision === TOOL_CALL_DECISION_ALLOW_ONCE) {
+          if (toolCallApproval.decision === 'allow-session' || toolCallApproval.decision === 'allow-once') {
             // Run the tool
             const toolResult = await ProviderHelper.callTool(this.agent, toolCallApproval.serverName + '_' + toolCallApproval.toolName, toolCallApproval.args, session);
             if (toolResult.content[0]?.type === 'text') {
@@ -320,7 +320,7 @@ export class LocalProvider implements Provider {
                 rawCall: undefined
               });
             }
-          } else if (toolCallApproval.decision === TOOL_CALL_DECISION_DENY) {
+          } else if (toolCallApproval.decision === 'deny') {
             if (!turn.results) {
               turn.results = [];
             }

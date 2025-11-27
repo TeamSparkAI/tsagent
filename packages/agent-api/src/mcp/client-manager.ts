@@ -6,8 +6,8 @@ import { McpClientInternalRules } from './client-rules.js';
 import { McpClientInternalReferences } from './client-references.js';
 import { McpClientInternalSupervision } from './client-supervision.js';
 import { McpClientInternalTools } from './client-tools.js';
-import { SETTINGS_KEY_SYSTEM_PATH } from '../types/agent.js';
 import { MCPClientManager } from './types.js';
+import { computeTextHash } from '../managers/semantic-indexer.js';
 
 export class MCPClientManagerImpl implements MCPClientManager {
     private clients: Map<string, McpClient>;
@@ -43,8 +43,9 @@ export class MCPClientManagerImpl implements MCPClientManager {
             //
             let env = config.env; // If we modify this we'll shallow copy into a new object so we don't modify the original
             if (!config.env?.PATH) {
-                const defaultPath = agent.getSetting(SETTINGS_KEY_SYSTEM_PATH);
-                if (defaultPath) {
+                const settings = agent.getSettings();
+                const defaultPath = settings.systemPath;
+                if (defaultPath && typeof defaultPath === 'string') {
                     // If the user didn't provide a path and there is a default path, use that (whether or not any other env was provided)
                     env = { ...(env ?? {}), PATH: defaultPath };
                 } else if (config.env && Object.keys(config.env).length > 0) {
@@ -95,12 +96,117 @@ export class MCPClientManagerImpl implements MCPClientManager {
             const client = this.createMcpClientFromConfig(agent, serverConfig); 
             if (client) {
                 await client.connect();
+                
+                // Restore and validate tool embeddings from config
+                await this.restoreToolEmbeddings(client, serverConfig.config, serverName, agent);
+                
                 this.clients.set(serverName, client);
             } else {
                 throw new Error(`Failed to create client for server: ${serverName}`);
             }
         } catch (error) {
             this.logger.error(`Error initializing MCP client for ${serverName}:`, error);
+        }
+    }
+
+    /**
+     * Restore and validate tool embeddings from config
+     * Clears invalid embeddings (hash mismatch, missing tool, corrupted data)
+     */
+    private async restoreToolEmbeddings(
+        client: McpClient,
+        config: any,
+        serverName: string,
+        agent: Agent
+    ): Promise<void> {
+        if (!config.toolEmbeddings?.tools) {
+            return; // No embeddings to restore
+        }
+
+        let configNeedsUpdate = false;
+        const toolEmbeddings = config.toolEmbeddings.tools;
+
+        // Ensure client has embeddings map
+        if (!client.toolEmbeddings) {
+            client.toolEmbeddings = new Map();
+        }
+
+        // Validate and restore each tool's embeddings
+        for (const [toolName, embeddingData] of Object.entries(toolEmbeddings)) {
+            try {
+                // Validate structure
+                if (!embeddingData || typeof embeddingData !== 'object' || !('embeddings' in embeddingData) || !('hash' in embeddingData)) {
+                    this.logger.warn(`Invalid embedding data for tool ${serverName}:${toolName}, clearing`);
+                    delete toolEmbeddings[toolName];
+                    configNeedsUpdate = true;
+                    continue;
+                }
+
+                const { embeddings, hash } = embeddingData as { embeddings: number[][]; hash: string };
+
+                // Validate embeddings array
+                if (!Array.isArray(embeddings) || embeddings.length === 0 || !Array.isArray(embeddings[0])) {
+                    this.logger.warn(`Invalid embeddings array for tool ${serverName}:${toolName}, clearing`);
+                    delete toolEmbeddings[toolName];
+                    configNeedsUpdate = true;
+                    continue;
+                }
+
+                // Validate hash
+                if (typeof hash !== 'string' || hash.length === 0) {
+                    this.logger.warn(`Missing hash for tool ${serverName}:${toolName}, clearing`);
+                    delete toolEmbeddings[toolName];
+                    configNeedsUpdate = true;
+                    continue;
+                }
+
+                // Find the tool in serverTools
+                const tool = client.serverTools?.find(t => t.name === toolName);
+                if (!tool) {
+                    // Tool no longer exists in server
+                    this.logger.debug(`Tool ${serverName}:${toolName} no longer exists, clearing embeddings`);
+                    delete toolEmbeddings[toolName];
+                    configNeedsUpdate = true;
+                    continue;
+                }
+
+                // Compute current hash
+                const toolText = tool.description ? `${tool.name}: ${tool.description}` : tool.name;
+                const currentHash = computeTextHash(toolText);
+
+                // Validate hash
+                if (currentHash !== hash) {
+                    // Tool metadata changed
+                    this.logger.debug(`Hash mismatch for tool ${serverName}:${toolName}, clearing embeddings (tool changed)`);
+                    delete toolEmbeddings[toolName];
+                    configNeedsUpdate = true;
+                    continue;
+                }
+
+                // Hash matches - restore embeddings (only if not already in memory)
+                if (!client.toolEmbeddings.has(toolName)) {
+                    client.toolEmbeddings.set(toolName, { embeddings, hash });
+                    this.logger.debug(`Restored embeddings for tool ${serverName}:${toolName}`);
+                }
+            } catch (error) {
+                this.logger.error(`Error restoring embeddings for tool ${serverName}:${toolName}:`, error);
+                // Clear on error
+                delete toolEmbeddings[toolName];
+                configNeedsUpdate = true;
+            }
+        }
+
+        // Save config if any embeddings were cleared
+        if (configNeedsUpdate) {
+            try {
+                const serverConfig = await agent.getMcpServer(serverName);
+                if (serverConfig) {
+                    await agent.saveMcpServer(serverConfig);
+                    this.logger.info(`Updated MCP server config for ${serverName} (cleared invalid tool embeddings)`);
+                }
+            } catch (error) {
+                this.logger.error(`Failed to save updated config for ${serverName}:`, error);
+            }
         }
     }
 

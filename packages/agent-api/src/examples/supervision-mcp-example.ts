@@ -1,5 +1,5 @@
 import { Logger } from '../types/common.js';
-import { loadAgent } from '../runtime.js';
+import { loadAndInitializeAgent } from '../runtime.js';
 
 /**
  * Example demonstrating supervision tools as internal MCP server
@@ -7,7 +7,7 @@ import { loadAgent } from '../runtime.js';
 export async function supervisionMcpExample(logger: Logger): Promise<void> {
     try {
         // Load a supervisor agent that has supervision tools configured
-        const supervisorAgent = await loadAgent('./supervisor-agent', logger);
+        const supervisorAgent = await loadAndInitializeAgent('./supervisor-agent', logger);
         
         // Get the supervision MCP client
         const supervisionClient = await supervisorAgent.getMcpClient('supervision');

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import log from 'electron-log';
 import './ChatSettingsForm.css';
-import { SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_DEFAULT_TOP_P, SETTINGS_DEFAULT_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_KEY_TEMPERATURE, SETTINGS_KEY_TOP_P, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SESSION_TOOL_PERMISSION_TOOL, SESSION_TOOL_PERMISSION_ALWAYS, SESSION_TOOL_PERMISSION_NEVER, SessionToolPermission } from '@tsagent/core';
+import { SessionToolPermission, getDefaultSettings } from '@tsagent/core';
 
 export interface ChatSettings {
   maxChatTurns: number;
@@ -27,40 +27,34 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   showTitle = true,
   readOnly = false
 }) => {
-  const [agentSettings, setAgentSettings] = useState<ChatSettings>({
-    maxChatTurns: SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-    maxOutputTokens: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-    temperature: SETTINGS_DEFAULT_TEMPERATURE,
-    topP: SETTINGS_DEFAULT_TOP_P,
-    toolPermission: SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
-    contextTopK: SETTINGS_DEFAULT_CONTEXT_TOP_K,
-    contextTopN: SETTINGS_DEFAULT_CONTEXT_TOP_N,
-    contextIncludeScore: SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
+  const [agentSettings, setAgentSettings] = useState<ChatSettings>(() => {
+    const defaults = getDefaultSettings();
+    return {
+      maxChatTurns: defaults.maxChatTurns!,
+      maxOutputTokens: defaults.maxOutputTokens!,
+      temperature: defaults.temperature!,
+      topP: defaults.topP!,
+      toolPermission: defaults.toolPermission ?? 'tool',
+      contextTopK: defaults.contextTopK!,
+      contextTopN: defaults.contextTopN!,
+      contextIncludeScore: defaults.contextIncludeScore!
+    };
   });
 
   useEffect(() => {
     const loadAgentSettings = async () => {
       try {
-        const maxTurns = await window.api.getSettingsValue(SETTINGS_KEY_MAX_CHAT_TURNS);
-        const maxTokens = await window.api.getSettingsValue(SETTINGS_KEY_MAX_OUTPUT_TOKENS);
-        const temperature = await window.api.getSettingsValue(SETTINGS_KEY_TEMPERATURE);
-        const topP = await window.api.getSettingsValue(SETTINGS_KEY_TOP_P);
-        const toolPermission = await window.api.getSettingsValue('toolPermission');
-        const contextTopK = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_TOP_K);
-        const contextTopN = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_TOP_N);
-        const contextIncludeScore = await window.api.getSettingsValue(SETTINGS_KEY_CONTEXT_INCLUDE_SCORE);
-
+        const agentSettings = await window.api.getSettings();
+        const merged = { ...getDefaultSettings(), ...(agentSettings ?? {}) };
         setAgentSettings({
-          maxChatTurns: maxTurns ? parseInt(maxTurns) : SETTINGS_DEFAULT_MAX_CHAT_TURNS,
-          maxOutputTokens: maxTokens ? parseInt(maxTokens) : SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS,
-          temperature: temperature ? parseFloat(temperature) : SETTINGS_DEFAULT_TEMPERATURE,
-          topP: topP ? parseFloat(topP) : SETTINGS_DEFAULT_TOP_P,
-          toolPermission: (toolPermission === SESSION_TOOL_PERMISSION_TOOL || toolPermission === SESSION_TOOL_PERMISSION_ALWAYS || toolPermission === SESSION_TOOL_PERMISSION_NEVER) 
-            ? toolPermission as SessionToolPermission 
-            : SESSION_TOOL_PERMISSION_TOOL as SessionToolPermission,
-          contextTopK: contextTopK ? parseInt(contextTopK) : SETTINGS_DEFAULT_CONTEXT_TOP_K,
-          contextTopN: contextTopN ? parseInt(contextTopN) : SETTINGS_DEFAULT_CONTEXT_TOP_N,
-          contextIncludeScore: contextIncludeScore ? parseFloat(contextIncludeScore) : SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE
+          maxChatTurns: merged.maxChatTurns!,
+          maxOutputTokens: merged.maxOutputTokens!,
+          temperature: merged.temperature!,
+          topP: merged.topP!,
+          toolPermission: merged.toolPermission ?? 'tool',
+          contextTopK: merged.contextTopK!,
+          contextTopN: merged.contextTopN!,
+          contextIncludeScore: merged.contextIncludeScore!
         });
       } catch (error) {
         log.error('Error loading agent settings:', error);
@@ -90,11 +84,8 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   const handleChange = (key: keyof ChatSettings, value: string | number) => {
     const newSettings = { ...settings };
     if (key === 'toolPermission') {
-      if (value === SESSION_TOOL_PERMISSION_TOOL || value === SESSION_TOOL_PERMISSION_ALWAYS || value === SESSION_TOOL_PERMISSION_NEVER) {
-        newSettings[key] = value as SessionToolPermission;
-      } else {
-        newSettings[key] = SESSION_TOOL_PERMISSION_TOOL;
-      }
+      // value is already validated - it comes from a select with fixed options
+      newSettings[key] = value as SessionToolPermission;
     } else if (typeof value === 'string') {
       newSettings[key] = parseFloat(value) as any;
     } else {
@@ -210,13 +201,16 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
           <label htmlFor="toolPermission">Tool Usage Permission</label>
           <select
             value={settings.toolPermission}
-            onChange={(e) => handleChange('toolPermission', e.target.value as SessionToolPermission)}
+            onChange={(e) => {
+              // e.target.value is guaranteed to be one of the option values
+              handleChange('toolPermission', e.target.value as SessionToolPermission);
+            }}
             style={{ width: 'fit-content' }}
             disabled={readOnly}
           >
-            <option value={SESSION_TOOL_PERMISSION_TOOL}>Request permission based on tool setting</option>
-            <option value={SESSION_TOOL_PERMISSION_ALWAYS}>Always request permission</option>
-            <option value={SESSION_TOOL_PERMISSION_NEVER}>Never request permission</option>
+            <option value="tool">Request permission based on tool setting</option>
+            <option value="always">Always request permission</option>
+            <option value="never">Never request permission</option>
           </select>
         </div>
 

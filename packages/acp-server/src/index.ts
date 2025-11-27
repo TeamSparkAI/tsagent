@@ -1,6 +1,5 @@
 #!/usr/bin/env node
 
-import { AGENT_FILE_NAME } from '@tsagent/core';
 import { ACPServer } from './acp-server.js';
 import { ConsoleLogger } from './logger.js';
 

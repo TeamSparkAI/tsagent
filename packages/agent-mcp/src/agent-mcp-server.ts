@@ -6,19 +6,19 @@ import {
   AgentMetadata,
   AgentMode,
   AgentTool,
+  AgentSettings,
   Logger,
   Rule,
   Reference,
   ProviderType,
   McpConfig,
-  AGENT_FILE_NAME,
 } from '@tsagent/core';
 import {
   createAgent,
   loadAgent,
   cloneAgent,
   agentExists,
-  loadAgentMetadataOnly,
+  loadAndInitializeAgent,
 } from '@tsagent/core/runtime';
 import { ConsoleLogger } from './logger.js';
 import { BaseMCPServer, ToolHandler } from './base-mcp-server.js';
@@ -65,7 +65,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
 
     // Try to load agent
     try {
-      const agent = await loadAgent(normalizedPath, this.logger);
+      const agent = await loadAndInitializeAgent(normalizedPath, this.logger);
       this.agentRegistry.set(normalizedPath, agent);
       return agent;
     } catch (error) {
@@ -133,7 +133,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             // Note: We use fs.readdirSync for directory traversal only. We do NOT read agent files directly.
             // All agent file access goes through the agent-api:
             // - agentExists() uses FileBasedAgentStrategy.agentExists() (proper API)
-            // - loadAgentMetadataOnly() uses FileBasedAgentStrategy.loadConfig() (proper API)
+            // - loadAgent() loads agent config without initializing (proper API)
             const findAgents = async (dir: string): Promise<void> => {
               const entries = fs.readdirSync(dir, { withFileTypes: true });
               
@@ -144,18 +144,17 @@ export class AgentManagementMCPServer extends BaseMCPServer {
                   // Check if this directory contains an agent using the API (not direct file access)
                   if (await agentExists(fullPath)) {
                     try {
-                      // Load metadata only using the API (goes through AgentStrategy, not direct file read)
-                      const metadata = await loadAgentMetadataOnly(fullPath, this.logger);
-                      if (metadata) {
-                        agents.push({
-                          id: fullPath,
-                          name: metadata.name || entry.name,
-                          path: fullPath,
-                          description: metadata.description,
-                          mode: (metadata.tools ? 'tools' : (metadata.skills ? 'autonomous' : 'interactive')) as AgentMode,
-                          metadata,
-                        });
-                      }
+                      // Load agent config (lightweight - no initialization) and get metadata
+                      const agent = await loadAgent(fullPath, this.logger);
+                      const metadata = agent.getMetadata();
+                      agents.push({
+                        id: fullPath,
+                        name: metadata.name || entry.name,
+                        path: fullPath,
+                        description: metadata.description,
+                        mode: (metadata.tools ? 'tools' : (metadata.skills ? 'autonomous' : 'interactive')) as AgentMode,
+                        metadata,
+                      });
                     } catch (error) {
                       // Skip invalid agent files
                       this.logger.warn(`Failed to load agent metadata at ${fullPath}:`, error);
@@ -193,7 +192,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             properties: {
               agentTarget: {
                 type: 'string',
-                description: `Agent path (directory containing ${AGENT_FILE_NAME})`,
+                description: 'Agent path',
               },
             },
             required: ['agentTarget'],
@@ -231,7 +230,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             properties: {
               agentPath: {
                 type: 'string',
-                description: `File system path where agent should be created (directory path, not including ${AGENT_FILE_NAME})`,
+                description: 'File system path for agent to be created',
               },
               name: {
                 type: 'string',
@@ -311,7 +310,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             properties: {
               agentTarget: {
                 type: 'string',
-                description: `Agent path (directory containing ${AGENT_FILE_NAME})`,
+                description: 'Agent path',
               },
               confirm: {
                 type: 'boolean',
@@ -394,17 +393,17 @@ export class AgentManagementMCPServer extends BaseMCPServer {
           },
         },
         handler: async (args) => {
-          // Note: Agent API doesn't have a method to get all settings at once
-          // We'd need to know all possible keys. For now, return empty object.
+          const agent = await this.resolveAgent(args.agentTarget);
+          const settings = agent.getSettings();
           return {
-            settings: {},
+            settings,
           };
         },
       },
       {
         tool: {
-          name: 'agent_set_setting',
-          description: 'Set a single setting value.',
+          name: 'agent_update_settings',
+          description: 'Update one or more agent settings in a single request. Values are validated against the AgentSettings schema.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -412,23 +411,21 @@ export class AgentManagementMCPServer extends BaseMCPServer {
                 type: 'string',
                 description: 'Agent path',
               },
-              key: {
-                type: 'string',
-                description: 'Setting key',
-              },
-              value: {
-                type: 'string',
-                description: 'Setting value',
+              settings: {
+                type: 'object',
+                description: 'Partial AgentSettings object (e.g. { "maxChatTurns": 25, "temperature": 0.3 }).',
               },
             },
-            required: ['agentTarget', 'key', 'value'],
+            required: ['agentTarget', 'settings'],
           },
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          await agent.setSetting(args.key, args.value);
+          const partialSettings = args.settings as Partial<AgentSettings>;
+          await agent.updateSettings(partialSettings);
           return {
             success: true,
+            settings: agent.getSettings(),
           };
         },
       },

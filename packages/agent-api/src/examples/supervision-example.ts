@@ -1,4 +1,4 @@
-import { loadAgent } from '../runtime.js';
+import { loadAndInitializeAgent } from '../runtime.js';
 import { SupervisionManagerImpl } from '../managers/supervision-manager.js';
 import { ArchitectSupervisorImpl } from '../supervisors/architect-supervisor.js';
 import { GuardianSupervisorImpl } from '../supervisors/guardian-supervisor.js';
@@ -10,7 +10,7 @@ import { Logger } from '../types/common.js';
  */
 export async function supervisionExample(logger: Logger) {
   // Load an existing agent
-  const agent = await loadAgent('./my-agent', logger);
+  const agent = await loadAndInitializeAgent('./my-agent', logger);
   
   // Create supervision manager
   const supervisionManager = new SupervisionManagerImpl(logger);

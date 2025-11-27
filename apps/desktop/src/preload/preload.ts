@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { API } from '../shared/api';
 import log from 'electron-log';
-import { ProviderType as LLMType } from '@tsagent/core';
+import { ProviderType as LLMType, AgentSettings } from '@tsagent/core';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 import { ChatMessage } from '@tsagent/core';
 
@@ -64,8 +64,8 @@ const api: API = {
   removeChatTool: (tabId: string, serverName: string, toolName: string) => ipcRenderer.invoke('chat:remove-tool', tabId, serverName, toolName),
   
   // Settings API
-  getSettingsValue: (key: string) => ipcRenderer.invoke('get-settings-value', key),
-  setSettingsValue: (key: string, value: string) => ipcRenderer.invoke('set-settings-value', key, value),
+  getSettings: () => ipcRenderer.invoke('agent:get-settings'),
+  updateSettings: (settings: Partial<AgentSettings>) => ipcRenderer.invoke('agent:update-settings', settings),
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
   getAgentMetadata: () => ipcRenderer.invoke('get-agent-metadata'),

@@ -3,16 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'events';
 import dotenv from 'dotenv';
 
-import { Agent, AgentConfig, AgentConfigSchema, AgentSettings,
-  SETTINGS_DEFAULT_MAX_CHAT_TURNS, SETTINGS_KEY_MAX_CHAT_TURNS, 
-  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
-  SETTINGS_DEFAULT_TEMPERATURE, SETTINGS_KEY_TEMPERATURE, 
-  SETTINGS_DEFAULT_TOP_P, SETTINGS_KEY_TOP_P, 
-  SETTINGS_DEFAULT_CONTEXT_TOP_K, SETTINGS_KEY_CONTEXT_TOP_K,
-  SETTINGS_DEFAULT_CONTEXT_TOP_N, SETTINGS_KEY_CONTEXT_TOP_N,
-  SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
-  SETTINGS_KEY_THEME,
-  SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL,
+import { Agent, AgentConfig, AgentConfigSchema, AgentSettings, AgentSettingsSchema,
   AgentMetadata, AgentMetadataSchema,
   AgentMode,
   SupervisorConfig
@@ -57,8 +48,8 @@ export class AgentImpl  extends EventEmitter implements Agent {
 
   // Sub-managers
   public readonly chatSessions: ChatSessionManagerImpl;
-  public readonly rules: RulesManager;
-  public readonly references: ReferencesManager;
+  public readonly rulesManager: RulesManager;
+  public readonly referencesManager: ReferencesManager;
   public readonly mcpServers: McpServerManagerImpl;
   private readonly mcpManager: MCPClientManager;
   private _supervisionManager?: SupervisionManagerImpl;
@@ -83,26 +74,32 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this.providerFactory = new ProviderFactory(this, logger);
     this.secretManager = new SecretManager(this, logger);
     
-    // Initialize sub-managers with logger
+    // Initialize sub-managers with logger and config updater
     this.mcpManager = new MCPClientManagerImpl(this, this.logger);
-    this.rules = new RulesManager(this.logger);
-    this.references = new ReferencesManager(this.logger);
+    
+    // Create config updater for rules and references managers
+    const configUpdater = {
+      getConfig: () => this._agentData,
+      updateConfig: async (updater: (config: AgentConfig) => void) => {
+        if (!this._agentData) {
+          throw new Error('Cannot update config: agent not loaded');
+        }
+        updater(this._agentData);
+        if (this._strategy) {
+          await this._strategy.saveConfig(this._agentData);
+        }
+      }
+    };
+    
+    this.rulesManager = new RulesManager(this.logger, configUpdater);
+    this.referencesManager = new ReferencesManager(this.logger, configUpdater);
     this.mcpServers = new McpServerManagerImpl(this, this.mcpManager, this.logger);
     this.chatSessions = new ChatSessionManagerImpl(this, this.logger);
   }
 
   private getDefaultSettings(): AgentSettings {
-    return {
-      [SETTINGS_KEY_MAX_CHAT_TURNS]: SETTINGS_DEFAULT_MAX_CHAT_TURNS.toString(),
-      [SETTINGS_KEY_MAX_OUTPUT_TOKENS]: SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS.toString(),
-      [SETTINGS_KEY_TEMPERATURE]: SETTINGS_DEFAULT_TEMPERATURE.toString(),
-      [SETTINGS_KEY_TOP_P]: SETTINGS_DEFAULT_TOP_P.toString(),
-      [SETTINGS_KEY_CONTEXT_TOP_K]: SETTINGS_DEFAULT_CONTEXT_TOP_K.toString(),
-      [SETTINGS_KEY_CONTEXT_TOP_N]: SETTINGS_DEFAULT_CONTEXT_TOP_N.toString(),
-      [SETTINGS_KEY_CONTEXT_INCLUDE_SCORE]: SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE.toString(),
-      [SETTINGS_KEY_THEME]: 'light',
-      [SESSION_TOOL_PERMISSION_KEY]: SESSION_TOOL_PERMISSION_TOOL
-    };
+    // Use Zod schema to generate defaults by parsing an empty object
+    return AgentSettingsSchema.parse({});
   }
 
   private getInitialConfig(data?: Partial<AgentConfig>): AgentConfig {
@@ -117,10 +114,18 @@ export class AgentImpl  extends EventEmitter implements Agent {
       settings: {
         ...this.getDefaultSettings(),
         ...data?.settings
-      }
+      },
+      systemPrompt: data?.systemPrompt || '',
+      rules: data?.rules || [],
+      references: data?.references || []
     };
   }
 
+  /**
+   * Load agent configuration from strategy (lightweight).
+   * Loads config, environment variables, and extracts embedded content.
+   * Does NOT initialize MCP clients or supervisors (see initialize()).
+   */
   async load(): Promise<void> {
     if (!this._strategy) {
       throw new Error('Strategy not set, cannot call load(). Call create() instead to create an agent with no strategy.');
@@ -134,19 +139,35 @@ export class AgentImpl  extends EventEmitter implements Agent {
     // Priority: process.env > agentDir/.env > cwd/.env
     this.loadEnvironmentVariables();
 
+    // Load config once - everything (prompt, rules, references) is embedded in YAML
     this._agentData = await this._strategy.loadConfig();
     if (this._agentData && !this._agentData.settings) {
       this._agentData.settings = this.getDefaultSettings();
     }
-    this._prompt = await this._strategy.loadSystemPrompt(AgentImpl.DEFAULT_PROMPT);
 
-    await this.references.loadReferences(this._strategy);
-    await this.rules.loadRules(this._strategy);
+    // Extract system prompt (managers read directly from _agentData)
+    this._prompt = this._agentData.systemPrompt || AgentImpl.DEFAULT_PROMPT;
+
+    this.logger.info(`[AGENT] Agent config loaded, theme: ${this._agentData?.settings?.theme}`);
+  }
+
+  /**
+   * Initialize heavy resources (MCP clients, supervisors).
+   * Call this after load() to fully initialize the agent for use.
+   */
+  async initialize(): Promise<void> {
+    if (!this._agentData) {
+      throw new Error('Agent config not loaded. Call load() first.');
+    }
 
     // Preload MCP clients so they're available for sessions
+    // This is the main heavy operation (connects to external MCP servers)
     await this.preloadMcpClients();
 
-    this.logger.info(`[AGENT] Agent loaded successfully, theme: ${this._agentData?.settings?.[SETTINGS_KEY_THEME]}`);
+    // Load supervisors from configuration
+    await this.loadSupervisorsFromConfig();
+
+    this.logger.info(`[AGENT] Agent initialized (MCP clients and supervisors loaded)`);
   }
 
   /**
@@ -228,14 +249,13 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this.loadEnvironmentVariables();
 
     this._agentData = this.getInitialConfig(data);
-    this._prompt = AgentImpl.DEFAULT_PROMPT;
+    this._prompt = this._agentData.systemPrompt || AgentImpl.DEFAULT_PROMPT;
     if (this._strategy) {
       if (await this._strategy.exists()) {
         throw new Error('Cannot create agent that already exists. Call load() to load an existing agent.');
       }
   
       await this._strategy.saveConfig(this._agentData);
-      await this._strategy.saveSystemPrompt(this._prompt);
     }    
   }
 
@@ -243,30 +263,40 @@ export class AgentImpl  extends EventEmitter implements Agent {
     // Remove the entire agent
     if (this._strategy) {
       await this._strategy.deleteAgent();
-  }
+    }
   }
 
   // Settings management (Agent interface)
   //
 
-  getSetting(key: string): string | null {
-    if (!this._agentData) {
-      throw new Error('Config not loaded. Call initialize() or load() first.');
+  getSettings(): AgentSettings {
+    if (!this._agentData?.settings) {
+      throw new Error('Agent not loaded');
     }
-
-    if (!this._agentData || !this._agentData.settings || !this._agentData.settings[key]) {
-      return null;
-    }
-        
-    return this._agentData.settings[key];
+    return { ...this._agentData.settings };
   }
 
-  async setSetting(key: string, value: string): Promise<void> {
-    if (!this._agentData || !this._agentData.settings) {
-      throw new Error('Config not loaded. Call initialize() or load() first.');
+  async updateSettings(settings: Partial<AgentSettings>): Promise<void> {
+    if (!this._agentData) {
+      throw new Error('Agent not loaded');
     }
+    
+    // Validate partial settings using Zod schema
+    AgentSettingsSchema.partial().parse(settings);
+    
+    // Merge with existing settings
+    this._agentData.settings = { ...this._agentData.settings, ...settings };
+    
+    if (this._strategy) {
+      await this._strategy.saveConfig(this._agentData);
+    }
+  }
 
-    this._agentData.settings[key] = value;
+  // Config persistence
+  async save(): Promise<void> {
+    if (!this._agentData) {
+      throw new Error('Cannot save: agent not loaded');
+    }
     if (this._strategy) {
       await this._strategy.saveConfig(this._agentData);
     }
@@ -276,16 +306,20 @@ export class AgentImpl  extends EventEmitter implements Agent {
   //
 
   async getSystemPrompt(): Promise<string> {
-    if (this._prompt) {
-      return this._prompt;
+    if (!this._agentData) {
+      return AgentImpl.DEFAULT_PROMPT;
     }
-    return AgentImpl.DEFAULT_PROMPT;
+    return this._agentData.systemPrompt || AgentImpl.DEFAULT_PROMPT;
   }
 
   async setSystemPrompt(prompt: string): Promise<void> {
+    if (!this._agentData) {
+      throw new Error('Cannot set system prompt: agent not loaded');
+    }
+    this._agentData.systemPrompt = prompt;
     this._prompt = prompt;
     if (this._strategy) {
-      await this._strategy.saveSystemPrompt(prompt);
+      await this._strategy.saveConfig(this._agentData);
     }
   }
 
@@ -318,37 +352,33 @@ export class AgentImpl  extends EventEmitter implements Agent {
   //
 
   getAllRules(): Rule[] {
-    return this.rules.getAllRules();
+    return this.rulesManager.getAllRules();
   }
   getRule(name: string): Rule | null {
-    return this.rules.getRule(name);
+    return this.rulesManager.getRule(name);
   }
   async addRule(rule: Rule): Promise<void> {
-    // Validate rule using Zod schema
-    const validatedRule = RuleSchema.parse(rule);
-    return this.rules.addRule(this._strategy, validatedRule);
+    return this.rulesManager.addRule(rule);
   }
   deleteRule(name: string): Promise<boolean> {
-    return this.rules.deleteRule(this._strategy, name);
+    return this.rulesManager.deleteRule(name);
   }
 
   // ReferencesManager methods
   //
 
   getAllReferences(): Reference[] {
-    return this.references.getAllReferences();
+    return this.referencesManager.getAllReferences();
   }
   getReference(name: string): Reference | null {
-    return this.references.getReference(name);
+    return this.referencesManager.getReference(name);
   }
 
   async addReference(reference: Reference): Promise<void> {
-    // Validate reference using Zod schema
-    const validatedReference = ReferenceSchema.parse(reference);
-    return this.references.addReference(this._strategy, validatedReference);
+    return this.referencesManager.addReference(reference);
   }
   deleteReference(name: string): Promise<boolean> {
-    return this.references.deleteReference(this._strategy, name);
+    return this.referencesManager.deleteReference(name);
   }
 
   // Provider state management (internal)
@@ -615,31 +645,10 @@ export class AgentImpl  extends EventEmitter implements Agent {
 
 export class FileBasedAgentFactory {
     /**
-     * Lightweight function to load only agent metadata without initializing
-     * the full agent (no MCP clients, no supervisors, no providers, etc.)
-     * This is much faster and should be used for UI display purposes.
+     * Load agent configuration (lightweight).
+     * Returns AgentImpl with config loaded but NOT initialized (no MCP clients, no supervisors).
+     * Call agent.initialize() to fully initialize the agent.
      */
-    static async loadAgentMetadataOnly(agentPath: string, logger: Logger): Promise<AgentMetadata | null> {
-      const normalizedPath = path.normalize(agentPath);
-      
-      // Check if agent exists
-      if (!await FileBasedAgentStrategy.agentExists(normalizedPath)) {
-        return null;
-      }
-
-      try {
-        // Create a minimal strategy just to read the config file
-        const strategy = new FileBasedAgentStrategy(normalizedPath, logger);
-        const config = await strategy.loadConfig();
-        
-        // Extract and return just the metadata
-        return config.metadata || null;
-      } catch (error) {
-        logger.warn(`Failed to load metadata for agent at ${normalizedPath}:`, error);
-        return null;
-      }
-    }
-
     static async loadAgent(agentPath: string, logger: Logger): Promise<AgentImpl> {
       const normalizedPath = path.normalize(agentPath);
       
@@ -652,12 +661,19 @@ export class FileBasedAgentFactory {
       const agent = new AgentImpl(strategy, logger);
       await agent.load();
       
-      // Load supervisors from configuration
-      await agent.loadSupervisorsFromConfig();
-      
       return agent;
     }
-  
+
+    /**
+     * Load agent configuration and fully initialize it.
+     * Equivalent to loadAgent() followed by agent.initialize().
+     */
+    static async loadAndInitializeAgent(agentPath: string, logger: Logger): Promise<AgentImpl> {
+      const agent = await FileBasedAgentFactory.loadAgent(agentPath, logger);
+      await agent.initialize();
+      return agent;
+    }
+
     static async createAgent(agentPath: string, logger: Logger, data?: Partial<AgentConfig>): Promise<AgentImpl> {
       const normalizedPath = path.normalize(agentPath);
       

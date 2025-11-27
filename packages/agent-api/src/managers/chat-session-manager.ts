@@ -2,26 +2,10 @@ import { ChatSessionImpl } from '../core/chat-session.js';
 import { ChatSession, ChatSessionOptions, ChatSessionOptionsWithRequiredSettings } from '../types/chat.js';
 import { ChatSessionManager } from './types.js';
 import { 
-  Agent, 
-  SETTINGS_KEY_MAX_CHAT_TURNS, 
-  SETTINGS_DEFAULT_MAX_CHAT_TURNS, 
-  SETTINGS_KEY_MAX_OUTPUT_TOKENS, 
-  SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS, 
-  SETTINGS_KEY_TEMPERATURE, 
-  SETTINGS_DEFAULT_TEMPERATURE, 
-  SETTINGS_KEY_TOP_P, 
-  SETTINGS_DEFAULT_TOP_P, 
-  SETTINGS_KEY_CONTEXT_TOP_K,
-  SETTINGS_DEFAULT_CONTEXT_TOP_K,
-  SETTINGS_KEY_CONTEXT_TOP_N,
-  SETTINGS_DEFAULT_CONTEXT_TOP_N,
-  SETTINGS_KEY_CONTEXT_INCLUDE_SCORE,
-  SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE,
-  SESSION_TOOL_PERMISSION_KEY, 
-  SESSION_TOOL_PERMISSION_TOOL, 
-  SessionToolPermission, 
-  SESSION_TOOL_PERMISSION_ALWAYS, 
-  SESSION_TOOL_PERMISSION_NEVER 
+  Agent,
+  AgentSettings,
+  SessionToolPermission,
+  getDefaultSettings
 } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 
@@ -41,22 +25,27 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
     return this.sessions.get(sessionId) || null;
   }
 
-  private getSettingsValue(value: number | undefined, key: string, defaultValue: number): number {
+  private getSettingsValue(value: number | undefined, key: keyof AgentSettings): number {
     if (value != undefined) {
       return value;
     }
-    const settingsValue = this.agent.getSetting(key);
-    return settingsValue ? parseFloat(settingsValue) : defaultValue;
+    const settings = this.agent.getSettings();
+    const settingsValue = settings[key];
+    if (typeof settingsValue === 'number') {
+      return settingsValue;
+    }
+    // Fall back to schema defaults
+    const defaults = getDefaultSettings();
+    return defaults[key] as number ?? 0;
   }
 
-  private getToolPermissionValue(value: SessionToolPermission | undefined, key: string, defaultValue: SessionToolPermission): SessionToolPermission {
+  private getToolPermissionValue(value: SessionToolPermission | undefined, key: keyof AgentSettings, defaultValue: SessionToolPermission): SessionToolPermission {
     if (value != undefined) {
       return value;
     }
-    const settingsValue = this.agent.getSetting(key);
-    return (settingsValue === SESSION_TOOL_PERMISSION_TOOL || settingsValue === SESSION_TOOL_PERMISSION_ALWAYS || settingsValue === SESSION_TOOL_PERMISSION_NEVER)
-      ? settingsValue as SessionToolPermission
-      : defaultValue;
+    const settings = this.agent.getSettings();
+    const settingsValue = settings.toolPermission;
+    return settingsValue ?? defaultValue;
   }
 
   createChatSession(sessionId: string, options: ChatSessionOptions = {}): ChatSession {
@@ -67,14 +56,14 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
 
     const optionsWithRequiredSettings: ChatSessionOptionsWithRequiredSettings = {
       ...options,
-      maxChatTurns: this.getSettingsValue(options.maxChatTurns, SETTINGS_KEY_MAX_CHAT_TURNS, SETTINGS_DEFAULT_MAX_CHAT_TURNS),
-      maxOutputTokens: this.getSettingsValue(options.maxOutputTokens, SETTINGS_KEY_MAX_OUTPUT_TOKENS, SETTINGS_DEFAULT_MAX_OUTPUT_TOKENS),
-      temperature: this.getSettingsValue(options.temperature, SETTINGS_KEY_TEMPERATURE, SETTINGS_DEFAULT_TEMPERATURE),
-      topP: this.getSettingsValue(options.topP, SETTINGS_KEY_TOP_P, SETTINGS_DEFAULT_TOP_P),
-      toolPermission: this.getToolPermissionValue(options.toolPermission, SESSION_TOOL_PERMISSION_KEY, SESSION_TOOL_PERMISSION_TOOL),
-      contextTopK: this.getSettingsValue(options.contextTopK, SETTINGS_KEY_CONTEXT_TOP_K, SETTINGS_DEFAULT_CONTEXT_TOP_K),
-      contextTopN: this.getSettingsValue(options.contextTopN, SETTINGS_KEY_CONTEXT_TOP_N, SETTINGS_DEFAULT_CONTEXT_TOP_N),
-      contextIncludeScore: this.getSettingsValue(options.contextIncludeScore, SETTINGS_KEY_CONTEXT_INCLUDE_SCORE, SETTINGS_DEFAULT_CONTEXT_INCLUDE_SCORE)
+      maxChatTurns: this.getSettingsValue(options.maxChatTurns, 'maxChatTurns'),
+      maxOutputTokens: this.getSettingsValue(options.maxOutputTokens, 'maxOutputTokens'),
+      temperature: this.getSettingsValue(options.temperature, 'temperature'),
+      topP: this.getSettingsValue(options.topP, 'topP'),
+      toolPermission: this.getToolPermissionValue(options.toolPermission, 'toolPermission', 'tool'),
+      contextTopK: this.getSettingsValue(options.contextTopK, 'contextTopK'),
+      contextTopN: this.getSettingsValue(options.contextTopN, 'contextTopN'),
+      contextIncludeScore: this.getSettingsValue(options.contextIncludeScore, 'contextIncludeScore')
     }
 
     // Create new ChatSession instance

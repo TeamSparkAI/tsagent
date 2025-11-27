@@ -43,8 +43,8 @@ export class AgentsManager extends EventEmitter {
                 this.logger.info(`Loading agents from: ${this.agentsPath}`);
                 const data = await fs.promises.readFile(this.agentsPath, 'utf-8');
                 const { recentAgents, lastActiveAgent } = JSON.parse(data);
-                this.recentAgents = recentAgents;
-                this.lastActiveAgent = lastActiveAgent;
+                this.recentAgents = recentAgents || [];
+                this.lastActiveAgent = lastActiveAgent || null;
             } else {
                 this.logger.info(`Agents file does not exist at: ${this.agentsPath}`);
             }

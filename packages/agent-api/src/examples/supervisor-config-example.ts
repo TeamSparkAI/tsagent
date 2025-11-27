@@ -1,4 +1,4 @@
-import { loadAgent } from '../runtime.js';
+import { loadAndInitializeAgent } from '../runtime.js';
 import { Logger } from '../types/common.js';
 import { SupervisorConfig } from '../types/supervision.js';
 
@@ -7,7 +7,7 @@ import { SupervisorConfig } from '../types/supervision.js';
  */
 export async function supervisorConfigExample(logger: Logger) {
   // Load an agent that has supervisors configured in its JSON file
-  const agent = await loadAgent('./my-agent-with-supervisors', logger);
+  const agent = await loadAndInitializeAgent('./my-agent-with-supervisors', logger);
   
   // The supervisors are automatically loaded from the agent's configuration
   const supervisors = agent.getAllSupervisors();
