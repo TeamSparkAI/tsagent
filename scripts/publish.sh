@@ -37,6 +37,7 @@ CORE_DEPENDENTS=(
   "packages/agent-mcp"
   "packages/meta-mcp"
   "apps/cli"
+  "apps/desktop"
 )
 
 # Packages that depend on @tsagent/server (need reinstall after server is published)
