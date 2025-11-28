@@ -87,12 +87,22 @@ Claude APIs don't provide useful metadata about max output tokens. Known limits:
 
 ## MCP Functionality
 
+Improve MCP support and config/interaction (best of MCP Inspector and ToolVault)
+
 - **Resources support**: Add support for MCP resources
 - **Resource templates**: Add support for MCP resource templates
 - **Prompts**: Add support for MCP prompts
-- **Tool call history**: "History" for each tool call showing JSON request (tool name, params) and response
+- **Tool call history**: "History" for recent tool calla showing JSON request (tool name, params) and response (like MCP Inspector)
+- **Catalog/Registry support**: Integrate tool catalog/registry (and metadata-driven config)
+- **Tool logging**: Better tool logging UX (including container logging)
+- **Tool results**: Better tool results display (toggle text / JSON as in ToolVault)
+- Make sure we support CWD proplerly (as ToolVault)
+- Auto containerization like ToolVault for agent tool usage?
+  - "Run in container" would be config element, and that would drive containerization at runtime
 
-## Usage & Pricing
+## Future Considerations
+
+### Usage & Pricing 
 
 - **Pricing database**: Build database of provider/model pricing
   - Complicated as pricing constantly changes, no automated way to get prices
@@ -101,8 +111,6 @@ Claude APIs don't provide useful metadata about max output tokens. Known limits:
 - **Token usage collection**: Collect token usage over time (maybe by session) to show monthly or lifetime totals
 - **Multi-provider pricing**: Handle different models from different providers in usage display
 - **Model switching**: Handle pricing when switching models mid-session (maybe don't allow, or spawn cloned session for new model)
-
-## Future Considerations
 
 ### Multi-Modal Support
 
@@ -122,9 +130,101 @@ Claude APIs don't provide useful metadata about max output tokens. Known limits:
 - **Passive observation**: Supervisor passed entire conversation after the fact (limited actions)
 - **Active interaction**: Supervisor in conversation loop in real-time (full control, subject to privileges)
 
-## Technical Debt
+## Agent Creation
 
-- **Type safety improvements**: Continue improving type safety across the codebase
-- **Documentation**: Keep architecture and work items documents up to date
-- **Testing**: Expand test coverage for edge cases and integration scenarios
+### Provider / Model Issues
 
+Installing models with config via yaml could be easier
+- Model could have default config that uses env://DEFAULT_ENV_VAR
+- If a model's config params using defaults forms a complete config (one or more env vars) it just works
+  - For example, if you install the Gemini provider with no params, and you have a GOOGLE_API_KEY env var, it works
+  - The UX will display the default value of "env://GOOGLE_API_KEY" in the control when no value is set
+  - And that's what it uses when no value is set
+
+settings/most-recent-model should be named something different (maybe just settings/model, or defaultModel, or sessionModel)
+- Currently most-recent-model is set whenever you change a model in any session
+- Maybe we make an explicit way to set it in settings?
+- Or maybe we have a "Make session settings default" method in the UX that sets the model and all other settings (we need the latter anyway)
+
+The value of settings/model might not be easy to intuit (make sure this is visible in both the UX and the CLI)
+- It is a provider/model (but the exact values might not be clear)
+
+Do we need a better way to select a default model for a provider?
+- Is there ever a case where you'd specify only a provider and not an actual model?
+
+The culmination of this should be the simplest possible yaml agent definition 
+- Streamlined/default provider config, model specified
+
+### Agent Types
+
+We currently have interactive, autonomous (A2A), and tool providing (for meta-MCP)
+
+This is odd in part because tool-providing agents are also autonomous (at least currently)
+- In terms of how they operate, only presenting MPC tools that don't require approval, for example
+
+It's also possible that an agent could provide both skills and tools
+
+Should you be able to use a skill or tool-providing agent interactively with MCP tools that require permission?
+- Only lock down the tools when in autonomous mode (how would we know)?
+- At least lock down tools in test mode (so you can simulate how it will work when autonomous)
+
+One path could agent mode is interactive or autonomous
+- This determines whether tools require permission can be used by the agent (anything else?)
+- If autonomous, you are allowed to define skills and/or tools (or neither)
+- For example, you might make an autonomous agent with no skills or tools for an ACP deployment
+
+There is currently a bug with autonomous agents 
+- When they include tools via semantic inclusion, they don't filter out tools that require approval (easy fix)
+- If that happens, you get a tool call that can't be completed, resulting in an empty response and end of turn
+
+We should filter for tool permission when including tools by context (for both autonomous and tool providing modes)
+We should add some error logging or error response in the case that we encounter an tool permission requirement when in autonomous mode
+- Should never happen after fix, but still good to be safe
+
+### MCP Server Config
+
+We have several defaults with per-tool overrides where we repeat the tool list (at least for overriden items):
+
+    toolPermissionRequired:
+      serverDefault: false
+      tools:
+        read_text_file: true
+    toolInclude:
+      serverDefault: agent
+      tools:
+        directory_tree: manual
+    toolEmbeddings:
+      tools:
+        read_file:
+          embeddings: # Delete embeddings when editing item, they will be automatically regenerated
+            - [ 0.042216427624225616, 0.06117666885256767, -0.030965721234679222, 0.024182630702853203, ... ]
+          hash: f023f4d60f744bc3bc0f850ee68b2351784dc5a2176dda925a47493c146a1fc0
+
+We could do:
+
+    serverDefaults:
+      permissionRequired: false
+      include: agent
+    tools:
+      read_file:
+        permissionRequired: true
+        include: manual
+        embeddings: # Delete embeddings when editing item, they will be automatically regenerated
+          - [ 0.042216427624225616, 0.06117666885256767, -0.030965721234679222, 0.024182630702853203, ... ]
+        hash: f023f4d60f744bc3bc0f850ee68b2351784dc5a2176dda925a47493c146a1fc0
+
+We should implement registry support and metadata-driven config (via ServerCard?) before we lock the mcpServers config down
+- But we can still safely proceed with the above tool config refactoring
+
+### Agent Serialization / Strategies
+
+Read-only mode
+- Should we support a mode of agent usage that is read-only 
+  - We might allow explicit operations that do writes, or an explicit save, but no automatic updates (like embeddings)
+  - This would probably mainly include embeddings (we would generate/update JIT but not save updates)
+
+Should we implement a strategy backed by something else now that it's much simpler (single file)?
+- Maybe a URL strategy, which would also support buckets?
+
+Should we remove all implicit serialization and make the agent call an explicit save() to serialize?
+- Some things, like embeddings update, the agent doesn't know about (unless we invent a way to tell them)
