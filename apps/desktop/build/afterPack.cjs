@@ -6,6 +6,13 @@ const afterPackHook = async params => {
     if (params.electronPlatformName == 'linux') {
         log.info('Creating launcher scripts for linux target');
 
+        // Linux sandboxing workaround:
+        // Because of a sandboxing issue on Linux (see https://github.com/electron/electron/issues/17972
+        // and https://github.com/electron-userland/electron-builder/issues/3872), we need to:
+        // 1. Rename the original executable to .bin
+        // 2. Create a shell script with the app name that runs the .bin with the --no-sandbox flag
+        // This allows the app to run properly on Linux systems with sandboxing restrictions.
+
         const executable = path.join(
             params.appOutDir,
             params.packager.executableName
