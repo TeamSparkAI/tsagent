@@ -1,20 +1,88 @@
 import { Tool } from "../mcp/types.js";
-
+import { z } from 'zod';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
+import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
+import { BaseProvider } from './base-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
 
-export class OpenAIProvider implements Provider {
-  private readonly agent: Agent;
-  private readonly modelName: string;
-  private readonly logger: Logger;
-  private readonly config: Record<string, string>;
+const OpenAIConfigSchema = z.object({
+  OPENAI_API_KEY: z.string().default('env://OPENAI_API_KEY'),
+});
+
+// Internal type (not exported - provider details stay encapsulated)
+type OpenAIConfig = z.infer<typeof OpenAIConfigSchema>;
+
+// Provider Descriptor
+export class OpenAIProviderDescriptor extends ProviderDescriptor {
+  readonly type = ProviderType.OpenAI;
+  
+  readonly info: ProviderInfo = {
+    name: "OpenAI",
+    description: "OpenAI models including GPT-3.5, GPT-4, and other advanced language models",
+    website: "https://openai.com",
+    configValues: [
+      {
+        caption: "OpenAI API key",
+        key: "OPENAI_API_KEY",
+        secret: true,
+        required: true,
+      }
+    ]
+  };
+  
+  readonly configSchema = OpenAIConfigSchema;
+  
+  getDefaultModelId(): string {
+    return 'gpt-3.5-turbo';
+  }
+  
+  // Override for API connectivity check
+  protected async validateProvider(
+    agent: Agent,
+    config: Record<string, string>
+  ): Promise<{ isValid: boolean, error?: string } | null> {
+    // Cast to typed config for internal use
+    const typedConfig = config as OpenAIConfig;
+    const apiKey = typedConfig.OPENAI_API_KEY;
+    
+    if (!apiKey) {
+      return { isValid: false, error: 'OPENAI_API_KEY is missing or could not be resolved' };
+    }
+    
+    // Live API check
+    try {
+      const client = new OpenAI({ apiKey });
+      await client.models.list();
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: 'Failed to validate OpenAI configuration: ' + (error instanceof Error ? error.message : 'Unknown error') };
+    }
+  }
+  
+  protected async createProvider(
+    modelName: string,
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<Provider> {
+    // Cast to typed config for internal use
+    const typedConfig = config as OpenAIConfig;
+    return new OpenAIProvider(modelName, agent, logger, typedConfig);
+  }
+}
+
+// Export descriptor instance for registration
+export const openaiProviderDescriptor = new OpenAIProviderDescriptor();
+
+// Provider implementation
+class OpenAIProvider extends BaseProvider<OpenAIConfig> {
   private client: OpenAI;
 
   private convertMCPToolToOpenAIFunction(tool: Tool): OpenAI.ChatCompletionCreateParams.Function {
@@ -29,47 +97,10 @@ export class OpenAIProvider implements Provider {
     };
   }
 
-  static getInfo(): ProviderInfo {
-    return {
-      name: "OpenAI",
-      description: "OpenAI models including GPT-3.5, GPT-4, and other advanced language models",
-      website: "https://openai.com",
-      configValues: [
-        {
-          caption: "OpenAI API key",
-          key: "OPENAI_API_KEY",
-          secret: true,
-          required: true,
-        }
-      ]
-    };
-  }
-
-  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
-    const apiKey = config['OPENAI_API_KEY'];
-    if (!apiKey) {
-      return { isValid: false, error: 'OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.' };
-    }
-    try {
-      const client = new OpenAI({ apiKey });
-      await client.models.list();
-      return { isValid: true };
-    } catch (error) {
-      return { isValid: false, error: 'Failed to validate OpenAI configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
-    }
-  }
-
-  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
-    this.modelName = modelName;
-    this.agent = agent;
-    this.logger = logger;
-    this.config = resolvedConfig;
-
-    const apiKey = this.config['OPENAI_API_KEY']!;
-    if (!apiKey) {
-      throw new Error('OPENAI_API_KEY is missing in the configuration. Please add it to your config.json file.');
-    }
-    this.client = new OpenAI({ apiKey });
+  constructor(modelName: string, agent: Agent, logger: Logger, config: OpenAIConfig) {
+    super(modelName, agent, logger, config);
+    // config.OPENAI_API_KEY is typed and available
+    this.client = new OpenAI({ apiKey: config.OPENAI_API_KEY });
     this.logger.info('OpenAI Provider initialized successfully');
   }
 

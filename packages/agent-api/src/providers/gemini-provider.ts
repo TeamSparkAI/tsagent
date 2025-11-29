@@ -1,19 +1,90 @@
 import { Tool } from "../mcp/types.js";
-
+import { z } from 'zod';
 import { GoogleGenAI, Tool as GeminiTool, Content, Part, Type as SchemaType } from '@google/genai';
 
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
+import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
+import { BaseProvider } from './base-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
 
-export class GeminiProvider implements Provider {
-  private readonly agent: Agent;
-  private readonly modelName: string;
-  private readonly logger: Logger;
-  private readonly config: Record<string, string>;
+const GeminiConfigSchema = z.object({
+  GOOGLE_API_KEY: z.string().default('env://GOOGLE_API_KEY'),
+});
+
+// Internal type (not exported - provider details stay encapsulated)
+type GeminiConfig = z.infer<typeof GeminiConfigSchema>;
+
+// Provider Descriptor
+export class GeminiProviderDescriptor extends ProviderDescriptor {
+  readonly type = ProviderType.Gemini;
+  
+  readonly info: ProviderInfo = {
+    name: "Google Gemini",
+    description: "Google's Gemini models are multimodal AI systems that can understand and combine different types of information",
+    website: "https://deepmind.google/technologies/gemini/",
+    configValues: [
+      {
+        caption: "Google API key",
+        key: "GOOGLE_API_KEY",
+        secret: true,
+        required: true,
+      }
+    ]
+  };
+  
+  readonly configSchema = GeminiConfigSchema;
+  
+  getDefaultModelId(): string {
+    return 'gemini-2.0-flash';
+  }
+  
+  // Override for API connectivity check
+  protected async validateProvider(
+    agent: Agent,
+    config: Record<string, string>
+  ): Promise<{ isValid: boolean, error?: string } | null> {
+    // Cast to typed config for internal use
+    const typedConfig = config as GeminiConfig;
+    const apiKey = typedConfig.GOOGLE_API_KEY;
+    
+    if (!apiKey) {
+      return { isValid: false, error: 'GOOGLE_API_KEY is missing or could not be resolved' };
+    }
+    
+    // Live API check
+    try {
+      const genAI = new GoogleGenAI({ apiKey });
+      await genAI.models.generateContent({
+        model: 'gemini-2.0-flash',
+        contents: 'ping'
+      });
+      return { isValid: true };
+    } catch (error) {
+      return { isValid: false, error: 'Failed to validate Gemini configuration: ' + (error instanceof Error ? error.message : 'Unknown error') };
+    }
+  }
+  
+  protected async createProvider(
+    modelName: string,
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<Provider> {
+    // Cast to typed config for internal use
+    const typedConfig = config as GeminiConfig;
+    return new GeminiProvider(modelName, agent, logger, typedConfig);
+  }
+}
+
+// Export descriptor instance for registration
+export const geminiProviderDescriptor = new GeminiProviderDescriptor();
+
+// Provider implementation
+class GeminiProvider extends BaseProvider<GeminiConfig> {
   private genAI: GoogleGenAI;
 
   private convertPropertyType(prop: any): { type: SchemaType; items?: { type: SchemaType; properties?: Record<string, any>; required?: string[] }; description?: string } {
@@ -88,50 +159,10 @@ export class GeminiProvider implements Provider {
     };
   }
 
-  static getInfo(): ProviderInfo {
-    return {
-      name: "Google Gemini",
-      description: "Google's Gemini models are multimodal AI systems that can understand and combine different types of information",
-      website: "https://deepmind.google/technologies/gemini/",
-      configValues: [
-        {
-          caption: "Google API key",
-          key: "GOOGLE_API_KEY",
-          secret: true,
-          required: true,
-        }
-      ]
-    };
-  }
-
-  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
-    const apiKey = config['GOOGLE_API_KEY'];
-    if (!apiKey) {
-      return { isValid: false, error: 'GOOGLE_API_KEY is missing in the configuration. Please add it to your config.json file.' };
-    }
-    try {
-      const genAI = new GoogleGenAI({ apiKey });
-      await genAI.models.generateContent({
-        model: 'gemini-2.0-flash',
-        contents: 'ping'
-      });
-      return { isValid: true };
-    } catch (error) {
-      return { isValid: false, error: 'Failed to validate Gemini configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
-    }
-  }
-
-  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
-    this.modelName = modelName;
-    this.agent = agent;
-    this.logger = logger;
-    this.config = resolvedConfig;
-
-    const apiKey = this.config['GOOGLE_API_KEY'];
-    if (!apiKey) {
-      throw new Error('GOOGLE_API_KEY is missing in the configuration.');
-    }
-    this.genAI = new GoogleGenAI({ apiKey });
+  constructor(modelName: string, agent: Agent, logger: Logger, config: GeminiConfig) {
+    super(modelName, agent, logger, config);
+    // config.GOOGLE_API_KEY is typed and available
+    this.genAI = new GoogleGenAI({ apiKey: config.GOOGLE_API_KEY });
     this.logger.info('Gemini Provider initialized successfully');
   }
 

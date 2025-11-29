@@ -1,55 +1,87 @@
 import { Tool } from '../mcp/types.js';
-
+import { z } from 'zod';
 import { ChatResponse, Message, Ollama, Tool as OllamaTool } from 'ollama';
 
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
+import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
+import { BaseProvider } from './base-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
 
-export class OllamaProvider implements Provider {
-  private readonly agent: Agent;
-  private readonly modelName: string;
-  private readonly logger: Logger;
-  private readonly config: Record<string, string>;
-  private client: Ollama;
+// Schema defined outside class so we can use it for the type
+const OllamaConfigSchema = z.object({
+  OLLAMA_HOST: z.string().default('http://127.0.0.1:11434'),
+});
 
-  static getInfo(): ProviderInfo {
-    return {
-      name: "Ollama",
-      description: "Run open-source large language models locally on your own hardware",
-      website: "https://ollama.ai/",
-      configValues: [
-        {
-          caption: "Ollama host",
-          key: "OLLAMA_HOST",
-          default: "http://127.0.0.1:11434"
-        }
-      ]
-    };
+// Internal type (not exported - provider details stay encapsulated)  
+type OllamaConfig = z.infer<typeof OllamaConfigSchema>;
+
+// Provider Descriptor
+export class OllamaProviderDescriptor extends ProviderDescriptor {
+  readonly type = ProviderType.Ollama;
+  
+  readonly info: ProviderInfo = {
+    name: "Ollama",
+    description: "Run open-source large language models locally on your own hardware",
+    website: "https://ollama.ai/",
+    configValues: [
+      {
+        caption: "Ollama host",
+        key: "OLLAMA_HOST",
+        default: "http://127.0.0.1:11434"
+      }
+    ]
+  };
+  
+  readonly configSchema = OllamaConfigSchema;
+  
+  getDefaultModelId(): string {
+    return 'llama3.2';
   }
-
-  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
-    const host = config['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434';
+  
+  // Override for connectivity check
+  protected async validateProvider(
+    agent: Agent,
+    config: Record<string, string>
+  ): Promise<{ isValid: boolean, error?: string } | null> {
+    // Cast to typed config for internal use
+    const typedConfig = config as OllamaConfig;
+    const host = typedConfig.OLLAMA_HOST;
     try {
       const client = new Ollama({ host: host });
       await client.list();
       return { isValid: true };
     } catch (error) {
-      return { isValid: false, error: 'Failed to validate Ollama configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
+      return { isValid: false, error: 'Failed to validate Ollama configuration: ' + (error instanceof Error ? error.message : 'Unknown error') };
     }
   }
+  
+  protected async createProvider(
+    modelName: string,
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<Provider> {
+    // Cast to typed config for internal use
+    const typedConfig = config as OllamaConfig;
+    return new OllamaProvider(modelName, agent, logger, typedConfig);
+  }
+}
 
-  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
-    this.modelName = modelName;
-    this.agent = agent;
-    this.logger = logger;
-    this.config = resolvedConfig;
+// Export descriptor instance for registration
+export const ollamaProviderDescriptor = new OllamaProviderDescriptor();
 
-    const host = this.config['OLLAMA_HOST'] ?? 'http://127.0.0.1:11434';
-    this.client = new Ollama({ host: host });
+// Provider implementation
+class OllamaProvider extends BaseProvider<OllamaConfig> {
+  private client: Ollama;
+
+  constructor(modelName: string, agent: Agent, logger: Logger, config: OllamaConfig) {
+    super(modelName, agent, logger, config);
+    // config.OLLAMA_HOST is typed and available
+    this.client = new Ollama({ host: config.OLLAMA_HOST });
     this.logger.info('Ollama Provider initialized successfully');
   }
 

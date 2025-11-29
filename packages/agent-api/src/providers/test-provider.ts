@@ -1,26 +1,52 @@
+import { z } from 'zod';
 import { ChatMessage, ChatSession } from '../types/chat.js';
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
+import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
 import { ModelReply } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
+import { BaseProvider } from './base-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
 
-export class TestProvider implements Provider {
-  private readonly agent: Agent;
-  private readonly modelName: string;
-  private readonly logger: Logger;
+const TestConfigSchema = z.object({}).default({});
 
-  static getInfo(): ProviderInfo {
-    return {
-      name: "Test Provider",
-      description: "A simple mock provider implementation for testing purposes",
-      configValues: []
-    };
+// Internal type (not exported - provider details stay encapsulated)
+type TestConfig = z.infer<typeof TestConfigSchema>;
+
+// Provider Descriptor
+export class TestProviderDescriptor extends ProviderDescriptor {
+  readonly type = ProviderType.Test;
+  
+  readonly info: ProviderInfo = {
+    name: "Test Provider",
+    description: "A simple mock provider implementation for testing purposes",
+    configValues: []
+  };
+  
+  readonly configSchema = TestConfigSchema;
+  
+  getDefaultModelId(): string {
+    return 'frosty1.0';
   }
   
-  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig?: Record<string, string>) {
-    this.modelName = modelName;
-    this.agent = agent;
-    this.logger = logger;
+  protected async createProvider(
+    modelName: string,
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<Provider> {
+    // Cast to typed config for internal use
+    const typedConfig = config as TestConfig;
+    return new TestProvider(modelName, agent, logger, typedConfig);
+  }
+}
+
+// Export descriptor instance for registration
+export const testProviderDescriptor = new TestProviderDescriptor();
+
+// Provider implementation
+class TestProvider extends BaseProvider<TestConfig> {
+  constructor(modelName: string, agent: Agent, logger: Logger, config: TestConfig) {
+    super(modelName, agent, logger, config);
     this.logger.info('Test Provider initialized successfully');
   }
 
@@ -34,7 +60,13 @@ export class TestProvider implements Provider {
     }];
   }
 
-  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
+  // Provider's validateConfiguration uses same validation logic as create (without construction)
+  static async validateConfiguration(
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<{ isValid: boolean, error?: string }> {
+    // Test provider always validates successfully
     return { isValid: true };
   }
 

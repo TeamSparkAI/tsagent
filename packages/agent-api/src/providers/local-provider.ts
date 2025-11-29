@@ -1,13 +1,16 @@
 import { Tool } from '../mcp/types.js';
+import { z } from 'zod';
 import * as fs from 'fs';
 import * as path from 'path';
 import { LlamaChatSession, type LLamaChatPromptOptions, Llama, LlamaModel, LlamaContext, getLlama, ChatModelFunctionCall, ChatHistoryItem } from 'node-llama-cpp';
 
-import { ModelReply, Provider, ProviderModel, ProviderType, ProviderInfo, Turn } from './types.js';
+import { ModelReply, ProviderModel, ProviderType, ProviderInfo, Turn, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
+import { BaseProvider } from './base-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
 
 /**
  * LocalProvider: tool calling when approval is required
@@ -28,35 +31,47 @@ import { ProviderHelper } from './provider-helper.js';
  *   generation can continue with the tool call results incorporated into the context.
  */
 
-export class LocalProvider implements Provider {
-  private readonly agent: Agent;
-  private readonly modelName: string;
-  private readonly logger: Logger;
-  private readonly config: Record<string, string>;
-  private modelPath: string = '';
-  private llama: Llama | null = null;
-  private model: LlamaModel | null = null;
+const LocalConfigSchema = z.object({
+  MODEL_DIRECTORY: z.string(),
+});
 
+// Internal type (not exported - provider details stay encapsulated)
+type LocalConfig = z.infer<typeof LocalConfigSchema>;
 
-  static getInfo(): ProviderInfo {
-    return {
-      name: "Local GGUF Models",
-      description: "Run local GGUF models using node-llama-cpp for complete privacy and offline capability",
-      configValues: [
-        {
-          caption: "Models directory",
-          key: "MODEL_DIRECTORY",
-          secret: false,
-          required: true,
-        }
-      ]
-    };
+// Provider Descriptor
+export class LocalProviderDescriptor extends ProviderDescriptor {
+  readonly type = ProviderType.Local;
+  
+  readonly info: ProviderInfo = {
+    name: "Local GGUF Models",
+    description: "Run local GGUF models using node-llama-cpp for complete privacy and offline capability",
+    configValues: [
+      {
+        caption: "Models directory",
+        key: "MODEL_DIRECTORY",
+        secret: false,
+        required: true,
+      }
+    ]
+  };
+  
+  readonly configSchema = LocalConfigSchema;
+  
+  getDefaultModelId(): string {
+    return '';
   }
   
-  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
-    const modelDir = config['MODEL_DIRECTORY'];
+  // Override for file system validation
+  protected async validateProvider(
+    agent: Agent,
+    config: Record<string, string>
+  ): Promise<{ isValid: boolean, error?: string } | null> {
+    // Cast to typed config for internal use
+    const typedConfig = config as LocalConfig;
+    const modelDir = typedConfig.MODEL_DIRECTORY;
+    
     if (!modelDir) {
-      return { isValid: false, error: 'MODEL_DIRECTORY is missing in the configuration. Please add it to your config.json file.' };
+      return { isValid: false, error: 'MODEL_DIRECTORY is missing or could not be resolved' };
     }
     
     try {
@@ -77,14 +92,32 @@ export class LocalProvider implements Provider {
       return { isValid: false, error: `Failed to validate local configuration: ${error instanceof Error ? error.message : 'Unknown error'}` };
     }
   }
+  
+  protected async createProvider(
+    modelName: string,
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<Provider> {
+    // Cast to typed config for internal use
+    const typedConfig = config as LocalConfig;
+    return new LocalProvider(modelName || '', agent, logger, typedConfig);
+  }
+}
 
-  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
-    this.modelName = modelName || '';
-    this.agent = agent;
-    this.logger = logger;
-    this.config = resolvedConfig;
+// Export descriptor instance for registration
+export const localProviderDescriptor = new LocalProviderDescriptor();
 
-    const modelDir = this.config['MODEL_DIRECTORY'];
+// Provider implementation
+class LocalProvider extends BaseProvider<LocalConfig> {
+  private modelPath: string = '';
+  private llama: Llama | null = null;
+  private model: LlamaModel | null = null;
+
+  constructor(modelName: string, agent: Agent, logger: Logger, config: LocalConfig) {
+    super(modelName || '', agent, logger, config);
+
+    const modelDir = config.MODEL_DIRECTORY;
     if (!modelDir) {
       throw new Error('MODEL_DIRECTORY is missing in the configuration.');
     }

@@ -1,62 +1,93 @@
 import { Tool } from '../mcp/types.js';
-
+import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 
-import { ModelReply, Provider, ProviderModel, ProviderType, ProviderInfo, Turn } from './types.js';
+import { ModelReply, ProviderModel, ProviderType, ProviderInfo, Turn, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
+import { BaseProvider } from './base-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
 
-export class ClaudeProvider implements Provider {
-  private readonly agent: Agent;
-  private readonly modelName: string;
-  private readonly logger: Logger;
-  private readonly config: Record<string, string>;
-  private client: Anthropic;
+const ClaudeConfigSchema = z.object({
+  ANTHROPIC_API_KEY: z.string().default('env://ANTHROPIC_API_KEY'),
+});
 
-  static getInfo(): ProviderInfo {
-    return {
-      name: "Anthropic Claude",
-      description: "Claude is a family of AI assistants created by Anthropic to be helpful, harmless, and honest",
-      website: "https://www.anthropic.com/claude",
-      configValues: [
-        {
-          caption: "Anthropic API key",
-          key: "ANTHROPIC_API_KEY",
-          secret: true,
-          required: true,
-        }
-      ]
-    };
+// Internal type (not exported - provider details stay encapsulated)
+type ClaudeConfig = z.infer<typeof ClaudeConfigSchema>;
+
+// Provider Descriptor
+export class ClaudeProviderDescriptor extends ProviderDescriptor {
+  readonly type = ProviderType.Claude;
+  
+  readonly info: ProviderInfo = {
+    name: "Anthropic Claude",
+    description: "Claude is a family of AI assistants created by Anthropic to be helpful, harmless, and honest",
+    website: "https://www.anthropic.com/claude",
+    configValues: [
+      {
+        caption: "Anthropic API key",
+        key: "ANTHROPIC_API_KEY",
+        secret: true,
+        required: true,
+      }
+    ]
+  };
+  
+  readonly configSchema = ClaudeConfigSchema;
+  
+  getDefaultModelId(): string {
+    return 'claude-3-7-sonnet-20250219';
   }
   
-  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
-    const apiKey = config['ANTHROPIC_API_KEY'];
+  // Override for API connectivity check
+  protected async validateProvider(
+    agent: Agent,
+    config: Record<string, string>
+  ): Promise<{ isValid: boolean, error?: string } | null> {
+    // Cast to typed config for internal use
+    const typedConfig = config as ClaudeConfig;
+    const apiKey = typedConfig.ANTHROPIC_API_KEY;
+    
     if (!apiKey) {
-      return { isValid: false, error: 'ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.' };
+      return { isValid: false, error: 'ANTHROPIC_API_KEY is missing or could not be resolved' };
     }
+    
+    // Live API check
     try {
       const client = new Anthropic({ apiKey });
       await client.models.list();
       return { isValid: true };
     } catch (error) {
-      return { isValid: false, error: 'Failed to validate Claude configuration: ' + (error instanceof Error && error.message ? ': ' + error.message : '') };
+      return { isValid: false, error: 'Failed to validate Claude configuration: ' + (error instanceof Error ? error.message : 'Unknown error') };
     }
   }
+  
+  protected async createProvider(
+    modelName: string,
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<Provider> {
+    // Cast to typed config for internal use
+    const typedConfig = config as ClaudeConfig;
+    return new ClaudeProvider(modelName, agent, logger, typedConfig);
+  }
+}
 
-  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
-    this.modelName = modelName;
-    this.agent = agent;
-    this.logger = logger;
-    this.config = resolvedConfig;
+// Export descriptor instance for registration
+export const claudeProviderDescriptor = new ClaudeProviderDescriptor();
 
-    const apiKey = this.config['ANTHROPIC_API_KEY']!;
-    if (!apiKey) {
-      throw new Error('ANTHROPIC_API_KEY is missing in the configuration. Please add it to your config.json file.');
-    }
-    this.client = new Anthropic({ apiKey });
+// Provider implementation
+class ClaudeProvider extends BaseProvider<ClaudeConfig> {
+  private client: Anthropic;
+
+  constructor(modelName: string, agent: Agent, logger: Logger, config: ClaudeConfig) {
+    super(modelName, agent, logger, config);
+    // config.ANTHROPIC_API_KEY is typed and available
+    this.client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
     this.logger.info('Claude Provider initialized successfully');
   }
   

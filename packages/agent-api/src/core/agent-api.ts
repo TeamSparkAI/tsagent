@@ -439,9 +439,20 @@ export class AgentImpl  extends EventEmitter implements Agent {
   }
 
   async installProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
-    const providers = this.getAgentProviders() || {};
-    providers[provider] = config;
-    await this.updateAgentProviders(providers);
+    if (!this._agentData) {
+      throw new Error('Cannot install provider: agent not loaded');
+    }
+
+    // Store raw config as-is (defaults will be applied when provider is created via create())
+    if (!this._agentData.providers) {
+      this._agentData.providers = {};
+    }
+    this._agentData.providers[provider] = config || {};
+
+    // Save config
+    if (this._strategy) {
+      await this._strategy.saveConfig(this._agentData);
+    }
     
     // Emit change event
     this.emit('providersChanged');
@@ -483,7 +494,11 @@ export class AgentImpl  extends EventEmitter implements Agent {
   }
 
   getProviderInfo(providerType: ProviderType): ProviderInfo {
-    return this.providerFactory.getProviderInfo(providerType);
+    const info = this.providerFactory.getProviderInfo(providerType);
+    if (!info) {
+      throw new Error(`Unknown provider type: ${providerType}`);
+    }
+    return info;
   }
 
   async getProviderModels(providerType: ProviderType): Promise<ProviderModel[]> {

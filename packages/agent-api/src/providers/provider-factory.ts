@@ -5,73 +5,60 @@ import {
 } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
-import { SecretManager } from '../secrets/secret-manager.js';
-import { TestProvider } from './test-provider.js';
-import { BedrockProvider } from './bedrock-provider.js';
-import { ClaudeProvider } from './claude-provider.js';
-import { OpenAIProvider } from './openai-provider.js';
-import { DockerProvider } from './docker-provider.js';
-import { GeminiProvider } from './gemini-provider.js';
-import { OllamaProvider } from './ollama-provider.js';
-import { LocalProvider } from './local-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
+import { bedrockProviderDescriptor } from './bedrock-provider.js';
+import { testProviderDescriptor } from './test-provider.js';
+import { claudeProviderDescriptor } from './claude-provider.js';
+import { openaiProviderDescriptor } from './openai-provider.js';
+import { dockerProviderDescriptor } from './docker-provider.js';
+import { geminiProviderDescriptor } from './gemini-provider.js';
+import { ollamaProviderDescriptor } from './ollama-provider.js';
+import { localProviderDescriptor } from './local-provider.js';
 
 export class ProviderFactory {
   private agent: Agent;
   private logger: Logger;
+  private descriptors: Map<ProviderType, ProviderDescriptor>;
 
   constructor(agent: Agent, logger: Logger) {
     this.agent = agent;
     this.logger = logger;
+    this.descriptors = new Map();
+    
+    // Register all provider descriptors
+    this.register(bedrockProviderDescriptor);
+    this.register(testProviderDescriptor);
+    this.register(claudeProviderDescriptor);
+    this.register(openaiProviderDescriptor);
+    this.register(dockerProviderDescriptor);
+    this.register(geminiProviderDescriptor);
+    this.register(ollamaProviderDescriptor);
+    this.register(localProviderDescriptor);
+  }
+  
+  /**
+   * Register a provider descriptor (for future auto-discovery)
+   */
+  register(descriptor: ProviderDescriptor): void {
+    this.descriptors.set(descriptor.type, descriptor);
   }
 
   getAvailableProviders(): ProviderType[] {
-    return [
-      ProviderType.Test,
-      ProviderType.Bedrock,
-      ProviderType.Claude,
-      ProviderType.OpenAI,
-      ProviderType.Docker,
-      ProviderType.Gemini,
-      ProviderType.Ollama,
-      ProviderType.Local
-    ];
+    return Array.from(this.descriptors.keys());
   }
 
   // Get provider information for all available providers
   getProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>> {
-    return {
-      [ProviderType.Test]: TestProvider.getInfo(),
-      [ProviderType.Bedrock]: BedrockProvider.getInfo(),
-      [ProviderType.Claude]: ClaudeProvider.getInfo(),
-      [ProviderType.OpenAI]: OpenAIProvider.getInfo(),
-      [ProviderType.Docker]: DockerProvider.getInfo(),
-      [ProviderType.Gemini]: GeminiProvider.getInfo(),
-      [ProviderType.Ollama]: OllamaProvider.getInfo(),
-      [ProviderType.Local]: LocalProvider.getInfo(),
-    };
+    const info: Partial<Record<ProviderType, ProviderInfo>> = {};
+    for (const [type, descriptor] of this.descriptors.entries()) {
+      info[type] = descriptor.getInfo();
+    }
+    return info;
   }
 
-  getProviderInfo(providerType: ProviderType): ProviderInfo {
-    switch (providerType) {
-      case ProviderType.Test:
-        return TestProvider.getInfo();
-      case ProviderType.Bedrock:
-        return BedrockProvider.getInfo();
-      case ProviderType.Claude:
-        return ClaudeProvider.getInfo();
-      case ProviderType.Gemini:
-        return GeminiProvider.getInfo();
-      case ProviderType.Ollama:
-        return OllamaProvider.getInfo();
-      case ProviderType.OpenAI:
-        return OpenAIProvider.getInfo();
-      case ProviderType.Docker:
-        return DockerProvider.getInfo();
-      case ProviderType.Local:
-        return LocalProvider.getInfo();
-      default:
-        throw new Error(`Unknown provider type: ${providerType}`);
-    }
+  getProviderInfo(providerType: ProviderType): ProviderInfo | undefined {
+    const descriptor = this.descriptors.get(providerType);
+    return descriptor?.getInfo();
   }
 
   async validateConfiguration(type: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
@@ -79,38 +66,12 @@ export class ProviderFactory {
     const obfuscatedConfig = this.obfuscateSecretsInConfig(type, config);
     this.logger.debug(`Validating ${type} provider configuration`, obfuscatedConfig);
     
-    // Resolve secrets before validation - providers need actual secret values, not references
-    let resolvedConfig: Record<string, string>;
-    try {
-      // Use the agent's secret manager to resolve secrets
-      const secretManager = new SecretManager(this.agent, this.logger);
-      resolvedConfig = await secretManager.resolveProviderConfig(config);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      this.logger.error(`Failed to resolve secrets for ${type} provider validation: ${errorMessage}`);
-      return { isValid: false, error: `Failed to resolve secrets: ${errorMessage}` };
+    const descriptor = this.descriptors.get(type);
+    if (!descriptor) {
+      return { isValid: false, error: `Unknown provider: ${type}` };
     }
     
-    switch (type) {
-      case ProviderType.Test:
-        return TestProvider.validateConfiguration(this.agent, resolvedConfig);
-      case ProviderType.Bedrock:
-        return BedrockProvider.validateConfiguration(this.agent, resolvedConfig);
-      case ProviderType.Claude:
-        return ClaudeProvider.validateConfiguration(this.agent, resolvedConfig);
-      case ProviderType.Gemini:  
-        return GeminiProvider.validateConfiguration(this.agent, resolvedConfig);
-      case ProviderType.Ollama:
-        return OllamaProvider.validateConfiguration(this.agent, resolvedConfig);
-      case ProviderType.OpenAI:
-        return OpenAIProvider.validateConfiguration(this.agent, resolvedConfig);
-      case ProviderType.Docker:
-        return DockerProvider.validateConfiguration(this.agent, resolvedConfig);
-      case ProviderType.Local:
-        return LocalProvider.validateConfiguration(this.agent, resolvedConfig);
-      default:
-        return { isValid: false, error: `Unsupported provider type: ${type}` };
-    }
+    return descriptor.validateConfiguration(this.agent, this.logger, config);
   }
 
   /**
@@ -120,7 +81,7 @@ export class ProviderFactory {
     const info = this.getProviderInfo(type);
     const obfuscated: Record<string, string> = { ...config };
     
-    if (info.configValues) {
+    if (info?.configValues) {
       for (const configValue of info.configValues) {
         if ((configValue.secret || configValue.credential) && obfuscated[configValue.key]) {
           const value = obfuscated[configValue.key];
@@ -145,39 +106,15 @@ export class ProviderFactory {
 
     this.logger.info('ProviderFactory creating model:', modelType, modelId ? `with model ID: ${modelId}` : '');
 
-    // Resolve secrets once before creating the provider
-    const resolvedConfig = await this.agent.getResolvedProviderConfig(modelType);
-    if (!resolvedConfig) {
-      throw new Error(`Provider configuration not found for ${modelType}`);
+    const descriptor = this.descriptors.get(modelType);
+    if (!descriptor) {
+      throw new Error(`Unknown provider type: ${modelType}`);
     }
-
-    switch (modelType) {
-      case ProviderType.Test:
-        this.logger.info('Creating Test Provider instance');
-        return new TestProvider('frosty1.0', this.agent, this.logger, resolvedConfig || {});
-      case ProviderType.Bedrock:
-        this.logger.info('Creating Bedrock Provider instance');
-        return new BedrockProvider(modelId || 'amazon.nova-pro-v1:0', this.agent, this.logger, resolvedConfig);
-      case ProviderType.Claude:
-        this.logger.info('Creating Claude Provider instance');
-        return new ClaudeProvider(modelId || 'claude-3-7-sonnet-20250219', this.agent, this.logger, resolvedConfig);
-      case ProviderType.Gemini:
-        this.logger.info('Creating Gemini Provider instance');
-        return new GeminiProvider(modelId || 'gemini-2.0-flash', this.agent, this.logger, resolvedConfig);
-      case ProviderType.Ollama:
-        this.logger.info('Creating Ollama Provider instance');
-        return new OllamaProvider(modelId || 'llama3.2', this.agent, this.logger, resolvedConfig);
-      case ProviderType.OpenAI:
-        this.logger.info('Creating OpenAI Provider instance');
-        return new OpenAIProvider(modelId || 'gpt-3.5-turbo', this.agent, this.logger, resolvedConfig);
-      case ProviderType.Docker:
-        this.logger.info('Creating Docker Provider instance');
-        return new DockerProvider(modelId || 'gpt-3.5-turbo', this.agent, this.logger, resolvedConfig);
-      case ProviderType.Local:
-        this.logger.info('Creating Local Provider instance');
-        return new LocalProvider(modelId || '', this.agent, this.logger, resolvedConfig);
-      default:
-        throw new Error(`Unsupported provider type: ${modelType}`);
-    }
+    
+    // Get raw config (descriptor's create method will handle schema validation and secret resolution)
+    const rawConfig = await this.agent.getInstalledProviderConfig(modelType) || {};
+    const modelName = modelId || descriptor.getDefaultModelId();
+    
+    return descriptor.create(modelName, this.agent, this.logger, rawConfig);
   }
 }

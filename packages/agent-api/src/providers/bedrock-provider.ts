@@ -1,84 +1,113 @@
 import { Tool } from '../mcp/types.js';
-
+import { z } from 'zod';
 import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole, ConverseCommandOutput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
 
-import { Provider, ProviderModel, ProviderType, ProviderInfo } from './types.js';
+import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { ProviderHelper } from './provider-helper.js';
+import { BaseProvider } from './base-provider.js';
+import { ProviderDescriptor } from './provider-descriptor.js';
 
-export class BedrockProvider implements Provider {
-  private readonly agent: Agent;
-  private readonly modelName: string;
-  private readonly logger: Logger;
-  private readonly config: Record<string, string>;
-  private client: BedrockRuntimeClient;
+// Schema defined outside class so we can use it for the type
+const BedrockConfigSchema = z.object({
+  AWS_ACCESS_KEY_ID: z.string().default('env://AWS_ACCESS_KEY_ID'),
+  AWS_SECRET_ACCESS_KEY: z.string().default('env://AWS_SECRET_ACCESS_KEY'),
+});
 
-  static getInfo(): ProviderInfo {
-    return {
-      name: "Amazon Bedrock",
-      description: "Amazon Bedrock is a fully managed service that offers a choice of high-performing foundation models from leading AI companies.",
-      website: "https://aws.amazon.com/bedrock/",
-      configValues: [
-        {
-          caption: "Bedrock API access key ID",
-          key: "BEDROCK_ACCESS_KEY_ID",
-          credential: true,
-          required: true,
-        },
-        {
-          caption: "Bedrock API access key secret",
-          key: "BEDROCK_SECRET_ACCESS_KEY",
-          secret: true,
-          required: true,
-        }
-      ]
-    };
+// Internal type (not exported - provider details stay encapsulated)  
+type BedrockConfig = z.infer<typeof BedrockConfigSchema>;
+
+// Provider Descriptor
+export class BedrockProviderDescriptor extends ProviderDescriptor {
+  readonly type = ProviderType.Bedrock;
+  
+  readonly info: ProviderInfo = {
+    name: "Amazon Bedrock",
+    description: "Amazon Bedrock is a fully managed service that offers a choice of high-performing foundation models from leading AI companies.",
+    website: "https://aws.amazon.com/bedrock/",
+    configValues: [
+      {
+        caption: "AWS API access key ID to use for Bedrock",
+        key: "AWS_ACCESS_KEY_ID",
+        credential: true,
+        required: true,
+      },
+      {
+        caption: "AWS secret access key to use for Bedrock",
+        key: "AWS_SECRET_ACCESS_KEY",
+        secret: true,
+        required: true,
+      }
+    ]
+  };
+  
+  readonly configSchema = BedrockConfigSchema;
+  
+  getDefaultModelId(): string {
+    return 'amazon.nova-pro-v1:0';
   }
-
-  static async validateConfiguration(agent: Agent, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
-    const accessKey = config['BEDROCK_SECRET_ACCESS_KEY'];
-    const accessKeyId = config['BEDROCK_ACCESS_KEY_ID'];
+  
+  // Override for API connectivity check
+  protected async validateProvider(
+    agent: Agent,
+    config: Record<string, string>
+  ): Promise<{ isValid: boolean, error?: string } | null> {
+    // Cast to typed config for internal use
+    const typedConfig = config as BedrockConfig;
+    const accessKey = typedConfig.AWS_SECRET_ACCESS_KEY;
+    const accessKeyId = typedConfig.AWS_ACCESS_KEY_ID;
+    
     if (!accessKey || !accessKeyId) {
-      return { isValid: false, error: 'BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration.' };
+      return { isValid: false, error: 'AWS_SECRET_ACCESS_KEY and AWS_ACCESS_KEY_ID are missing or could not be resolved' };
     }
+    
+    // Live API check
     try {
       const bedrockClient = new BedrockClient({
         region: 'us-east-1',
         credentials: {
-				  secretAccessKey: accessKey,
-				  accessKeyId: accessKeyId
-			  }
+          secretAccessKey: accessKey,
+          accessKeyId: accessKeyId
+        }
       });
       await bedrockClient.send(new ListFoundationModelsCommand({}));
       return { isValid: true };
     } catch (error) {
-      // Note: This is a static method, so we can't use logger here
-      // The error will be returned to the caller who can log it appropriately
-      return { isValid: false, error: 'Failed to validate Bedrock configuration' + (error instanceof Error && error.message ? ': ' + error.message : '') };
+      return { isValid: false, error: 'Failed to validate Bedrock configuration: ' + (error instanceof Error ? error.message : 'Unknown error') };
     }
   }
+  
+  protected async createProvider(
+    modelName: string,
+    agent: Agent,
+    logger: Logger,
+    config: Record<string, string>
+  ): Promise<Provider> {
+    // Cast to typed config for internal use
+    const typedConfig = config as BedrockConfig;
+    return new BedrockProvider(modelName, agent, logger, typedConfig);
+  }
+}
 
-  constructor(modelName: string, agent: Agent, logger: Logger, resolvedConfig: Record<string, string>) {
-    this.modelName = modelName;
-    this.agent = agent;
-    this.logger = logger;
-    this.config = resolvedConfig;
+// Export descriptor instance for registration
+export const bedrockProviderDescriptor = new BedrockProviderDescriptor();
 
-    const accessKey = this.config['BEDROCK_SECRET_ACCESS_KEY'];
-    const accessKeyId = this.config['BEDROCK_ACCESS_KEY_ID'];
-    if (!accessKey || !accessKeyId) {
-      throw new Error('BEDROCK_SECRET_ACCESS_KEY and BEDROCK_ACCESS_KEY_ID are missing in the configuration.');
-    }
+// Provider implementation
+class BedrockProvider extends BaseProvider<BedrockConfig> {
+  private client: BedrockRuntimeClient;
 
+  constructor(modelName: string, agent: Agent, logger: Logger, config: BedrockConfig) {
+    super(modelName, agent, logger, config);
+    // config is typed and available
     this.client = new BedrockRuntimeClient({ 
       region: 'us-east-1', 
       credentials: {
-          secretAccessKey: accessKey,
-          accessKeyId: accessKeyId
+        secretAccessKey: config.AWS_SECRET_ACCESS_KEY,
+        accessKeyId: config.AWS_ACCESS_KEY_ID
       }
     });
     this.logger.info('Bedrock Provider initialized successfully');
@@ -88,8 +117,8 @@ export class BedrockProvider implements Provider {
 		const bedrockClient = new BedrockClient({
 			region: 'us-east-1',
 			credentials: {
-				secretAccessKey: this.config['BEDROCK_SECRET_ACCESS_KEY']!,
-  			accessKeyId: this.config['BEDROCK_ACCESS_KEY_ID']!
+				secretAccessKey: this.config['AWS_SECRET_ACCESS_KEY']!,
+  			accessKeyId: this.config['AWS_ACCESS_KEY_ID']!
 			}
 		});
 		// To support inferece types othet than ON_DEMAND, we will need to list them specifically, and use the returned ARNs to create the models

@@ -132,29 +132,6 @@ Improve MCP support and config/interaction (best of MCP Inspector and ToolVault)
 
 ## Agent Creation
 
-### Provider / Model Issues
-
-Installing models with config via yaml could be easier
-- Model could have default config that uses env://DEFAULT_ENV_VAR
-- If a model's config params using defaults forms a complete config (one or more env vars) it just works
-  - For example, if you install the Gemini provider with no params, and you have a GOOGLE_API_KEY env var, it works
-  - The UX will display the default value of "env://GOOGLE_API_KEY" in the control when no value is set
-  - And that's what it uses when no value is set
-
-settings/most-recent-model should be named something different (maybe just settings/model, or defaultModel, or sessionModel)
-- Currently most-recent-model is set whenever you change a model in any session
-- Maybe we make an explicit way to set it in settings?
-- Or maybe we have a "Make session settings default" method in the UX that sets the model and all other settings (we need the latter anyway)
-
-The value of settings/model might not be easy to intuit (make sure this is visible in both the UX and the CLI)
-- It is a provider/model (but the exact values might not be clear)
-
-Do we need a better way to select a default model for a provider?
-- Is there ever a case where you'd specify only a provider and not an actual model?
-
-The culmination of this should be the simplest possible yaml agent definition 
-- Streamlined/default provider config, model specified
-
 ### Agent Types
 
 We currently have interactive, autonomous (A2A), and tool providing (for meta-MCP)
