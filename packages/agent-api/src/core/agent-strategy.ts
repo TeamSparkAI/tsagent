@@ -224,6 +224,17 @@ export class FileBasedAgentStrategy implements AgentStrategy {
       throw new Error(`Failed to parse YAML agent config file: ${parseError.message}`);
     }
     
+    // Migrate mostRecentModel to model (if present)
+    if (data.settings && typeof data.settings === 'object') {
+      if (data.settings.mostRecentModel !== undefined && data.settings.model === undefined) {
+        this.logger.info('Migrating mostRecentModel to model in agent config');
+        data.settings.model = data.settings.mostRecentModel;
+        delete data.settings.mostRecentModel;
+        // Save the migrated config back to file
+        await this.saveConfig(AgentConfigSchema.parse(data));
+      }
+    }
+    
     // Validate and apply defaults using Zod schema
     try {
       return AgentConfigSchema.parse(data);

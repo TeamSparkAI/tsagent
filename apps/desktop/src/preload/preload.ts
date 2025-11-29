@@ -134,6 +134,14 @@ const api: API = {
   offProvidersChanged: (listener: () => void) => {
     ipcRenderer.removeListener('providers-changed', listener);
   },
+  onSettingsChanged: (callback: () => void) => {
+    const wrappedCallback = () => callback();
+    ipcRenderer.on('settings-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offSettingsChanged: (listener: () => void) => {
+    ipcRenderer.removeListener('settings-changed', listener);
+  },
 };
 
 /*

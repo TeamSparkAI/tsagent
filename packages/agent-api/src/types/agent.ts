@@ -180,7 +180,7 @@ export const AgentSettingsSchema = z.object({
   topP: z.number().default(0.5).optional(), // Float (0.0-1.0)
   theme: z.string().default('light').optional(),
   systemPath: z.string().optional(),
-  mostRecentModel: z.string().optional(),
+  model: z.string().optional(), // Changed from mostRecentModel
   contextTopK: z.number().int().default(20).optional(),
   contextTopN: z.number().int().default(5).optional(),
   contextIncludeScore: z.number().default(0.7).optional(), // Float (0.0-1.0)
@@ -220,23 +220,37 @@ function getProviderByName(name: string): ProviderType | undefined {
   return providerType;
 }
 
+/**
+ * Parse a model string in format "provider:modelId" into provider and model ID
+ */
+export function parseModelString(modelString: string | undefined): { provider: ProviderType, modelId: string } | null {
+  if (!modelString) return null;
+  const colonIndex = modelString.indexOf(':');
+  if (colonIndex === -1) return null;
+  const providerId = modelString.substring(0, colonIndex);
+  const modelId = modelString.substring(colonIndex + 1);
+  const provider = getProviderByName(providerId);
+  if (!provider) return null;
+  return { provider, modelId };
+}
+
+/**
+ * Format provider and model ID into "provider:modelId" string
+ */
+export function formatModelString(provider: ProviderType, modelId: string): string {
+  return `${provider}:${modelId}`;
+}
+
 export function populateModelFromSettings(agent: Agent, chatSessionOptions: ChatSessionOptions): void {
   if (chatSessionOptions.modelProvider && chatSessionOptions.modelId) {
     return;
   }
 
   const settings = agent.getSettings();
-  const mostRecentModel = settings.mostRecentModel;
-  if (mostRecentModel && typeof mostRecentModel === 'string') {
-    const colonIndex = mostRecentModel.indexOf(':');
-    if (colonIndex !== -1) {
-      const providerId = mostRecentModel.substring(0, colonIndex);
-      const modelId = mostRecentModel.substring(colonIndex + 1);
-      const provider = getProviderByName(providerId);
-      if (provider && agent.isProviderInstalled(provider)) {
-        chatSessionOptions.modelProvider = provider;
-        chatSessionOptions.modelId = modelId;
-      }
-    }
-  }  
+  const model = settings.model; // Changed from mostRecentModel
+  const parsed = parseModelString(model);
+  if (parsed && agent.isProviderInstalled(parsed.provider)) {
+    chatSessionOptions.modelProvider = parsed.provider;
+    chatSessionOptions.modelId = parsed.modelId;
+  }
 }

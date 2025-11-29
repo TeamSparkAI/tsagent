@@ -7,17 +7,12 @@ import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
 import { ModelReply, Turn, ToolCallResult, ToolCallRequest } from '@tsagent/core';
 import log from 'electron-log';
-import { ModelPickerPanel } from './ModelPickerPanel';
+import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
+import { formatModelString, parseModelString } from '@tsagent/core';
 import type { ProviderModel as ILLMModel } from '@tsagent/core';
 import { getDefaultSettings } from '@tsagent/core';
-import TestLogo from '../assets/frosty.png';
-import OllamaLogo from '../assets/ollama.png';
-import OpenAILogo from '../assets/openai.png';
-import GeminiLogo from '../assets/gemini.png';
-import AnthropicLogo from '../assets/anthropic.png';
-import BedrockLogo from '../assets/bedrock.png';
-import LocalLogo from '../assets/local.png';
-import DockerLogo from '../assets/docker.png';
+import { providerLogos } from '../utils/providerLogos';
+import { getAgentModelDetails, setCachedAgentModel } from '../utils/agentModelCache';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import { ChatState, SessionContextItem, RequestContext } from '@tsagent/core';
@@ -46,17 +41,6 @@ const handleLinkClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
   }
 };
 
-// Map each provider to its logo
-  const providerLogos: Record<ProviderType, any> = {
-  [ProviderType.Test]: TestLogo,
-  [ProviderType.Ollama]: OllamaLogo,
-  [ProviderType.OpenAI]: OpenAILogo,
-  [ProviderType.Gemini]: GeminiLogo,
-  [ProviderType.Claude]: AnthropicLogo,
-  [ProviderType.Bedrock]: BedrockLogo,
-  [ProviderType.Local]: LocalLogo,
-  [ProviderType.Docker]: DockerLogo,
-};
 
 interface ChatTabProps extends TabProps {
   initialMessage?: string;
@@ -88,7 +72,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const [availableRules, setAvailableRules] = useState<{name: string, description: string, priorityLevel: number}[]>([]);
   const [availableTools, setAvailableTools] = useState<{serverName: string, toolName: string, description: string}[]>([]);
   const [showContextPanel, setShowContextPanel] = useState(false);
-  const [showModelPickerPanel, setShowModelPickerPanel] = useState<boolean>(false);
+  const [showModelPickerModal, setShowModelPickerModal] = useState<boolean>(false);
   const [showStatsPanel, setShowStatsPanel] = useState(false);
   const [models, setModels] = useState<ILLMModel[]>([]);
   const [showSettingsPanel, setShowSettingsPanel] = useState(false);
@@ -201,19 +185,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             // Get installed providers to verify the current model is available
             const installedProviders = await window.api.getInstalledProviders();
 
-            // Attempt to get the most recent model from settings
+            // Attempt to get the model from settings
             const settings = await window.api.getSettings();
-            const mostRecentModel = settings?.mostRecentModel;
-            if (mostRecentModel) {
-              const colonIndex = mostRecentModel.indexOf(':');
-              if (colonIndex !== -1) {
-                const provider = mostRecentModel.substring(0, colonIndex);
-                const id = mostRecentModel.substring(colonIndex + 1);
-
-                if (installedProviders.includes(provider as ProviderType)) {
-                  modelProvider = provider as ProviderType;
-                  modelId = id;
-                }
+            const model = settings?.model;
+            if (model) {
+              const parsed = parseModelString(model);
+              if (parsed && installedProviders.includes(parsed.provider)) {
+                modelProvider = parsed.provider;
+                modelId = parsed.modelId;
               }
             }
           }
@@ -229,21 +208,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               return;
             }
             
-            // If initial model, try to get actual model name
+            // If initial model, try to get actual model name (using cache)
             let modelName: string | undefined = undefined;
-            if (modelId) {
-              try {
-                const models = await chatApiRef.current.getModels(modelProvider!);
-                const selectedModel = models.find((m: any) => m.id === modelId);
-                if (selectedModel) {
-                  modelName = selectedModel.name;
-                } else {
-                  // If we can't find the model, use the ID as the name (without modification)
-                  modelName = modelId;
-                }
-              } catch (error) {
-                log.error('Failed to get model information:', error);
-                // If we can't get model info, use the ID as the name
+            if (modelId && modelProvider && chatApiRef.current) {
+              const modelString = formatModelString(modelProvider, modelId);
+              const details = await getAgentModelDetails(
+                modelString,
+                (p) => chatApiRef.current!.getModels(p)
+              );
+              if (details) {
+                modelName = details.modelName;
+              } else {
+                // If we can't find the model, use the ID as the name
                 modelName = modelId;
               }
             }
@@ -279,7 +255,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             setIsInitialized(true);
 
             // Only show model picker if no model was specified and not read-only
-            setShowModelPickerPanel(!modelProvider && !isReadOnly);
+            setShowModelPickerModal(!modelProvider && !isReadOnly);
           }
         } catch (error) {
           log.error('Error initializing chat tab:', error);
@@ -530,7 +506,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   // Add effect to show model picker when no model is selected
   useEffect(() => {
     if (!chatState.selectedModel) {
-      setShowModelPickerPanel(true);
+      setShowModelPickerModal(true);
       setShowStatsPanel(false);
       setShowContextPanel(false);
     }
@@ -671,10 +647,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             return newState;
           });
           
-          // Save the most recent model selection to agent settings
-          const modelValue = modelId ? `${model}:${modelId}` : model;
-          await window.api.updateSettings({ mostRecentModel: modelValue });
-          
           log.info(`Changed model to ${model} (${modelName || modelId || 'default'})`);
         } else {
           log.error(`Failed to change model to ${model}`);
@@ -691,6 +663,88 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
         };
         return newState;
       });
+    }
+  };
+
+  const handleModelSelect = async (modelString: string | undefined, details?: ModelDetails) => {
+    if (!modelString) {
+      log.warn('No model selected');
+      return;
+    }
+    
+    const parsed = parseModelString(modelString);
+    if (parsed) {
+      // Use provided model details if available, otherwise fall back to async lookup
+      let modelName: string | undefined = details?.modelName;
+      
+      if (details && modelString) {
+        // Cache the details we have from the picker
+        setCachedAgentModel(modelString, {
+          provider: details.provider,
+          modelId: details.modelId,
+          modelName: details.modelName
+        });
+        modelName = details.modelName;
+      } else if (!modelName) {
+        // Fall back to cache or async lookup
+        const cachedDetails = await getAgentModelDetails(
+          modelString,
+          (p) => window.api.getModelsForProvider(p)
+        );
+        if (cachedDetails) {
+          modelName = cachedDetails.modelName;
+        } else {
+          try {
+            const models = await window.api.getModelsForProvider(parsed.provider);
+            const foundModel = models.find(m => m.id === parsed.modelId);
+            if (foundModel) {
+              modelName = foundModel.name;
+            }
+          } catch (error) {
+            log.error('Error loading model name:', error);
+          }
+        }
+      }
+      
+      // Update chatState immediately with model details (no async delay)
+      if (modelName) {
+        setChatState(prev => ({
+          ...prev,
+          selectedModel: parsed.provider,
+          selectedModelName: modelName!,
+          currentModelId: parsed.modelId
+        }));
+      }
+      
+      await handleModelChange(parsed.provider, parsed.modelId, modelName);
+      setShowModelPickerModal(false);
+    }
+  };
+
+  const handleSaveToDefaults = async () => {
+    try {
+      // Save current session settings (chatSettings) to agent defaults
+      await window.api.updateSettings(chatSettings);
+      
+      // Save current model to agent defaults
+      if (chatState.selectedModel && chatState.currentModelId) {
+        const modelString = formatModelString(chatState.selectedModel, chatState.currentModelId);
+        await window.api.updateSettings({ model: modelString });
+        
+        // Cache the model details we already have
+        if (chatState.selectedModelName) {
+          setCachedAgentModel(modelString, {
+            provider: chatState.selectedModel,
+            modelId: chatState.currentModelId,
+            modelName: chatState.selectedModelName
+          });
+        }
+      }
+      
+      // Event will be emitted by main process, triggering all ChatSettingsForm components to reload
+      log.info('Saved session settings to agent defaults');
+    } catch (error) {
+      log.error('Error saving settings to defaults:', error);
     }
   };
 
@@ -762,7 +816,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const toggleContextPanel = () => {
     setShowContextPanel(!showContextPanel);
     setShowStatsPanel(false);
-    setShowModelPickerPanel(false);
+    setShowModelPickerModal(false);
     setShowSettingsPanel(false);
     log.debug(`Context panel ${!showContextPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
@@ -770,24 +824,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const toggleStatsPanel = () => {
     setShowStatsPanel(!showStatsPanel);
     setShowContextPanel(false);
-    setShowModelPickerPanel(false);
+    setShowModelPickerModal(false);
     setShowSettingsPanel(false);
     log.debug(`Stats panel ${!showStatsPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
 
-  const toggleModelPickerPanel = () => {
-    setShowModelPickerPanel(!showModelPickerPanel);
-    setShowContextPanel(false);
-    setShowStatsPanel(false);
-    setShowSettingsPanel(false);
-    log.debug(`Model picker panel ${!showModelPickerPanel ? 'opened' : 'closed'} for chat tab ${id}`);
+  const toggleModelPickerModal = () => {
+    setShowModelPickerModal(!showModelPickerModal);
   };
 
   const toggleSettingsPanel = () => {
     setShowSettingsPanel(!showSettingsPanel);
     setShowContextPanel(false);
     setShowStatsPanel(false);
-    setShowModelPickerPanel(false);
+    setShowModelPickerModal(false);
     log.debug(`Settings panel ${!showSettingsPanel ? 'opened' : 'closed'} for chat tab ${id}`);
   };
 
@@ -986,16 +1036,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   return (
     <div className="chat-tab">
       <div id="model-container">
-        {!isReadOnly && (
-          <button 
-            id="model-button" 
-            onClick={toggleModelPickerPanel}
-            className={`btn btn-subtab ${showModelPickerPanel ? 'active' : ''}`}
-          >
-            <span>Model</span>
-          </button>
-        )}
-        
         <div id="model-display">
           {chatState.selectedModel ? (
             <>
@@ -1061,16 +1101,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
         
       </div>
       
-      {showModelPickerPanel && (
-        <div id="model-picker-container">
-          <ModelPickerPanel
-            selectedModel={chatState.selectedModel}
-            onModelSelect={handleModelChange}
-            onClose={() => setShowModelPickerPanel(false)}
-            id={id}
-          />
-        </div>
-      )}
       
       {showStatsPanel && (
         <div id="stats-panel">
@@ -1306,8 +1336,31 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             settings={chatSettings}
             onSettingsChange={handleSettingsChange}
             readOnly={isReadOnly}
+            currentModel={chatState.selectedModel && chatState.currentModelId 
+              ? formatModelString(chatState.selectedModel, chatState.currentModelId)
+              : undefined}
+            currentModelDetails={chatState.selectedModel && chatState.currentModelId && chatState.selectedModelName
+              ? {
+                  provider: chatState.selectedModel,
+                  modelId: chatState.currentModelId,
+                  modelName: chatState.selectedModelName
+                }
+              : undefined}
+            onModelChange={handleModelSelect}
+            onSaveToDefaults={handleSaveToDefaults}
           />
         </div>
+      )}
+      
+      {showModelPickerModal && (
+        <ModelPickerModal
+          currentModel={chatState.selectedModel && chatState.currentModelId 
+            ? formatModelString(chatState.selectedModel, chatState.currentModelId)
+            : undefined}
+          onSelect={handleModelSelect}
+          onCancel={() => setShowModelPickerModal(false)}
+          isOpen={showModelPickerModal}
+        />
       )}
       
       <ReferencesModal

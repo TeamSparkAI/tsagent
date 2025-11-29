@@ -1,7 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import log from 'electron-log';
 import './ChatSettingsForm.css';
-import { SessionToolPermission, getDefaultSettings } from '@tsagent/core';
+import { SessionToolPermission, getDefaultSettings, ProviderType, parseModelString } from '@tsagent/core';
+import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
+import { providerLogos } from '../utils/providerLogos';
+import { getAgentModelDetails } from '../utils/agentModelCache';
 
 export interface ChatSettings {
   maxChatTurns: number;
@@ -19,13 +22,22 @@ interface ChatSettingsFormProps {
   onSettingsChange: (newSettings: ChatSettings) => void;
   showTitle?: boolean;
   readOnly?: boolean;
+  // Model props (optional - only used in session settings)
+  currentModel?: string;
+  currentModelDetails?: ModelDetails; // Optional model details to avoid fetching all models
+  onModelChange?: (model: string | undefined, details?: ModelDetails) => void;
+  onSaveToDefaults?: () => Promise<void>;
 }
 
 export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   settings,
   onSettingsChange,
   showTitle = true,
-  readOnly = false
+  readOnly = false,
+  currentModel,
+  currentModelDetails,
+  onModelChange,
+  onSaveToDefaults
 }) => {
   const [agentSettings, setAgentSettings] = useState<ChatSettings>(() => {
     const defaults = getDefaultSettings();
@@ -40,32 +52,88 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
       contextIncludeScore: defaults.contextIncludeScore!
     };
   });
+  const [agentModel, setAgentModel] = useState<string | undefined>();
+  const [showModelPicker, setShowModelPicker] = useState(false);
+  const [modelProvider, setModelProvider] = useState<ProviderType | undefined>();
+  const [modelId, setModelId] = useState<string | undefined>();
+  const [modelName, setModelName] = useState<string | undefined>();
 
-  useEffect(() => {
-    const loadAgentSettings = async () => {
-      try {
-        const agentSettings = await window.api.getSettings();
-        const merged = { ...getDefaultSettings(), ...(agentSettings ?? {}) };
-        setAgentSettings({
-          maxChatTurns: merged.maxChatTurns!,
-          maxOutputTokens: merged.maxOutputTokens!,
-          temperature: merged.temperature!,
-          topP: merged.topP!,
-          toolPermission: merged.toolPermission ?? 'tool',
-          contextTopK: merged.contextTopK!,
-          contextTopN: merged.contextTopN!,
-          contextIncludeScore: merged.contextIncludeScore!
-        });
-      } catch (error) {
-        log.error('Error loading agent settings:', error);
-      }
-    };
-
-    loadAgentSettings();
+  const loadAgentSettings = useCallback(async () => {
+    try {
+      const agentSettings = await window.api.getSettings();
+      const merged = { ...getDefaultSettings(), ...(agentSettings ?? {}) };
+      setAgentSettings({
+        maxChatTurns: merged.maxChatTurns!,
+        maxOutputTokens: merged.maxOutputTokens!,
+        temperature: merged.temperature!,
+        topP: merged.topP!,
+        toolPermission: merged.toolPermission ?? 'tool',
+        contextTopK: merged.contextTopK!,
+        contextTopN: merged.contextTopN!,
+        contextIncludeScore: merged.contextIncludeScore!
+      });
+      setAgentModel(merged.model);
+    } catch (error) {
+      log.error('Error loading agent settings:', error);
+    }
   }, []);
 
+  useEffect(() => {
+    loadAgentSettings();
+  }, [loadAgentSettings]);
+
+  // Subscribe to settings-changed event to reload agent settings
+  useEffect(() => {
+    const listener = window.api.onSettingsChanged(() => {
+      log.info(`[ChatSettingsForm] Settings changed event received, reloading agent settings (showTitle=${showTitle})`);
+      loadAgentSettings();
+    });
+    log.info(`[ChatSettingsForm] Subscribed to settings-changed event (showTitle=${showTitle})`);
+    return () => {
+      window.api.offSettingsChanged(listener);
+      log.info(`[ChatSettingsForm] Unsubscribed from settings-changed event (showTitle=${showTitle})`);
+    };
+  }, [loadAgentSettings, showTitle]);
+
+  // Load model info when currentModel or currentModelDetails changes
+  useEffect(() => {
+    const loadModelInfo = async () => {
+      // If we have model details, use them immediately (no async lookup needed)
+      if (currentModelDetails) {
+        setModelProvider(currentModelDetails.provider);
+        setModelId(currentModelDetails.modelId);
+        setModelName(currentModelDetails.modelName);
+        return;
+      }
+      
+      // Otherwise, fall back to async lookup (using cache)
+      if (currentModel) {
+        const parsed = parseModelString(currentModel);
+        if (parsed) {
+          setModelProvider(parsed.provider);
+          setModelId(parsed.modelId);
+          // Use cache with async fallback
+          const details = await getAgentModelDetails(
+            currentModel,
+            (p) => window.api.getModelsForProvider(p)
+          );
+          if (details) {
+            setModelName(details.modelName);
+          } else {
+            setModelName(parsed.modelId);
+          }
+        }
+      } else {
+        setModelProvider(undefined);
+        setModelId(undefined);
+        setModelName(undefined);
+      }
+    };
+    loadModelInfo();
+  }, [currentModel, currentModelDetails]);
+
   const areSettingsDefault = () => {
-    return (
+    const settingsMatch = (
       settings.maxChatTurns === agentSettings.maxChatTurns &&
       settings.maxOutputTokens === agentSettings.maxOutputTokens &&
       settings.temperature === agentSettings.temperature &&
@@ -75,6 +143,27 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
       settings.contextTopN === agentSettings.contextTopN &&
       settings.contextIncludeScore === agentSettings.contextIncludeScore
     );
+    
+    // If model is provided, compare it too
+    if (currentModel !== undefined || agentModel !== undefined) {
+      return settingsMatch && currentModel === agentModel;
+    }
+    
+    return settingsMatch;
+  };
+
+  const getProviderDisplayName = (provider: ProviderType): string => {
+    switch (provider) {
+      case ProviderType.Test: return 'Test LLM';
+      case ProviderType.Gemini: return 'Gemini';
+      case ProviderType.Claude: return 'Claude';
+      case ProviderType.OpenAI: return 'OpenAI';
+      case ProviderType.Ollama: return 'Ollama';
+      case ProviderType.Bedrock: return 'Bedrock';
+      case ProviderType.Local: return 'Local';
+      case ProviderType.Docker: return 'Docker';
+      default: return provider;
+    }
   };
 
   const handleRestoreDefaults = () => {
@@ -99,20 +188,32 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
       {showTitle && (
         <>
           <div className="settings-header">
-            <h3>
+              <h3>
               Chat Settings
-              <span className="setting-description">Any changes here will apply only to this chat session.</span>
+              <span className="setting-description">Any changes here will apply only to this chat session, unless saved to defaults.</span>
             </h3>
             <div className="settings-actions">
               {!areSettingsDefault() && (
-                <button 
-                  className="btn-restore-defaults"
-                  onClick={handleRestoreDefaults}
-                  title="Restore agent default settings"
-                  disabled={readOnly}
-                >
-                  Restore Agent Defaults
-                </button>
+                <>
+                  <button 
+                    className="btn-restore-defaults"
+                    onClick={handleRestoreDefaults}
+                    title="Restore agent default settings"
+                    disabled={readOnly}
+                  >
+                    Restore Agent Defaults
+                  </button>
+                  {onSaveToDefaults && (
+                    <button 
+                      className="btn-save-to-defaults"
+                      onClick={onSaveToDefaults}
+                      title="Save current settings as agent defaults"
+                      disabled={readOnly}
+                    >
+                      Save to Defaults
+                    </button>
+                  )}
+                </>
               )}
               {areSettingsDefault() && (
                 <span className="default-indicator" title="Using agent default settings">
@@ -122,6 +223,60 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
             </div>
           </div>
           <hr className="setting-group-divider" />
+        </>
+      )}
+      {currentModel !== undefined && onModelChange && (
+        <>
+          <div className="setting-item" style={{ gridColumn: '1 / -1' }}>
+            <label>Model</label>
+            <div style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '12px',
+              padding: '8px',
+              marginBottom: '20px',
+              backgroundColor: 'var(--bg-secondary)',
+              borderRadius: '4px',
+              border: '1px solid var(--border-color)'
+            }}>
+              {modelProvider && modelProvider in providerLogos && (
+                <img 
+                  src={providerLogos[modelProvider]} 
+                  alt={modelProvider} 
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    objectFit: 'contain',
+                    backgroundColor: 'var(--logo-bg)',
+                    padding: '4px',
+                    borderRadius: '4px'
+                  }}
+                />
+              )}
+              <div style={{ flex: 1 }}>
+                {modelProvider ? (
+                  <>
+                    <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '14px' }}>
+                      {getProviderDisplayName(modelProvider)}
+                    </div>
+                    <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
+                      {modelName || modelId || 'No model selected'}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>No model selected</div>
+                )}
+              </div>
+              <button 
+                className="btn btn-secondary"
+                onClick={() => setShowModelPicker(true)}
+                disabled={readOnly}
+                style={{ fontSize: '12px', padding: '4px 8px' }}
+              >
+                Change Model
+              </button>
+            </div>
+          </div>
         </>
       )}
       <div className="settings-grid">
@@ -274,6 +429,18 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
           </div>
         </div>
       </div>
+      
+      {showModelPicker && currentModel !== undefined && onModelChange && (
+        <ModelPickerModal
+          currentModel={currentModel}
+          onSelect={(model, details) => {
+            onModelChange(model, details);
+            setShowModelPicker(false);
+          }}
+          onCancel={() => setShowModelPicker(false)}
+          isOpen={showModelPicker}
+        />
+      )}
     </div>
   );
 }; 

@@ -1337,7 +1337,16 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
     try {
       await agent.updateSettings(partialSettings);
-      return agent.getSettings();
+      const updatedSettings = agent.getSettings();
+      
+      // Emit settings-changed event to all windows
+      const windows = BrowserWindow.getAllWindows();
+      log.info(`[Main] Emitting settings-changed event to ${windows.length} window(s)`);
+      windows.forEach(window => {
+        window.webContents.send('settings-changed');
+      });
+      
+      return updatedSettings;
     } catch (error) {
       log.error('Error updating agent settings:', error);
       throw error;

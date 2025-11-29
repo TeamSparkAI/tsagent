@@ -77,4 +77,4 @@ export {
 } from './types/agent.js';
 
 // Export function to populate model from settings
-export { populateModelFromSettings } from './types/agent.js';
+export { populateModelFromSettings, parseModelString, formatModelString } from './types/agent.js';

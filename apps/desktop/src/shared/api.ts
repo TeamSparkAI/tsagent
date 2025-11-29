@@ -88,6 +88,8 @@ export interface API {
   offReferencesChanged: (listener: () => void) => void;
   onProvidersChanged: (callback: () => void) => () => void;
   offProvidersChanged: (listener: () => void) => void;
+  onSettingsChanged: (callback: () => void) => () => void;
+  offSettingsChanged: (listener: () => void) => void;
 
   // Agentmethods
   showOpenDialog: (options: OpenDialogOptions) => Promise<{ canceled: boolean; filePaths: string[] }>;

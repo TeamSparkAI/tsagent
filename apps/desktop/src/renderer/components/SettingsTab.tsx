@@ -3,11 +3,15 @@ import log from 'electron-log';
 import { TabProps } from '../types/TabProps';
 import { AboutView } from './AboutView';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
+import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
 import './SettingsTab.css';
 import { 
   SessionToolPermission, AgentMetadata, AgentSkill, AgentTool, AgentMode,
-  getDefaultSettings, AgentSettings,
+  getDefaultSettings, AgentSettings, ProviderType, parseModelString,
 } from '@tsagent/core';
+import { providerLogos } from '../utils/providerLogos';
+import { getAgentModelDetails, setCachedAgentModel, AgentModelDetails } from '../utils/agentModelCache';
+
 
 interface EditSkillModalProps {
   skill?: AgentSkill;
@@ -986,6 +990,109 @@ const SkillsSection: React.FC = () => {
   );
 };
 
+interface ModelSectionProps {
+  currentModel?: string;
+  modelProvider?: ProviderType;
+  modelId?: string;
+  modelName?: string;
+  onModelSelect: (model: string | undefined, details?: ModelDetails) => Promise<void>;
+}
+
+const ModelSection: React.FC<ModelSectionProps> = ({
+  currentModel,
+  modelProvider,
+  modelId,
+  modelName,
+  onModelSelect
+}) => {
+  const [showModelPicker, setShowModelPicker] = useState(false);
+
+  const handleModelSelect = async (model: string | undefined, details?: ModelDetails) => {
+    await onModelSelect(model, details);
+    setShowModelPicker(false);
+  };
+
+  const getProviderDisplayName = (provider: ProviderType): string => {
+    switch (provider) {
+      case ProviderType.Test: return 'Test LLM';
+      case ProviderType.Gemini: return 'Gemini';
+      case ProviderType.Claude: return 'Claude';
+      case ProviderType.OpenAI: return 'OpenAI';
+      case ProviderType.Ollama: return 'Ollama';
+      case ProviderType.Bedrock: return 'Bedrock';
+      case ProviderType.Local: return 'Local';
+      case ProviderType.Docker: return 'Docker';
+      default: return provider;
+    }
+  };
+
+  return (
+    <div className="agent-info-settings">
+      <h2>Model</h2>
+      <p className="setting-description">
+        Select the default model to use for new chat sessions. This can be overridden in individual chat sessions.
+      </p>
+      
+      <div className="form-group">
+        <label>Current Model</label>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px',
+          padding: '12px',
+          backgroundColor: 'var(--bg-secondary)',
+          borderRadius: '4px',
+          border: '1px solid var(--border-color)'
+        }}>
+          {modelProvider && modelProvider in providerLogos && (
+            <img 
+              src={providerLogos[modelProvider]} 
+              alt={modelProvider} 
+              style={{
+                width: '32px',
+                height: '32px',
+                objectFit: 'contain',
+                backgroundColor: 'var(--logo-bg)',
+                padding: '4px',
+                borderRadius: '4px'
+              }}
+            />
+          )}
+          <div style={{ flex: 1 }}>
+            {modelProvider ? (
+              <>
+                <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                  {getProviderDisplayName(modelProvider)}
+                </div>
+                <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                  {modelName || modelId || 'No model selected'}
+                </div>
+              </>
+            ) : (
+              <div style={{ color: 'var(--text-secondary)' }}>No model selected</div>
+            )}
+          </div>
+          <button 
+            className="btn btn-primary"
+            onClick={() => setShowModelPicker(true)}
+          >
+            Change Model
+          </button>
+        </div>
+      </div>
+
+      {showModelPicker && (
+        <ModelPickerModal
+          currentModel={currentModel}
+          onSelect={handleModelSelect}
+          onCancel={() => setShowModelPicker(false)}
+          isOpen={showModelPicker}
+        />
+      )}
+    </div>
+  );
+};
+
 const ToolsSection: React.FC = () => {
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -1695,6 +1802,12 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   const [initialChatSettings, setInitialChatSettings] = useState<ChatSettings>(() => buildChatSettings());
   const [currentSystemPath, setCurrentSystemPath] = useState<string>('');
   const [initialSystemPath, setInitialSystemPath] = useState<string>('');
+  const [currentModel, setCurrentModel] = useState<string | undefined>();
+  const [initialModel, setInitialModel] = useState<string | undefined>();
+  const [modelProvider, setModelProvider] = useState<ProviderType | undefined>();
+  const [modelId, setModelId] = useState<string | undefined>();
+  const [modelName, setModelName] = useState<string | undefined>();
+  const [showModelPicker, setShowModelPicker] = useState(false);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -1729,6 +1842,29 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
         setCurrentSystemPath(resolvedSystemPath);
         setInitialSystemPath(resolvedSystemPath);
 
+        // Load model
+        const model = mergedSettings.model;
+        setCurrentModel(model);
+        setInitialModel(model);
+        
+        if (model) {
+          const parsed = parseModelString(model);
+          if (parsed) {
+            setModelProvider(parsed.provider);
+            setModelId(parsed.modelId);
+            // Use cache with async fallback
+            const details = await getAgentModelDetails(
+              model,
+              (p) => window.api.getModelsForProvider(p)
+            );
+            if (details) {
+              setModelName(details.modelName);
+            } else {
+              setModelName(parsed.modelId);
+            }
+          }
+        }
+
         // Load agent metadata to determine mode
         const agentMetadata = await window.api.getAgentMetadata();
         if (agentMetadata) {
@@ -1746,6 +1882,50 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     };
 
     loadSettings();
+  }, []);
+
+  // Subscribe to settings-changed event to reload chat settings when defaults change
+  useEffect(() => {
+    const listener = window.api.onSettingsChanged(async () => {
+      log.info('[SettingsTab] Settings changed event received, reloading chat settings');
+      try {
+        const agentSettings = await window.api.getSettings();
+        const mergedSettings = { ...getDefaultSettings(), ...(agentSettings ?? {}) };
+        
+        // Reload chat settings
+        const loadedChatSettings = buildChatSettings(mergedSettings);
+        setCurrentChatSettings(loadedChatSettings);
+        setInitialChatSettings(loadedChatSettings);
+        
+        // Reload model
+        const model = mergedSettings.model;
+        setCurrentModel(model);
+        setInitialModel(model);
+        
+        if (model) {
+          const parsed = parseModelString(model);
+          if (parsed) {
+            setModelProvider(parsed.provider);
+            setModelId(parsed.modelId);
+            // Use cache with async fallback
+            const details = await getAgentModelDetails(
+              model,
+              (p) => window.api.getModelsForProvider(p)
+            );
+            if (details) {
+              setModelName(details.modelName);
+            } else {
+              setModelName(parsed.modelId);
+            }
+          }
+        }
+      } catch (error) {
+        log.error('[SettingsTab] Error reloading chat settings:', error);
+      }
+    });
+    return () => {
+      window.api.offSettingsChanged(listener);
+    };
   }, []);
 
   const handleThemeToggle = async () => {
@@ -1771,8 +1951,13 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const handleSaveChatSettings = async () => {
     try {
-      await window.api.updateSettings(chatSettingsToPartial(currentChatSettings));
+      const updates: Partial<AgentSettings> = chatSettingsToPartial(currentChatSettings);
+      if (currentModel !== undefined) {
+        updates.model = currentModel;
+      }
+      await window.api.updateSettings(updates);
       setInitialChatSettings(currentChatSettings);
+      setInitialModel(currentModel);
       log.info('Chat settings saved successfully');
     } catch (error) {
       log.error('Error saving chat settings:', error);
@@ -1781,6 +1966,86 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
 
   const handleUndoChatSettingsChanges = () => {
     setCurrentChatSettings(initialChatSettings);
+    setCurrentModel(initialModel);
+    // Reload model info if needed
+    if (initialModel) {
+      const parsed = parseModelString(initialModel);
+      if (parsed) {
+        setModelProvider(parsed.provider);
+        setModelId(parsed.modelId);
+        window.api.getModelsForProvider(parsed.provider).then(models => {
+          const foundModel = models.find(m => m.id === parsed.modelId);
+          if (foundModel) {
+            setModelName(foundModel.name);
+          } else {
+            setModelName(parsed.modelId);
+          }
+        }).catch(() => {
+          setModelName(parsed.modelId);
+        });
+      }
+    } else {
+      setModelProvider(undefined);
+      setModelId(undefined);
+      setModelName(undefined);
+    }
+  };
+
+  const handleModelSelect = async (model: string | undefined, details?: ModelDetails) => {
+    try {
+      await window.api.updateSettings({ model });
+      setCurrentModel(model);
+      setInitialModel(model);
+      
+      // Use provided model details if available, otherwise fall back to async lookup
+      if (details && model) {
+        // Cache the details we have from the picker
+        setCachedAgentModel(model, {
+          provider: details.provider,
+          modelId: details.modelId,
+          modelName: details.modelName
+        });
+        setModelProvider(details.provider);
+        setModelId(details.modelId);
+        setModelName(details.modelName);
+      } else if (model) {
+        const parsed = parseModelString(model);
+        if (parsed) {
+          setModelProvider(parsed.provider);
+          setModelId(parsed.modelId);
+          // Use cache with async fallback
+          const modelDetails = await getAgentModelDetails(
+            model,
+            (p) => window.api.getModelsForProvider(p)
+          );
+          if (modelDetails) {
+            setModelName(modelDetails.modelName);
+          } else {
+            setModelName(parsed.modelId);
+          }
+        }
+      } else {
+        setModelProvider(undefined);
+        setModelId(undefined);
+        setModelName(undefined);
+      }
+    } catch (error) {
+      log.error('Error saving model:', error);
+    }
+  };
+
+  const getProviderDisplayName = (provider: ProviderType): string => {
+    switch (provider) {
+      case ProviderType.Test: return 'Test LLM';
+      case ProviderType.Gemini: return 'Gemini';
+      case ProviderType.Claude: return 'Claude';
+      case ProviderType.OpenAI: return 'OpenAI';
+      case ProviderType.Ollama: return 'Ollama';
+      case ProviderType.Bedrock: return 'Bedrock';
+      case ProviderType.Local: return 'Local';
+      case ProviderType.Docker: return 'Docker';
+      default: return provider;
+    }
   };
 
   const handleSaveSystemPath = async () => {
@@ -1808,6 +2073,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     currentChatSettings.contextTopN !== initialChatSettings.contextTopN ||
     currentChatSettings.contextIncludeScore !== initialChatSettings.contextIncludeScore;
   const hasSystemPathChanges = currentSystemPath !== initialSystemPath;
+  const hasModelChanges = currentModel !== initialModel;
 
   const renderContent = () => {
     switch (activeSection) {
@@ -1876,6 +2142,16 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             </div>
           </div>
         );
+      case 'model':
+        return (
+          <ModelSection
+            currentModel={currentModel}
+            modelProvider={modelProvider}
+            modelId={modelId}
+            modelName={modelName}
+            onModelSelect={handleModelSelect}
+          />
+        );
       case 'chat-settings':
         return (
           <div className="chat-settings">
@@ -1883,6 +2159,56 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
             <p className="setting-description">
               Chat Settings will apply to all new chat sessions, and may be overridden on any individual chat session.
             </p>
+            
+            {/* Model Selection */}
+            <div className="form-group" style={{ marginBottom: '20px' }}>
+              <label>Model</label>
+              <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: '12px',
+                padding: '12px',
+                backgroundColor: 'var(--bg-secondary)',
+                borderRadius: '4px',
+                border: '1px solid var(--border-color)'
+              }}>
+                {modelProvider && modelProvider in providerLogos && (
+                  <img 
+                    src={providerLogos[modelProvider]} 
+                    alt={modelProvider} 
+                    style={{
+                      width: '32px',
+                      height: '32px',
+                      objectFit: 'contain',
+                      backgroundColor: 'var(--logo-bg)',
+                      padding: '4px',
+                      borderRadius: '4px'
+                    }}
+                  />
+                )}
+                <div style={{ flex: 1 }}>
+                  {modelProvider ? (
+                    <>
+                      <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>
+                        {getProviderDisplayName(modelProvider)}
+                      </div>
+                      <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
+                        {modelName || modelId || 'No model selected'}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ color: 'var(--text-secondary)' }}>No model selected</div>
+                  )}
+                </div>
+                <button 
+                  className="btn btn-primary"
+                  onClick={() => setShowModelPicker(true)}
+                >
+                  Change Model
+                </button>
+              </div>
+            </div>
+            
             <ChatSettingsForm
               settings={currentChatSettings}
               onSettingsChange={setCurrentChatSettings}
@@ -1893,11 +2219,11 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
                 <button 
                   className="btn btn-primary"
                   onClick={handleSaveChatSettings}
-                  disabled={!hasChatSettingsChanges}
+                  disabled={!hasChatSettingsChanges && !hasModelChanges}
                 >
                   Save Chat Settings
                 </button>
-                {hasChatSettingsChanges && (
+                {(hasChatSettingsChanges || hasModelChanges) && (
                   <button 
                     className="btn btn-secondary"
                     onClick={handleUndoChatSettingsChanges}
@@ -1907,6 +2233,15 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
                 )}
               </div>
             </div>
+            
+            {showModelPicker && (
+              <ModelPickerModal
+                currentModel={currentModel}
+                onSelect={handleModelSelect}
+                onCancel={() => setShowModelPicker(false)}
+                isOpen={showModelPicker}
+              />
+            )}
           </div>
         );
       case 'tools-settings':

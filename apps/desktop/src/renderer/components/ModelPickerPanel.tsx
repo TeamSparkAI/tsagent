@@ -3,39 +3,20 @@ import { ProviderType } from '@tsagent/core';
 import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
 import log from 'electron-log';
 
-// Import provider logos
-import TestLogo from '../assets/frosty.png';
-import OllamaLogo from '../assets/ollama.png';
-import OpenAILogo from '../assets/openai.png';
-import GeminiLogo from '../assets/gemini.png';
-import AnthropicLogo from '../assets/anthropic.png';
-import BedrockLogo from '../assets/bedrock.png';
-import LocalLogo from '../assets/local.png';
-import DockerLogo from '../assets/docker.png';
-
 import './ModelPickerPanel.css';
-
-// Map each provider to its logo
-  const providerLogos: Record<ProviderType, any> = {
-  [ProviderType.Test]: TestLogo,
-  [ProviderType.Ollama]: OllamaLogo,
-  [ProviderType.OpenAI]: OpenAILogo,
-  [ProviderType.Gemini]: GeminiLogo,
-  [ProviderType.Claude]: AnthropicLogo,
-  [ProviderType.Bedrock]: BedrockLogo,
-  [ProviderType.Local]: LocalLogo,
-  [ProviderType.Docker]: DockerLogo,
-};
+import { providerLogos } from '../utils/providerLogos';
 
 interface ModelPickerPanelProps {
   selectedModel?: ProviderType;
-  onModelSelect: (model: ProviderType, modelId: string, modelName: string) => void;
+  initialModelId?: string; // Initial model ID to select
+  onModelSelect: (provider: ProviderType, modelId: string, model: ILLMModel) => void;
   onClose: () => void;
   id: string;
 }
 
 export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({ 
-  selectedModel = ProviderType.Test,
+  selectedModel,
+  initialModelId,
   onModelSelect,
   onClose,
   id
@@ -61,7 +42,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     return await window.api.getModelsForProvider(provider);
   }, []);
   
-  const [selectedProvider, setSelectedProvider] = useState<ProviderType>(selectedModel);
+  const [selectedProvider, setSelectedProvider] = useState<ProviderType | undefined>(selectedModel);
   const [providerInfo, setProviderInfo] = useState<Record<ProviderType, LLMProviderInfo>>({} as Record<ProviderType, LLMProviderInfo>);
   const [models, setModels] = useState<ILLMModel[]>([]);
   const [selectedModelId, setSelectedModelId] = useState<string>('');
@@ -70,6 +51,15 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
   
   // Add a ref to track if the initial load is complete
   const initialLoadComplete = useRef(false);
+  // Track the initial model ID to select (from props)
+  const initialModelIdRef = useRef<string | undefined>(initialModelId);
+  // Ref for the models list ul element
+  const modelsListRef = useRef<HTMLUListElement>(null);
+  
+  // Update ref when initialModelId prop changes
+  useEffect(() => {
+    initialModelIdRef.current = initialModelId;
+  }, [initialModelId]);
   
   // Use a single properly structured useEffect for initial data loading
   useEffect(() => {
@@ -100,80 +90,60 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
           
           setProviderInfo(filteredInfo);
           
-          // Get the current chat state before setting any initial provider
-          const chatState = await window.api.getChatState(id);
-          log.info('[ModelPickerPanel] Initial chat state:', chatState);
+          // Determine initial provider and model
+          let initialProvider: ProviderType | undefined = selectedModel;
+          // Use prop directly - it will be updated when the prop changes
+          let initialModelIdToSelect: string | undefined = initialModelId;
           
-          const currentProvider = chatState?.currentModelProvider;
-          const currentModelId = chatState?.currentModelId;
-          
-          if (currentProvider && currentModelId) {
-            log.info('[ModelPickerPanel] Found current provider and model in chat state:', {
-              provider: currentProvider,
-              modelId: currentModelId
-            });
-          }
-
-          if (currentProvider) {
-            log.info('[ModelPickerPanel] Found current provider:', currentProvider);
-            
-            setSelectedProvider(currentProvider as unknown as ProviderType);
+          // If no provider specified, try to get from chat state (only if id is not "modal")
+          if (!initialProvider && id !== 'modal') {
             try {
-                              const availableModels = await getModelsForProvider(currentProvider as unknown as ProviderType);
-              log.info('[ModelPickerPanel] Loaded models for current provider:', {
-                provider: currentProvider,
-                models: availableModels.map(m => m.name)
-              });
-              
-              if (isMounted) {
-                setModels(availableModels);
-                const currentModel = availableModels.find(m => m.id === currentModelId);
-                if (currentModel) {
-                  log.info('[ModelPickerPanel] Selecting current model:', {
-                    modelId: currentModel.id,
-                    modelName: currentModel.name
-                  });
-                  setSelectedModelId(currentModel.id);
-                  setSelectedModelName(currentModel.name);
-                } else {
-                  log.warn('[ModelPickerPanel] Current model not found in available models:', {
-                    modelId: currentModelId,
-                    availableModels: availableModels.map(m => m.id)
-                  });
+              const chatState = await window.api.getChatState(id);
+              const currentProvider = chatState?.currentModelProvider;
+              const currentModelId = chatState?.currentModelId;
+              if (currentProvider && currentModelId) {
+                initialProvider = currentProvider as unknown as ProviderType;
+                if (!initialModelIdToSelect) {
+                  initialModelIdToSelect = currentModelId;
                 }
               }
             } catch (error) {
-              log.error(`Failed to load models for provider ${currentProvider}:`, error);
-              if (isMounted) {
-                setModels([]);
-              }
+              log.warn('Could not get chat state:', error);
             }
-          } else {
-            // If no current provider or it's not installed, use the first available
-            const firstAvailable = installedProviders[0] as ProviderType;
-            log.info('[ModelPickerPanel] No current provider found, using first available:', firstAvailable);
-            
-            if (firstAvailable) {
-              setSelectedProvider(firstAvailable);
-              try {
-                const availableModels = await getModelsForProvider(firstAvailable);
-                log.info('[ModelPickerPanel] Loaded initial models:', {
-                  provider: firstAvailable,
-                  models: availableModels.map(m => m.name)
-                });
+          }
+          
+          // If still no provider, use first available
+          if (!initialProvider && installedProviders.length > 0) {
+            initialProvider = installedProviders[0] as ProviderType;
+          }
+          
+          if (initialProvider) {
+            setSelectedProvider(initialProvider);
+            try {
+              const availableModels = await getModelsForProvider(initialProvider as ProviderType);
+              
+              if (isMounted) {
+                setModels(availableModels);
                 
-                if (isMounted) {
-                  setModels(availableModels);
-                  if (availableModels.length > 0) {
+                // Select the initial model if specified, otherwise first model
+                if (initialModelIdToSelect) {
+                  const modelToSelect = availableModels.find(m => m.id === initialModelIdToSelect);
+                  if (modelToSelect) {
+                    setSelectedModelId(modelToSelect.id);
+                    setSelectedModelName(modelToSelect.name);
+                  } else if (availableModels.length > 0) {
                     setSelectedModelId(availableModels[0].id);
                     setSelectedModelName(availableModels[0].name);
                   }
+                } else if (availableModels.length > 0) {
+                  setSelectedModelId(availableModels[0].id);
+                  setSelectedModelName(availableModels[0].name);
                 }
-              } catch (error) {
-                log.error(`Failed to load models for provider ${firstAvailable}:`, error);
-                if (isMounted) {
-                  setModels([]);
-                }
+              }
+            } catch (error) {
+              log.error(`Failed to load models for provider ${initialProvider}:`, error);
+              if (isMounted) {
+                setModels([]);
               }
             }
           }
@@ -193,7 +163,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [getProviderInfo, getModelsForProvider, selectedModel]);
+  }, [getProviderInfo, getModelsForProvider, selectedModel, initialModelId]);
   
   // Update the second useEffect to use the ref instead of comparing selectedProvider and selectedModel
   useEffect(() => {
@@ -206,6 +176,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     let isMounted = true;
     
     const loadModels = async () => {
+      if (!selectedProvider) return;
       try {
         setLoading(true);
         const availableModels = await getModelsForProvider(selectedProvider);
@@ -213,6 +184,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         if (isMounted) {
           setModels(availableModels);
           
+          // When provider changes, select first model (don't preserve previous selection)
           if (availableModels.length > 0) {
             setSelectedModelId(availableModels[0].id);
             setSelectedModelName(availableModels[0].name);
@@ -254,7 +226,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         setProviderInfo(filteredInfo);
         
         // If current provider is no longer installed, switch to first available provider
-        if (!installedProviders.includes(selectedProvider)) {
+        if (selectedProvider && !installedProviders.includes(selectedProvider)) {
           const firstAvailable = installedProviders[0] as ProviderType;
           if (firstAvailable) {
             await handleProviderSelect(firstAvailable);
@@ -290,7 +262,7 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
         setProviderInfo(filteredInfo);
         
         // If current provider is no longer installed, switch to first available provider
-        if (!installedProviders.includes(selectedProvider)) {
+        if (selectedProvider && !installedProviders.includes(selectedProvider)) {
           const firstAvailable = installedProviders[0] as ProviderType;
           if (firstAvailable) {
             await handleProviderSelect(firstAvailable);
@@ -316,6 +288,26 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     }
   };
 
+  const [isProviderDropdownOpen, setIsProviderDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsProviderDropdownOpen(false);
+      }
+    };
+
+    if (isProviderDropdownOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isProviderDropdownOpen]);
+
   // Handle model selection
   const handleModelSelect = (modelId: string) => {
     setSelectedModelId(modelId);
@@ -325,10 +317,34 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
     }
   };
 
+  // Scroll selected model into view after models are loaded and selected
+  useEffect(() => {
+    if (!selectedModelId || !modelsListRef.current || models.length === 0) {
+      return;
+    }
+
+    // Wait for DOM to update, then scroll into view
+    const scrollToSelected = () => {
+      const selectedElement = modelsListRef.current?.querySelector(`li[data-model-id="${selectedModelId}"]`) as HTMLElement;
+      if (selectedElement) {
+        selectedElement.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    };
+
+    // Use setTimeout to ensure DOM has updated
+    const timeoutId = setTimeout(scrollToSelected, 0);
+    return () => clearTimeout(timeoutId);
+  }, [selectedModelId, models.length]);
+
   // Apply selected model
   const applyModelSelection = () => {
-    onModelSelect(selectedProvider, selectedModelId, selectedModelName);
-    onClose();
+    if (selectedProvider && selectedModelId) {
+      const selectedModel = models.find(m => m.id === selectedModelId);
+      if (selectedModel) {
+        onModelSelect(selectedProvider, selectedModelId, selectedModel);
+        onClose();
+      }
+    }
   };
 
   const handleProviderRemove = async (provider: ProviderType) => {
@@ -350,85 +366,96 @@ export const ModelPickerPanel: React.FC<ModelPickerPanelProps> = ({
       </div>
       
       <div className="model-picker-content">
-        {/* Provider List */}
-        <div className="providers-list">
-          <h3>Providers</h3>
-          <ul>
-            {Object.entries(providerInfo)
-              .sort(([a], [b]) => providerInfo[a as ProviderType].name.localeCompare(providerInfo[b as ProviderType].name))
-              .map(([key, info]) => (
-              <li 
-                key={key} 
-                className={selectedProvider === key as ProviderType ? 'selected' : ''}
-                onClick={() => handleProviderSelect(key as ProviderType)}
-              >
-                {/* Add provider logo */}
-                <img 
-                  src={providerLogos[key as ProviderType]} 
-                  alt={info.name}
-                  className="provider-logo"
-                />
-                <span>{info.name}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-        
-        {/* Provider Details */}
-        {selectedProvider && providerInfo[selectedProvider] && (
-          <div className="provider-details">
-            <div className="provider-header">
-              {/* Add larger provider logo */}
-              <img 
-                src={providerLogos[selectedProvider]} 
-                alt={providerInfo[selectedProvider].name}
-                className="provider-logo-large"
-              />
-              <h3>{providerInfo[selectedProvider].name}</h3>
-            </div>
-            <p>{providerInfo[selectedProvider].description}</p>
-            <div className="provider-meta">
-              {providerInfo[selectedProvider].website && (
-                <a 
-                  href="#" 
-                  onClick={(e) => {
-                    e.preventDefault();
-                    const website = providerInfo[selectedProvider].website;
-                    if (typeof website === 'string') {
-                      window.api.openExternal(website);
-                    }
-                  }}
-                >
-                  Visit Website
-                </a>
+        {/* Provider Dropdown */}
+        <div className="provider-selector">
+          <label>Provider</label>
+          <div className="custom-dropdown" ref={dropdownRef}>
+            <div 
+              className="dropdown-selected"
+              onClick={() => setIsProviderDropdownOpen(!isProviderDropdownOpen)}
+            >
+              {selectedProvider && providerInfo[selectedProvider] ? (
+                <>
+                  <img 
+                    src={providerLogos[selectedProvider]} 
+                    alt={providerInfo[selectedProvider].name}
+                    className="dropdown-logo"
+                  />
+                  <span className="dropdown-text">
+                    <span className="dropdown-title">{providerInfo[selectedProvider].name}</span>
+                    {providerInfo[selectedProvider].description && (
+                      <span className="dropdown-description">
+                        {providerInfo[selectedProvider].description}
+                      </span>
+                    )}
+                  </span>
+                </>
+              ) : (
+                <span className="dropdown-text">
+                  <span className="dropdown-title">Select a provider</span>
+                </span>
               )}
+              <span className="dropdown-arrow">{isProviderDropdownOpen ? '▲' : '▼'}</span>
             </div>
+            {isProviderDropdownOpen && (
+              <div className="dropdown-menu">
+                {Object.entries(providerInfo)
+                  .sort(([a], [b]) => providerInfo[a as ProviderType].name.localeCompare(providerInfo[b as ProviderType].name))
+                  .map(([key, info]) => (
+                    <div
+                      key={key}
+                      className={`dropdown-option ${selectedProvider === key as ProviderType ? 'selected' : ''}`}
+                      onClick={() => {
+                        handleProviderSelect(key as ProviderType);
+                        setIsProviderDropdownOpen(false);
+                      }}
+                    >
+                      <img 
+                        src={providerLogos[key as ProviderType]} 
+                        alt={info.name}
+                        className="dropdown-logo"
+                      />
+                      <span className="dropdown-text">
+                        <span className="dropdown-title">{info.name}</span>
+                        {info.description && (
+                          <span className="dropdown-description">
+                            {info.description}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
         
         {/* Models List */}
-        <div className="models-list">
-          <h3>Available Models</h3>
-          {loading ? (
-            <div className="loading">Loading models...</div>
-          ) : models.length === 0 ? (
-            <div className="no-models">No models available</div>
-          ) : (
-            <ul>
-              {models.map(model => (
-                <li 
-                  key={model.id} 
-                  className={selectedModelId === model.id ? 'selected' : ''}
-                  onClick={() => handleModelSelect(model.id)}
-                >
-                  <div className="model-name">{model.name}</div>
-                  {model.id !== model.name && <div className="model-id">{model.id}</div>}
-                  {model.description && <div className="model-description">{model.description}</div>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        {selectedProvider && providerInfo[selectedProvider] && (
+          <div className="models-list">
+            <h3>Available Models</h3>
+            {loading ? (
+              <div className="loading">Loading models...</div>
+            ) : models.length === 0 ? (
+              <div className="no-models">No models available</div>
+            ) : (
+              <ul ref={modelsListRef}>
+                {models.map(model => (
+                  <li 
+                    key={model.id}
+                    data-model-id={model.id}
+                    className={selectedModelId === model.id ? 'selected' : ''}
+                    onClick={() => handleModelSelect(model.id)}
+                  >
+                    <div className="model-name">{model.name}</div>
+                    {model.id !== model.name && <div className="model-id">{model.id}</div>}
+                    {model.description && <div className="model-description">{model.description}</div>}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
       </div>
       
       <div className="model-picker-footer">

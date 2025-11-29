@@ -8,28 +8,8 @@ import { OnePasswordBrowserModal } from './OnePasswordBrowserModal';
 import log from 'electron-log';
 
 // Import provider logos
-import TestLogo from '../assets/frosty.png';
-import OllamaLogo from '../assets/ollama.png';
-import OpenAILogo from '../assets/openai.png';
-import GeminiLogo from '../assets/gemini.png';
-import AnthropicLogo from '../assets/anthropic.png';
-import BedrockLogo from '../assets/bedrock.png';
-import LocalLogo from '../assets/local.png';
-import DockerLogo from '../assets/docker.png';
-
 import './ProvidersTab.css';
-
-// Map each provider to its logo
-const providerLogos: Record<ProviderType, any> = {
-  [ProviderType.Test]: TestLogo,
-  [ProviderType.Ollama]: OllamaLogo,
-  [ProviderType.OpenAI]: OpenAILogo,
-  [ProviderType.Gemini]: GeminiLogo,
-  [ProviderType.Claude]: AnthropicLogo,
-  [ProviderType.Bedrock]: BedrockLogo,
-  [ProviderType.Local]: LocalLogo,
-  [ProviderType.Docker]: DockerLogo,
-};
+import { providerLogos } from '../utils/providerLogos';
 
 interface Provider {
   id: string;

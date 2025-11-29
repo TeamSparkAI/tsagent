@@ -223,7 +223,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
 
   const updatedMostRecentProvider = async (provider: ProviderType, modelId: string) => {
     await agent.updateSettings({
-      mostRecentModel: `${provider}:${modelId}`
+      model: `${provider}:${modelId}`
     });
   };
 
