@@ -1,6 +1,6 @@
 import { McpServerManager } from './types.js';
 import { Logger } from '../types/common.js';
-import { MCPClientManager, McpConfig, McpConfigFileServerConfig } from '../mcp/types.js';
+import { MCPClientManager, McpServerEntry, McpServerConfig } from '../mcp/types.js';
 import { AgentImpl } from '../core/agent-api.js';
 
 export class McpServerManagerImpl implements McpServerManager {
@@ -10,34 +10,35 @@ export class McpServerManagerImpl implements McpServerManager {
     this.agent = agent;
   }
 
-  getMcpServer(serverName: string): McpConfig | null {
+  getMcpServer(serverName: string): McpServerEntry | null {
     const mcpServers = this.agent.getAgentMcpServers();
     if (!mcpServers || !mcpServers[serverName]) return null;
     
     return {
       name: serverName,
-      config: mcpServers[serverName] as McpConfigFileServerConfig
+      config: mcpServers[serverName]
     };
   }
 
-  async getAllMcpServers(): Promise<Record<string, McpConfig>> {
+  async getAllMcpServers(): Promise<Record<string, McpServerEntry>> {
     const mcpServers = this.agent.getAgentMcpServers();
     if (!mcpServers) return {};
     
     // Transform the configuration into the expected format
-    const result: Record<string, McpConfig> = {};
+    // Internal configs should always have a type field (strictly typed via discriminated union)
+    const result: Record<string, McpServerEntry> = {};
     for (const [name, serverConfig] of Object.entries(mcpServers)) {
       result[name] = {
         name,
-        config: serverConfig as McpConfigFileServerConfig
+        config: serverConfig
       };
     }
     return result;
   }
 
-  async saveMcpServer(server: McpConfig): Promise<void> {
+  async saveMcpServer(server: McpServerEntry): Promise<void> {
     const mcpServers = this.agent.getAgentMcpServers() || {};
-    const oldConfig = mcpServers[server.name] as McpConfigFileServerConfig | undefined;
+    const oldConfig = mcpServers[server.name];
 
     // Save the config first
     mcpServers[server.name] = server.config;
@@ -62,8 +63,8 @@ export class McpServerManagerImpl implements McpServerManager {
    * Connection settings are the properties used to create and connect the MCP client.
    */
   private haveConnectionSettingsChanged(
-    oldConfig: McpConfigFileServerConfig | undefined,
-    newConfig: McpConfigFileServerConfig
+    oldConfig: McpServerConfig | undefined,
+    newConfig: McpServerConfig
   ): boolean {
     if (!oldConfig) {
       // New server - no existing client to reload
@@ -85,6 +86,12 @@ export class McpServerManagerImpl implements McpServerManager {
 
     // Check sse-specific connection settings
     if (oldConfig.type === 'sse' && newConfig.type === 'sse') {
+      if (oldConfig.url !== newConfig.url) return true;
+      if (JSON.stringify(oldConfig.headers || {}) !== JSON.stringify(newConfig.headers || {})) return true;
+    }
+
+    // Check streamable-http-specific connection settings
+    if (oldConfig.type === 'streamable-http' && newConfig.type === 'streamable-http') {
       if (oldConfig.url !== newConfig.url) return true;
       if (JSON.stringify(oldConfig.headers || {}) !== JSON.stringify(newConfig.headers || {})) return true;
     }

@@ -1,7 +1,7 @@
 import { Rule } from '../types/rules.js';
 import { Reference } from '../types/references.js';
 import { ProviderType, ProviderInfo, Provider, ProviderModel } from '../providers/types.js';
-import { McpConfig } from '../mcp/types.js';
+import { McpServerEntry } from '../mcp/types.js';
 import { ChatSession, ChatMessage, ChatSessionOptions } from '../types/chat.js';
 
 // Manager interfaces
@@ -45,8 +45,8 @@ export interface ProvidersManager {
 }
 
 export interface McpServerManager {
-  getAllMcpServers(): Promise<Record<string, McpConfig>>;
-  getMcpServer(serverName: string): McpConfig | null;
-  saveMcpServer(server: McpConfig): Promise<void>;
+  getAllMcpServers(): Promise<Record<string, McpServerEntry>>;
+  getMcpServer(serverName: string): McpServerEntry | null;
+  saveMcpServer(server: McpServerEntry): Promise<void>;
   deleteMcpServer(serverName: string): Promise<boolean>;
 }

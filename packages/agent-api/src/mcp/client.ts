@@ -2,9 +2,10 @@ import { CallToolResult, Tool } from "./types.js";
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { StdioClientTransport, StdioServerParameters } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 
-import { McpClient, McpConfig } from './types.js';
+import { McpClient, McpServerEntry } from './types.js';
 import { CallToolResultWithElapsedTime } from './types.js';
 import { ChatSession } from '../types/chat.js';
 import { Logger } from '../types/common.js';
@@ -254,6 +255,46 @@ export class McpClientSse extends McpClientBase implements McpClient {
         }
 
         return transport;
+    }
+}
+
+// Streamable HTTP transport - recommended alternative to SSE
+// Provides better scalability and fault tolerance
+//
+// mcpConfig looks like this:
+//
+// mcpServers: {
+//   "Your MCP server name": {
+//     "type": "streamable-http",
+//     "url": "http://localhost:8080/streamable-http",
+//     "headers": {
+//         "Authorization": "Bearer <your-api-key>"
+//     }
+//   }
+// }
+//
+export class McpClientStreamableHttp extends McpClientBase implements McpClient {
+    private url: URL;
+    private headers: Record<string, string> = {};
+
+    constructor(url: URL, headers?: Record<string, string>, logger?: Logger) {
+        super(logger!);
+        this.url = url;
+        this.headers = headers || {};
+    }
+
+    protected async createTransport(): Promise<Transport> {
+        this.logger.info(`[MCP CLIENT] createTransport - url: ${this.url.toString()}`);
+        
+        // StreamableHTTPClientTransport accepts requestInit for headers
+        const requestInit: RequestInit = {};
+        if (Object.keys(this.headers).length > 0) {
+            requestInit.headers = { ...this.headers };
+        }
+        
+        return new StreamableHTTPClientTransport(this.url, {
+            requestInit: requestInit
+        });
     }
 }
 

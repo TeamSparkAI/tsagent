@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
-import { McpConfig } from '@tsagent/core';
+import { McpServerEntry } from '@tsagent/core';
 import log from 'electron-log';
 import './OrchestrationTab.css';
 
@@ -35,8 +35,8 @@ interface AgentInfo {
 }
 
 export const OrchestrationTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
-  const [servers, setServers] = useState<McpConfig[]>([]);
-  const [a2aServer, setA2aServer] = useState<McpConfig | null>(null);
+  const [servers, setServers] = useState<McpServerEntry[]>([]);
+  const [a2aServer, setA2aServer] = useState<McpServerEntry | null>(null);
   const [agents, setAgents] = useState<AgentInfo[]>([]);
   const [selectedAgent, setSelectedAgent] = useState<AgentInfo | null>(null);
   const [isLoading, setIsLoading] = useState(false);

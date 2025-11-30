@@ -51,7 +51,8 @@ export {
   Tool, 
   CallToolResult, 
   CallToolResultWithElapsedTime, 
-  McpConfig, 
+  McpServerEntry, 
+  McpServerConfig,
   McpConfigFile, 
   McpClient, 
   MCPClientManager,
@@ -60,6 +61,7 @@ export {
   ServerToolDefaults,
   ToolConfig,
   // Helper functions
+  determineServerType,
   isToolPermissionServerDefaultRequired,
   getToolPermissionState,
   isToolPermissionRequired,

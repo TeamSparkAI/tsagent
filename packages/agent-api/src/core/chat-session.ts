@@ -719,7 +719,7 @@ export class ChatSessionImpl implements ChatSession {
         if (!client?.serverTools?.length) continue;
 
         for (const tool of client.serverTools) {
-          if (getToolEffectiveIncludeMode(serverConfig as any, tool.name) === 'always') {
+          if (getToolEffectiveIncludeMode(serverConfig, tool.name) === 'always') {
             const alreadyIncluded = this.contextItems.some(
               item =>
                 item.type === 'tool' &&

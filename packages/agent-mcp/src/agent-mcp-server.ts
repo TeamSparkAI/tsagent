@@ -11,7 +11,7 @@ import {
   Rule,
   Reference,
   ProviderType,
-  McpConfig,
+  McpServerEntry,
 } from '@tsagent/core';
 import {
   createAgent,
@@ -1304,7 +1304,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             throw new Error(`MCP server "${args.serverName}" already exists. Use agent_update_mcp_server to update it.`);
           }
           
-          const mcpConfig: McpConfig = {
+          const mcpConfig: McpServerEntry = {
             name: args.serverName,
             config: args.config,
           };
@@ -1346,7 +1346,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             throw new Error(`MCP server "${args.serverName}" does not exist. Use agent_add_mcp_server to create it.`);
           }
           
-          const mcpConfig: McpConfig = {
+          const mcpConfig: McpServerEntry = {
             name: args.serverName,
             config: args.config,
           };

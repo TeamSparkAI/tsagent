@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/server",
-  "version": "1.2.15",
+  "version": "1.2.16",
   "description": "Simple A2A server that wraps @tsagent/core agents with filesystem strategy",
   "type": "module",
   "bin": {
@@ -33,7 +33,7 @@
     "@a2a-js/sdk": "^0.3.4",
     "express": "^4.18.2",
     "uuid": "^11.1.0",
-    "@tsagent/core": "^1.2.15"
+    "@tsagent/core": "^1.2.16"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

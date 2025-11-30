@@ -1,5 +1,5 @@
-import { McpClient, McpConfig, McpConfigFileServerConfig } from './types.js';
-import { McpClientSse, McpClientStdio } from './client.js';
+import { McpClient, McpServerEntry, McpServerConfig } from './types.js';
+import { McpClientSse, McpClientStdio, McpClientStreamableHttp } from './client.js';
 import { Logger } from '../types/common.js';
 import { Agent } from '../types/agent.js'
 import { McpClientInternalRules } from './client-rules.js';
@@ -20,7 +20,7 @@ export class MCPClientManagerImpl implements MCPClientManager {
         this.logger = logger;
     }
 
-    private createMcpClientFromConfig(agent: Agent, clientConfig: McpConfig) : McpClient {
+    private createMcpClientFromConfig(agent: Agent, clientConfig: McpServerEntry) : McpClient {
         let client: McpClient;
         const serverName = clientConfig.name;
         const config = clientConfig.config;
@@ -67,6 +67,12 @@ export class MCPClientManagerImpl implements MCPClientManager {
                 config.headers,
                 this.logger
             );
+        } else if (serverType === 'streamable-http') {
+            client = new McpClientStreamableHttp(
+                new URL(config.url), 
+                config.headers,
+                this.logger
+            );
         } else if (serverType === 'internal') {
             if (config.tool === 'rules') {
                 client = new McpClientInternalRules(agent, this.logger);
@@ -86,7 +92,7 @@ export class MCPClientManagerImpl implements MCPClientManager {
         return client;
     }
 
-    private async loadMcpClient(agent: Agent, serverName: string, serverConfig: McpConfig): Promise<void> {
+    private async loadMcpClient(agent: Agent, serverName: string, serverConfig: McpServerEntry): Promise<void> {
         try {
             if (!serverConfig || !serverConfig.config) {
                 this.logger.error(`Invalid server configuration for ${serverName}: missing config property`);
@@ -116,7 +122,7 @@ export class MCPClientManagerImpl implements MCPClientManager {
      */
     private async restoreToolEmbeddings(
         client: McpClient,
-        config: McpConfigFileServerConfig,
+        config: McpServerConfig,
         serverName: string,
         agent: Agent
     ): Promise<void> {

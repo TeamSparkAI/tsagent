@@ -17,59 +17,76 @@ export type ServerDefaultPermission = 'required' | 'not_required';
 export type ToolPermissionSetting = 'server_default' | 'required' | 'not_required';
 
 
+// Zod schemas for validation
+export const ServerToolDefaultsSchema = z.object({
+  permissionRequired: z.boolean().optional(),
+  include: z.enum(['always', 'manual', 'agent']).optional(),
+});
+
+export const ToolConfigSchema = z.object({
+  permissionRequired: z.boolean().optional(),
+  include: z.enum(['always', 'manual', 'agent']).optional(),
+  embeddings: z.array(z.array(z.number())).optional(),
+  hash: z.string().optional(),
+});
+
 // Server-level defaults for all tools
-export interface ServerToolDefaults {
-  permissionRequired?: boolean;  // Default: true if not specified
-  include?: 'always' | 'manual' | 'agent';  // Default: 'always' if not specified
-}
+export type ServerToolDefaults = z.infer<typeof ServerToolDefaultsSchema>;
 
 // Individual tool configuration
-export interface ToolConfig {
-  permissionRequired?: boolean;  // Explicit override if present (used regardless of server default)
-  include?: 'always' | 'manual' | 'agent';  // Explicit override if present (used regardless of server default)
-  embeddings?: number[][];  // Array of embedding vectors (always present with hash if embeddings exist)
-  hash?: string;  // SHA-256 hash of the text chunk used to generate embeddings (always present with embeddings if embeddings exist)
-}
+export type ToolConfig = z.infer<typeof ToolConfigSchema>;
 
-export type McpConfigFileServerConfig = 
-  | { 
-      type: 'stdio'; 
-      command: string; 
-      args: string[]; 
-      env?: Record<string, string>; 
-      cwd?: string;
-      serverToolDefaults?: ServerToolDefaults;
-      tools?: Record<string, ToolConfig>;
-    }
-  | { 
-      type: 'sse'; 
-      url: string; 
-      headers?: Record<string, string>;
-      serverToolDefaults?: ServerToolDefaults;
-      tools?: Record<string, ToolConfig>;
-    }
-  | { 
-      type: 'internal'; 
-      tool: 'rules' | 'references' | 'supervision' | 'tools';
-      serverToolDefaults?: ServerToolDefaults;
-      tools?: Record<string, ToolConfig>;
-    };
+export const McpServerConfigSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('stdio'),
+    command: z.string(),
+    args: z.array(z.string()),
+    env: z.record(z.string(), z.string()).optional(),
+    cwd: z.string().optional(),
+    serverToolDefaults: ServerToolDefaultsSchema.optional(),
+    tools: z.record(z.string(), ToolConfigSchema).optional(),
+  }),
+  z.object({
+    type: z.literal('sse'),
+    url: z.string(),
+    headers: z.record(z.string(), z.string()).optional(),
+    serverToolDefaults: ServerToolDefaultsSchema.optional(),
+    tools: z.record(z.string(), ToolConfigSchema).optional(),
+  }),
+  z.object({
+    type: z.literal('streamable-http'),
+    url: z.string(),
+    headers: z.record(z.string(), z.string()).optional(),
+    serverToolDefaults: ServerToolDefaultsSchema.optional(),
+    tools: z.record(z.string(), ToolConfigSchema).optional(),
+  }),
+  z.object({
+    type: z.literal('internal'),
+    tool: z.enum(['rules', 'references', 'supervision', 'tools']),
+    serverToolDefaults: ServerToolDefaultsSchema.optional(),
+    tools: z.record(z.string(), ToolConfigSchema).optional(),
+  }),
+]);
 
-export interface McpConfig {
+export type McpServerConfig = z.infer<typeof McpServerConfigSchema>;
+
+export interface McpServerEntry {
   name: string;
-  config: McpConfigFileServerConfig;
+  config: McpServerConfig;
 }
   
 // Type for the MCP configuration file structure
 export interface McpConfigFile {
-  mcpServers: Record<string, McpConfigFileServerConfig>;
+  mcpServers: Record<string, McpServerConfig>;
 }
 
 // Helper function to determine server type from config
-export function determineServerType(config: Omit<McpConfigFileServerConfig, 'type'>): McpConfigFileServerConfig['type'] {
+export function determineServerType(config: Omit<McpServerConfig, 'type'>): McpServerConfig['type'] {
   if ('command' in config) return 'stdio';
-  if ('url' in config) return 'sse';
   if ('tool' in config) return 'internal';
+  // Can't distinguish between 'sse' and 'streamable-http' from structure alone
+  // Both have 'url'. Default to 'sse' for backward compatibility.
+  if ('url' in config) return 'sse';
   throw new Error('Invalid server configuration');
 }
 
@@ -80,7 +97,7 @@ export function determineServerType(config: Omit<McpConfigFileServerConfig, 'typ
  * @param config Server configuration
  * @returns 'always' | 'manual' | 'agent' (defaults to 'always' if not specified)
  */
-export function getToolIncludeServerDefault(config: McpConfigFileServerConfig): 'always' | 'manual' | 'agent' {
+export function getToolIncludeServerDefault(config: McpServerConfig): 'always' | 'manual' | 'agent' {
   if (config.serverToolDefaults?.include !== undefined) {
     return config.serverToolDefaults.include;
   }
@@ -93,7 +110,7 @@ export function getToolIncludeServerDefault(config: McpConfigFileServerConfig): 
  * @param toolName Name of the tool to check
  * @returns 'server_default', 'always', 'manual', or 'agent'
  */
-export function getToolIncludeMode(config: McpConfigFileServerConfig, toolName: string): 'server_default' | 'always' | 'manual' | 'agent' {
+export function getToolIncludeMode(config: McpServerConfig, toolName: string): 'server_default' | 'always' | 'manual' | 'agent' {
   if (config.tools?.[toolName]?.include !== undefined) {
     return config.tools[toolName].include!;
   }
@@ -106,7 +123,7 @@ export function getToolIncludeMode(config: McpConfigFileServerConfig, toolName: 
  * @param toolName Name of the tool to check
  * @returns 'always', 'manual', or 'agent'
  */
-export function getToolEffectiveIncludeMode(config: McpConfigFileServerConfig, toolName: string): 'always' | 'manual' | 'agent' {
+export function getToolEffectiveIncludeMode(config: McpServerConfig, toolName: string): 'always' | 'manual' | 'agent' {
   const toolMode = getToolIncludeMode(config, toolName);
   if (toolMode === 'server_default') {
     return getToolIncludeServerDefault(config);
@@ -120,7 +137,7 @@ export function getToolEffectiveIncludeMode(config: McpConfigFileServerConfig, t
  * @param toolName Name of the tool to check
  * @returns true if tool should be included in context
  */
-export function isToolInContext(config: McpConfigFileServerConfig, toolName: string): boolean {
+export function isToolInContext(config: McpServerConfig, toolName: string): boolean {
   const mode = getToolEffectiveIncludeMode(config, toolName);
   return mode === 'always';
 }
@@ -131,7 +148,7 @@ export function isToolInContext(config: McpConfigFileServerConfig, toolName: str
  * @param toolName Name of the tool to check
  * @returns true if tool is available for manual inclusion
  */
-export function isToolAvailableForManual(config: McpConfigFileServerConfig, toolName: string): boolean {
+export function isToolAvailableForManual(config: McpServerConfig, toolName: string): boolean {
   const mode = getToolEffectiveIncludeMode(config, toolName);
   return mode === 'manual' || mode === 'always';
 }
@@ -142,7 +159,7 @@ export function isToolAvailableForManual(config: McpConfigFileServerConfig, tool
  * @param toolName Name of the tool to check
  * @returns true if tool is available for agent-controlled inclusion
  */
-export function isToolAvailableForAgent(config: McpConfigFileServerConfig, toolName: string): boolean {
+export function isToolAvailableForAgent(config: McpServerConfig, toolName: string): boolean {
   const mode = getToolEffectiveIncludeMode(config, toolName);
   return mode === 'agent' || mode === 'manual' || mode === 'always';
 }
@@ -153,7 +170,7 @@ export function isToolAvailableForAgent(config: McpConfigFileServerConfig, toolN
  * Checks if the server default is required for tools (permissions)
  * @returns true if server default is required (defaults to true if not specified)
  */
-export function isToolPermissionServerDefaultRequired(config: McpConfigFileServerConfig): boolean {
+export function isToolPermissionServerDefaultRequired(config: McpServerConfig): boolean {
   if (config.serverToolDefaults?.permissionRequired !== undefined) {
     return config.serverToolDefaults.permissionRequired;
   }
@@ -164,7 +181,7 @@ export function isToolPermissionServerDefaultRequired(config: McpConfigFileServe
  * Gets the tool permission state for UX (three states: server_default, required, not_required)
  */
 export function getToolPermissionState(
-  config: McpConfigFileServerConfig,
+  config: McpServerConfig,
   toolName: string
 ): 'server_default' | 'required' | 'not_required' {
   if (config.tools?.[toolName]?.permissionRequired !== undefined) {
@@ -176,7 +193,7 @@ export function getToolPermissionState(
 /**
  * Determines if a specific tool is required, honoring overrides and server default
  */
-export function isToolPermissionRequired(config: McpConfigFileServerConfig, toolName: string): boolean {
+export function isToolPermissionRequired(config: McpServerConfig, toolName: string): boolean {
   if (config.tools?.[toolName]?.permissionRequired !== undefined) {
     return config.tools[toolName].permissionRequired!;
   }

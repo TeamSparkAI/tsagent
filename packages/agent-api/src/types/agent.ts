@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { Rule, RuleSchema } from '../types/rules.js';
 import { Reference, ReferenceSchema } from '../types/references.js';
 import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types.js';
-import { McpClient, McpConfig } from '../mcp/types.js';
+import { McpClient, McpServerEntry, McpServerConfig, McpServerConfigSchema } from '../mcp/types.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
 import { ChatSession, ChatSessionOptions } from './chat.js';
 import { SupervisionManager, Supervisor, SupervisorConfig, SupervisorConfigSchema } from './supervision.js';
@@ -10,6 +10,11 @@ import { ToolInputSchemaSchema } from './json-schema.js';
 import { SessionContextItem, RequestContextItem } from './context.js';
 
 export { SupervisorConfig };
+
+// Provider configuration schema
+// Currently just string key-value pairs, but structured as a schema for future evolution
+export const ProviderConfigSchema = z.record(z.string(), z.string());
+export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 
 // Tool Permission Settings
 export const SessionToolPermissionSchema = z.enum(['always', 'never', 'tool']);
@@ -72,9 +77,9 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   getProviderModels(providerType: ProviderType): Promise<ProviderModel[]>;
 
   // McpServerManager methods 
-  getAllMcpServers(): Promise<Record<string, McpConfig>>;
-  getMcpServer(serverName: string): McpConfig | null;
-  saveMcpServer(server: McpConfig): Promise<void>;
+  getAllMcpServers(): Promise<Record<string, McpServerEntry>>;
+  getMcpServer(serverName: string): McpServerEntry | null;
+  saveMcpServer(server: McpServerEntry): Promise<void>;
   deleteMcpServer(serverName: string): Promise<boolean>; 
 
   // MCP Client access methods
@@ -83,7 +88,7 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   getMcpClient(name: string): Promise<McpClient | undefined>;
   
   // Internal methods for MCP server access
-  getAgentMcpServers(): Record<string, any> | null;
+  getAgentMcpServers(): Record<string, McpServerConfig> | null;
 
   // ChatSessionManager methods
   getAllChatSessions(): ChatSession[];
@@ -205,8 +210,8 @@ export const AgentConfigSchema = z.object({
   systemPrompt: z.string().default(''), // Embedded system prompt (previously prompt.md)
   rules: z.array(RuleSchema).default([]), // Embedded rules array (previously rules/*.mdt)
   references: z.array(ReferenceSchema).default([]), // Embedded references array (previously refs/*.mdt)
-  providers: z.record(z.string(), z.any()).optional(),
-  mcpServers: z.record(z.string(), z.any()).optional(),
+  providers: z.record(z.string(), ProviderConfigSchema).optional(),
+  mcpServers: z.record(z.string(), McpServerConfigSchema).optional(),
   supervisors: z.array(SupervisorConfigSchema).optional(),
 });
 

@@ -248,13 +248,13 @@ main() {
     PUBLISHED_VERSION=""
     publish_package "${package_dir}" "${package_name}"
     
-    # Reinstall dependents after publishing core
-    if [ "${package_name}" == "@tsagent/core" ]; then
+    # Reinstall dependents after publishing core (skip in dry-run since version won't exist on npm)
+    if [ "${package_name}" == "@tsagent/core" ] && [ "$DRY_RUN" = false ]; then
       reinstall_dependents "@tsagent/core" "$PUBLISHED_VERSION" "${CORE_DEPENDENTS[@]}"
     fi
     
-    # Reinstall dependents after publishing server
-    if [ "${package_name}" == "@tsagent/server" ]; then
+    # Reinstall dependents after publishing server (skip in dry-run since version won't exist on npm)
+    if [ "${package_name}" == "@tsagent/server" ] && [ "$DRY_RUN" = false ]; then
       reinstall_dependents "@tsagent/server" "$PUBLISHED_VERSION" "${SERVER_DEPENDENTS[@]}"
     fi
   done

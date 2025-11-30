@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { 
-    McpConfig, 
+    McpServerEntry, 
     ServerDefaultPermission, 
     ToolPermissionSetting,
     Tool
@@ -10,7 +10,8 @@ import {
     getToolPermissionState,
     getToolIncludeServerDefault,
     getToolIncludeMode,
-    getToolEffectiveIncludeMode
+    getToolEffectiveIncludeMode,
+    determineServerType
 } from "@tsagent/core";
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
@@ -37,8 +38,8 @@ interface ToolTestResult {
 }
 
 interface EditServerModalProps {
-    server?: McpConfig;
-    onSave: (server: McpConfig) => void;
+    server?: McpServerEntry;
+    onSave: (server: McpServerEntry) => void;
     onCancel: () => void;
 }
 
@@ -47,8 +48,8 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
     const [error, setError] = useState<string | null>(null);
     
     // Check if the server type is specified, default to 'stdio' if not
-    const effectiveType = server?.config?.type || 'stdio';
-    const [serverType, setServerType] = useState<'stdio' | 'sse' | 'internal'>(effectiveType);
+    const effectiveType = (server?.config?.type || 'stdio') as 'stdio' | 'sse' | 'streamable-http' | 'internal';
+    const [serverType, setServerType] = useState<'stdio' | 'sse' | 'streamable-http' | 'internal'>(effectiveType);
     
     // For stdio settings, only initialize them if effectiveType is 'stdio'
     const [command, setCommand] = useState<string>(() => {
@@ -85,16 +86,16 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
         return '';
     });
     
-    // For SSE settings, only initialize them if effectiveType is 'sse'
+    // For SSE/Streamable HTTP settings, only initialize them if effectiveType is 'sse' or 'streamable-http'
     const [url, setUrl] = useState<string>(() => {
-        if (effectiveType === 'sse' && server?.config) {
+        if ((effectiveType === 'sse' || effectiveType === 'streamable-http') && server?.config) {
             return (server.config as any).url || '';
         }
         return '';
     });
     
     const [headers, setHeaders] = useState<Record<string, string>>(() => {
-        if (effectiveType === 'sse' && server?.config) {
+        if ((effectiveType === 'sse' || effectiveType === 'streamable-http') && server?.config) {
             return (server.config as any).headers || {};
         }
         return {};
@@ -167,16 +168,16 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     // Update name
                     setName(serverName);
                     
-                    // For mcpServers format, we need to add type if missing
-                    const configType = configObj.type || 'stdio';
-                    setServerType(configType as 'stdio' | 'sse' | 'internal');
+                    // For mcpServers format, infer type from structure if missing
+                    const configType = configObj.type || determineServerType(configObj);
+                    setServerType(configType as 'stdio' | 'sse' | 'streamable-http' | 'internal');
                     
                     if (configType === 'stdio' || !configType) {
                         setCommand(configObj.command || '');
                         setArgsArray(Array.isArray(configObj.args) ? configObj.args : []);
                         setEnv(JSON.stringify(configObj.env || {}));
                         setCwd(configObj.cwd || '');
-                    } else if (configType === 'sse') {
+                    } else if (configType === 'sse' || configType === 'streamable-http') {
                         setUrl(configObj.url || '');
                         setHeaders(configObj.headers || {});
                     } else if (configType === 'internal') {
@@ -212,15 +213,15 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 
                 // Update config based on type
                 if (configObj) {
-                    const configType = configObj.type || 'stdio';
-                    setServerType(configType as 'stdio' | 'sse' | 'internal');
+                    const configType = configObj.type || determineServerType(configObj);
+                    setServerType(configType as 'stdio' | 'sse' | 'streamable-http' | 'internal');
                     
                     if (configType === 'stdio') {
                         setCommand(configObj.command || '');
                         setArgsArray(Array.isArray(configObj.args) ? configObj.args : []);
                         setEnv(JSON.stringify(configObj.env || {}));
                         setCwd(configObj.cwd || '');
-                    } else if (configType === 'sse') {
+                    } else if (configType === 'sse' || configType === 'streamable-http') {
                         setUrl(configObj.url || '');
                         setHeaders(configObj.headers || {});
                     } else if (configType === 'internal') {
@@ -263,6 +264,12 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
             } else if (serverType === 'sse') {
                 configObj = {
                     type: 'sse',
+                    url,
+                    headers
+                };
+            } else if (serverType === 'streamable-http') {
+                configObj = {
+                    type: 'streamable-http',
                     url,
                     headers
                 };
@@ -321,9 +328,9 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             return;
                         }
                         
-                        // Ensure type defaults to 'stdio' if not provided
+                        // Infer type from structure if not provided (external JSON configs may lack type)
                         if (!configObj.type) {
-                            configObj.type = 'stdio';
+                            configObj.type = determineServerType(configObj);
                         }
                         
                         // Set serverToolDefaults from UI state (always set to ensure values are saved)
@@ -333,7 +340,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         };
                         
                         // Convert to internal format
-                        const mcpConfig: McpConfig = {
+                        const mcpConfig: McpServerEntry = {
                             name: serverName,
                             config: configObj
                         };
@@ -394,7 +401,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 }
                 
                 // Convert to internal format
-                const mcpConfig: McpConfig = {
+                const mcpConfig: McpServerEntry = {
                     name: serverName,
                     config: configObj
                 };
@@ -434,9 +441,9 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 // Migration happens on config load, so by save time it should be in new format
                 const tools = server?.config?.tools ? { ...server.config.tools } : undefined;
 
-                const serverConfig: McpConfig = {
+                const serverConfig: McpServerEntry = {
                     name,
-                    config: serverType === 'stdio'
+                    config: (serverType === 'stdio'
                         ? {
                             type: 'stdio',
                             command,
@@ -454,12 +461,20 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             serverToolDefaults,
                             ...(tools ? { tools } : {})
                         }
+                        : serverType === 'streamable-http'
+                        ? {
+                            type: 'streamable-http',
+                            url,
+                            headers: Object.keys(headers).length > 0 ? headers : undefined,
+                            serverToolDefaults,
+                            ...(tools ? { tools } : {})
+                        }
                         : {
                             type: 'internal',
                             tool: internalTool,
                             serverToolDefaults,
                             ...(tools ? { tools } : {})
-                        }
+                        }) as McpServerEntry['config']
                 };
                 onSave(serverConfig);
             } catch (err) {
@@ -550,11 +565,12 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     <div style={{ display: 'flex', alignItems: 'center' }}>
                         <select 
                             value={serverType}
-                            onChange={(e) => setServerType(e.target.value as 'stdio' | 'sse' | 'internal')}
+                            onChange={(e) => setServerType(e.target.value as 'stdio' | 'sse' | 'streamable-http' | 'internal')}
                             style={{ width: 'auto', padding: '4px 8px' }}
                         >
                             <option value="stdio">Stdio</option>
                             <option value="sse">SSE</option>
+                            <option value="streamable-http">Streamable HTTP</option>
                             <option value="internal">Internal</option>
                         </select>
                     </div>
@@ -645,7 +661,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                         </>
                     )}
 
-                    {serverType === 'sse' && (
+                    {(serverType === 'sse' || serverType === 'streamable-http') && (
                         <>
                             <label style={{ fontWeight: 'bold' }}>URL:</label>
                             <input 
@@ -938,12 +954,12 @@ const ErrorInfoBanner: React.FC<{
 };
 
 export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
-    const [servers, setServers] = useState<McpConfig[]>([]);
-    const [selectedServer, setSelectedServer] = useState<McpConfig | null>(null);
+    const [servers, setServers] = useState<McpServerEntry[]>([]);
+    const [selectedServer, setSelectedServer] = useState<McpServerEntry | null>(null);
     const [showAddModal, setShowAddModal] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [editingServer, setEditingServer] = useState<(McpConfig) | undefined>(undefined);
+    const [editingServer, setEditingServer] = useState<(McpServerEntry) | undefined>(undefined);
     const [serverInfo, setServerInfo] = useState<Record<string, ServerInfo>>({});
     const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
     const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
@@ -1046,12 +1062,12 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         setSelectedServer(null);
     };
 
-    const handleEditServer = (server: McpConfig) => {
+    const handleEditServer = (server: McpServerEntry) => {
         setEditingServer(server);
         setShowEditModal(true);
     };
 
-    const handleSaveServer = async (server: McpConfig) => {
+    const handleSaveServer = async (server: McpServerEntry) => {
         try {
             // If this is an edit and the name has changed, delete the old server first
             if (editingServer && editingServer.name !== server.name) {
@@ -1070,7 +1086,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         }
     };
 
-    const handleDeleteServer = async (server: McpConfig) => {
+    const handleDeleteServer = async (server: McpServerEntry) => {
         if (confirm(`Are you sure you want to delete the server "${server.name}"?`)) {
             await window.api.deleteServerConfig(server.name);
             setSelectedServer(null);
@@ -1659,30 +1675,218 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                         </div>
                                     </div>
                                     <div style={{ marginBottom: '20px' }}>
-                                        <span style={{ 
-                                            padding: '4px 8px', 
-                                            backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
-                                            color: 'white',
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                                            <h3 style={{ margin: 0 }}>Details:</h3>
+                                            <span style={{ 
+                                                padding: '4px 10px', 
+                                                backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
+                                                color: 'white',
+                                                borderRadius: '16px',
+                                                fontSize: '12px',
+                                                fontWeight: 'bold'
+                                            }}>
+                                                {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
+                                            </span>
+                                        </div>
+                                        <div style={{ 
+                                            padding: '12px',
+                                            backgroundColor: '#f5f5f5',
                                             borderRadius: '4px',
-                                            fontSize: '14px'
+                                            border: '1px solid #ddd'
                                         }}>
-                                            {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
-                                        </span>
-                                    </div>
-                                    <div style={{ marginBottom: '20px' }}>
-                                        <h3 style={{ margin: '0 0 10px 0' }}>Configuration:</h3>
-                                        <pre style={{ 
-                                            margin: 0,
-                                            padding: '8px',
-                                            backgroundColor: '#1e1e1e',
-                                            color: '#fff',
-                                            borderRadius: '4px',
-                                            overflow: 'auto',
-                                            fontFamily: 'monospace',
-                                            whiteSpace: 'pre-wrap'
-                                        }}>
-                                            {JSON.stringify(selectedServer.config, null, 2)}
-                                        </pre>
+                                            {/* Server Type */}
+                                            <div style={{ marginBottom: '16px' }}>
+                                                <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Type:</strong>
+                                                <span style={{ 
+                                                    padding: '4px 8px', 
+                                                    backgroundColor: '#1890ff',
+                                                    color: 'white',
+                                                    borderRadius: '4px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 'bold',
+                                                    display: 'inline-block'
+                                                }}>
+                                                    {(() => {
+                                                        switch (selectedServer.config.type) {
+                                                            case 'stdio': return 'Stdio';
+                                                            case 'sse': return 'SSE';
+                                                            case 'streamable-http': return 'Streamable HTTP';
+                                                            case 'internal': return 'Internal';
+                                                            default: return 'Unknown';
+                                                        }
+                                                    })()}
+                                                </span>
+                                            </div>
+
+                                            {/* Type-specific details */}
+                                            {selectedServer.config.type === 'stdio' && (
+                                                <>
+                                                    <div style={{ marginBottom: '12px' }}>
+                                                        <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Command:</strong>
+                                                        <code style={{ 
+                                                            padding: '4px 8px',
+                                                            backgroundColor: '#fff',
+                                                            borderRadius: '4px',
+                                                            fontFamily: 'monospace',
+                                                            fontSize: '13px',
+                                                            display: 'inline-block'
+                                                        }}>{selectedServer.config.command}</code>
+                                                    </div>
+                                                    {selectedServer.config.args && selectedServer.config.args.length > 0 && (
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Arguments:</strong>
+                                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                                                                {selectedServer.config.args.map((arg: string, idx: number) => (
+                                                                    <code key={idx} style={{ 
+                                                                        padding: '4px 8px',
+                                                                        backgroundColor: '#fff',
+                                                                        borderRadius: '4px',
+                                                                        fontFamily: 'monospace',
+                                                                        fontSize: '13px'
+                                                                    }}>{arg}</code>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {selectedServer.config.env && Object.keys(selectedServer.config.env).length > 0 && (
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Environment Variables:</strong>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                {Object.entries(selectedServer.config.env).map(([key, value]) => (
+                                                                    <div key={key} style={{ fontSize: '13px' }}>
+                                                                        <code style={{ 
+                                                                            padding: '2px 6px',
+                                                                            backgroundColor: '#fff',
+                                                                            borderRadius: '4px',
+                                                                            fontFamily: 'monospace'
+                                                                        }}>{key}</code>
+                                                                        <span style={{ margin: '0 4px' }}>=</span>
+                                                                        <code style={{ 
+                                                                            padding: '2px 6px',
+                                                                            backgroundColor: '#fff',
+                                                                            borderRadius: '4px',
+                                                                            fontFamily: 'monospace'
+                                                                        }}>{value as string}</code>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    {selectedServer.config.cwd && (
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Working Directory:</strong>
+                                                            <code style={{ 
+                                                                padding: '4px 8px',
+                                                                backgroundColor: '#fff',
+                                                                borderRadius: '4px',
+                                                                fontFamily: 'monospace',
+                                                                fontSize: '13px',
+                                                                display: 'inline-block'
+                                                            }}>{selectedServer.config.cwd}</code>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {(selectedServer.config.type === 'sse' || selectedServer.config.type === 'streamable-http') && (
+                                                <>
+                                                    <div style={{ marginBottom: '12px' }}>
+                                                        <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>URL:</strong>
+                                                        <code style={{ 
+                                                            padding: '4px 8px',
+                                                            backgroundColor: '#fff',
+                                                            borderRadius: '4px',
+                                                            fontFamily: 'monospace',
+                                                            fontSize: '13px',
+                                                            display: 'inline-block',
+                                                            wordBreak: 'break-all'
+                                                        }}>{selectedServer.config.url}</code>
+                                                    </div>
+                                                    {selectedServer.config.headers && Object.keys(selectedServer.config.headers).length > 0 && (
+                                                        <div style={{ marginBottom: '12px' }}>
+                                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Headers:</strong>
+                                                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                                                {Object.entries(selectedServer.config.headers).map(([key, value]) => (
+                                                                    <div key={key} style={{ fontSize: '13px' }}>
+                                                                        <code style={{ 
+                                                                            padding: '2px 6px',
+                                                                            backgroundColor: '#fff',
+                                                                            borderRadius: '4px',
+                                                                            fontFamily: 'monospace'
+                                                                        }}>{key}</code>
+                                                                        <span style={{ margin: '0 4px' }}>:</span>
+                                                                        <code style={{ 
+                                                                            padding: '2px 6px',
+                                                                            backgroundColor: '#fff',
+                                                                            borderRadius: '4px',
+                                                                            fontFamily: 'monospace'
+                                                                        }}>{value as string}</code>
+                                                                    </div>
+                                                                ))}
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
+
+                                            {selectedServer.config.type === 'internal' && (
+                                                <div style={{ marginBottom: '12px' }}>
+                                                    <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Tool:</strong>
+                                                    <span style={{ 
+                                                        padding: '4px 8px', 
+                                                        backgroundColor: '#722ed1',
+                                                        color: 'white',
+                                                        borderRadius: '4px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold',
+                                                        display: 'inline-block',
+                                                        textTransform: 'capitalize'
+                                                    }}>
+                                                        {selectedServer.config.tool}
+                                                    </span>
+                                                </div>
+                                            )}
+
+                                            {/* Server Tool Defaults */}
+                                            <div style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid #ddd' }}>
+                                                <strong style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Server Tool Defaults:</strong>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                                                    <span style={{ 
+                                                        padding: '4px 10px', 
+                                                        backgroundColor: isToolPermissionServerDefaultRequired(selectedServer.config) ? '#ff4d4f' : '#52c41a',
+                                                        color: 'white',
+                                                        borderRadius: '16px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        <span>Permission:</span>
+                                                        <span>{isToolPermissionServerDefaultRequired(selectedServer.config) ? 'Required' : 'Not Required'}</span>
+                                                    </span>
+                                                    <span style={{ 
+                                                        padding: '4px 10px', 
+                                                        backgroundColor: (() => {
+                                                            const mode = getToolIncludeServerDefault(selectedServer.config);
+                                                            return mode === 'always' ? '#1890ff' : 
+                                                                   mode === 'manual' ? '#ff9800' : 
+                                                                   '#722ed1';
+                                                        })(),
+                                                        color: 'white',
+                                                        borderRadius: '16px',
+                                                        fontSize: '12px',
+                                                        fontWeight: 'bold',
+                                                        display: 'inline-flex',
+                                                        alignItems: 'center',
+                                                        gap: '4px'
+                                                    }}>
+                                                        <span>Include:</span>
+                                                        <span style={{ textTransform: 'capitalize' }}>{getToolIncludeServerDefault(selectedServer.config)}</span>
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
                                     </div>
                                     {serverInfo[selectedServer.name]?.errorLog && serverInfo[selectedServer.name].errorLog.length > 0 && (
                                         <div style={{ marginBottom: '20px' }}>

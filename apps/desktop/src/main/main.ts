@@ -1,9 +1,9 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import * as path from 'path';
-import { ProviderType as LLMType, ProviderType } from '@tsagent/core';
+import { ProviderType as LLMType, ProviderType, determineServerType } from '@tsagent/core';
 import log from 'electron-log';
 import * as fs from 'fs';
-import { McpConfig } from '@tsagent/core';
+import { McpServerEntry } from '@tsagent/core';
 import { AgentsManager } from './agents-manager';
 import { agentExists, loadAgent, loadAndInitializeAgent, cloneAgent } from '@tsagent/core/runtime';
 import { Agent } from '@tsagent/core';
@@ -939,7 +939,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('saveServerConfig', async (event, server: McpConfig) => {
+  ipcMain.handle('saveServerConfig', async (event, server: McpServerEntry) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     if (!agent) {
@@ -959,10 +959,11 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         throw new Error('Invalid server configuration: missing config property');
       }
       
-      // Ensure config has a type
+      // Ensure config has a type - infer from structure if missing
       if (!server.config.type) {
-        log.warn(`Server configuration for ${server.name} missing type, defaulting to stdio`);
-        server.config = { type: 'stdio', command: '', args: [] };
+        log.warn(`Server configuration for ${server.name} missing type, inferring from structure`);
+        const inferredType = determineServerType(server.config);
+        server.config = Object.assign({}, server.config, { type: inferredType });
       }
       
       // Save the server configuration using AgentAPI

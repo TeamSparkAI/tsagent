@@ -17,11 +17,11 @@ import { MCPClientManagerImpl } from '../mcp/client-manager.js';
 import { SupervisionManagerImpl } from '../managers/supervision-manager.js';
 import { SupervisorFactory } from '../supervisors/supervisor-factory.js';
 import { SupervisionManager, Supervisor } from '../types/supervision.js';
-import { McpClient, MCPClientManager, McpConfig } from '../mcp/types.js';
+import { McpClient, MCPClientManager, McpServerEntry, McpServerConfig } from '../mcp/types.js';
 import { ProviderFactory } from '../providers/provider-factory.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
-import { Reference, ReferenceSchema } from '../types/references.js';
-import { Rule, RuleSchema } from '../types/rules.js';
+import { Reference } from '../types/references.js';
+import { Rule } from '../types/rules.js';
 import { ChatSession, ChatSessionOptions } from '../types/chat.js';
 import { SessionContextItem, RequestContextItem } from '../types/context.js';
 import { AgentStrategy, FileBasedAgentStrategy } from './agent-strategy.js';
@@ -509,11 +509,11 @@ export class AgentImpl  extends EventEmitter implements Agent {
   // Agent methods used by MCP Server manager to manage MCP server (and client)state
   //
 
-  getAgentMcpServers(): Record<string, any> | null {
+  getAgentMcpServers(): Record<string, McpServerConfig> | null {
     return this._agentData?.mcpServers || null;
   }
 
-  async updateAgentMcpServers(mcpServers: Record<string, any>): Promise<void> {
+  async updateAgentMcpServers(mcpServers: Record<string, McpServerConfig>): Promise<void> {
     if (!this._agentData) {
       throw new Error('Config not loaded. Call initialize() or load() first.');
     }
@@ -526,13 +526,13 @@ export class AgentImpl  extends EventEmitter implements Agent {
   // MCP Server management methods
   //
 
-  getAllMcpServers(): Promise<Record<string, McpConfig>> {
+  getAllMcpServers(): Promise<Record<string, McpServerEntry>> {
     return this.mcpServers.getAllMcpServers();
   }
-  getMcpServer(serverName: string): McpConfig | null {
+  getMcpServer(serverName: string): McpServerEntry | null {
     return this.mcpServers.getMcpServer(serverName);
   }
-  saveMcpServer(server: McpConfig): Promise<void> {
+  saveMcpServer(server: McpServerEntry): Promise<void> {
     return this.mcpServers.saveMcpServer(server);
   }
   deleteMcpServer(serverName: string): Promise<boolean> {

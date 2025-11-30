@@ -1,5 +1,5 @@
 import { Rule, Reference } from '@tsagent/core';
-import { McpConfig, CallToolResultWithElapsedTime } from '@tsagent/core';
+import { McpServerEntry, CallToolResultWithElapsedTime } from '@tsagent/core';
 import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from '@tsagent/core';
 import { AgentSettings } from '@tsagent/core';
 import { AgentWindow } from '../main/agents-manager';
@@ -46,7 +46,7 @@ export interface API {
   updateSettings: (settings: Partial<AgentSettings>) => Promise<AgentSettings | null>;
 
   // Other existing methods
-  getServerConfigs: () => Promise<McpConfig[]>;
+  getServerConfigs: () => Promise<McpServerEntry[]>;
   getMCPClient: (serverName: string) => Promise<{
     serverVersion: { name: string; version: string } | null;
     serverTools: any[];
@@ -74,7 +74,7 @@ export interface API {
   getRules: () => Promise<Rule[]>;
   saveRule: (rule: Rule) => Promise<void>;
   deleteRule: (name: string) => Promise<void>;
-  saveServerConfig: (server: McpConfig) => Promise<void>;
+  saveServerConfig: (server: McpServerEntry) => Promise<void>;
   deleteServerConfig: (serverName: string) => Promise<void>;
   getReferences: () => Promise<Reference[]>;
   saveReference: (reference: Reference) => Promise<void>;
