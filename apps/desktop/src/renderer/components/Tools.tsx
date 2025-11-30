@@ -3,8 +3,7 @@ import type {
     McpConfig, 
     ServerDefaultPermission, 
     ToolPermissionSetting,
-    Tool,
-    ServerToolPermissionRequiredConfig
+    Tool
 } from "@tsagent/core";
 import { 
     isToolPermissionServerDefaultRequired,
@@ -142,7 +141,7 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
 
     // Server default include mode
     const [serverDefaultIncludeMode, setServerDefaultIncludeMode] = useState<'always' | 'manual' | 'agent'>(
-        server?.config.toolInclude?.serverDefault || 'always'
+        server?.config ? getToolIncludeServerDefault(server.config) : 'always'
     );
 
 
@@ -327,13 +326,11 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             configObj.type = 'stdio';
                         }
                         
-                        // Add toolPermissionRequired to the config (preserve existing tool settings)
-                        if (configObj) {
-                            configObj.toolPermissionRequired = {
-                                serverDefault: defaultPermission === 'required',
-                                tools: server?.config.toolPermissionRequired?.tools
-                            };
-                        }
+                        // Set serverToolDefaults from UI state (always set to ensure values are saved)
+                        configObj.serverToolDefaults = {
+                            permissionRequired: defaultPermission === 'required',
+                            include: serverDefaultIncludeMode
+                        };
                         
                         // Convert to internal format
                         const mcpConfig: McpConfig = {
@@ -381,11 +378,18 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                     configObj.type = 'stdio';
                 }
                 
-                // Add toolPermissionRequired to the config (preserve existing tool settings)
-                if (configObj) {
-                    configObj.toolPermissionRequired = {
-                        serverDefault: defaultPermission === 'required',
-                        tools: server?.config.toolPermissionRequired?.tools
+                // Set serverToolDefaults from UI state if not already in JSON
+                if (!configObj.serverToolDefaults) {
+                    configObj.serverToolDefaults = {
+                        permissionRequired: defaultPermission === 'required',
+                        include: serverDefaultIncludeMode
+                    };
+                } else {
+                    // Merge UI state with existing serverToolDefaults
+                    configObj.serverToolDefaults = {
+                        permissionRequired: defaultPermission === 'required',
+                        include: serverDefaultIncludeMode,
+                        ...configObj.serverToolDefaults
                     };
                 }
                 
@@ -421,17 +425,14 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                 // Parse the environment JSON
                 let envObject = JSON.parse(env);
                 
-                // Build toolPermissionRequired from current UI state (preserve existing tool settings)
-                const toolPermissionRequired = {
-                    serverDefault: defaultPermission === 'required',
-                    tools: server?.config.toolPermissionRequired?.tools
-                };
+                // Build serverToolDefaults from current UI state
+                const serverToolDefaults: any = {};
+                serverToolDefaults.permissionRequired = defaultPermission === 'required';
+                serverToolDefaults.include = serverDefaultIncludeMode;
 
-                // Create the toolInclude settings (preserve existing tool settings)
-                const toolInclude = {
-                    serverDefault: serverDefaultIncludeMode,
-                    tools: server?.config.toolInclude?.tools
-                };
+                // Preserve existing tool overrides (will be in new format after migration on load)
+                // Migration happens on config load, so by save time it should be in new format
+                const tools = server?.config?.tools ? { ...server.config.tools } : undefined;
 
                 const serverConfig: McpConfig = {
                     name,
@@ -442,22 +443,22 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                             args: argsArray.filter(arg => arg.trim() !== ''),
                             env: Object.keys(JSON.parse(env)).length > 0 ? JSON.parse(env) : undefined,
                             cwd: cwd && cwd.trim() !== '' ? cwd.trim() : undefined,
-                            toolPermissionRequired,
-                            toolInclude
+                            serverToolDefaults,
+                            ...(tools ? { tools } : {})
                         }
                         : serverType === 'sse'
                         ? {
                             type: 'sse',
                             url,
                             headers: Object.keys(headers).length > 0 ? headers : undefined,
-                            toolPermissionRequired,
-                            toolInclude
+                            serverToolDefaults,
+                            ...(tools ? { tools } : {})
                         }
                         : {
                             type: 'internal',
                             tool: internalTool,
-                            toolPermissionRequired,
-                            toolInclude
+                            serverToolDefaults,
+                            ...(tools ? { tools } : {})
                         }
                 };
                 onSave(serverConfig);
@@ -1243,27 +1244,38 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         
         setSelectedToolPermission(permission);
         
-        // Update the server config
+        // Update the server config using new structure
+        const config = { ...selectedServer.config };
+        
+        // Initialize tools if needed
+        if (!config.tools) {
+            config.tools = {};
+        }
+        
+        if (permission === 'server_default') {
+            // Remove from overrides to use server default
+            if (config.tools[selectedTool.name]) {
+                delete config.tools[selectedTool.name].permissionRequired;
+                // Remove tool entry if it has no other settings
+                if (Object.keys(config.tools[selectedTool.name]).length === 0) {
+                    delete config.tools[selectedTool.name];
+                }
+            }
+            // Clean up empty tools object
+            if (Object.keys(config.tools).length === 0) {
+                delete config.tools;
+            }
+        } else {
+            // Set explicit override
+            if (!config.tools[selectedTool.name]) {
+                config.tools[selectedTool.name] = {};
+            }
+            config.tools[selectedTool.name].permissionRequired = permission === 'required';
+        }
+        
         const updatedServer = {
             ...selectedServer,
-            config: {
-                ...selectedServer.config,
-                toolPermissionRequired: (() => {
-                    const existing = selectedServer.config.toolPermissionRequired || {} as ServerToolPermissionRequiredConfig;
-                    const nextTools = { ...(existing.tools || {}) } as Record<string, boolean>;
-                    if (permission === 'server_default') {
-                        // Remove from overrides to use server default
-                        delete nextTools[selectedTool.name];
-                    } else {
-                        // Set explicit override
-                        nextTools[selectedTool.name] = permission === 'required';
-                    }
-                    return {
-                        serverDefault: typeof existing.serverDefault === 'boolean' ? existing.serverDefault : true,
-                        tools: Object.keys(nextTools).length > 0 ? nextTools : undefined
-                    };
-                })()
-            }
+            config
         };
         
         await handleSaveServer(updatedServer);
@@ -1276,26 +1288,38 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
         
         setSelectedToolEnabled(includeMode);
         
-        // Update the server config
-        let updatedTools = { ...selectedServer.config.toolInclude?.tools };
+        // Update the server config using new structure
+        const config = { ...selectedServer.config };
+        
+        // Initialize tools if needed
+        if (!config.tools) {
+            config.tools = {};
+        }
         
         if (includeMode === 'server_default') {
-            // Remove the tool from the tools object to use server default
-            delete updatedTools[selectedTool.name];
+            // Remove from overrides to use server default
+            if (config.tools[selectedTool.name]) {
+                delete config.tools[selectedTool.name].include;
+                // Remove tool entry if it has no other settings
+                if (Object.keys(config.tools[selectedTool.name]).length === 0) {
+                    delete config.tools[selectedTool.name];
+                }
+            }
+            // Clean up empty tools object
+            if (Object.keys(config.tools).length === 0) {
+                delete config.tools;
+            }
         } else {
-            // Set explicit include mode value
-            updatedTools[selectedTool.name] = includeMode;
+            // Set explicit override
+            if (!config.tools[selectedTool.name]) {
+                config.tools[selectedTool.name] = {};
+            }
+            config.tools[selectedTool.name].include = includeMode;
         }
         
         const updatedServer = {
             ...selectedServer,
-            config: {
-                ...selectedServer.config,
-                toolInclude: {
-                    serverDefault: selectedServer.config.toolInclude?.serverDefault || 'always',
-                    tools: updatedTools
-                }
-            }
+            config
         };
         
         await handleSaveServer(updatedServer);
@@ -1485,7 +1509,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                             style={{ width: '100%', padding: '4px 8px' }}
                                         >
                                             <option value="server_default">
-                                                Use Server Default ({selectedServer.config.toolPermissionRequired?.serverDefault !== false ? 'Approval Required' : 'Approval Not Required'})
+                                                Use Server Default ({isToolPermissionServerDefaultRequired(selectedServer.config) ? 'Approval Required' : 'Approval Not Required'})
                                             </option>
                                             <option value="required">Always Required</option>
                                             <option value="not_required">Never Required</option>

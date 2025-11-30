@@ -57,8 +57,9 @@ export {
   MCPClientManager,
   ServerDefaultPermission,
   ToolPermissionSetting,
-  ServerToolIncludeConfig,
-  ServerToolPermissionRequiredConfig,
+  ServerToolDefaults,
+  ToolConfig,
+  // Helper functions
   isToolPermissionServerDefaultRequired,
   getToolPermissionState,
   isToolPermissionRequired,

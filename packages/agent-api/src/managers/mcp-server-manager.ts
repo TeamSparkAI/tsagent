@@ -37,13 +37,65 @@ export class McpServerManagerImpl implements McpServerManager {
 
   async saveMcpServer(server: McpConfig): Promise<void> {
     const mcpServers = this.agent.getAgentMcpServers() || {};
+    const oldConfig = mcpServers[server.name] as McpConfigFileServerConfig | undefined;
 
-    // Add or update the server in the mcpServers object
+    // Save the config first
     mcpServers[server.name] = server.config;
     await this.agent.updateAgentMcpServers(mcpServers);
 
-    // Update the client with the new server config
-    await this.mcpManager.unloadMcpClient(server.name);
+    // Check if connection settings changed (settings used to create/connect the client)
+    // If they changed, the existing client is invalid and must be reloaded
+    const connectionSettingsChanged = this.haveConnectionSettingsChanged(oldConfig, server.config);
+    
+    if (connectionSettingsChanged) {
+      // Connection settings changed - unload old client and reload with new settings
+      await this.mcpManager.unloadMcpClient(server.name);
+      // Reload immediately so client is available
+      await this.mcpManager.getMcpClient(server.name);
+    }
+    // If only tool-level settings changed (embeddings, permissions, include modes),
+    // client stays loaded - no reload needed
+  }
+
+  /**
+   * Check if connection settings changed between old and new config.
+   * Connection settings are the properties used to create and connect the MCP client.
+   */
+  private haveConnectionSettingsChanged(
+    oldConfig: McpConfigFileServerConfig | undefined,
+    newConfig: McpConfigFileServerConfig
+  ): boolean {
+    if (!oldConfig) {
+      // New server - no existing client to reload
+      return false;
+    }
+
+    // Check if server type changed
+    if (oldConfig.type !== newConfig.type) {
+      return true;
+    }
+
+    // Check stdio-specific connection settings
+    if (oldConfig.type === 'stdio' && newConfig.type === 'stdio') {
+      if (oldConfig.command !== newConfig.command) return true;
+      if (JSON.stringify(oldConfig.args || []) !== JSON.stringify(newConfig.args || [])) return true;
+      if (JSON.stringify(oldConfig.env || {}) !== JSON.stringify(newConfig.env || {})) return true;
+      if (oldConfig.cwd !== newConfig.cwd) return true;
+    }
+
+    // Check sse-specific connection settings
+    if (oldConfig.type === 'sse' && newConfig.type === 'sse') {
+      if (oldConfig.url !== newConfig.url) return true;
+      if (JSON.stringify(oldConfig.headers || {}) !== JSON.stringify(newConfig.headers || {})) return true;
+    }
+
+    // Check internal-specific connection settings
+    if (oldConfig.type === 'internal' && newConfig.type === 'internal') {
+      if (oldConfig.tool !== newConfig.tool) return true;
+    }
+
+    // Connection settings unchanged
+    return false;
   }
 
   async deleteMcpServer(serverName: string): Promise<boolean> {

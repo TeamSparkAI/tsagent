@@ -17,32 +17,43 @@ export type ServerDefaultPermission = 'required' | 'not_required';
 export type ToolPermissionSetting = 'server_default' | 'required' | 'not_required';
 
 
-export interface ServerToolPermissionRequiredConfig {
-  serverDefault: boolean; // true => required, false => not required
-  tools?: Record<string, boolean>; // true => required, false => not required; absence => use server default
+// Server-level defaults for all tools
+export interface ServerToolDefaults {
+  permissionRequired?: boolean;  // Default: true if not specified
+  include?: 'always' | 'manual' | 'agent';  // Default: 'always' if not specified
 }
 
-// Server-level include mode settings
-export interface ServerToolIncludeConfig {
-    serverDefault: 'always' | 'manual' | 'agent';
-    tools?: Record<string, 'always' | 'manual' | 'agent'>;
-}
-
-// Tool embedding data (for serialization)
-export interface ToolEmbeddingData {
-  embeddings: number[][];  // Array of embedding vectors
-  hash: string;  // SHA-256 hash of the text chunk used to generate embeddings
-}
-
-// Server-level tool embeddings settings
-export interface ServerToolEmbeddingsConfig {
-  tools?: Record<string, ToolEmbeddingData>;  // toolName -> embedding data (embeddings + hash)
+// Individual tool configuration
+export interface ToolConfig {
+  permissionRequired?: boolean;  // Explicit override if present (used regardless of server default)
+  include?: 'always' | 'manual' | 'agent';  // Explicit override if present (used regardless of server default)
+  embeddings?: number[][];  // Array of embedding vectors (always present with hash if embeddings exist)
+  hash?: string;  // SHA-256 hash of the text chunk used to generate embeddings (always present with embeddings if embeddings exist)
 }
 
 export type McpConfigFileServerConfig = 
-  | { type: 'stdio'; command: string; args: string[]; env?: Record<string, string>; cwd?: string; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig; toolEmbeddings?: ServerToolEmbeddingsConfig }
-  | { type: 'sse'; url: string; headers?: Record<string, string>; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig; toolEmbeddings?: ServerToolEmbeddingsConfig }
-  | { type: 'internal'; tool: 'rules' | 'references' | 'supervision' | 'tools'; toolInclude?: ServerToolIncludeConfig; toolPermissionRequired?: ServerToolPermissionRequiredConfig; toolEmbeddings?: ServerToolEmbeddingsConfig };
+  | { 
+      type: 'stdio'; 
+      command: string; 
+      args: string[]; 
+      env?: Record<string, string>; 
+      cwd?: string;
+      serverToolDefaults?: ServerToolDefaults;
+      tools?: Record<string, ToolConfig>;
+    }
+  | { 
+      type: 'sse'; 
+      url: string; 
+      headers?: Record<string, string>;
+      serverToolDefaults?: ServerToolDefaults;
+      tools?: Record<string, ToolConfig>;
+    }
+  | { 
+      type: 'internal'; 
+      tool: 'rules' | 'references' | 'supervision' | 'tools';
+      serverToolDefaults?: ServerToolDefaults;
+      tools?: Record<string, ToolConfig>;
+    };
 
 export interface McpConfig {
   name: string;
@@ -70,7 +81,10 @@ export function determineServerType(config: Omit<McpConfigFileServerConfig, 'typ
  * @returns 'always' | 'manual' | 'agent' (defaults to 'always' if not specified)
  */
 export function getToolIncludeServerDefault(config: McpConfigFileServerConfig): 'always' | 'manual' | 'agent' {
-  return config.toolInclude?.serverDefault || 'always';
+  if (config.serverToolDefaults?.include !== undefined) {
+    return config.serverToolDefaults.include;
+  }
+  return 'always';
 }
 
 /**
@@ -80,13 +94,10 @@ export function getToolIncludeServerDefault(config: McpConfigFileServerConfig): 
  * @returns 'server_default', 'always', 'manual', or 'agent'
  */
 export function getToolIncludeMode(config: McpConfigFileServerConfig, toolName: string): 'server_default' | 'always' | 'manual' | 'agent' {
-  // If no tool-specific config, it's using server default
-  if (!config.toolInclude?.tools || !(toolName in config.toolInclude.tools)) {
-    return 'server_default';
+  if (config.tools?.[toolName]?.include !== undefined) {
+    return config.tools[toolName].include!;
   }
-  
-  // Return the explicit tool setting
-  return config.toolInclude.tools[toolName];
+  return 'server_default';
 }
 
 /**
@@ -143,10 +154,9 @@ export function isToolAvailableForAgent(config: McpConfigFileServerConfig, toolN
  * @returns true if server default is required (defaults to true if not specified)
  */
 export function isToolPermissionServerDefaultRequired(config: McpConfigFileServerConfig): boolean {
-  if (config.toolPermissionRequired && typeof config.toolPermissionRequired.serverDefault === 'boolean') {
-    return config.toolPermissionRequired.serverDefault;
+  if (config.serverToolDefaults?.permissionRequired !== undefined) {
+    return config.serverToolDefaults.permissionRequired;
   }
-  // Default to required
   return true;
 }
 
@@ -157,9 +167,8 @@ export function getToolPermissionState(
   config: McpConfigFileServerConfig,
   toolName: string
 ): 'server_default' | 'required' | 'not_required' {
-  const overrides = config.toolPermissionRequired?.tools;
-  if (overrides && toolName in overrides) {
-    return overrides[toolName] ? 'required' : 'not_required';
+  if (config.tools?.[toolName]?.permissionRequired !== undefined) {
+    return config.tools[toolName].permissionRequired ? 'required' : 'not_required';
   }
   return 'server_default';
 }
@@ -168,9 +177,8 @@ export function getToolPermissionState(
  * Determines if a specific tool is required, honoring overrides and server default
  */
 export function isToolPermissionRequired(config: McpConfigFileServerConfig, toolName: string): boolean {
-  const overrides = config.toolPermissionRequired?.tools;
-  if (overrides && toolName in overrides) {
-    return !!overrides[toolName];
+  if (config.tools?.[toolName]?.permissionRequired !== undefined) {
+    return config.tools[toolName].permissionRequired!;
   }
   return isToolPermissionServerDefaultRequired(config);
 }

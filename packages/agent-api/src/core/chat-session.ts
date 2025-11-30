@@ -353,9 +353,18 @@ export class ChatSessionImpl implements ChatSession {
     }
 
     // Build request context (for this request/response pair)
-    const userMessageContent = message.role === 'user' ? message.content : '';
-    const requestContext = await this.buildRequestContext(userMessageContent);
-    this.lastRequestContext = requestContext;
+    // For approval messages, reuse the last request context from the initial user message
+    // to maintain consistent context across all turns of a multi-turn conversation
+    let requestContext: RequestContext;
+    if (message.role === 'approval' && this.lastRequestContext) {
+      // Reuse the original request context for approval messages (continuation of same conversation)
+      requestContext = this.lastRequestContext;
+    } else {
+      // Build new request context for user messages (new conversation turn)
+      const userMessageContent = message.role === 'user' ? message.content : '';
+      requestContext = await this.buildRequestContext(userMessageContent);
+      this.lastRequestContext = requestContext;
+    }
 
     // Build messages array, starting with system prompt and existing non-system messages
     const systemPrompt = await this.agent.getSystemPrompt();

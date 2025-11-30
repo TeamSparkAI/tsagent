@@ -425,22 +425,22 @@ export class SemanticIndexer {
             continue;
           }
 
-          // Initialize toolEmbeddings in config if needed
-          if (!serverConfig.config.toolEmbeddings) {
-            serverConfig.config.toolEmbeddings = { tools: {} };
-          }
-          if (!serverConfig.config.toolEmbeddings.tools) {
-            serverConfig.config.toolEmbeddings.tools = {};
+          // Initialize tools in config if needed
+          if (!serverConfig.config.tools) {
+            serverConfig.config.tools = {};
           }
 
           // Update each tool's embeddings in config
           for (const toolName of toolNames) {
             const embeddingData = client.toolEmbeddings.get(toolName);
             if (embeddingData) {
-              serverConfig.config.toolEmbeddings.tools![toolName] = {
-                embeddings: embeddingData.embeddings,
-                hash: embeddingData.hash
-              };
+              // Initialize tool config if it doesn't exist
+              if (!serverConfig.config.tools[toolName]) {
+                serverConfig.config.tools[toolName] = {};
+              }
+              // Set embeddings (flattened structure)
+              serverConfig.config.tools[toolName].embeddings = embeddingData.embeddings;
+              serverConfig.config.tools[toolName].hash = embeddingData.hash;
             }
           }
 

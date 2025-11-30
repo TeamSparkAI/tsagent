@@ -1,4 +1,4 @@
-import { Tool } from "./types.js";
+import { Tool, getToolEffectiveIncludeMode } from "./types.js";
 import { McpClient, CallToolResultWithElapsedTime } from "./types.js";
 import { SearchArgs, validateSearchArgs } from "./client.js";
 import { ChatSession } from "../types/chat.js";
@@ -378,18 +378,20 @@ export async function implementSetToolIncludeMode(agent: Agent, serverName: stri
             throw new Error(`Server '${serverName}' not found`);
         }
         
-        const updatedConfig = {
-            ...server.config,
-            toolInclude: {
-                serverDefault: server.config.toolInclude?.serverDefault || 'manual',
-                tools: {
-                    ...server.config.toolInclude?.tools,
-                    [toolName]: mode as 'always' | 'manual' | 'agent'
-                }
-            }
-        };
+        const config = { ...server.config };
         
-        agent.saveMcpServer({ ...server, config: updatedConfig });
+        // Initialize tools if needed
+        if (!config.tools) {
+            config.tools = {};
+        }
+        
+        // Set explicit override for this tool
+        if (!config.tools[toolName]) {
+            config.tools[toolName] = {};
+        }
+        config.tools[toolName].include = mode as 'always' | 'manual' | 'agent';
+        
+        agent.saveMcpServer({ ...server, config });
         
         return {
             success: true,
@@ -453,15 +455,15 @@ export async function implementSetServerIncludeMode(agent: Agent, name: string, 
             throw new Error(`Server '${name}' not found`);
         }
         
-        const updatedConfig = {
-            ...server.config,
-            toolInclude: {
-                ...server.config.toolInclude,
-                serverDefault: mode as 'always' | 'manual' | 'agent'
-            }
-        };
+        const config = { ...server.config };
         
-        agent.saveMcpServer({ ...server, config: updatedConfig });
+        // Initialize serverToolDefaults if needed
+        if (!config.serverToolDefaults) {
+            config.serverToolDefaults = {};
+        }
+        config.serverToolDefaults.include = mode as 'always' | 'manual' | 'agent';
+        
+        agent.saveMcpServer({ ...server, config });
         
         return {
             success: true,
@@ -509,18 +511,10 @@ export async function implementExcludeToolServer(session: ChatSession, serverNam
 }
 
 function resolveToolIncludeMode(serverConfig: any, toolName: string): 'always' | 'manual' | 'agent' {
-    const toolIncludeConfig = serverConfig?.config?.toolInclude;
-    if (!toolIncludeConfig) {
+    if (!serverConfig?.config) {
         return 'manual';
     }
-
-    const toolMode = toolIncludeConfig.tools?.[toolName] as 'always' | 'manual' | 'agent' | undefined;
-    if (toolMode) {
-        return toolMode;
-    }
-
-    const serverDefault = toolIncludeConfig.serverDefault as 'always' | 'manual' | 'agent' | undefined;
-    return serverDefault ?? 'manual';
+    return getToolEffectiveIncludeMode(serverConfig.config, toolName);
 }
 
 function mapToSessionIncludeMode(mode: 'always' | 'manual' | 'agent'): 'always' | 'manual' {

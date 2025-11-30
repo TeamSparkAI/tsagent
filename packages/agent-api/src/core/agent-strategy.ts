@@ -4,7 +4,7 @@ import * as yaml from 'yaml';
 import { ProviderType } from '../providers/types.js';
 import { Rule, RuleSchema } from '../types/rules.js';
 import { Reference, ReferenceSchema } from '../types/references.js';
-import { McpConfig } from '../mcp/types.js';
+import { McpConfig, ServerToolDefaults, ToolConfig } from '../mcp/types.js';
 import { Agent, AgentConfig, AgentConfigSchema } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { AgentImpl } from './agent-api.js';
@@ -231,6 +231,113 @@ export class FileBasedAgentStrategy implements AgentStrategy {
         data.settings.model = data.settings.mostRecentModel;
         delete data.settings.mostRecentModel;
         // Save the migrated config back to file
+        await this.saveConfig(AgentConfigSchema.parse(data));
+      }
+    }
+    
+    // Migrate MCP server tool configs (one-time migration for legacy configs)
+    // Legacy structure types (scoped to migration only)
+    interface OldServerToolPermissionRequiredConfig {
+      serverDefault: boolean;
+      tools?: Record<string, boolean>;
+    }
+    interface OldServerToolIncludeConfig {
+      serverDefault: 'always' | 'manual' | 'agent';
+      tools?: Record<string, 'always' | 'manual' | 'agent'>;
+    }
+    interface OldServerToolEmbeddingsConfig {
+      tools?: Record<string, { embeddings: number[][]; hash: string }>;
+    }
+
+    const usesOldToolConfigFormat = (config: any): boolean => {
+      return !!(config.toolPermissionRequired || config.toolInclude || config.toolEmbeddings);
+    };
+
+    const migrateOldToolConfig = (config: any): void => {
+      // Only migrate if legacy format is present and current format is not already present
+      if (!usesOldToolConfigFormat(config) || config.serverToolDefaults || config.tools) {
+        return; // Already migrated or not using legacy format
+      }
+
+      const serverDefaults: ServerToolDefaults = {};
+      const tools: Record<string, ToolConfig> = {};
+
+      // Migrate permission defaults
+      const oldPermission = config.toolPermissionRequired as OldServerToolPermissionRequiredConfig | undefined;
+      if (oldPermission?.serverDefault !== undefined) {
+        serverDefaults.permissionRequired = oldPermission.serverDefault;
+      }
+
+      // Migrate include defaults
+      const oldInclude = config.toolInclude as OldServerToolIncludeConfig | undefined;
+      if (oldInclude?.serverDefault) {
+        serverDefaults.include = oldInclude.serverDefault;
+      }
+
+      // Collect all tool names from all sections
+      const allToolNames = new Set<string>();
+      if (oldPermission?.tools) {
+        Object.keys(oldPermission.tools).forEach(name => allToolNames.add(name));
+      }
+      if (oldInclude?.tools) {
+        Object.keys(oldInclude.tools).forEach(name => allToolNames.add(name));
+      }
+      const oldEmbeddings = config.toolEmbeddings as OldServerToolEmbeddingsConfig | undefined;
+      if (oldEmbeddings?.tools) {
+        Object.keys(oldEmbeddings.tools).forEach(name => allToolNames.add(name));
+      }
+
+      // Merge settings for each tool
+      for (const toolName of allToolNames) {
+        const toolConfig: ToolConfig = {};
+
+        // Migrate permission override
+        // If present in old config, it's an explicit override - preserve it regardless of default
+        if (oldPermission?.tools?.[toolName] !== undefined) {
+          toolConfig.permissionRequired = oldPermission.tools[toolName];
+        }
+
+        // Migrate include override
+        // If present in old config, it's an explicit override - preserve it regardless of default
+        if (oldInclude?.tools?.[toolName]) {
+          toolConfig.include = oldInclude.tools[toolName];
+        }
+
+        // Note: embeddings are not migrated - they'll be regenerated if needed
+
+        // Only add tool entry if it has any settings
+        if (Object.keys(toolConfig).length > 0) {
+          tools[toolName] = toolConfig;
+        }
+      }
+
+      // Only add serverToolDefaults if it has values
+      if (Object.keys(serverDefaults).length > 0) {
+        config.serverToolDefaults = serverDefaults;
+      }
+
+      // Only add tools if it has entries
+      if (Object.keys(tools).length > 0) {
+        config.tools = tools;
+      }
+
+      // Remove legacy format fields after migration
+      delete config.toolPermissionRequired;
+      delete config.toolInclude;
+      delete config.toolEmbeddings;
+    };
+
+    let mcpConfigsMigrated = false;
+    if (data.mcpServers && typeof data.mcpServers === 'object') {
+      for (const [serverName, serverConfig] of Object.entries(data.mcpServers)) {
+        if (serverConfig && typeof serverConfig === 'object' && usesOldToolConfigFormat(serverConfig)) {
+          this.logger.info(`Migrating MCP server tool config: ${serverName}`);
+          migrateOldToolConfig(serverConfig);
+          mcpConfigsMigrated = true;
+        }
+      }
+      // Save migrated config if any migrations occurred
+      if (mcpConfigsMigrated) {
         await this.saveConfig(AgentConfigSchema.parse(data));
       }
     }
@@ -509,75 +616,59 @@ export class FileBasedAgentStrategy implements AgentStrategy {
    * Also adds comments to the embeddings lines
    */
   private setEmbeddingArraysToFlowStyle(doc: yaml.Document): void {
-    const visit = (node: yaml.Node | null): void => {
+    const visit = (node: yaml.Node | null, isInTools: boolean = false): void => {
       if (!node) return;
       
       if (node instanceof yaml.YAMLMap) {
-        // Check for rule/reference embeddings (direct 'embeddings' key)
+        // Check if this is a 'tools' map
+        let newIsInTools = isInTools;
+        for (const item of node.items) {
+          if (item.key instanceof yaml.Scalar && item.key.value === 'tools') {
+            newIsInTools = true;
+            break;
+          }
+        }
+        
         const embeddingsNode = node.get('embeddings', true);
+        
         if (embeddingsNode instanceof yaml.YAMLSeq) {
-          // Check if it's an array of number arrays (embeddings: number[][])
+          // This is an embeddings array - could be tool or rule/reference
           const firstItem = embeddingsNode.items[0];
           if (firstItem instanceof yaml.YAMLSeq) {
             const firstEmbeddingItem = firstItem.items[0];
             if (firstEmbeddingItem instanceof yaml.Scalar && typeof firstEmbeddingItem.value === 'number') {
-              // This is embeddings: [[...], [...]]
-              // Add comment to the embeddings key
-              for (const item of node.items) {
-                if (item.key instanceof yaml.Scalar && item.key.value === 'embeddings') {
-                  item.key.comment = ' Delete embeddings when editing item, they will be automatically regenerated';
-                  break;
-                }
-              }
-              
-              // Keep outer array in block style, set flow style on each inner array (each embedding)
+              // Set flow style on each inner array (each embedding vector)
               for (const item of embeddingsNode.items) {
                 if (item instanceof yaml.YAMLSeq) {
                   item.flow = true;  // Each embedding array on one line
                 }
               }
-            }
-          }
-        }
-
-        // Check for tool embeddings in MCP server configs (toolEmbeddings.tools)
-        const toolEmbeddingsNode = node.get('toolEmbeddings', true);
-        if (toolEmbeddingsNode instanceof yaml.YAMLMap) {
-          const toolsNode = toolEmbeddingsNode.get('tools', true);
-          if (toolsNode instanceof yaml.YAMLMap) {
-            // Process each tool's embedding data (no comment for tool embeddings)
-            for (const toolItem of toolsNode.items) {
-              if (toolItem.value instanceof yaml.YAMLMap) {
-                const toolEmbeddingsNode = toolItem.value.get('embeddings', true);
-                if (toolEmbeddingsNode instanceof yaml.YAMLSeq) {
-                  // Check if it's an array of number arrays
-                  const firstItem = toolEmbeddingsNode.items[0];
-                  if (firstItem instanceof yaml.YAMLSeq) {
-                    const firstEmbeddingItem = firstItem.items[0];
-                    if (firstEmbeddingItem instanceof yaml.Scalar && typeof firstEmbeddingItem.value === 'number') {
-                      // Set flow style on each inner array (each embedding vector)
-                      for (const item of toolEmbeddingsNode.items) {
-                        if (item instanceof yaml.YAMLSeq) {
-                          item.flow = true;  // Each embedding array on one line
-                        }
-                      }
-                    }
+              
+              // Only add comment for rule/reference embeddings (not tool embeddings)
+              if (!isInTools) {
+                for (const item of node.items) {
+                  if (item.key instanceof yaml.Scalar && item.key.value === 'embeddings') {
+                    item.key.comment = ' Delete embeddings when editing item, they will be automatically regenerated';
+                    break;
                   }
                 }
               }
             }
           }
         }
-      }
-      
-      // Recursively visit children
-      if (node instanceof yaml.YAMLMap) {
+        
+        // Recursively visit children with updated isInTools state
         for (const item of node.items) {
-          if (item.value) visit(item.value as yaml.Node);
+          if (item.value) {
+            // If this is the 'tools' key, pass true for isInTools
+            const childIsInTools = item.key instanceof yaml.Scalar && item.key.value === 'tools' ? true : newIsInTools;
+            visit(item.value as yaml.Node, childIsInTools);
+          }
         }
       } else if (node instanceof yaml.YAMLSeq) {
+        // Recursively visit children
         for (const item of node.items) {
-          if (item) visit(item as yaml.Node);
+          if (item) visit(item as yaml.Node, isInTools);
         }
       }
     };

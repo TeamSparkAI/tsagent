@@ -1407,46 +1407,47 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               <strong>{group.messages[0].type.toUpperCase()}:</strong>
               {group.messages[0].type === 'ai' ? (
                 <>
-                  {group.messages.map((message, messageIndex) => {
-                    if (message.type === 'ai' && message.modelReply) {
-                      const isLastMessage = messageIndex === group.messages.length - 1;
-                      
+                  {(() => {
+                    // Find the first assistant message with request context in this group
+                    // Since all messages in a multi-turn conversation share the same context,
+                    // we only show the info icon for the first one
+                    const firstMessageWithContext = group.messages.find(
+                      msg => msg.type === 'ai' && msg.modelReply && msg.requestContext
+                    );
+                    
+                    if (firstMessageWithContext?.requestContext) {
                       return (
-                        <React.Fragment key={messageIndex}>
-                          {message.requestContext && (
-                            <button
-                              onClick={() => {
-                                setSelectedRequestContext(message.requestContext);
-                                setShowRequestContextModal(true);
-                              }}
-                              className="btn btn-link"
-                              style={{ 
-                                fontSize: '16px', 
-                                padding: '2px 6px',
-                                verticalAlign: 'baseline',
-                                lineHeight: '1',
-                                border: 'none',
-                                background: 'none',
-                                cursor: 'pointer',
-                                color: 'var(--text-secondary)',
-                                textDecoration: 'none'
-                              }}
-                              title="View context used for this response"
-                              onMouseEnter={(e) => {
-                                e.currentTarget.style.color = 'var(--text-primary)';
-                              }}
-                              onMouseLeave={(e) => {
-                                e.currentTarget.style.color = 'var(--text-secondary)';
-                              }}
-                            >
-                              ℹ️
-                            </button>
-                          )}
-                        </React.Fragment>
+                        <button
+                          onClick={() => {
+                            setSelectedRequestContext(firstMessageWithContext.requestContext);
+                            setShowRequestContextModal(true);
+                          }}
+                          className="btn btn-link"
+                          style={{ 
+                            fontSize: '16px', 
+                            padding: '2px 6px',
+                            verticalAlign: 'baseline',
+                            lineHeight: '1',
+                            border: 'none',
+                            background: 'none',
+                            cursor: 'pointer',
+                            color: 'var(--text-secondary)',
+                            textDecoration: 'none'
+                          }}
+                          title="View context used for this response"
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.color = 'var(--text-primary)';
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.color = 'var(--text-secondary)';
+                          }}
+                        >
+                          ℹ️
+                        </button>
                       );
                     }
                     return null;
-                  })}
+                  })()}
                 </>
               ) : null}
             </div>

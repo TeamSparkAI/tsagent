@@ -1,4 +1,4 @@
-import { McpClient, McpConfig } from './types.js';
+import { McpClient, McpConfig, McpConfigFileServerConfig } from './types.js';
 import { McpClientSse, McpClientStdio } from './client.js';
 import { Logger } from '../types/common.js';
 import { Agent } from '../types/agent.js'
@@ -86,7 +86,7 @@ export class MCPClientManagerImpl implements MCPClientManager {
         return client;
     }
 
-    private async loadMcpClient(agent: Agent, serverName: string, serverConfig: any): Promise<void> {
+    private async loadMcpClient(agent: Agent, serverName: string, serverConfig: McpConfig): Promise<void> {
         try {
             if (!serverConfig || !serverConfig.config) {
                 this.logger.error(`Invalid server configuration for ${serverName}: missing config property`);
@@ -112,19 +112,19 @@ export class MCPClientManagerImpl implements MCPClientManager {
     /**
      * Restore and validate tool embeddings from config
      * Clears invalid embeddings (hash mismatch, missing tool, corrupted data)
+     * Embeddings will be regenerated if missing or invalid
      */
     private async restoreToolEmbeddings(
         client: McpClient,
-        config: any,
+        config: McpConfigFileServerConfig,
         serverName: string,
         agent: Agent
     ): Promise<void> {
-        if (!config.toolEmbeddings?.tools) {
-            return; // No embeddings to restore
+        if (!config.tools) {
+            return; // No tools config, no embeddings to restore
         }
 
         let configNeedsUpdate = false;
-        const toolEmbeddings = config.toolEmbeddings.tools;
 
         // Ensure client has embeddings map
         if (!client.toolEmbeddings) {
@@ -132,30 +132,47 @@ export class MCPClientManagerImpl implements MCPClientManager {
         }
 
         // Validate and restore each tool's embeddings
-        for (const [toolName, embeddingData] of Object.entries(toolEmbeddings)) {
+        for (const [toolName, toolConfig] of Object.entries(config.tools)) {
+            if (!toolConfig.embeddings) {
+                continue; // No embeddings for this tool
+            }
+
             try {
+                const embeddings = toolConfig.embeddings;
+                const hash = toolConfig.hash;
+
                 // Validate structure
-                if (!embeddingData || typeof embeddingData !== 'object' || !('embeddings' in embeddingData) || !('hash' in embeddingData)) {
+                if (!embeddings || !Array.isArray(embeddings) || !hash || typeof hash !== 'string') {
                     this.logger.warn(`Invalid embedding data for tool ${serverName}:${toolName}, clearing`);
-                    delete toolEmbeddings[toolName];
+                    delete toolConfig.embeddings;
+                    delete toolConfig.hash;
+                    if (Object.keys(toolConfig).length === 0) {
+                        delete config.tools![toolName];
+                    }
                     configNeedsUpdate = true;
                     continue;
                 }
 
-                const { embeddings, hash } = embeddingData as { embeddings: number[][]; hash: string };
-
                 // Validate embeddings array
-                if (!Array.isArray(embeddings) || embeddings.length === 0 || !Array.isArray(embeddings[0])) {
+                if (embeddings.length === 0 || !Array.isArray(embeddings[0])) {
                     this.logger.warn(`Invalid embeddings array for tool ${serverName}:${toolName}, clearing`);
-                    delete toolEmbeddings[toolName];
+                    delete toolConfig.embeddings;
+                    delete toolConfig.hash;
+                    if (Object.keys(toolConfig).length === 0) {
+                        delete config.tools![toolName];
+                    }
                     configNeedsUpdate = true;
                     continue;
                 }
 
                 // Validate hash
-                if (typeof hash !== 'string' || hash.length === 0) {
-                    this.logger.warn(`Missing hash for tool ${serverName}:${toolName}, clearing`);
-                    delete toolEmbeddings[toolName];
+                if (hash.length === 0) {
+                    this.logger.warn(`Invalid hash for tool ${serverName}:${toolName}, clearing`);
+                    delete toolConfig.embeddings;
+                    delete toolConfig.hash;
+                    if (Object.keys(toolConfig).length === 0) {
+                        delete config.tools![toolName];
+                    }
                     configNeedsUpdate = true;
                     continue;
                 }
@@ -165,7 +182,10 @@ export class MCPClientManagerImpl implements MCPClientManager {
                 if (!tool) {
                     // Tool no longer exists in server
                     this.logger.debug(`Tool ${serverName}:${toolName} no longer exists, clearing embeddings`);
-                    delete toolEmbeddings[toolName];
+                    delete toolConfig.embeddings;
+                    if (Object.keys(toolConfig).length === 0) {
+                        delete config.tools![toolName];
+                    }
                     configNeedsUpdate = true;
                     continue;
                 }
@@ -178,7 +198,10 @@ export class MCPClientManagerImpl implements MCPClientManager {
                 if (currentHash !== hash) {
                     // Tool metadata changed
                     this.logger.debug(`Hash mismatch for tool ${serverName}:${toolName}, clearing embeddings (tool changed)`);
-                    delete toolEmbeddings[toolName];
+                    delete toolConfig.embeddings;
+                    if (Object.keys(toolConfig).length === 0) {
+                        delete config.tools![toolName];
+                    }
                     configNeedsUpdate = true;
                     continue;
                 }
@@ -191,9 +214,18 @@ export class MCPClientManagerImpl implements MCPClientManager {
             } catch (error) {
                 this.logger.error(`Error restoring embeddings for tool ${serverName}:${toolName}:`, error);
                 // Clear on error
-                delete toolEmbeddings[toolName];
+                delete toolConfig.embeddings;
+                if (Object.keys(toolConfig).length === 0) {
+                    delete config.tools![toolName];
+                }
                 configNeedsUpdate = true;
             }
+        }
+
+        // Clean up empty tools object
+        if (config.tools && Object.keys(config.tools).length === 0) {
+            delete config.tools;
+            configNeedsUpdate = true;
         }
 
         // Save config if any embeddings were cleared
