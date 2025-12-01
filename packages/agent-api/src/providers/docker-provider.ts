@@ -3,7 +3,7 @@ import { z } from 'zod';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
-import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
+import { ProviderModel, ProviderId, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
@@ -20,8 +20,9 @@ const DockerConfigSchema = z.object({
 type DockerConfig = z.infer<typeof DockerConfigSchema>;
 
 // Provider Descriptor
-export class DockerProviderDescriptor extends ProviderDescriptor {
-  readonly type = ProviderType.Docker;
+export default class DockerProviderDescriptor extends ProviderDescriptor {
+  readonly providerId = 'docker';
+  readonly iconPath = 'assets/providers/docker.png';
   
   readonly info: ProviderInfo = {
     name: "Docker",
@@ -38,6 +39,10 @@ export class DockerProviderDescriptor extends ProviderDescriptor {
   };
   
   readonly configSchema = DockerConfigSchema;
+  
+  constructor(packageRoot: string) {
+    super(packageRoot);
+  }
   
   getDefaultModelId(): string {
     return 'gpt-3.5-turbo';
@@ -74,12 +79,10 @@ export class DockerProviderDescriptor extends ProviderDescriptor {
   ): Promise<Provider> {
     // Cast to typed config for internal use
     const typedConfig = config as DockerConfig;
-    return new DockerProvider(modelName, agent, logger, typedConfig);
+    return new DockerProvider(modelName, agent, logger, typedConfig, this.providerId);
   }
 }
 
-// Export descriptor instance for registration
-export const dockerProviderDescriptor = new DockerProviderDescriptor();
 
 // Provider implementation
 class DockerProvider extends BaseProvider<DockerConfig> {
@@ -97,8 +100,8 @@ class DockerProvider extends BaseProvider<DockerConfig> {
     };
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger, config: DockerConfig) {
-    super(modelName, agent, logger, config);
+  constructor(modelName: string, agent: Agent, logger: Logger, config: DockerConfig, providerId: ProviderId) {
+    super(modelName, agent, logger, config, providerId);
     // config.BASE_URL is typed and available
     this.client = new OpenAI({ apiKey: '', baseURL: config.BASE_URL });
     this.logger.info('Docker Provider initialized successfully');
@@ -107,7 +110,7 @@ class DockerProvider extends BaseProvider<DockerConfig> {
   async getModels(): Promise<ProviderModel[]> {
     const modelList = await this.client.models.list();
     return modelList.data.map((model) => ({
-      provider: ProviderType.Docker,
+      provider: this.providerId,
       id: model.id,
       name: model.id,
       modelSource: "Docker"

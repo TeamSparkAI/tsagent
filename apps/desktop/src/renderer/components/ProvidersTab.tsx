@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
-import { ProviderType } from '@tsagent/core';
+import { ProviderId } from '@tsagent/core';
 import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
 import { AboutView } from './AboutView';
 import { OnePasswordBrowserModal } from './OnePasswordBrowserModal';
@@ -9,7 +9,7 @@ import log from 'electron-log';
 
 // Import provider logos
 import './ProvidersTab.css';
-import { providerLogos } from '../utils/providerLogos';
+import { ProviderIcon } from './ProviderIcon';
 
 interface Provider {
   id: string;
@@ -31,7 +31,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
   const [config, setConfig] = useState<Record<string, string>>({});
   const [secretSources, setSecretSources] = useState<Record<string, SecretSource>>({});
   const [error, setError] = useState<string | null>(null);
-  const [selectedProviderType, setSelectedProviderType] = useState<ProviderType | null>(null);
+  const [selectedProviderId, setSelectedProviderId] = useState<ProviderId | null>(null);
   const [providerInfo, setProviderInfo] = useState<Record<string, LLMProviderInfo>>({});
   const [isSelectingProvider, setIsSelectingProvider] = useState(!provider);
   const [showPassword, setShowPassword] = useState(false);
@@ -82,7 +82,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
         
         for (const configValue of provider.info.configValues || []) {
           const needsSecretResolution = configValue.secret || (configValue as any).credential;
-          const value = await window.api.getProviderConfig(provider.id as ProviderType, configValue.key);
+          const value = await window.api.getProviderConfig(provider.id as ProviderId, configValue.key);
           if (value !== null) {
             // Check if value is an env:// or op:// reference
             if (needsSecretResolution && value.startsWith('env://')) {
@@ -119,8 +119,8 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
     try {
       // Build config with proper prefixes based on secret source selection
       const configToSave: Record<string, string> = {};
-      const providerType = provider?.id as ProviderType || selectedProviderType;
-      const configValues = provider?.info.configValues || providerInfo[providerType as ProviderType]?.configValues || [];
+      const providerType = provider?.id as ProviderId || selectedProviderId;
+      const configValues = provider?.info.configValues || providerInfo[providerType as ProviderId]?.configValues || [];
       
       for (const configValue of configValues) {
         const value = config[configValue.key] || '';
@@ -139,26 +139,27 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
         }
       }
       
-      if (!provider && selectedProviderType) {
+      if (!provider && selectedProviderId) {
         // Adding a new provider - validate config first
-        const validation = await window.api.validateProviderConfig(selectedProviderType, configToSave);
+        const validation = await window.api.validateProviderConfig(selectedProviderId, configToSave);
         if (!validation.isValid) {
           setError(validation.error || 'Invalid configuration');
           return;
         }
         // Add provider with config
-        await window.api.addProvider(selectedProviderType, configToSave);
+        await window.api.addProvider(selectedProviderId, configToSave);
         // Close the modal after successful addition
-        onSave(configToSave, selectedProviderType);
+        onSave(configToSave, selectedProviderId);
       } else if (provider) {
         // Updating existing provider - validate config first
-        const validation = await window.api.validateProviderConfig(providerType, configToSave);
+        const providerId = provider.id as ProviderId;
+        const validation = await window.api.validateProviderConfig(providerId, configToSave);
         if (!validation.isValid) {
           setError(validation.error || 'Invalid configuration');
           return;
         }
         // Update provider with new config
-        await window.api.addProvider(providerType, configToSave);
+        await window.api.addProvider(providerId, configToSave);
         onSave(configToSave);
       }
     } catch (err) {
@@ -167,8 +168,8 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
     }
   };
 
-  const handleProviderSelect = (type: ProviderType) => {
-    setSelectedProviderType(type);
+  const handleProviderSelect = (type: ProviderId) => {
+    setSelectedProviderId(type);
     setIsSelectingProvider(false);
     const info = providerInfo[type];
     if (info?.configValues) {
@@ -242,10 +243,10 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                 .map(([type, info]) => (
                   <div
                     key={type}
-                    onClick={() => handleProviderSelect(type as ProviderType)}
+                    onClick={() => handleProviderSelect(type as ProviderId)}
                     style={{
                       padding: '16px',
-                      border: `2px solid ${selectedProviderType === type ? '#1890ff' : '#e8e8e8'}`,
+                      border: `2px solid ${selectedProviderId === type ? '#1890ff' : '#e8e8e8'}`,
                       borderRadius: '8px',
                       cursor: 'pointer',
                       display: 'flex',
@@ -254,10 +255,10 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
                       gap: '8px'
                     }}
                   >
-                    <img 
-                      src={providerLogos[type as ProviderType]} 
-                      alt={info.name}
+                    <ProviderIcon 
+                      providerType={type as ProviderId}
                       className="provider-logo"
+                      alt={info.name}
                     />
                     <h3 style={{ margin: 0 }}>{info.name}</h3>
                     <p style={{ margin: 0, textAlign: 'center' }}>{info.description}</p>
@@ -274,20 +275,20 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             alignItems: 'center',
             gap: '2px'
           }}>
-            <img 
-              src={providerLogos[(provider?.id || selectedProviderType) as ProviderType]} 
-              alt={provider?.info.name || providerInfo[selectedProviderType as ProviderType]?.name}
+            <ProviderIcon 
+              providerType={(provider?.id || selectedProviderId) as ProviderId}
               className="provider-logo-large"
+              alt={provider?.info.name || providerInfo[selectedProviderId as ProviderId]?.name}
             />
-            <h3 style={{ margin: 0 }}>{provider?.info.name || providerInfo[selectedProviderType as ProviderType]?.name}</h3>
+            <h3 style={{ margin: 0 }}>{provider?.info.name || providerInfo[selectedProviderId as ProviderId]?.name}</h3>
           </div>
-          <p>{provider?.info.description || providerInfo[selectedProviderType as ProviderType]?.description}</p>
-          {(provider?.info.website || providerInfo[selectedProviderType as ProviderType]?.website) && (
+          <p>{provider?.info.description || providerInfo[selectedProviderId as ProviderId]?.description}</p>
+          {(provider?.info.website || providerInfo[selectedProviderId as ProviderId]?.website) && (
             <a 
               href="#" 
               onClick={(e) => {
                 e.preventDefault();
-                const website = provider?.info.website || providerInfo[selectedProviderType as ProviderType]?.website;
+                const website = provider?.info.website || providerInfo[selectedProviderId as ProviderId]?.website;
                 if (typeof website === 'string') {
                   window.api.openExternal(website);
                 }
@@ -298,7 +299,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
             </a>
           )}
 
-          {(provider?.info.configValues || providerInfo[selectedProviderType as ProviderType]?.configValues) && (
+          {(provider?.info.configValues || providerInfo[selectedProviderId as ProviderId]?.configValues) && (
             <div style={{ 
               display: 'grid', 
               gridTemplateColumns: 'max-content 1fr',
@@ -307,7 +308,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
               marginBottom: '20px',
               width: '100%'
             }}>
-              {(provider?.info.configValues || providerInfo[selectedProviderType as ProviderType]?.configValues || []).map(configValue => {
+              {(provider?.info.configValues || providerInfo[selectedProviderId as ProviderId]?.configValues || []).map(configValue => {
                 const isSecret = configValue.secret || false;
                 const isCredential = configValue.credential || false;
                 const needsSecretResolution = isSecret || isCredential;
@@ -499,7 +500,7 @@ const ModelList: React.FC<ModelListProps> = ({ provider }) => {
     const validateConfig = async () => {
       try {
         // Get the current config for the provider from the agent
-        const providerType = provider.id as ProviderType;
+        const providerType = provider.id as ProviderId;
         
         // Build the config object from individual settings
         const config: Record<string, string> = {};
@@ -564,7 +565,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
         const providersWithModels = await Promise.all(
           installedProviders
             .sort((a, b) => a.localeCompare(b))
-            .map(async (provider: ProviderType) => {
+            .map(async (provider: ProviderId) => {
               const models = await window.api.getModelsForProvider(provider);
               const info = await window.api.getProviderInfo(provider);
               return {
@@ -600,7 +601,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
     try {
       if (editingProvider) {
         // Update existing provider with new config
-        const providerType = editingProvider.id as ProviderType;
+        const providerType = editingProvider.id as ProviderId;
         await window.api.addProvider(providerType, config);
       }
       // Refresh the providers list
@@ -608,7 +609,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
       const providersWithModels = await Promise.all(
         installedProviders
           .sort((a, b) => a.localeCompare(b))
-          .map(async (provider: ProviderType) => {
+          .map(async (provider: ProviderId) => {
             const models = await window.api.getModelsForProvider(provider);
             const info = await window.api.getProviderInfo(provider);
             return {
@@ -637,7 +638,7 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
     const provider = providers.find(p => p.id === providerId);
     if (confirm(`Are you sure you want to remove the ${provider?.info.name} provider? This will also remove all associated models.`)) {
       try {
-        await window.api.removeProvider(providerId as ProviderType);
+        await window.api.removeProvider(providerId as ProviderId);
         log.info(`Provider ${provider?.info.name} removed successfully`);
         setProviders(providers.filter(p => p.id !== providerId));
         if (selectedProvider === providerId) {
@@ -699,10 +700,10 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                       className={`tab-items-item ${selectedProvider === provider.id ? 'selected' : ''}`}
                       onClick={() => handleProviderSelect(provider.id)}
                     >
-                      <img 
-                        src={providerLogos[provider.id as ProviderType]} 
-                        alt={provider.info.name}
+                      <ProviderIcon 
+                        providerType={provider.id as ProviderId}
                         className="provider-logo"
+                        alt={provider.info.name}
                       />
                       {provider.info.name}
                     </div>
@@ -739,10 +740,10 @@ export const ProvidersTab: React.FC<TabProps> = ({ id, activeTabId, name, type }
                   return (
                     <>
                       <div className="provider-header">
-                        <img 
-                          src={providerLogos[provider.id as ProviderType]} 
-                          alt={provider.info.name}
+                        <ProviderIcon 
+                          providerType={provider.id as ProviderId}
                           className="provider-logo-large"
+                          alt={provider.info.name}
                         />
                         <h3>{provider.info.name}</h3>
                         <button className="btn configure-button" onClick={() => handleConfigureProvider(provider)}>Configure</button>

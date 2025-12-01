@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { LlamaChatSession, type LLamaChatPromptOptions, Llama, LlamaModel, LlamaContext, getLlama, ChatModelFunctionCall, ChatHistoryItem } from 'node-llama-cpp';
 
-import { ModelReply, ProviderModel, ProviderType, ProviderInfo, Turn, Provider } from './types.js';
+import { ModelReply, ProviderModel, ProviderId, ProviderInfo, Turn, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
@@ -39,8 +39,9 @@ const LocalConfigSchema = z.object({
 type LocalConfig = z.infer<typeof LocalConfigSchema>;
 
 // Provider Descriptor
-export class LocalProviderDescriptor extends ProviderDescriptor {
-  readonly type = ProviderType.Local;
+export default class LocalProviderDescriptor extends ProviderDescriptor {
+  readonly providerId = 'local';
+  readonly iconPath = 'assets/providers/local.png';
   
   readonly info: ProviderInfo = {
     name: "Local GGUF Models",
@@ -56,6 +57,10 @@ export class LocalProviderDescriptor extends ProviderDescriptor {
   };
   
   readonly configSchema = LocalConfigSchema;
+  
+  constructor(packageRoot: string) {
+    super(packageRoot);
+  }
   
   getDefaultModelId(): string {
     return '';
@@ -101,12 +106,10 @@ export class LocalProviderDescriptor extends ProviderDescriptor {
   ): Promise<Provider> {
     // Cast to typed config for internal use
     const typedConfig = config as LocalConfig;
-    return new LocalProvider(modelName || '', agent, logger, typedConfig);
+    return new LocalProvider(modelName || '', agent, logger, typedConfig, this.providerId);
   }
 }
 
-// Export descriptor instance for registration
-export const localProviderDescriptor = new LocalProviderDescriptor();
 
 // Provider implementation
 class LocalProvider extends BaseProvider<LocalConfig> {
@@ -114,8 +117,8 @@ class LocalProvider extends BaseProvider<LocalConfig> {
   private llama: Llama | null = null;
   private model: LlamaModel | null = null;
 
-  constructor(modelName: string, agent: Agent, logger: Logger, config: LocalConfig) {
-    super(modelName || '', agent, logger, config);
+  constructor(modelName: string, agent: Agent, logger: Logger, config: LocalConfig, providerId: ProviderId) {
+    super(modelName || '', agent, logger, config, providerId);
 
     const modelDir = config.MODEL_DIRECTORY;
     if (!modelDir) {
@@ -187,7 +190,7 @@ class LocalProvider extends BaseProvider<LocalConfig> {
     try {
       const files = fs.readdirSync(modelDir).filter(file => file.endsWith('.gguf'));
       return files.map(file => ({
-        provider: ProviderType.Local,
+        provider: this.providerId,
         id: file,
         name: file.replace('.gguf', ''),
         modelSource: 'Local GGUF'

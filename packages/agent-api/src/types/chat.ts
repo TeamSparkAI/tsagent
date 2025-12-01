@@ -1,4 +1,4 @@
-import { ModelReply, Provider, ProviderType } from '../providers/types.js';
+import { ModelReply, Provider, ProviderId } from '../providers/types.js';
 import { SessionToolPermission } from './agent.js';
 import { RequestContext, SessionContextItem } from './context.js';
 
@@ -25,7 +25,7 @@ export type ChatMessage = {
 export interface ChatState {
   messages: ChatMessage[];
   lastSyncId: number;
-  currentModelProvider?: ProviderType;
+  currentModelProvider?: ProviderId;
   currentModelId?: string;
   contextItems: SessionContextItem[];  // Tracked context items with include modes
   maxChatTurns: number;
@@ -55,7 +55,7 @@ export interface ChatSessionSettings {
 }
 
 export interface ChatSessionOptions {
-  modelProvider?: ProviderType;
+  modelProvider?: ProviderId;
   modelId?: string;
   initialMessages?: ChatMessage[];
   maxChatTurns?: number;
@@ -122,7 +122,7 @@ export interface ChatSession {
   handleMessage(message: string | ChatMessage): Promise<MessageUpdate>;
 
   clearModel(): MessageUpdate;
-  switchModel(modelType: ProviderType, modelId: string): MessageUpdate;
+  switchModel(modelType: ProviderId, modelId: string): MessageUpdate;
 
   addReference(referenceName: string): boolean;
   removeReference(referenceName: string): boolean;

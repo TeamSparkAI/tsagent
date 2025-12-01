@@ -3,13 +3,13 @@ import { McpServerEntry, CallToolResultWithElapsedTime } from '@tsagent/core';
 import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from '@tsagent/core';
 import { AgentSettings } from '@tsagent/core';
 import { AgentWindow } from '../main/agents-manager';
-import { ProviderType } from '@tsagent/core';
+import { ProviderId } from '@tsagent/core';
 import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 
 export interface API {
   // Chat session management
-  createChatTab: (tabId: string, modelProvider?: ProviderType, modelId?: string) => Promise<ChatSessionResponse>;
+  createChatTab: (tabId: string, modelProvider?: ProviderId, modelId?: string) => Promise<ChatSessionResponse>;
   closeChatTab: (tabId: string) => Promise<ChatSessionResponse>;
   getChatState: (tabId: string) => Promise<ChatState | null>;
   sendMessage: (tabId: string, message: string | ChatMessage) => Promise<MessageUpdate>;
@@ -31,15 +31,16 @@ export interface API {
   removeChatTool: (tabId: string, serverName: string, toolName: string) => Promise<boolean>;
 
   // LLM Provider methods for model picker
-  getProviderInfo: (provider: ProviderType) => Promise<LLMProviderInfo>;
-  validateProviderConfig: (provider: ProviderType, config: Record<string, string>) => Promise<{ isValid: boolean, error?: string }>;
-  getModelsForProvider: (provider: ProviderType) => Promise<ILLMModel[]>;
-  getInstalledProviders: () => Promise<ProviderType[]>;
-  getAvailableProviders: () => Promise<ProviderType[]>;
-  addProvider: (provider: ProviderType, config: Record<string, string>) => Promise<boolean>;
-  removeProvider: (provider: ProviderType) => Promise<boolean>;
-  getProviderConfig: (provider: ProviderType, key: string) => Promise<string | null>;
-  setProviderConfig: (provider: ProviderType, key: string, value: string) => Promise<boolean>;
+  getProviderInfo: (provider: ProviderId) => Promise<LLMProviderInfo>;
+  getProviderIcon: (provider: ProviderId) => Promise<string | null>;
+  validateProviderConfig: (provider: ProviderId, config: Record<string, string>) => Promise<{ isValid: boolean, error?: string }>;
+  getModelsForProvider: (provider: ProviderId) => Promise<ILLMModel[]>;
+  getInstalledProviders: () => Promise<ProviderId[]>;
+  getAvailableProviders: () => Promise<ProviderId[]>;
+  addProvider: (provider: ProviderId, config: Record<string, string>) => Promise<boolean>;
+  removeProvider: (provider: ProviderId) => Promise<boolean>;
+  getProviderConfig: (provider: ProviderId, key: string) => Promise<string | null>;
+  setProviderConfig: (provider: ProviderId, key: string, value: string) => Promise<boolean>;
 
   // Settings API
   getSettings: () => Promise<AgentSettings | null>;

@@ -11,8 +11,7 @@ export type { JsonSchemaDefinition, ToolInputSchema } from './types/json-schema.
 export type { Logger } from './types/common.js';
 
 // Export provider types
-export { ProviderType } from './providers/types.js';
-export type { ProviderInfo, ProviderModel, ModelReply } from './providers/types.js';
+export type { ProviderId, ProviderInfo, ProviderModel, ModelReply } from './providers/types.js';
 
 // Export rule and reference types
 export type { Rule } from './types/rules.js';

@@ -1,7 +1,7 @@
-import { ProviderType, parseModelString } from '@tsagent/core';
+import { ProviderId, parseModelString } from '@tsagent/core';
 
 export interface AgentModelDetails {
-  provider: ProviderType;
+  provider: ProviderId;
   modelId: string;
   modelName: string;
 }
@@ -38,7 +38,7 @@ export function getCachedAgentModel(modelString: string | undefined): AgentModel
  */
 export async function getAgentModelDetails(
   modelString: string | undefined,
-  fetchFn: (provider: ProviderType) => Promise<any[]>
+  fetchFn: (provider: ProviderId) => Promise<any[]>
 ): Promise<AgentModelDetails | null> {
   if (!modelString) {
     return null;

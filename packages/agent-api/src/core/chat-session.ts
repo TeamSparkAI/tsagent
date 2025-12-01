@@ -1,5 +1,5 @@
 import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession, ChatSessionOptionsWithRequiredSettings } from '../types/chat.js';
-import { Provider, ProviderType } from '../providers/types.js';
+import { Provider, ProviderId } from '../providers/types.js';
 import { Agent, populateModelFromSettings } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { SessionToolPermission } from '../types/agent.js';
@@ -11,7 +11,7 @@ export class ChatSessionImpl implements ChatSession {
   private _id: string;
   messages: ChatMessage[] = [];
   lastSyncId: number = 0;
-  currentProvider?: ProviderType;
+  currentProvider?: ProviderId;
   currentModelId?: string;
   provider?: Provider;
   agent: Agent;
@@ -527,7 +527,7 @@ export class ChatSessionImpl implements ChatSession {
     };
   }
 
-  switchModel(modelType: ProviderType, modelId: string): MessageUpdate {
+  switchModel(modelType: ProviderId, modelId: string): MessageUpdate {
     try {
       // Create new LLM instance
       const llm = this.agent.createProvider(modelType, modelId);

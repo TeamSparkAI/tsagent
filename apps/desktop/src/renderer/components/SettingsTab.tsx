@@ -7,9 +7,9 @@ import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
 import './SettingsTab.css';
 import { 
   SessionToolPermission, AgentMetadata, AgentSkill, AgentTool, AgentMode,
-  getDefaultSettings, AgentSettings, ProviderType, parseModelString,
+  getDefaultSettings, AgentSettings, ProviderId, parseModelString,
 } from '@tsagent/core';
-import { providerLogos } from '../utils/providerLogos';
+import { ProviderIcon } from './ProviderIcon';
 import { getAgentModelDetails, setCachedAgentModel, AgentModelDetails } from '../utils/agentModelCache';
 
 
@@ -992,7 +992,8 @@ const SkillsSection: React.FC = () => {
 
 interface ModelSectionProps {
   currentModel?: string;
-  modelProvider?: ProviderType;
+  modelProvider?: ProviderId;
+  modelProviderName?: string;
   modelId?: string;
   modelName?: string;
   onModelSelect: (model: string | undefined, details?: ModelDetails) => Promise<void>;
@@ -1001,6 +1002,7 @@ interface ModelSectionProps {
 const ModelSection: React.FC<ModelSectionProps> = ({
   currentModel,
   modelProvider,
+  modelProviderName,
   modelId,
   modelName,
   onModelSelect
@@ -1010,20 +1012,6 @@ const ModelSection: React.FC<ModelSectionProps> = ({
   const handleModelSelect = async (model: string | undefined, details?: ModelDetails) => {
     await onModelSelect(model, details);
     setShowModelPicker(false);
-  };
-
-  const getProviderDisplayName = (provider: ProviderType): string => {
-    switch (provider) {
-      case ProviderType.Test: return 'Test LLM';
-      case ProviderType.Gemini: return 'Gemini';
-      case ProviderType.Claude: return 'Claude';
-      case ProviderType.OpenAI: return 'OpenAI';
-      case ProviderType.Ollama: return 'Ollama';
-      case ProviderType.Bedrock: return 'Bedrock';
-      case ProviderType.Local: return 'Local';
-      case ProviderType.Docker: return 'Docker';
-      default: return provider;
-    }
   };
 
   return (
@@ -1044,10 +1032,10 @@ const ModelSection: React.FC<ModelSectionProps> = ({
           borderRadius: '4px',
           border: '1px solid var(--border-color)'
         }}>
-          {modelProvider && modelProvider in providerLogos && (
-            <img 
-              src={providerLogos[modelProvider]} 
-              alt={modelProvider} 
+          {modelProvider && (
+            <ProviderIcon 
+              providerType={modelProvider}
+              alt={modelProvider}
               style={{
                 width: '32px',
                 height: '32px',
@@ -1062,7 +1050,7 @@ const ModelSection: React.FC<ModelSectionProps> = ({
             {modelProvider ? (
               <>
                 <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                  {getProviderDisplayName(modelProvider)}
+                  {modelProviderName || modelProvider}
                 </div>
                 <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
                   {modelName || modelId || 'No model selected'}
@@ -1804,10 +1792,34 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   const [initialSystemPath, setInitialSystemPath] = useState<string>('');
   const [currentModel, setCurrentModel] = useState<string | undefined>();
   const [initialModel, setInitialModel] = useState<string | undefined>();
-  const [modelProvider, setModelProvider] = useState<ProviderType | undefined>();
+  const [modelProvider, setModelProvider] = useState<ProviderId | undefined>();
+  const [modelProviderName, setModelProviderName] = useState<string | undefined>();
   const [modelId, setModelId] = useState<string | undefined>();
   const [modelName, setModelName] = useState<string | undefined>();
   const [showModelPicker, setShowModelPicker] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!modelProvider) {
+      setModelProviderName(undefined);
+      return;
+    }
+    window.api.getProviderInfo(modelProvider)
+      .then(info => {
+        if (!cancelled) {
+          setModelProviderName(info.name);
+        }
+      })
+      .catch(error => {
+        log.error(`Failed to load provider info for ${modelProvider}:`, error);
+        if (!cancelled) {
+          setModelProviderName(modelProvider);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modelProvider]);
 
   useEffect(() => {
     const loadSettings = async () => {
@@ -2034,20 +2046,6 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     }
   };
 
-  const getProviderDisplayName = (provider: ProviderType): string => {
-    switch (provider) {
-      case ProviderType.Test: return 'Test LLM';
-      case ProviderType.Gemini: return 'Gemini';
-      case ProviderType.Claude: return 'Claude';
-      case ProviderType.OpenAI: return 'OpenAI';
-      case ProviderType.Ollama: return 'Ollama';
-      case ProviderType.Bedrock: return 'Bedrock';
-      case ProviderType.Local: return 'Local';
-      case ProviderType.Docker: return 'Docker';
-      default: return provider;
-    }
-  };
-
   const handleSaveSystemPath = async () => {
     try {
       await window.api.updateSettings({ systemPath: currentSystemPath });
@@ -2147,6 +2145,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           <ModelSection
             currentModel={currentModel}
             modelProvider={modelProvider}
+            modelProviderName={modelProviderName}
             modelId={modelId}
             modelName={modelName}
             onModelSelect={handleModelSelect}
@@ -2172,10 +2171,10 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
                 borderRadius: '4px',
                 border: '1px solid var(--border-color)'
               }}>
-                {modelProvider && modelProvider in providerLogos && (
-                  <img 
-                    src={providerLogos[modelProvider]} 
-                    alt={modelProvider} 
+                {modelProvider && (
+                  <ProviderIcon 
+                    providerType={modelProvider}
+                    alt={modelProvider}
                     style={{
                       width: '32px',
                       height: '32px',
@@ -2190,7 +2189,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
                   {modelProvider ? (
                     <>
                       <div style={{ fontWeight: 'bold', color: 'var(--text-primary)' }}>
-                        {getProviderDisplayName(modelProvider)}
+                        {modelProviderName || modelProvider}
                       </div>
                       <div style={{ color: 'var(--text-secondary)', fontSize: '14px' }}>
                         {modelName || modelId || 'No model selected'}

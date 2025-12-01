@@ -10,7 +10,7 @@ import {
   Logger,
   Rule,
   Reference,
-  ProviderType,
+  ProviderId,
   McpServerEntry,
 } from '@tsagent/core';
 import {
@@ -1086,7 +1086,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          const providerType = args.providerType as ProviderType;
+          const providerType = args.providerType as ProviderId;
           const installed = agent.isProviderInstalled(providerType);
           const config = agent.getInstalledProviderConfig(providerType);
           const resolvedConfig = installed ? await agent.getResolvedProviderConfig(providerType) : null;
@@ -1123,7 +1123,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          const providerType = args.providerType as ProviderType;
+          const providerType = args.providerType as ProviderId;
           await agent.installProvider(providerType, args.config);
           return {
             success: true,
@@ -1155,7 +1155,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          const providerType = args.providerType as ProviderType;
+          const providerType = args.providerType as ProviderId;
           await agent.updateProvider(providerType, args.config);
           return {
             success: true,
@@ -1183,7 +1183,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          const providerType = args.providerType as ProviderType;
+          const providerType = args.providerType as ProviderId;
           await agent.uninstallProvider(providerType);
           return {
             success: true,
@@ -1215,7 +1215,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          const providerType = args.providerType as ProviderType;
+          const providerType = args.providerType as ProviderId;
           const validation = await agent.validateProviderConfiguration(providerType, args.config);
           return validation;
         },

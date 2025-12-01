@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { ChatMessage, ChatSession } from '../types/chat.js';
-import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
+import { ProviderModel, ProviderId, ProviderInfo, Provider } from './types.js';
 import { ModelReply } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
@@ -13,8 +13,9 @@ const TestConfigSchema = z.object({}).default({});
 type TestConfig = z.infer<typeof TestConfigSchema>;
 
 // Provider Descriptor
-export class TestProviderDescriptor extends ProviderDescriptor {
-  readonly type = ProviderType.Test;
+export default class TestProviderDescriptor extends ProviderDescriptor {
+  readonly providerId = 'test';
+  readonly iconPath = 'assets/providers/frosty.png';
   
   readonly info: ProviderInfo = {
     name: "Test Provider",
@@ -23,6 +24,10 @@ export class TestProviderDescriptor extends ProviderDescriptor {
   };
   
   readonly configSchema = TestConfigSchema;
+  
+  constructor(packageRoot: string) {
+    super(packageRoot);
+  }
   
   getDefaultModelId(): string {
     return 'frosty1.0';
@@ -36,23 +41,21 @@ export class TestProviderDescriptor extends ProviderDescriptor {
   ): Promise<Provider> {
     // Cast to typed config for internal use
     const typedConfig = config as TestConfig;
-    return new TestProvider(modelName, agent, logger, typedConfig);
+    return new TestProvider(modelName, agent, logger, typedConfig, this.providerId);
   }
 }
 
-// Export descriptor instance for registration
-export const testProviderDescriptor = new TestProviderDescriptor();
 
 // Provider implementation
 class TestProvider extends BaseProvider<TestConfig> {
-  constructor(modelName: string, agent: Agent, logger: Logger, config: TestConfig) {
-    super(modelName, agent, logger, config);
+  constructor(modelName: string, agent: Agent, logger: Logger, config: TestConfig, providerId: ProviderId) {
+    super(modelName, agent, logger, config, providerId);
     this.logger.info('Test Provider initialized successfully');
   }
 
   async getModels(): Promise<ProviderModel[]> {
     return [{
-      provider: ProviderType.Test,
+      provider: this.providerId,
       id: 'frosty1.0',
       name: 'Frosty 1.0',
       description: 'Frosty is a simple mock provider that always responds with "Happy Birthday!"',

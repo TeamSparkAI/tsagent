@@ -1,7 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron';
 import { API } from '../shared/api';
 import log from 'electron-log';
-import { ProviderType as LLMType, AgentSettings } from '@tsagent/core';
+import { ProviderId as LLMType, AgentSettings } from '@tsagent/core';
 import { OpenDialogOptions, MessageBoxOptions } from 'electron';
 import { ChatMessage } from '@tsagent/core';
 
@@ -118,6 +118,7 @@ const api: API = {
 
   // LLM Providers (new methods for model picker)
   getProviderInfo: (provider: LLMType) => ipcRenderer.invoke('llm:get-provider-info', provider),
+  getProviderIcon: (provider: LLMType) => ipcRenderer.invoke('llm:get-provider-icon', provider),
   validateProviderConfig: (provider: LLMType, config: Record<string, string>) => ipcRenderer.invoke('llm:validate-provider-config', provider, config),
   getModelsForProvider: (provider: LLMType) => ipcRenderer.invoke('llm:getModels', provider),
   getInstalledProviders: () => ipcRenderer.invoke('llm:get-installed-providers'),

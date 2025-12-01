@@ -1,6 +1,6 @@
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
-import { ProviderType } from '../providers/types.js';
+import { ProviderId } from '../providers/types.js';
 import { SecretResolver, SecretResolutionContext } from './secret-resolver.js';
 import { DirectValueResolver } from './resolvers/direct-value-resolver.js';
 import { EnvironmentVariableResolver } from './resolvers/env-var-resolver.js';

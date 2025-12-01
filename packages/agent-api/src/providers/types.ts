@@ -1,17 +1,8 @@
 import { Agent } from '../types/agent.js';
 import { ChatSession, ChatMessage, ToolCallRequest, ToolCallResult, Turn } from '../types/chat.js';
 
-// Provider types
-export enum ProviderType {
-  Test = 'test',
-  Claude = 'claude',
-  OpenAI = 'openai',
-  Gemini = 'gemini',
-  Ollama = 'ollama',
-  Bedrock = 'bedrock',
-  Local = 'local',
-  Docker = 'docker'
-}
+// Provider ID type - just a string identifier
+export type ProviderId = string;
 
 export interface ProviderConfigValue {
   caption?: string;
@@ -47,7 +38,7 @@ export type ProviderClass = {
 } & ProviderStatic;
 
 export interface ProviderModel {
-  provider: ProviderType;
+  provider: ProviderId;
   id: string;
   name: string;
   description?: string;

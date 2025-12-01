@@ -13,7 +13,7 @@ import {
   ChatSessionOptionsWithRequiredSettings,
   MessageUpdate, 
   ModelReply,
-  ProviderType, 
+  ProviderId, 
   SessionToolPermission,
   SessionToolPermissionSchema,
   Tool,
@@ -183,11 +183,9 @@ function indent(text: string, indent: number = 2, allLines: boolean = true): str
   return lines[0] + '\n' + lines.slice(1).map(line => ' '.repeat(indent) + line).join('\n');
 }
 
-function getProviderByName(name: string): ProviderType | undefined {
-  const providerType = Object.values(ProviderType).find(
-    (p: ProviderType) => p.toLowerCase() === name.toLowerCase()
-  );
-  return providerType;
+function getProviderByName(name: string): ProviderId | undefined {
+  if (!name) return undefined;
+  return name.toLowerCase() as ProviderId;
 }
 
 // Convert AgentSettings to ChatSessionOptionsWithRequiredSettings
@@ -221,13 +219,13 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
   console.log(chalk.green(`Welcome to ${PRODUCT_NAME} v${version}!`));
   showHelp();
 
-  const updatedMostRecentProvider = async (provider: ProviderType, modelId: string) => {
+  const updatedMostRecentProvider = async (provider: ProviderId, modelId: string) => {
     await agent.updateSettings({
       model: `${provider}:${modelId}`
     });
   };
 
-  let currentProvider: ProviderType | undefined;
+  let currentProvider: ProviderId | undefined;
   let currentModelId: string | undefined;
 
   function createLocalChatSession() {
@@ -292,13 +290,13 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
           if (args.length === 0) {
             const installedProviders = agent.getInstalledProviders();
             const availableProviders = agent.getAvailableProviders();
-            const nonInstalledProviders = availableProviders.filter((p: ProviderType) => !installedProviders.includes(p));
+            const nonInstalledProviders = availableProviders.filter((p: ProviderId) => !installedProviders.includes(p));
             
             if (installedProviders.length === 0) {
               console.log(chalk.cyan('No providers installed'));
             } else {
               console.log(chalk.cyan(`Providers installed and available:`));
-              installedProviders.forEach((provider: ProviderType) => {
+              installedProviders.forEach((provider: ProviderId) => {
                 const indicator = provider === currentProvider ? chalk.green('* ') : '  ';
                 const providerInfo = agent.getProviderInfo(provider);
                 console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo.name}`));
@@ -308,7 +306,7 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
               console.log(chalk.cyan('No providers available to install'));
             } else {
               console.log(chalk.cyan(`Providers available to install:`));
-              nonInstalledProviders.forEach((provider: ProviderType) => {
+              nonInstalledProviders.forEach((provider: ProviderId) => {
                 const providerInfo = agent.getProviderInfo(provider);
                 console.log(chalk.yellow(`  ${provider}: ${providerInfo.name}`));
               });

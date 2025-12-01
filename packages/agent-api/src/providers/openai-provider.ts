@@ -3,7 +3,7 @@ import { z } from 'zod';
 import OpenAI from 'openai';
 import { ChatCompletionMessageParam } from 'openai/resources/chat';
 
-import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
+import { ProviderModel, ProviderId, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
@@ -20,8 +20,9 @@ const OpenAIConfigSchema = z.object({
 type OpenAIConfig = z.infer<typeof OpenAIConfigSchema>;
 
 // Provider Descriptor
-export class OpenAIProviderDescriptor extends ProviderDescriptor {
-  readonly type = ProviderType.OpenAI;
+export default class OpenAIProviderDescriptor extends ProviderDescriptor {
+  readonly providerId = 'openai';
+  readonly iconPath = 'assets/providers/openai.png';
   
   readonly info: ProviderInfo = {
     name: "OpenAI",
@@ -38,6 +39,10 @@ export class OpenAIProviderDescriptor extends ProviderDescriptor {
   };
   
   readonly configSchema = OpenAIConfigSchema;
+  
+  constructor(packageRoot: string) {
+    super(packageRoot);
+  }
   
   getDefaultModelId(): string {
     return 'gpt-3.5-turbo';
@@ -74,12 +79,10 @@ export class OpenAIProviderDescriptor extends ProviderDescriptor {
   ): Promise<Provider> {
     // Cast to typed config for internal use
     const typedConfig = config as OpenAIConfig;
-    return new OpenAIProvider(modelName, agent, logger, typedConfig);
+    return new OpenAIProvider(modelName, agent, logger, typedConfig, this.providerId);
   }
 }
 
-// Export descriptor instance for registration
-export const openaiProviderDescriptor = new OpenAIProviderDescriptor();
 
 // Provider implementation
 class OpenAIProvider extends BaseProvider<OpenAIConfig> {
@@ -97,8 +100,8 @@ class OpenAIProvider extends BaseProvider<OpenAIConfig> {
     };
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger, config: OpenAIConfig) {
-    super(modelName, agent, logger, config);
+  constructor(modelName: string, agent: Agent, logger: Logger, config: OpenAIConfig, providerId: ProviderId) {
+    super(modelName, agent, logger, config, providerId);
     // config.OPENAI_API_KEY is typed and available
     this.client = new OpenAI({ apiKey: config.OPENAI_API_KEY });
     this.logger.info('OpenAI Provider initialized successfully');
@@ -112,7 +115,7 @@ class OpenAIProvider extends BaseProvider<OpenAIConfig> {
     );
     //this.logger.info('OpenAI models:', filteredModels);
     return filteredModels.map((model) => ({
-      provider: ProviderType.OpenAI,
+      provider: this.providerId,
       id: model.id,
       name: model.id,
       modelSource: "OpenAI"

@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
-import { ProviderType } from '../providers/types.js';
+import { ProviderId } from '../providers/types.js';
 import { Rule, RuleSchema } from '../types/rules.js';
 import { Reference, ReferenceSchema } from '../types/references.js';
 import { McpServerConfig, ServerToolDefaults, ToolConfig } from '../mcp/types.js';
@@ -20,8 +20,8 @@ export interface AgentStrategy {
   saveConfig(config: AgentConfig): Promise<void>;
 
   // Providers
-  loadProviders(): Promise<Record<ProviderType, Record<string, string>>>;
-  saveProviders(providers: Record<ProviderType, Record<string, string>>): Promise<void>;
+  loadProviders(): Promise<Record<ProviderId, Record<string, string>>>;
+  saveProviders(providers: Record<ProviderId, Record<string, string>>): Promise<void>;
   
   // MCP Servers
   loadMcpServers(): Promise<Record<string, McpServerConfig>>;
@@ -678,12 +678,12 @@ export class FileBasedAgentStrategy implements AgentStrategy {
     }
   }
 
-  async loadProviders(): Promise<Record<ProviderType, Record<string, string>>> {
+  async loadProviders(): Promise<Record<ProviderId, Record<string, string>>> {
     const config = await this.loadConfig();
     return config.providers || {};
   }
 
-  async saveProviders(providers: Record<ProviderType, Record<string, string>>): Promise<void> {
+  async saveProviders(providers: Record<ProviderId, Record<string, string>>): Promise<void> {
     const config = await this.loadConfig();
     config.providers = providers;
     await this.saveConfig(config);

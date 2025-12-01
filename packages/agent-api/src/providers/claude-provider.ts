@@ -3,7 +3,7 @@ import { z } from 'zod';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageParam } from '@anthropic-ai/sdk/resources/index';
 
-import { ModelReply, ProviderModel, ProviderType, ProviderInfo, Turn, Provider } from './types.js';
+import { ModelReply, ProviderModel, ProviderId, ProviderInfo, Turn, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
@@ -19,8 +19,9 @@ const ClaudeConfigSchema = z.object({
 type ClaudeConfig = z.infer<typeof ClaudeConfigSchema>;
 
 // Provider Descriptor
-export class ClaudeProviderDescriptor extends ProviderDescriptor {
-  readonly type = ProviderType.Claude;
+export default class ClaudeProviderDescriptor extends ProviderDescriptor {
+  readonly providerId = 'claude';
+  readonly iconPath = 'assets/providers/anthropic.png';
   
   readonly info: ProviderInfo = {
     name: "Anthropic Claude",
@@ -37,6 +38,10 @@ export class ClaudeProviderDescriptor extends ProviderDescriptor {
   };
   
   readonly configSchema = ClaudeConfigSchema;
+  
+  constructor(packageRoot: string) {
+    super(packageRoot);
+  }
   
   getDefaultModelId(): string {
     return 'claude-3-7-sonnet-20250219';
@@ -73,19 +78,17 @@ export class ClaudeProviderDescriptor extends ProviderDescriptor {
   ): Promise<Provider> {
     // Cast to typed config for internal use
     const typedConfig = config as ClaudeConfig;
-    return new ClaudeProvider(modelName, agent, logger, typedConfig);
+    return new ClaudeProvider(modelName, agent, logger, typedConfig, this.providerId);
   }
 }
 
-// Export descriptor instance for registration
-export const claudeProviderDescriptor = new ClaudeProviderDescriptor();
 
 // Provider implementation
 class ClaudeProvider extends BaseProvider<ClaudeConfig> {
   private client: Anthropic;
 
-  constructor(modelName: string, agent: Agent, logger: Logger, config: ClaudeConfig) {
-    super(modelName, agent, logger, config);
+  constructor(modelName: string, agent: Agent, logger: Logger, config: ClaudeConfig, providerId: ProviderId) {
+    super(modelName, agent, logger, config, providerId);
     // config.ANTHROPIC_API_KEY is typed and available
     this.client = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
     this.logger.info('Claude Provider initialized successfully');
@@ -95,7 +98,7 @@ class ClaudeProvider extends BaseProvider<ClaudeConfig> {
     const modelList = await this.client.models.list();
     //this.logger.info('Claude models:', modelList.data);
     const models: ProviderModel[] = modelList.data.map((model) => ({
-      provider: ProviderType.Claude,
+      provider: this.providerId,
       id: model.id!,
       name: model.display_name || model.id!,
       modelSource: 'Anthropic'

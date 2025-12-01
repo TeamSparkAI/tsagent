@@ -19,7 +19,7 @@ import { SupervisorFactory } from '../supervisors/supervisor-factory.js';
 import { SupervisionManager, Supervisor } from '../types/supervision.js';
 import { McpClient, MCPClientManager, McpServerEntry, McpServerConfig } from '../mcp/types.js';
 import { ProviderFactory } from '../providers/provider-factory.js';
-import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
+import { Provider, ProviderInfo, ProviderModel, ProviderId } from '../providers/types.js';
 import { Reference } from '../types/references.js';
 import { Rule } from '../types/rules.js';
 import { ChatSession, ChatSessionOptions } from '../types/chat.js';
@@ -401,17 +401,17 @@ export class AgentImpl  extends EventEmitter implements Agent {
   // Provider configuration methods
   //
 
-  getInstalledProviders(): ProviderType[] {
+  getInstalledProviders(): ProviderId[] {
     const providers = this.getAgentProviders();
-    return providers ? Object.keys(providers) as ProviderType[] : [];
+    return providers ? Object.keys(providers) as ProviderId[] : [];
   }
 
-  isProviderInstalled(provider: ProviderType): boolean {
+  isProviderInstalled(provider: ProviderId): boolean {
     const providers = this.getAgentProviders();
     return providers?.[provider] !== undefined;
   }
 
-  getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null {
+  getInstalledProviderConfig(provider: ProviderId): Record<string, string> | null {
     const providers = this.getAgentProviders();
     const rawConfig = providers?.[provider] || null;
     return rawConfig;
@@ -420,7 +420,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
   /**
    * Get resolved provider configuration with secrets resolved from their sources
    */
-  async getResolvedProviderConfig(provider: ProviderType): Promise<Record<string, string> | null> {
+  async getResolvedProviderConfig(provider: ProviderId): Promise<Record<string, string> | null> {
     const rawConfig = this.getInstalledProviderConfig(provider);
     if (!rawConfig) {
       return null;
@@ -434,11 +434,11 @@ export class AgentImpl  extends EventEmitter implements Agent {
     }
   }
 
-  async createProvider(provider: ProviderType, modelId?: string): Promise<Provider> {
+  async createProvider(provider: ProviderId, modelId?: string): Promise<Provider> {
     return await this.providerFactory.create(provider, modelId);
   }
 
-  async installProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
+  async installProvider(provider: ProviderId, config: Record<string, string>): Promise<void> {
     if (!this._agentData) {
       throw new Error('Cannot install provider: agent not loaded');
     }
@@ -458,7 +458,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this.emit('providersChanged');
   }
 
-  async updateProvider(provider: ProviderType, config: Record<string, string>): Promise<void> {
+  async updateProvider(provider: ProviderId, config: Record<string, string>): Promise<void> {
     const providers = this.getAgentProviders() || {};
     providers[provider] = config;
     await this.updateAgentProviders(providers);
@@ -467,7 +467,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
     this.emit('providersChanged');
   }
 
-  async uninstallProvider(provider: ProviderType): Promise<void> {
+  async uninstallProvider(provider: ProviderId): Promise<void> {
     const providers = this.getAgentProviders();
     if (!providers || !providers[provider]) return;
     
@@ -481,19 +481,19 @@ export class AgentImpl  extends EventEmitter implements Agent {
   // Provider factory methods
   //
 
-  async validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
+  async validateProviderConfiguration(provider: ProviderId, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }> {
     return this.providerFactory.validateConfiguration(provider, config);
   }
 
-  getAvailableProviders(): ProviderType[] {
+  getAvailableProviders(): ProviderId[] {
     return this.providerFactory.getAvailableProviders();
   }
 
-  getAvailableProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>> {
+  getAvailableProvidersInfo(): Partial<Record<ProviderId, ProviderInfo>> {
     return this.providerFactory.getProvidersInfo();
   }
 
-  getProviderInfo(providerType: ProviderType): ProviderInfo {
+  getProviderInfo(providerType: ProviderId): ProviderInfo {
     const info = this.providerFactory.getProviderInfo(providerType);
     if (!info) {
       throw new Error(`Unknown provider type: ${providerType}`);
@@ -501,7 +501,11 @@ export class AgentImpl  extends EventEmitter implements Agent {
     return info;
   }
 
-  async getProviderModels(providerType: ProviderType): Promise<ProviderModel[]> {
+  getProviderIcon(providerType: ProviderId): string | null {
+    return this.providerFactory.getProviderIcon(providerType);
+  }
+
+  async getProviderModels(providerType: ProviderId): Promise<ProviderModel[]> {
     const providerInstance = await this.providerFactory.create(providerType);
     return providerInstance.getModels();
   }

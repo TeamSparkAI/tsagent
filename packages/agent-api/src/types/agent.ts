@@ -3,7 +3,7 @@ import { Rule, RuleSchema } from '../types/rules.js';
 import { Reference, ReferenceSchema } from '../types/references.js';
 import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types.js';
 import { McpClient, McpServerEntry, McpServerConfig, McpServerConfigSchema } from '../mcp/types.js';
-import { Provider, ProviderInfo, ProviderModel, ProviderType } from '../providers/types.js';
+import { Provider, ProviderInfo, ProviderModel, ProviderId } from '../providers/types.js';
 import { ChatSession, ChatSessionOptions } from './chat.js';
 import { SupervisionManager, Supervisor, SupervisorConfig, SupervisorConfigSchema } from './supervision.js';
 import { ToolInputSchemaSchema } from './json-schema.js';
@@ -60,21 +60,22 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   deleteReference(name: string): Promise<boolean>;
 
   // Provider installion/configuraiton methods
-  getInstalledProviders(): ProviderType[];
-  isProviderInstalled(provider: ProviderType): boolean;
-  getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null;
-  getResolvedProviderConfig(provider: ProviderType): Promise<Record<string, string> | null>;
-  installProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
-  updateProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
-  uninstallProvider(provider: ProviderType): Promise<void>;
+  getInstalledProviders(): ProviderId[];
+  isProviderInstalled(provider: ProviderId): boolean;
+  getInstalledProviderConfig(provider: ProviderId): Record<string, string> | null;
+  getResolvedProviderConfig(provider: ProviderId): Promise<Record<string, string> | null>;
+  installProvider(provider: ProviderId, config: Record<string, string>): Promise<void>;
+  updateProvider(provider: ProviderId, config: Record<string, string>): Promise<void>;
+  uninstallProvider(provider: ProviderId): Promise<void>;
 
   // Provider factory methods
-  validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }>;
-  getAvailableProviders(): ProviderType[];
-  getAvailableProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>>;
-  createProvider(provider: ProviderType, modelId?: string): Promise<Provider>; // Not serializable
-  getProviderInfo(providerType: ProviderType): ProviderInfo;
-  getProviderModels(providerType: ProviderType): Promise<ProviderModel[]>;
+  validateProviderConfiguration(provider: ProviderId, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }>;
+  getAvailableProviders(): ProviderId[];
+  getAvailableProvidersInfo(): Partial<Record<ProviderId, ProviderInfo>>;
+  createProvider(provider: ProviderId, modelId?: string): Promise<Provider>; // Not serializable
+  getProviderInfo(providerType: ProviderId): ProviderInfo;
+  getProviderIcon(providerType: ProviderId): string | null;
+  getProviderModels(providerType: ProviderId): Promise<ProviderModel[]>;
 
   // McpServerManager methods 
   getAllMcpServers(): Promise<Record<string, McpServerEntry>>;
@@ -218,17 +219,17 @@ export const AgentConfigSchema = z.object({
 // Type inferred from schema
 export type AgentConfig = z.infer<typeof AgentConfigSchema>;
 
-function getProviderByName(name: string): ProviderType | undefined {
-  const providerType = Object.values(ProviderType).find(
-    p => p.toLowerCase() === name.toLowerCase()
-  );
-  return providerType;
+function getProviderByName(name: string): ProviderId | undefined {
+  // Cast to ProviderId since we're inside agent-api
+  // Validation will occur when the provider is actually used
+  if (!name) return undefined;
+  return name.toLowerCase() as ProviderId;
 }
 
 /**
  * Parse a model string in format "provider:modelId" into provider and model ID
  */
-export function parseModelString(modelString: string | undefined): { provider: ProviderType, modelId: string } | null {
+export function parseModelString(modelString: string | undefined): { provider: ProviderId, modelId: string } | null {
   if (!modelString) return null;
   const colonIndex = modelString.indexOf(':');
   if (colonIndex === -1) return null;
@@ -242,7 +243,7 @@ export function parseModelString(modelString: string | undefined): { provider: P
 /**
  * Format provider and model ID into "provider:modelId" string
  */
-export function formatModelString(provider: ProviderType, modelId: string): string {
+export function formatModelString(provider: ProviderId, modelId: string): string {
   return `${provider}:${modelId}`;
 }
 

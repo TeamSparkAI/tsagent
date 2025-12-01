@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import log from 'electron-log';
 import './ChatSettingsForm.css';
-import { SessionToolPermission, getDefaultSettings, ProviderType, parseModelString } from '@tsagent/core';
+import { SessionToolPermission, getDefaultSettings, ProviderId, parseModelString } from '@tsagent/core';
 import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
-import { providerLogos } from '../utils/providerLogos';
+import { ProviderIcon } from './ProviderIcon';
 import { getAgentModelDetails } from '../utils/agentModelCache';
 
 export interface ChatSettings {
@@ -54,9 +54,33 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   });
   const [agentModel, setAgentModel] = useState<string | undefined>();
   const [showModelPicker, setShowModelPicker] = useState(false);
-  const [modelProvider, setModelProvider] = useState<ProviderType | undefined>();
+  const [modelProvider, setModelProvider] = useState<ProviderId | undefined>();
+  const [modelProviderName, setModelProviderName] = useState<string | undefined>();
   const [modelId, setModelId] = useState<string | undefined>();
   const [modelName, setModelName] = useState<string | undefined>();
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!modelProvider) {
+      setModelProviderName(undefined);
+      return;
+    }
+    window.api.getProviderInfo(modelProvider)
+      .then(info => {
+        if (!cancelled) {
+          setModelProviderName(info.name);
+        }
+      })
+      .catch(error => {
+        log.error(`Failed to load provider info for ${modelProvider}:`, error);
+        if (!cancelled) {
+          setModelProviderName(modelProvider);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [modelProvider]);
 
   const loadAgentSettings = useCallback(async () => {
     try {
@@ -152,20 +176,6 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
     return settingsMatch;
   };
 
-  const getProviderDisplayName = (provider: ProviderType): string => {
-    switch (provider) {
-      case ProviderType.Test: return 'Test LLM';
-      case ProviderType.Gemini: return 'Gemini';
-      case ProviderType.Claude: return 'Claude';
-      case ProviderType.OpenAI: return 'OpenAI';
-      case ProviderType.Ollama: return 'Ollama';
-      case ProviderType.Bedrock: return 'Bedrock';
-      case ProviderType.Local: return 'Local';
-      case ProviderType.Docker: return 'Docker';
-      default: return provider;
-    }
-  };
-
   const handleRestoreDefaults = () => {
     onSettingsChange(agentSettings);
   };
@@ -239,10 +249,10 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
               borderRadius: '4px',
               border: '1px solid var(--border-color)'
             }}>
-              {modelProvider && modelProvider in providerLogos && (
-                <img 
-                  src={providerLogos[modelProvider]} 
-                  alt={modelProvider} 
+              {modelProvider && (
+                <ProviderIcon 
+                  providerType={modelProvider}
+                  alt={modelProvider}
                   style={{
                     width: '24px',
                     height: '24px',
@@ -257,7 +267,7 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
                 {modelProvider ? (
                   <>
                     <div style={{ fontWeight: 'bold', color: 'var(--text-primary)', fontSize: '14px' }}>
-                      {getProviderDisplayName(modelProvider)}
+                      {modelProviderName || modelProvider}
                     </div>
                     <div style={{ color: 'var(--text-secondary)', fontSize: '12px' }}>
                       {modelName || modelId || 'No model selected'}

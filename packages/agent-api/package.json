@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/core",
-  "version": "1.2.16",
+  "version": "1.3.1",
   "description": "Typescript API for agents",
   "type": "module",
   "exports": {
@@ -9,12 +9,13 @@
       "require": "./dist/cjs/index.js"
     },
     "./runtime": {
-      "import": "./dist/esm/runtime.js",
-      "require": "./dist/cjs/runtime.js"
+      "import": "./dist/esm/runtime-esm.js",
+      "require": "./dist/cjs/runtime-cjs.js"
     }
   },
   "files": [
-    "dist"
+    "dist",
+    "assets"
   ],
   "typesVersions": {
     "*": {

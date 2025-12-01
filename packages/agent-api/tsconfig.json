@@ -1,17 +1,10 @@
 {
-  "compilerOptions": {
-    "target": "ES2022",
-    "module": "CommonJS",
-    "moduleResolution": "node",
-    "outDir": "./dist",
-    "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "declaration": true,
-    "sourceMap": true
-  },
-  "include": ["src/**/*"],
-  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+  // Solution config for editor tooling.
+  // Actual builds use tsconfig.esm.json and tsconfig.cjs.json.
+  "files": [],
+  "references": [
+    { "path": "./tsconfig.esm.json" },
+    { "path": "./tsconfig.cjs.json" }
+  ]
 }
 

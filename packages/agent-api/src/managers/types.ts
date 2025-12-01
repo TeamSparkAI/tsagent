@@ -1,6 +1,6 @@
 import { Rule } from '../types/rules.js';
 import { Reference } from '../types/references.js';
-import { ProviderType, ProviderInfo, Provider, ProviderModel } from '../providers/types.js';
+import { ProviderId, ProviderInfo, Provider, ProviderModel } from '../providers/types.js';
 import { McpServerEntry } from '../mcp/types.js';
 import { ChatSession, ChatMessage, ChatSessionOptions } from '../types/chat.js';
 
@@ -29,19 +29,20 @@ export interface ReferencesManager {
 
 export interface ProvidersManager {
   // Provider installion/configuraiton methods
-  getInstalledProviders(): ProviderType[];
-  isProviderInstalled(provider: ProviderType): boolean;
-  getInstalledProviderConfig(provider: ProviderType): Record<string, string> | null;
-  installProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
-  updateProvider(provider: ProviderType, config: Record<string, string>): Promise<void>;
-  uninstallProvider(provider: ProviderType): Promise<void>;
+  getInstalledProviders(): ProviderId[];
+  isProviderInstalled(provider: ProviderId): boolean;
+  getInstalledProviderConfig(provider: ProviderId): Record<string, string> | null;
+  installProvider(provider: ProviderId, config: Record<string, string>): Promise<void>;
+  updateProvider(provider: ProviderId, config: Record<string, string>): Promise<void>;
+  uninstallProvider(provider: ProviderId): Promise<void>;
   // Provider factory methods
-  validateProviderConfiguration(provider: ProviderType, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }>;
-  getAvailableProviders(): ProviderType[];
-  getAvailableProvidersInfo(): Partial<Record<ProviderType, ProviderInfo>>;
-  createProvider(provider: ProviderType, modelId?: string): Promise<Provider>; // Not serializable
-  getProviderInfo(providerType: ProviderType): ProviderInfo;
-  getProviderModels(providerType: ProviderType): Promise<ProviderModel[]>;
+  validateProviderConfiguration(provider: ProviderId, config: Record<string, string>): Promise<{ isValid: boolean, error?: string }>;
+  getAvailableProviders(): ProviderId[];
+  getAvailableProvidersInfo(): Partial<Record<ProviderId, ProviderInfo>>;
+  createProvider(provider: ProviderId, modelId?: string): Promise<Provider>; // Not serializable
+  getProviderInfo(providerType: ProviderId): ProviderInfo;
+  getProviderIcon(providerType: ProviderId): string | null;
+  getProviderModels(providerType: ProviderId): Promise<ProviderModel[]>;
 }
 
 export interface McpServerManager {

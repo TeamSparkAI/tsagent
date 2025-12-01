@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { BedrockRuntimeClient, ConverseCommand, ConverseCommandInput, Message, Tool as BedrockTool, ConversationRole, ConverseCommandOutput, ContentBlock } from '@aws-sdk/client-bedrock-runtime';
 import { BedrockClient, ListFoundationModelsCommand, ListInferenceProfilesCommand, ListProvisionedModelThroughputsCommand } from '@aws-sdk/client-bedrock';
 
-import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
+import { ProviderModel, ProviderId, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
@@ -22,8 +22,9 @@ const BedrockConfigSchema = z.object({
 type BedrockConfig = z.infer<typeof BedrockConfigSchema>;
 
 // Provider Descriptor
-export class BedrockProviderDescriptor extends ProviderDescriptor {
-  readonly type = ProviderType.Bedrock;
+export default class BedrockProviderDescriptor extends ProviderDescriptor {
+  readonly providerId = 'bedrock';
+  readonly iconPath = 'assets/providers/bedrock.png';
   
   readonly info: ProviderInfo = {
     name: "Amazon Bedrock",
@@ -46,6 +47,10 @@ export class BedrockProviderDescriptor extends ProviderDescriptor {
   };
   
   readonly configSchema = BedrockConfigSchema;
+  
+  constructor(packageRoot: string) {
+    super(packageRoot);
+  }
   
   getDefaultModelId(): string {
     return 'amazon.nova-pro-v1:0';
@@ -89,19 +94,17 @@ export class BedrockProviderDescriptor extends ProviderDescriptor {
   ): Promise<Provider> {
     // Cast to typed config for internal use
     const typedConfig = config as BedrockConfig;
-    return new BedrockProvider(modelName, agent, logger, typedConfig);
+    return new BedrockProvider(modelName, agent, logger, typedConfig, this.providerId);
   }
 }
 
-// Export descriptor instance for registration
-export const bedrockProviderDescriptor = new BedrockProviderDescriptor();
 
 // Provider implementation
 class BedrockProvider extends BaseProvider<BedrockConfig> {
   private client: BedrockRuntimeClient;
 
-  constructor(modelName: string, agent: Agent, logger: Logger, config: BedrockConfig) {
-    super(modelName, agent, logger, config);
+  constructor(modelName: string, agent: Agent, logger: Logger, config: BedrockConfig, providerId: ProviderId) {
+    super(modelName, agent, logger, config, providerId);
     // config is typed and available
     this.client = new BedrockRuntimeClient({ 
       region: 'us-east-1', 
@@ -149,7 +152,7 @@ class BedrockProvider extends BaseProvider<BedrockConfig> {
 		) || [];
 		//this.logger.info('Bedrock filtered models:', filteredModels);
 		const models: ProviderModel[] = filteredModels.map(model => ({
-			provider: ProviderType.Bedrock,
+			provider: this.providerId,
 			id: model.modelId || '',
 			name: model.modelName || model.modelId!,
 			modelSource: model.providerName || 'Unknown'

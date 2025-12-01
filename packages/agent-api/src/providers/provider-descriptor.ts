@@ -1,13 +1,21 @@
 import { z } from 'zod';
+import path from 'path';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
-import { Provider, ProviderType, ProviderInfo } from './types.js';
+import { Provider, ProviderInfo } from './types.js';
 import { SecretManager } from '../secrets/secret-manager.js';
 
 export abstract class ProviderDescriptor {
-  abstract readonly type: ProviderType;
+  abstract readonly providerId: string;
   abstract readonly info: ProviderInfo;
   abstract readonly configSchema: z.ZodSchema<any>;
+  abstract readonly iconPath?: string;
+  
+  protected packageRoot: string;
+  
+  constructor(packageRoot: string) {
+    this.packageRoot = packageRoot;
+  }
   
   /**
    * Get provider information (name, description, config fields, etc.)
@@ -118,5 +126,15 @@ export abstract class ProviderDescriptor {
     logger: Logger,
     config: Record<string, string>
   ): Promise<Provider>;
+  
+  /**
+   * Get the fully resolved icon path/URL
+   * Returns a file:// URL that can be used by client applications
+   */
+  getIcon(): string | null {
+    if (!this.iconPath) return null;
+    const fullPath = path.join(this.packageRoot, this.iconPath);
+    return `file://${fullPath}`;
+  }
 }
 

@@ -2,7 +2,7 @@ import { Tool } from "../mcp/types.js";
 import { z } from 'zod';
 import { GoogleGenAI, Tool as GeminiTool, Content, Part, Type as SchemaType } from '@google/genai';
 
-import { ProviderModel, ProviderType, ProviderInfo, Provider } from './types.js';
+import { ProviderModel, ProviderId, ProviderInfo, Provider } from './types.js';
 import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ModelReply, Turn } from './types.js';
 import { Agent } from '../types/agent.js';
@@ -19,8 +19,9 @@ const GeminiConfigSchema = z.object({
 type GeminiConfig = z.infer<typeof GeminiConfigSchema>;
 
 // Provider Descriptor
-export class GeminiProviderDescriptor extends ProviderDescriptor {
-  readonly type = ProviderType.Gemini;
+export default class GeminiProviderDescriptor extends ProviderDescriptor {
+  readonly providerId = 'gemini';
+  readonly iconPath = 'assets/providers/gemini.png';
   
   readonly info: ProviderInfo = {
     name: "Google Gemini",
@@ -37,6 +38,10 @@ export class GeminiProviderDescriptor extends ProviderDescriptor {
   };
   
   readonly configSchema = GeminiConfigSchema;
+  
+  constructor(packageRoot: string) {
+    super(packageRoot);
+  }
   
   getDefaultModelId(): string {
     return 'gemini-2.0-flash';
@@ -76,12 +81,10 @@ export class GeminiProviderDescriptor extends ProviderDescriptor {
   ): Promise<Provider> {
     // Cast to typed config for internal use
     const typedConfig = config as GeminiConfig;
-    return new GeminiProvider(modelName, agent, logger, typedConfig);
+    return new GeminiProvider(modelName, agent, logger, typedConfig, this.providerId);
   }
 }
 
-// Export descriptor instance for registration
-export const geminiProviderDescriptor = new GeminiProviderDescriptor();
 
 // Provider implementation
 class GeminiProvider extends BaseProvider<GeminiConfig> {
@@ -159,8 +162,8 @@ class GeminiProvider extends BaseProvider<GeminiConfig> {
     };
   }
 
-  constructor(modelName: string, agent: Agent, logger: Logger, config: GeminiConfig) {
-    super(modelName, agent, logger, config);
+  constructor(modelName: string, agent: Agent, logger: Logger, config: GeminiConfig, providerId: ProviderId) {
+    super(modelName, agent, logger, config, providerId);
     // config.GOOGLE_API_KEY is typed and available
     this.genAI = new GoogleGenAI({ apiKey: config.GOOGLE_API_KEY });
     this.logger.info('Gemini Provider initialized successfully');
@@ -196,7 +199,7 @@ class GeminiProvider extends BaseProvider<GeminiConfig> {
     */
 
     const models: ProviderModel[] = filteredModels.map(model => ({
-      provider: ProviderType.Gemini,
+      provider: this.providerId,
       id: model.name.replace('models/', ''), // Extract just the model name from the full path
       name: model.displayName,
       description: model.description,

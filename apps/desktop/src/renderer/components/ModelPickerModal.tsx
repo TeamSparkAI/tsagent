@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ProviderType, parseModelString, ProviderModel } from '@tsagent/core';
+import { ProviderId, parseModelString, ProviderModel } from '@tsagent/core';
 import { ModelPickerPanel } from './ModelPickerPanel';
 import './ModelPickerModal.css';
 
 export interface ModelDetails {
-  provider: ProviderType;
+  provider: ProviderId;
   modelId: string;
   modelName: string;
   model?: ProviderModel;
@@ -23,7 +23,7 @@ export const ModelPickerModal: React.FC<ModelPickerModalProps> = ({
   onCancel,
   isOpen
 }) => {
-  const [initialProvider, setInitialProvider] = useState<ProviderType | undefined>();
+  const [initialProvider, setInitialProvider] = useState<ProviderId | undefined>();
   const [initialModelId, setInitialModelId] = useState<string>('');
 
   // Parse currentModel to extract provider and modelId for initial selection
@@ -43,7 +43,7 @@ export const ModelPickerModal: React.FC<ModelPickerModalProps> = ({
     }
   }, [currentModel, isOpen]);
 
-  const handleModelSelect = (provider: ProviderType, modelId: string, model: ProviderModel) => {
+  const handleModelSelect = (provider: ProviderId, modelId: string, model: ProviderModel) => {
     // Auto-apply when model is selected (panel's Apply button behavior)
     const modelString = `${provider}:${modelId}`;
     const details: ModelDetails = {

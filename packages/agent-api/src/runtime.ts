@@ -1,7 +1,7 @@
 // Runtime exports (not pure JS, requires node.js runtime)
 
 import type { Logger } from './types/common.js';
-import type { AgentConfig, Agent, AgentMetadata } from './types/agent.js';
+import type { AgentConfig, Agent } from './types/agent.js';
 import { FileBasedAgentFactory } from './core/agent-api.js';
 import { FileBasedAgentStrategy } from './core/agent-strategy.js';
 

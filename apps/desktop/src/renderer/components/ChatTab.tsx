@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { ChatAPI } from '../api/ChatAPI';
-import { ProviderType } from '@tsagent/core';
+import { ProviderId } from '@tsagent/core';
 import remarkGfm from 'remark-gfm';
 import { TabProps } from '../types/TabProps';
 import { RendererChatMessage } from '../types/ChatMessage';
@@ -11,7 +11,7 @@ import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
 import { formatModelString, parseModelString } from '@tsagent/core';
 import type { ProviderModel as ILLMModel } from '@tsagent/core';
 import { getDefaultSettings } from '@tsagent/core';
-import { providerLogos } from '../utils/providerLogos';
+import { ProviderIcon } from './ProviderIcon';
 import { getAgentModelDetails, setCachedAgentModel } from '../utils/agentModelCache';
 import './ChatTab.css';
 import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
@@ -25,7 +25,7 @@ import './Modal.css';
 
 interface ClientChatState {
   messages: (RendererChatMessage & { modelReply?: ModelReply })[];
-  selectedModel?: ProviderType;
+  selectedModel?: ProviderId;
   selectedModelName?: string;
   currentModelId?: string;
   pendingToolCalls?: ToolCallRequest[];
@@ -46,7 +46,7 @@ interface ChatTabProps extends TabProps {
   initialMessage?: string;
   readOnly?: boolean;
   initialModel?: {
-    provider: ProviderType;
+    provider: ProviderId;
     id: string;
   };
 }
@@ -81,6 +81,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const [showToolsModal, setShowToolsModal] = useState(false);
   const [showRequestContextModal, setShowRequestContextModal] = useState(false);
   const [selectedRequestContext, setSelectedRequestContext] = useState<RequestContext | undefined>(undefined);
+  const [currentProviderName, setCurrentProviderName] = useState<string | null>(null);
   const [isNewSession, setIsNewSession] = useState(true);
   const [expandedToolServers, setExpandedToolServers] = useState<Set<string>>(new Set());
   const [chatSettings, setChatSettings] = useState<ChatSettings>(() => {
@@ -167,6 +168,29 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   }, [hasPendingDispositions]);
 
   useEffect(() => {
+    let cancelled = false;
+    if (!chatState.selectedModel) {
+      setCurrentProviderName(null);
+      return;
+    }
+    window.api.getProviderInfo(chatState.selectedModel)
+      .then(info => {
+        if (!cancelled) {
+          setCurrentProviderName(info.name);
+        }
+      })
+      .catch(error => {
+        log.error(`Failed to load provider info for ${chatState.selectedModel}:`, error);
+        if (!cancelled) {
+          setCurrentProviderName(chatState.selectedModel ? String(chatState.selectedModel) : null);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [chatState.selectedModel]);
+
+  useEffect(() => {
     // This happens when the tab is first mounted
     if (!chatApiRef.current) {
       log.info(`Tab ${id} is mounted, initializing chat API`);
@@ -174,7 +198,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
       // Load the chat state
       const initModel = async () => {
         try {
-          let modelProvider: ProviderType | undefined = undefined;
+          let modelProvider: ProviderId | undefined = undefined;
           let modelId: string | undefined = undefined;
 
           // Check for initial model prop first
@@ -628,7 +652,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
     }
   };
 
-  const handleModelChange = async (model: ProviderType, modelId: string, modelName?: string) => {
+  const handleModelChange = async (model: ProviderId, modelId: string, modelName?: string) => {
     try {
       if (chatApiRef.current) {
         const success = await chatApiRef.current.switchModel(model, modelId);
@@ -1039,26 +1063,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
         <div id="model-display">
           {chatState.selectedModel ? (
             <>
-              {chatState.selectedModel in providerLogos && (
-                <img 
-                  src={providerLogos[chatState.selectedModel]} 
-                  alt={chatState.selectedModel} 
-                  className="model-logo"
-                />
-              )}
+              <ProviderIcon 
+                providerType={chatState.selectedModel}
+                className="model-logo"
+                alt={chatState.selectedModel}
+              />
               <div className="model-info">
                 <span id="model-provider">
-                  {(() => {
-                    switch (chatState.selectedModel) {
-                      case ProviderType.Test: return 'Test LLM';
-                      case ProviderType.Gemini: return 'Gemini';
-                      case ProviderType.Claude: return 'Claude';
-                      case ProviderType.OpenAI: return 'OpenAI';
-                      case ProviderType.Ollama: return 'Ollama';
-                      case ProviderType.Bedrock: return 'Bedrock';
-                      default: return chatState.selectedModel;
-                    }
-                  })()}
+                  {currentProviderName || chatState.selectedModel}
                 </span>
                 <span id="model-name">
                   {chatState.selectedModelName}

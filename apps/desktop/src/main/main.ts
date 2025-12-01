@@ -1,6 +1,6 @@
 import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
 import * as path from 'path';
-import { ProviderType as LLMType, ProviderType, determineServerType } from '@tsagent/core';
+import { ProviderId as LLMType, ProviderId, determineServerType } from '@tsagent/core';
 import log from 'electron-log';
 import * as fs from 'fs';
 import { McpServerEntry } from '@tsagent/core';
@@ -588,7 +588,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       if (!session) {
         throw new Error(`No chat session found for tab ${tabId}`);
       }
-      // !!! This is ugly (rendered code can't import ProviderType from @tsagent/core)
+      // !!! This is ugly (rendered code can't import ProviderId from @tsagent/core)
       const result = session.switchModel(modelType as any, modelId);
       return { 
         success: true,
@@ -1193,7 +1193,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.warn(`Agent not found for window: ${windowId}`);
       return {};
     }
-    const providerType = provider as ProviderType;
+    const providerType = provider as ProviderId;
     return agent.getProviderInfo(providerType);
   });
 
@@ -1208,6 +1208,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return agent.getAvailableProviders();
   });
 
+  ipcMain.handle('llm:get-provider-icon', (event, provider: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return null;
+    }
+    const providerType = provider as ProviderId;
+    return agent.getProviderIcon(providerType);
+  });
+
   ipcMain.handle('llm:validate-provider-config', async (event, provider: string, config: Record<string, string>) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
@@ -1217,7 +1229,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { isValid: false, error: 'Agent not found' };
     }
 
-    const providerType = provider as ProviderType;
+    const providerType = provider as ProviderId;
     return agent.validateProviderConfiguration(providerType, config);
   });
 
@@ -1229,7 +1241,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.warn(`Agent not found for window: ${windowId}`);
       return null;
     }
-    const providerType = provider as ProviderType;
+    const providerType = provider as ProviderId;
     const config = agent.getInstalledProviderConfig(providerType);
     return config?.[key] || null;
   });
@@ -1243,7 +1255,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return false;
     }
     try {
-      const providerType = provider as ProviderType;
+      const providerType = provider as ProviderId;
       const currentConfig = agent.getInstalledProviderConfig(providerType) || {};
       const newConfig = { ...currentConfig, [key]: value };
       await agent.updateProvider(providerType, newConfig);
