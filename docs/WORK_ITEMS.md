@@ -160,41 +160,7 @@ We should add some error logging or error response in the case that we encounter
 
 ### MCP Server Config
 
-We have several defaults with per-tool overrides where we repeat the tool list (at least for overriden items):
-
-    toolPermissionRequired:
-      serverDefault: false
-      tools:
-        read_text_file: true
-    toolInclude:
-      serverDefault: agent
-      tools:
-        directory_tree: manual
-    toolEmbeddings:
-      tools:
-        read_file:
-          embeddings: # Delete embeddings when editing item, they will be automatically regenerated
-            - [ 0.042216427624225616, 0.06117666885256767, -0.030965721234679222, 0.024182630702853203, ... ]
-          hash: f023f4d60f744bc3bc0f850ee68b2351784dc5a2176dda925a47493c146a1fc0
-
-A better design (for the serialized file) could be:
-
-    serverToolDefaults:
-      permissionRequired: false
-      include: agent
-    tools:
-      read_file:
-        permissionRequired: true
-        include: manual
-        embeddings: # Delete embeddings when editing item, they will be automatically regenerated
-          - [ 0.042216427624225616, 0.06117666885256767, -0.030965721234679222, 0.024182630702853203, ... ]
-        hash: f023f4d60f744bc3bc0f850ee68b2351784dc5a2176dda925a47493c146a1fc0
-
-As with the current implementation, we would only write a value for a tool when it is not the server tool default (when it overrides the default)
-- The abscense of a value implies "use default".  This keeps the serialized config minimal and avoids having a bunch of explicit use default values.
-
 We should implement registry support and metadata-driven config (via ServerCard?) before we lock the mcpServers config down
-- But we can still safely proceed with the above tool config refactoring
 
 ### Agent Serialization / Strategies
 
