@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { TabProps } from '../types/TabProps';
 import type { AgentWindow } from '../../main/agents-manager';
 import { AgentMetadata, AgentMode } from '@tsagent/core';
@@ -16,29 +16,48 @@ const AgentInfo: React.FC<AgentInfoProps> = ({ agentPath, showPath = true }) => 
   const [actualPath, setActualPath] = useState<string>(agentPath);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const loadMetadata = async () => {
-      try {
-        setIsLoading(true);
-        const result = await window.api.getAgentMetadataByPath(agentPath);
-        if (result) {
-          setMetadata(result.metadata);
-          setActualPath(result.path); // Use actual path after migration
-        } else {
-          setMetadata(null);
-          setActualPath(agentPath);
-        }
-      } catch (err) {
-        log.error('Error loading agent metadata:', err);
+  const loadMetadata = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const result = await window.api.getAgentMetadataByPath(agentPath);
+      if (result) {
+        setMetadata(result.metadata);
+        setActualPath(result.path); // Use actual path after migration
+      } else {
         setMetadata(null);
         setActualPath(agentPath);
-      } finally {
-        setIsLoading(false);
       }
-    };
-
-    loadMetadata();
+    } catch (err) {
+      log.error('Error loading agent metadata:', err);
+      setMetadata(null);
+      setActualPath(agentPath);
+    } finally {
+      setIsLoading(false);
+    }
   }, [agentPath]);
+
+  useEffect(() => {
+    loadMetadata();
+  }, [loadMetadata]);
+
+  useEffect(() => {
+    // Refresh metadata when a metadata-changed event fires for this agent
+    const listener = window.api.onMetadataChanged(async (data) => {
+      try {
+        if (!data || !data.agentPath) return;
+        // If the changed agent matches this component's agentPath (or resolved path), reload
+        if (data.agentPath === agentPath || data.agentPath === actualPath) {
+          await loadMetadata();
+        }
+      } catch (error) {
+        log.error('[AGENT TAB] Error handling metadata-changed event in AgentInfo:', error);
+      }
+    });
+
+    return () => {
+      window.api.offMetadataChanged(listener);
+    };
+  }, [agentPath, actualPath, loadMetadata]);
 
   if (isLoading) {
     return (
@@ -160,13 +179,27 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
     
     // Set up event listeners
     log.info('[AGENT TAB] Setting up event listeners');
-    const listener = window.api.onAgentSwitched(handleAgentSwitched);
+    const switchedListener = window.api.onAgentSwitched(handleAgentSwitched);
+
+    // Also listen for agent deletions so we can refresh lists in all windows
+    const deletedListener = window.api.onAgentDeleted(async (_data: { agentPath: string }) => {
+      try {
+        log.info('[AGENT TAB] agent-deleted event received, refreshing agent data');
+        await loadData();
+      } catch (error) {
+        log.error('[AGENT TAB] Error handling agent-deleted event:', error);
+      }
+    });
     
     // Clean up the event listeners when the component unmounts
     return () => {
-      if (listener) {
-        log.info('[AGENT TAB] Cleaning up event listeners');
-        window.api.offAgentSwitched(listener);
+      if (switchedListener) {
+        log.info('[AGENT TAB] Cleaning up agent-switched listener');
+        window.api.offAgentSwitched(switchedListener);
+      }
+      if (deletedListener) {
+        log.info('[AGENT TAB] Cleaning up agent-deleted listener');
+        window.api.offAgentDeleted(deletedListener);
       }
     };
   }, []);
@@ -178,11 +211,11 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
       // Show the open dialog
       const result = await window.api.showOpenDialog({
         properties: ['openFile'],
-        filters: [{ name: 'Agent Files', extensions: ['json'] }],
+        filters: [{ name: 'Agent Files', extensions: ['yaml', 'yml', 'json'] }],
         title: 'Select Agent File'
       });
       
-      if (result.canceled || result.filePaths.length === 0) {
+      if (result.canceled || !result.filePaths || result.filePaths.length === 0) {
         log.info(`[AGENT OPEN] Dialog canceled or no file selected`);
         return;
       }
@@ -217,19 +250,32 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
     try {
       log.info(`[AGENT CREATE] handlecreateAgent called`);
       
-      // Show the open dialog
-      const result = await window.api.showOpenDialog({
-        properties: ['openDirectory', 'createDirectory'],
-        title: 'Select Directory for New Agent'
+      // Show the save dialog to create a new agent file
+      const result = await window.api.showSaveDialog({
+        title: 'Create New Agent',
+        defaultPath: 'tsagent.yaml',
+        filters: [
+          { name: 'Agent Files', extensions: ['yaml', 'yml'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        buttonLabel: 'Create'
       });
       
-      if (result.canceled || result.filePaths.length === 0) {
-        log.info(`[AGENT CREATE] Dialog canceled or no directory selected`);
+      if (result.canceled || !result.filePath) {
+        log.info(`[AGENT CREATE] Dialog canceled or no file path selected`);
         return;
       }
       
-      const agentPath = result.filePaths[0];
+      let agentPath = result.filePath;
       log.info(`[AGENT CREATE] Selected agent path: ${agentPath}`);
+
+      // Ensure the file has a valid extension - add .yaml if missing
+      const lowerPath = agentPath.toLowerCase();
+      if (!lowerPath.endsWith('.yaml') && !lowerPath.endsWith('.yml')) {
+        // No extension provided, add .yaml
+        agentPath = agentPath + '.yaml';
+        log.info(`[AGENT CREATE] Added .yaml extension: ${agentPath}`);
+      }
 
       // Check if agent already exists at the target location
       const agentExists = await window.api.agentExists(agentPath);
@@ -293,22 +339,53 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
         return;
       }
 
-      // Show the open dialog
-      const dialogResult = await window.api.showOpenDialog({
-        properties: ['openDirectory', 'createDirectory'],
-        title: 'Select Directory for Cloned Agent'
+      const sourcePath = currentAgent.agentPath;
+
+      // Ask main process for a sensible default clone path in the same directory
+      const defaultPath = await window.api.getCloneDefaultPath(sourcePath);
+      log.info(`[AGENT CLONE] Default clone path from main: ${defaultPath}`);
+
+      const dialogResult = await window.api.showSaveDialog({
+        title: 'Clone Agent',
+        defaultPath,
+        filters: [
+          { name: 'Agent Files', extensions: ['yaml', 'yml'] },
+          { name: 'All Files', extensions: ['*'] }
+        ],
+        buttonLabel: 'Clone'
       });
-      
-      if (dialogResult.canceled || dialogResult.filePaths.length === 0) {
-        log.info(`[AGENT CLONE] Dialog canceled or no directory selected`);
+
+      if (dialogResult.canceled || !dialogResult.filePath) {
+        log.info(`[AGENT CLONE] Dialog canceled or no file path selected`);
         return;
       }
-      
-      const targetPath = dialogResult.filePaths[0];
+
+      let targetPath = dialogResult.filePath;
       log.info(`[AGENT CLONE] Selected target path: ${targetPath}`);
-      
+
+      // Ensure we have a YAML extension
+      const lowerTarget = targetPath.toLowerCase();
+      if (!lowerTarget.endsWith('.yaml') && !lowerTarget.endsWith('.yml')) {
+        targetPath = `${targetPath}.yaml`;
+        log.info(`[AGENT CLONE] Added .yaml extension to target path: ${targetPath}`);
+      }
+
+      // Check if target already exists
+      const exists = await window.api.agentExists(targetPath);
+      if (exists) {
+        log.error(`[AGENT CLONE] Target agent already exists at: ${targetPath}`);
+        await window.api.showMessageBox({
+          type: 'error',
+          title: 'Clone Failed',
+          message: 'Failed to clone agent',
+          detail: 'An agent already exists at the selected location',
+          buttons: ['OK']
+        });
+        return;
+      }
+
       // Clone the agent
-      const cloneResult = await window.api.cloneAgent(currentAgent.agentPath, targetPath);
+      const cloneResult = await window.api.cloneAgent(sourcePath, targetPath);
       if (!cloneResult.success) {
         log.error(`[AGENT CLONE] Failed to clone agent: ${cloneResult.error}`);
         await window.api.showMessageBox({
@@ -320,6 +397,10 @@ export const AgentTab: React.FC<AgentTabProps> = ({ id, name, activeTabId }) => 
         });
         return;
       }
+
+      // Optionally refresh data so the new clone appears in recent agents
+      log.info('[AGENT CLONE] Clone succeeded, refreshing agent data');
+      await loadData();
     } catch (error) {
       log.error(`[AGENT CLONE] Error in handlecloneAgent:`, error);
       // Show error dialog to user

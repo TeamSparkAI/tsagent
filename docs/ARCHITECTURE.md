@@ -10,7 +10,8 @@ TsAgent is a TypeScript-first platform for building, testing, running, and orche
 - **Multi-Provider Support**: Work seamlessly with all major LLM providers (OpenAI, Anthropic, Google, AWS Bedrock, Ollama, local models)
 - **Context Management**: Provide persistent knowledge through rules (prompt guidance) and references (memory, ground truth)
 - **Tool Integration**: Connect thousands of tools via Model Context Protocol (MCP) support
-- **Agent Orchestration**: Chain agents together using the A2A (Agent-to-Agent) protocol
+- **Agent Orchestration*
+*: Chain agents together using the A2A (Agent-to-Agent) protocol
 - **Production Ready**: Deploy agents as HTTP endpoints, ACP servers for code editors, or embed them in any TypeScript/JavaScript application
 
 ## Platform Components

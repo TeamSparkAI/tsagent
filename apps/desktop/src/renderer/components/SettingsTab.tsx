@@ -1751,6 +1751,50 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
             Cancel Changes
           </button>
         )}
+        <button 
+          className="btn btn-danger"
+          onClick={async () => {
+            if (!metadata) return;
+            
+            const confirmed = await window.api.showMessageBox({
+              type: 'warning',
+              title: 'Delete Agent',
+              message: `Are you sure you want to delete "${metadata.name}"?`,
+              detail: 'This action cannot be undone. The agent will be moved to trash.',
+              buttons: ['Cancel', 'Delete'],
+              defaultId: 0,
+              cancelId: 0
+            });
+
+            if (confirmed.response === 1) {
+              try {
+                const result = await window.api.deleteAgent();
+                if (!result.success) {
+                  await window.api.showMessageBox({
+                    type: 'error',
+                    title: 'Delete Failed',
+                    message: 'Failed to delete agent',
+                    detail: result.error || 'Unknown error',
+                    buttons: ['OK']
+                  });
+                }
+              } catch (error) {
+                log.error('Error deleting agent:', error);
+                await window.api.showMessageBox({
+                  type: 'error',
+                  title: 'Delete Failed',
+                  message: 'Failed to delete agent',
+                  detail: error instanceof Error ? error.message : String(error),
+                  buttons: ['OK']
+                });
+              }
+            }
+          }}
+          disabled={isSaving}
+          style={{ marginLeft: 'auto' }}
+        >
+          Delete Agent
+        </button>
       </div>
     </div>
   );

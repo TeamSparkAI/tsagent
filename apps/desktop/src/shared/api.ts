@@ -5,7 +5,7 @@ import { AgentSettings } from '@tsagent/core';
 import { AgentWindow } from '../main/agents-manager';
 import { ProviderId } from '@tsagent/core';
 import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
-import { OpenDialogOptions, MessageBoxOptions } from 'electron';
+import { OpenDialogOptions, SaveDialogOptions, MessageBoxOptions } from 'electron';
 
 export interface API {
   // Chat session management
@@ -93,7 +93,8 @@ export interface API {
   offSettingsChanged: (listener: () => void) => void;
 
   // Agentmethods
-  showOpenDialog: (options: OpenDialogOptions) => Promise<{ canceled: boolean; filePaths: string[] }>;
+  showOpenDialog: (options: OpenDialogOptions) => Promise<{ canceled: boolean; filePath?: string; filePaths?: string[] }>;
+  showSaveDialog: (options: SaveDialogOptions) => Promise<{ canceled: boolean; filePath?: string }>;
   showMessageBox: (options: MessageBoxOptions) => Promise<{ response: number }>;
   getActiveWindows: () => Promise<AgentWindow[]>;
   getRecentAgents: () => Promise<string[]>;
@@ -105,9 +106,15 @@ export interface API {
   focusWindow: (windowId: string) => Promise<boolean>;
   getCurrentWindowId: () => Promise<string>;
   cloneAgent: (sourcePath: string, targetPath: string) => Promise<{ success: boolean; error?: string; windowId?: string }>;
+   getCloneDefaultPath: (sourcePath: string) => Promise<string>;
   agentExists: (path: string) => Promise<boolean>;
+  deleteAgent: () => Promise<{ success: boolean; error?: string }>;
   onAgentSwitched: (callback: (data: { windowId: string, agentPath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
   offAgentSwitched: (listener: (event: any, data: any) => void) => void;
+  onMetadataChanged: (callback: (data: { agentPath: string; metadata?: { name: string } }) => void) => (event: any, data: any) => void;
+  offMetadataChanged: (listener: (event: any, data: any) => void) => void;
+  onAgentDeleted: (callback: (data: { agentPath: string }) => void) => (event: any, data: any) => void;
+  offAgentDeleted: (listener: (event: any, data: any) => void) => void;
   onServerConfigChanged: (callback: (data: { action: string, serverName: string }) => void) => (event: any, data: any) => void;
   offServerConfigChanged: (listener: (event: any, data: any) => void) => void;
 

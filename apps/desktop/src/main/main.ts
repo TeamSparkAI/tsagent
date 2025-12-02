@@ -1,11 +1,11 @@
-import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog, MenuItemConstructorOptions, OpenDialogOptions, MessageBoxOptions, SaveDialogOptions } from 'electron';
 import * as path from 'path';
 import { ProviderId as LLMType, ProviderId, determineServerType } from '@tsagent/core';
 import log from 'electron-log';
 import * as fs from 'fs';
 import { McpServerEntry } from '@tsagent/core';
 import { AgentsManager } from './agents-manager';
-import { agentExists, loadAgent, loadAndInitializeAgent, cloneAgent } from '@tsagent/core/runtime';
+import { agentExists, loadAgent, loadAndInitializeAgent, cloneAgent, createAgent } from '@tsagent/core/runtime';
 import { Agent } from '@tsagent/core';
 import { ElectronLoggerAdapter } from './logger-adapter';
 import { SessionToolPermission, ChatMessage, AgentSettings } from '@tsagent/core';
@@ -233,13 +233,12 @@ async function startApp() {
     if (agentPath) {
       log.info(`Opening agent from command line: ${agentPath}`);
       const logger = new ElectronLoggerAdapter();
-      const agent = await loadAndInitializeAgent(agentPath, logger);
-      if (!agent) {
-        log.error(`Failed to find agent at path: ${agentPath}`);
-        // !!! Ideally we should show the user this message in the UX
-        mainWindow = await createWindow();
-      } else {
+      try {
+        const agent = await loadAndInitializeAgent(agentPath, logger);
         mainWindow = await createWindow(agent);
+      } catch (error) {
+        log.error(`Failed to load agent at path: ${agentPath}`, error);
+        mainWindow = await createWindow();
       }
     } else {
       // Else if there is a most recently used agent, open that 
@@ -247,13 +246,12 @@ async function startApp() {
       if (mostRecentlyUsedAgent.length > 0) {
         log.info(`Opening most recently used agent: ${mostRecentlyUsedAgent[0]}`);
         const logger = new ElectronLoggerAdapter();
-        const agent = await loadAndInitializeAgent(mostRecentlyUsedAgent[0], logger);
-        if (!agent) {
-          log.error(`Failed to find most recently used agent: `, mostRecentlyUsedAgent[0]);
-          // !!! Ideally we should show the user this message in the UX
-          mainWindow = await createWindow();
-        } else {
+        try {
+          const agent = await loadAndInitializeAgent(mostRecentlyUsedAgent[0], logger);
           mainWindow = await createWindow(agent);
+        } catch (error) {
+          log.error(`Failed to load most recently used agent at path: ${mostRecentlyUsedAgent[0]}`, error);
+          mainWindow = await createWindow();
         }
       } else {
         log.info('No most recently used agent, creating new window with no agent');
@@ -822,6 +820,18 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.info('[MAIN PROCESS] updateAgentMetadata called with:', metadata);
       await agent.updateMetadata(metadata);
       log.info('Agent metadata updated successfully');
+
+      // After updating metadata, notify all windows so they can refresh
+      const updatedMetadata = agent.getMetadata();
+      const agentPath = agent.path;
+      log.info('[MAIN PROCESS] Broadcasting metadata-changed event for agent:', agentPath);
+      BrowserWindow.getAllWindows().forEach(win => {
+        win.webContents.send('metadata-changed', {
+          agentPath,
+          metadata: updatedMetadata
+        });
+      });
+
       return { success: true };
     } catch (err) {
       log.error('Error updating agent metadata:', err);
@@ -1005,6 +1015,10 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     return dialog.showOpenDialog(options);
   });
 
+  ipcMain.handle('dialog:showSaveDialog', (_, options: SaveDialogOptions) => {
+    return dialog.showSaveDialog(options);
+  });
+
   ipcMain.handle('dialog:showMessageBox', (_, options: MessageBoxOptions) => {
     return dialog.showMessageBox(options);
   });
@@ -1030,6 +1044,48 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
 
   ipcMain.handle('agent:agentExists', async (_, path: string) => {
     return await agentExists(path);
+  });
+
+  ipcMain.handle('agent:getCloneDefaultPath', async (_, sourcePath: string) => {
+    try {
+      log.info('[AGENT CLONE] Calculating default clone path for:', sourcePath);
+      const dir = path.dirname(sourcePath);
+      const ext = path.extname(sourcePath) || '.yaml';
+      const baseName = path.basename(sourcePath, ext);
+
+      // Determine initial candidate name with numeric suffix rules
+      const match = baseName.match(/(.*?)(\d+)$/);
+      let namePrefix: string;
+      let suffixNumber: number;
+
+      if (match) {
+        namePrefix = match[1];
+        suffixNumber = parseInt(match[2], 10) + 1;
+      } else {
+        namePrefix = baseName;
+        suffixNumber = 1;
+      }
+
+      let candidateName = `${namePrefix}${suffixNumber}`;
+      let candidatePath = path.join(dir, candidateName + ext);
+
+      // Ensure uniqueness by incrementing until we find a non-existing path
+      while (fs.existsSync(candidatePath)) {
+        suffixNumber += 1;
+        candidateName = `${namePrefix}${suffixNumber}`;
+        candidatePath = path.join(dir, candidateName + ext);
+      }
+
+      log.info('[AGENT CLONE] Default clone path calculated as:', candidatePath);
+      return candidatePath;
+    } catch (error) {
+      log.error('[AGENT CLONE] Error calculating default clone path:', error);
+      // Fallback to original path with a "-copy" suffix if something goes wrong
+      const dir = path.dirname(sourcePath);
+      const ext = path.extname(sourcePath) || '.yaml';
+      const baseName = path.basename(sourcePath, ext);
+      return path.join(dir, `${baseName}-copy${ext}`);
+    }
   });
 
   // Open the agent at filePath in the current window, or if no current window, create a new one
@@ -1089,9 +1145,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     const windowIdStr = windowId.toString();
 
     const logger = new ElectronLoggerAdapter();
+    // Create the agent file
+    await createAgent(agentPath, logger);
+    // Load and initialize the newly created agent
     const agent = await loadAndInitializeAgent(agentPath, logger);
 
-    log.info(`[AGENT SWITCH] Agent found: ${agent.path}`);
+    log.info(`[AGENT CREATE] Agent created and initialized: ${agent.path}`);
     await agentsManager.switchAgent(windowIdStr, agent);
     return true;
   });
@@ -1101,6 +1160,9 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
   ipcMain.handle('agent:createAgentInNewWindow', async (_, agentPath: string) => {
     log.info(`[AGENT CREATE] IPC handler called for agent:createAgentInNewWindow ${agentPath}`);
     const logger = new ElectronLoggerAdapter();
+    // Create the agent file
+    await createAgent(agentPath, logger);
+    // Load and initialize the newly created agent
     const agent = await loadAndInitializeAgent(agentPath, logger);
     const window = await createWindow(agent);
     return window.id;
@@ -1158,6 +1220,52 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     } catch (error) {
       log.error(`[AGENT SWITCH] Error in IPC handler switching window ${windowId} to agent ${agentPath}:`, error);
       return false;
+    }
+  });
+
+  ipcMain.handle('agent:deleteAgent', async (event) => {
+    try {
+      const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+      if (!windowId) {
+        log.error('[AGENT DELETE] No window ID found');
+        return { success: false, error: 'No window ID found' };
+      }
+
+      const agent = getAgentForWindow(windowId);
+      if (!agent) {
+        log.error(`[AGENT DELETE] No agent found for window: ${windowId}`);
+        return { success: false, error: 'No agent found for this window' };
+      }
+
+      const agentPath = agent.path;
+      log.info(`[AGENT DELETE] Deleting agent at path: ${agentPath}`);
+
+      // Delete the agent (this will move it to trash)
+      await agent.delete();
+
+      // Remove from recent agents
+      await agentsManager.removeRecentAgent(agentPath);
+
+      // Unregister the window
+      const window = BrowserWindow.fromId(parseInt(windowId));
+      if (window) {
+        // Notify all windows about the deletion
+        BrowserWindow.getAllWindows().forEach(win => {
+          win.webContents.send('agent-deleted', { agentPath });
+        });
+
+        // Close the current window
+        window.close();
+      }
+
+      log.info(`[AGENT DELETE] Successfully deleted agent at path: ${agentPath}`);
+      return { success: true };
+    } catch (error) {
+      log.error('[AGENT DELETE] Error deleting agent:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : String(error) 
+      };
     }
   });
 

@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as yaml from 'yaml';
+import trash from 'trash';
 import { ProviderId } from '../providers/types.js';
 import { Rule, RuleSchema } from '../types/rules.js';
 import { Reference, ReferenceSchema } from '../types/references.js';
@@ -44,11 +45,14 @@ export class FileBasedAgentStrategy implements AgentStrategy {
   constructor(agentPath: string, private logger: Logger) {
     // Support both file paths and directory paths (for backward compatibility during migration)
     const pathStat = fs.existsSync(agentPath) ? fs.statSync(agentPath) : null;
+    const ext = path.extname(agentPath).toLowerCase();
+    const hasAgentExtension = ['.yaml', '.yml', '.json'].includes(ext);
     
-    if (pathStat?.isFile()) {
+    // If path has an agent file extension, treat it as a file path (even if it doesn't exist yet)
+    // This handles the case of creating a new agent with a specific filename
+    if (pathStat?.isFile() || (hasAgentExtension && !pathStat?.isDirectory())) {
       // File path provided - validate extension
-      const ext = path.extname(agentPath).toLowerCase();
-      if (!['.yaml', '.yml', '.json'].includes(ext)) {
+      if (!hasAgentExtension) {
         throw new Error(`Agent file must have .yaml, .yml, or .json extension: ${agentPath}`);
       }
       this.agentFile = agentPath;
@@ -129,7 +133,19 @@ export class FileBasedAgentStrategy implements AgentStrategy {
   }
 
   async deleteAgent(): Promise<void> {
-    await fs.promises.rm(this.agentDir, { recursive: true, force: true });
+    if (this.isFileBased) {
+      // Single file agent - delete only the file (move to trash)
+      if (fs.existsSync(this.agentFile)) {
+        await trash(this.agentFile);
+      }
+    } else {
+      // Directory-based agent - verify agent file exists before deleting directory
+      if (!fs.existsSync(this.agentFile)) {
+        throw new Error(`Cannot delete agent: agent file does not exist at ${this.agentFile}`);
+      }
+      // Only delete the directory if the agent file exists (move to trash)
+      await trash(this.agentDir);
+    }
   }
 
   static async cloneAgent(sourcePath: string, targetPath: string, logger: Logger): Promise<Agent> {
@@ -146,46 +162,89 @@ export class FileBasedAgentStrategy implements AgentStrategy {
       throw new Error(`Target agent already exists: ${normalizedTarget}`);
     }
 
-    // Create target directory
-    if (!fs.existsSync(normalizedTarget)) {
-      fs.mkdirSync(normalizedTarget, { recursive: true });
-    }
+    // Determine if source is a file or directory
+    const sourceStat = fs.existsSync(normalizedSource) ? fs.statSync(normalizedSource) : null;
+    const isSourceFile = sourceStat?.isFile() ?? false;
 
-    // Copy all agent files
-    // First, detect which agent file format exists in source
-    const sourceBasePath = path.join(normalizedSource, FileBasedAgentStrategy.AGENT_FILE_BASE_NAME);
-    let sourceAgentFile: string | null = null;
-    for (const ext of ['.json', '.yaml', '.yml']) {
-      const candidate = sourceBasePath + ext;
-      if (fs.existsSync(candidate)) {
-        sourceAgentFile = candidate;
-        break;
-      }
-    }
-    
-    const filesToCopy = [
-      { source: sourceAgentFile, isFile: true }, // Agent config file (detected format)
-      { source: path.join(normalizedSource, FileBasedAgentStrategy.SYSTEM_PROMPT_FILE_NAME), isFile: true },
-      { source: path.join(normalizedSource, 'refs'), isFile: false },
-      { source: path.join(normalizedSource, 'rules'), isFile: false }
-    ];
+    let sourceAgentFile: string;
+    let targetAgentFile: string;
 
-    for (const item of filesToCopy) {
-      if (!item.source || !fs.existsSync(item.source)) {
-        continue;
+    if (isSourceFile) {
+      // Source is a single agent file
+      sourceAgentFile = normalizedSource;
+      
+      // Determine target: if target path has an extension, treat as file; otherwise as directory
+      const targetStat = fs.existsSync(normalizedTarget) ? fs.statSync(normalizedTarget) : null;
+      const targetExt = path.extname(normalizedTarget).toLowerCase();
+      if (targetStat?.isFile() || ['.yaml', '.yml', '.json'].includes(targetExt)) {
+        // Target is a file path
+        targetAgentFile = normalizedTarget;
+        // Ensure parent directory exists
+        const targetDir = path.dirname(targetAgentFile);
+        if (!fs.existsSync(targetDir)) {
+          fs.mkdirSync(targetDir, { recursive: true });
+        }
+      } else {
+        // Target is a directory, copy file with same name
+        if (!fs.existsSync(normalizedTarget)) {
+          fs.mkdirSync(normalizedTarget, { recursive: true });
+        }
+        targetAgentFile = path.join(normalizedTarget, path.basename(sourceAgentFile));
       }
       
-      const targetFile = path.join(normalizedTarget, path.basename(item.source));
+      // Copy the agent file
+      await fs.promises.copyFile(sourceAgentFile, targetAgentFile);
+    } else {
+      // Source is a directory (legacy format or directory-based)
+      // Create target directory
+      if (!fs.existsSync(normalizedTarget)) {
+        fs.mkdirSync(normalizedTarget, { recursive: true });
+      }
+
+      // Detect which agent file format exists in source
+      const sourceBasePath = path.join(normalizedSource, FileBasedAgentStrategy.AGENT_FILE_BASE_NAME);
+      let detectedSourceFile: string | null = null;
+      for (const ext of ['.yaml', '.yml', '.json']) {
+        const candidate = sourceBasePath + ext;
+        if (fs.existsSync(candidate)) {
+          detectedSourceFile = candidate;
+          break;
+        }
+      }
       
-      if (item.isFile) {
-        await fs.promises.copyFile(item.source, targetFile);
+      if (!detectedSourceFile) {
+        throw new Error(`No agent file found in source directory: ${normalizedSource}`);
+      }
+
+      // Copy all agent files
+      const filesToCopy = [
+        { source: detectedSourceFile, isFile: true }, // Agent config file (detected format)
+        { source: path.join(normalizedSource, FileBasedAgentStrategy.SYSTEM_PROMPT_FILE_NAME), isFile: true },
+        { source: path.join(normalizedSource, 'refs'), isFile: false },
+        { source: path.join(normalizedSource, 'rules'), isFile: false }
+      ];
+
+      for (const item of filesToCopy) {
+        if (!item.source || !fs.existsSync(item.source)) {
+          continue;
+        }
+        
+        const targetFile = path.join(normalizedTarget, path.basename(item.source));
+        
+        if (item.isFile) {
+          await fs.promises.copyFile(item.source, targetFile);
         } else {
-        await fs.promises.cp(item.source, targetFile, { recursive: true });
+          await fs.promises.cp(item.source, targetFile, { recursive: true });
+        }
       }
+      
+      // Set target agent file for loading
+      targetAgentFile = path.join(normalizedTarget, path.basename(detectedSourceFile));
     }
  
     // Create and load the new agent, then return it
-    const strategy = new FileBasedAgentStrategy(normalizedTarget, logger);
+    // Use the target agent file path directly
+    const strategy = new FileBasedAgentStrategy(targetAgentFile, logger);
     const clone = new AgentImpl(strategy, logger);
     await clone.load();
 

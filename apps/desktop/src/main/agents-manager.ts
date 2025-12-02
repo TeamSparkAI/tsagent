@@ -95,6 +95,11 @@ export class AgentsManager extends EventEmitter {
         return this.recentAgents;
     }
 
+    public async removeRecentAgent(agentPath: string): Promise<void> {
+        this.recentAgents = this.recentAgents.filter(path => path !== agentPath);
+        await this.saveState();
+    }
+
     /**
      * Registers a window with an agent
      * @param windowId The ID of the window

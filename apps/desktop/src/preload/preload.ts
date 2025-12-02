@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import { API } from '../shared/api';
 import log from 'electron-log';
 import { ProviderId as LLMType, AgentSettings } from '@tsagent/core';
-import { OpenDialogOptions, MessageBoxOptions } from 'electron';
+import { OpenDialogOptions, SaveDialogOptions, MessageBoxOptions } from 'electron';
 import { ChatMessage } from '@tsagent/core';
 
 const api: API = {
@@ -87,6 +87,7 @@ const api: API = {
 
   // Agent handlers
   showOpenDialog: (options: OpenDialogOptions) => ipcRenderer.invoke('dialog:showOpenDialog', options),
+  showSaveDialog: (options: SaveDialogOptions) => ipcRenderer.invoke('dialog:showSaveDialog', options),
   showMessageBox: (options: MessageBoxOptions) => ipcRenderer.invoke('dialog:showMessageBox', options),
   getActiveWindows: () => ipcRenderer.invoke('agent:getActiveWindows'),
   getRecentAgents: () => ipcRenderer.invoke('agent:getRecentAgents'),
@@ -98,7 +99,9 @@ const api: API = {
   switchAgent: (windowId: string, agentPath: string) => ipcRenderer.invoke('agent:switchAgent', windowId, agentPath),
   focusWindow: (windowId: string) => ipcRenderer.invoke('agent:focusWindow', windowId),
   cloneAgent: (sourcePath: string, targetPath: string) => ipcRenderer.invoke('agent:cloneAgent', sourcePath, targetPath),
+  getCloneDefaultPath: (sourcePath: string) => ipcRenderer.invoke('agent:getCloneDefaultPath', sourcePath),
   agentExists: (path: string) => ipcRenderer.invoke('agent:agentExists', path),
+  deleteAgent: () => ipcRenderer.invoke('agent:deleteAgent'),
   onAgentSwitched: (callback: (data: { windowId: string, agentPath: string, targetWindowId: string }) => void) => {
     const wrappedCallback = (_event: any, data: any) => callback(data);
     ipcRenderer.on('agent:switched', wrappedCallback);
@@ -106,6 +109,22 @@ const api: API = {
   },
   offAgentSwitched: (listener: (event: any, data: any) => void) => {
     ipcRenderer.removeListener('agent:switched', listener);
+  },
+  onMetadataChanged: (callback: (data: { agentPath: string; metadata?: { name: string } }) => void) => {
+    const wrappedCallback = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('metadata-changed', wrappedCallback);
+    return wrappedCallback;
+  },
+  offMetadataChanged: (listener: (event: any, data: any) => void) => {
+    ipcRenderer.removeListener('metadata-changed', listener);
+  },
+  onAgentDeleted: (callback: (data: { agentPath: string }) => void) => {
+    const wrappedCallback = (_event: any, data: any) => callback(data);
+    ipcRenderer.on('agent-deleted', wrappedCallback);
+    return wrappedCallback;
+  },
+  offAgentDeleted: (listener: (event: any, data: any) => void) => {
+    ipcRenderer.removeListener('agent-deleted', listener);
   },
   onServerConfigChanged: (callback: (data: { action: string, serverName: string }) => void) => {
     const wrappedCallback = (_event: any, data: any) => callback(data);
