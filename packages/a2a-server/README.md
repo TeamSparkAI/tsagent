@@ -31,19 +31,30 @@ npm install @tsagent/server
 
 ```bash
 # Single agent
-npx @tsagent/server /path/to/my-agent.yaml
+tsagent-server /path/to/my-agent.yaml
+
+# Or with relative filename
+tsagent-server agent.yaml
 
 # Multiple agents
-npx @tsagent/server /path/to/agent1.yaml /path/to/agent2.yaml /path/to/agent3.yaml
+tsagent-server /path/to/agent1.yaml /path/to/agent2.yaml /path/to/agent3.yaml
 
 # Multiple agents with custom port
-npx @tsagent/server --port 3000 /path/to/agent1.yaml /path/to/agent2.yaml
+tsagent-server --port 3000 /path/to/agent1.yaml /path/to/agent2.yaml
 
-# Single agent with custom port
-npx @tsagent/server /path/to/my-agent.yaml --port 5000
+# Single agent with custom port and debug logging
+tsagent-server /path/to/my-agent.yaml --port 5000 --debug
 
 # Show help
-npx @tsagent/server --help
+tsagent-server --help
+```
+
+**Via CLI Launcher:**
+```bash
+# Launch A2A server via tsagent CLI
+tsagent --a2a /path/to/agent.yaml
+tsagent --a2a agent1.yaml agent2.yaml --port 3000
+tsagent --a2a /path/to/agent.yaml --debug
 ```
 
 ### Programmatically
@@ -131,13 +142,16 @@ When running multiple agents, each agent has its own path:
 ## CLI Options
 
 ```bash
-Usage: @tsagent/server <agent-path> [agent-path...] [options]
+Usage: tsagent-server <agent-path> [agent-path...] [options]
 
 Arguments:
   agent-path          Path to the agent file (.yaml or .yml) (at least one required)
+                      - Absolute path: /path/to/agent.yaml
+                      - Relative filename: agent.yaml (looks in current directory)
 
 Options:
   --port, -p <number> Port to run the server on (default: 4000)
+  --debug, -d         Enable debug/verbose logging
   --help, -h          Show this help message
 ```
 
@@ -146,8 +160,11 @@ Options:
 ### Basic Single Agent
 
 ```bash
-# Start server with a single agent
-npx @tsagent/server ./my-agent.yaml --port 4000
+# Start server with a single agent (absolute path)
+tsagent-server /path/to/my-agent.yaml --port 4000
+
+# Or with relative filename
+tsagent-server my-agent.yaml --port 4000
 
 # The agent will be available at:
 # - http://localhost:4000/.well-known/agent-card.json
@@ -157,7 +174,10 @@ npx @tsagent/server ./my-agent.yaml --port 4000
 
 ```bash
 # Start server with multiple agents
-npx @tsagent/server ./assistant-agent.yaml ./coding-agent.yaml ./research-agent.yaml --port 4000
+tsagent-server assistant-agent.yaml coding-agent.yaml research-agent.yaml --port 4000
+
+# Or with absolute paths
+tsagent-server /path/to/assistant-agent.yaml /path/to/coding-agent.yaml /path/to/research-agent.yaml --port 4000
 
 # Each agent will be available at:
 # - http://localhost:4000/agents/assistant-agent/.well-known/agent-card.json

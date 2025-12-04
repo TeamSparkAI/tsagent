@@ -43,6 +43,7 @@ Command-line interface for:
 - Interactive chat sessions
 - Agent configuration management
 - Scripting and automation workflows
+- Server launcher for A2A, ACP, and Meta MCP servers (via `--a2a`, `--acp`, `--mcp` flags)
 
 ### A2A Server (`@tsagent/server`)
 

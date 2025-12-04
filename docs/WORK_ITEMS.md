@@ -174,3 +174,48 @@ Should we implement a strategy backed by something else now that it's much simpl
 
 Should we remove all implicit serialization and make the agent call an explicit save() to serialize?
 - Some things, like embeddings update, the agent doesn't know about (unless we invent a way to tell them)
+
+### Agent collection / provider config
+
+Are there things, like provider config, that you'd want to share either system-wide or across a group of agents?
+- Provider configs
+- Provider part of agent info (org, url, icon)
+- Commonly used tools (MCP servers) - this might imply tool settings (path)
+- System prompt
+- Chat session settings (defaults)
+- Rules and references ("global")
+  - How would this work? They'd always be "available", but you could disable? Could you "delete"?  Change include mode?
+- Appearance (dark mode) - Should this even be in agent state?  Maybe better as app state.
+
+Is the idea of a multi-agent yaml file (like cagent) the way to go?
+- Define elements at root (optional), inherit or override in agents
+- Do they auto-orchestrate?  How?
+  - Default could be A2A
+  - If agent exports tools, could be MCP
+
+### Cloud-hosted system
+
+Agent Loading
+- From file (local) is around 250ms (check how much is file IO, how much is yaml parse)
+- MCP client preload is much slower, 3+ seconds (could make this happen JiT)
+
+General
+- User has account
+- Provider configs at account level
+- Maybe all other shared stuff (list above) configured at account level
+- Create Agent
+- Add subagents (orchestration via a2a-mcp/a2a-server)
+- Make agent available via A2A
+- Make agent available via MCP
+- Local model inference on cloud solution?  Generic OpenAI provider (supply endpoint, config)
+- Agents can have remote MCP servers - what about local (probably not)?
+
+For a2a-server and meta-mcp, how could we host many tenant agents at one endpoint (per protocol)
+- mcp.teamspark.io/yourAgent
+- a2a.teamspark.io/yourAgent
+- Would being able to host an ACP server be useful?
+
+How would we auth to exposed services (A2A, ACP, MCP)?
+
+For A2A, for AgentCard publishing, the agent card has to be on the root URL (so we'd need URL-per-agent)
+- myAgent.teamspark.ai (has .well-known/agent-card.json, server via A2A)

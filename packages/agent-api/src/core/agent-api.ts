@@ -136,7 +136,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
     }
 
     // Load environment variables from .env files
-    // Priority: process.env > agentDir/.env > cwd/.env
+    // Priority: agentDir/.env (highest) > cwd/.env > process.env initial values (lowest)
     this.loadEnvironmentVariables();
 
     // Load config once - everything (prompt, rules, references) is embedded in YAML
@@ -172,11 +172,13 @@ export class AgentImpl  extends EventEmitter implements Agent {
 
   /**
    * Load environment variables from .env files
-   * Priority: process.env (highest) > agentDir/.env > cwd/.env (lowest)
+   * Priority: agentDir/.env (highest) > cwd/.env > process.env initial values (lowest)
    */
   private loadEnvironmentVariables(): void {
     const cwd = process.cwd();
-    const agentDir = this._strategy?.getName() || cwd;
+    // getName() returns the agent file path, so we need to get the directory
+    const agentFilePath = this._strategy?.getName();
+    const agentDir = agentFilePath ? path.dirname(agentFilePath) : cwd;
 
     this.logger.info(`[AGENT] ===== Loading environment variables =====`);
     this.logger.info(`[AGENT] CWD: ${cwd}`);
@@ -245,7 +247,7 @@ export class AgentImpl  extends EventEmitter implements Agent {
     }
     
     // Load environment variables from .env files
-    // Priority: process.env > agentDir/.env > cwd/.env
+    // Priority: agentDir/.env (highest) > cwd/.env > process.env initial values (lowest)
     this.loadEnvironmentVariables();
 
     this._agentData = this.getInitialConfig(data);

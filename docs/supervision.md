@@ -154,7 +154,7 @@ Agent-based supervisors use AI agents to supervise other agents. Instead of hard
 
 1. **Create a regular agent** with supervision-focused configuration:
    ```bash
-   tsagent-cli create-agent ./supervisors/architect-agent \
+   tsagent create-agent ./supervisors/architect-agent \
      --name "Architect Supervisor" \
      --description "Supervises and improves other agents" \
      --system-prompt "You are an Architect Agent supervising another AI agent..."

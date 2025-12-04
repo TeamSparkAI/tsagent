@@ -55,32 +55,59 @@ npm run dev:cli
 ### Basic Usage
 
 ```bash
-# Start CLI with agent in current directory
-npx @tsagent/cli
+# Start CLI with agent file (required)
+tsagent /path/to/agent.yaml
 
-# Or if installed globally
-tsagent-cli
+# Or if installed via npx
+npx @tsagent/cli /path/to/agent.yaml
 
-# Start CLI with specific agent file path
-npx @tsagent/cli --agent /path/to/agent.yaml
+# With relative filename (looks in current directory)
+tsagent agent.yaml
 
 # Create new agent
-npx @tsagent/cli --create
+tsagent --create /path/to/new-agent.yaml
 
-# Create new agent with specific file path
-npx @tsagent/cli --agent /path/to/new-agent.yaml --create
+# Or with relative filename
+tsagent --create new-agent.yaml
 
 # Enable verbose logging
-npx @tsagent/cli --verbose
+tsagent /path/to/agent.yaml --verbose
 ```
 
 ### Command Line Options
 
-- `--agent <path>`: Specify agent file path (`.yaml` or `.yml`) (defaults to current working directory)
+- `<agent-path>`: Agent file path (`.yaml` or `.yml`) - required positional argument (unless using server launcher flags)
+  - Absolute path: `/path/to/agent.yaml` - uses path as-is
+  - Relative filename: `agent.yaml` - looks in current working directory
 - `--create`: Create new agent if it doesn't exist
 - `--verbose`: Enable verbose logging
 - `--help`: Show help information
 - `--version`: Show version information
+
+### Server Launcher
+
+The CLI can also launch server processes:
+
+```bash
+# Launch meta-mcp server
+tsagent --mcp /path/to/agent.yaml
+tsagent --mcp agent.yaml --debug
+
+# Launch A2A server
+tsagent --a2a /path/to/agent.yaml
+tsagent --a2a agent1.yaml agent2.yaml --port 3000 --debug
+
+# Launch ACP server
+tsagent --acp /path/to/agent.yaml
+tsagent --acp agent.yaml --debug
+```
+
+**Server Launcher Options:**
+- `--mcp`: Launch meta-mcp server (exposes Tools agents as MCP tools)
+- `--a2a`: Launch A2A server (HTTP-based agent-to-agent protocol)
+- `--acp`: Launch ACP server (stdio-based Agent Client Protocol for code editors)
+
+When using server launcher flags, the CLI normalizes agent paths (converting relative filenames to absolute paths) before passing them to the server. All remaining arguments are passed to the server, allowing you to use server-specific options like `--port` for A2A server or `--debug` for any server.
 
 ### Interactive Commands
 
@@ -137,8 +164,8 @@ Agents are configured using a single YAML file (`.yaml` or `.yml`). This file co
 The CLI uses Winston for logging with the following features:
 
 - Console output with colorized formatting
-- File logging to `cli.log`
-- Error logging to `cli-error.log`
+- File logging to `tsagent.log`
+- Error logging to `tsagent-error.log`
 - Log rotation (10MB max file size, 5 files max)
 - Configurable log levels
 

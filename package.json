@@ -4,6 +4,7 @@
   "private": true,
   "license": "MIT",
   "scripts": {
+    "help": "node -e \"console.log(require('fs').readFileSync('scripts/help.txt', 'utf8'))\"",
     "build": "npm run build:desktop && npm run build:cli",
     "build:desktop": "cd apps/desktop && npm run build",
     "build:cli": "cd apps/cli && npm run build",
@@ -12,6 +13,13 @@
     "dev:desktop": "cd apps/desktop && npm run watch",
     "dev:cli": "cd apps/cli && npm run dev",
     "publish:all": "./scripts/publish.sh",
-    "publish:dry-run": "./scripts/publish.sh --dry-run"
+    "publish:dry-run": "./scripts/publish.sh --dry-run",
+    "deps:dev": "node scripts/deps-manager.js dev",
+    "deps:publish": "node scripts/deps-manager.js publish",
+    "deps:to-file": "node scripts/deps-manager.js to-file",
+    "deps:to-npm": "node scripts/deps-manager.js to-npm",
+    "deps:install": "node scripts/deps-manager.js install",
+    "deps:clean": "node scripts/deps-manager.js clean",
+    "version:bump": "node scripts/deps-manager.js bump-version"
   }
 }

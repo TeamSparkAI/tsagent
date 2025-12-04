@@ -118,6 +118,7 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
     setError(null);
     try {
       // Build config with proper prefixes based on secret source selection
+      // Only include non-empty values so Zod defaults can apply for missing keys
       const configToSave: Record<string, string> = {};
       const providerType = provider?.id as ProviderId || selectedProviderId;
       const configValues = provider?.info.configValues || providerInfo[providerType as ProviderId]?.configValues || [];
@@ -125,6 +126,11 @@ const EditProviderModal: React.FC<EditProviderModalProps> = ({ provider, onSave,
       for (const configValue of configValues) {
         const value = config[configValue.key] || '';
         const source = secretSources[configValue.key] || 'direct';
+        
+        // Skip empty values to allow Zod defaults to apply
+        if (!value) {
+          continue;
+        }
         
         const needsSecretResolution = configValue.secret || (configValue as any).credential;
         if (needsSecretResolution && source === 'env') {

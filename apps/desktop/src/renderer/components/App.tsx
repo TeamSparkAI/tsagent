@@ -204,16 +204,14 @@ export const App: React.FC = () => {
     // Listen for server configuration changes
     const handleServerConfigChanged = async (data: { action: string, serverName: string }) => {
       log.info('[APP] Server config changed:', data);
-      // Check if any server is now the orchestrator (since server names can be anything)
-      const hasOrchestrator = await checkA2aMcpServer();
-      if (hasOrchestrator) {
-        log.info('[APP] Orchestrator server detected, updating orchestration tab');
-        // Use current tabs state to avoid stale closure
-        setTabs(currentTabs => {
-          updateOrchestrationTab(currentTabs);
-          return currentTabs; // Return unchanged, updateOrchestrationTab will call setTabs
-        });
-      }
+      // Always update orchestration tab when server config changes
+      // (tab might need to be added or removed)
+      log.info('[APP] Server config changed, updating orchestration tab');
+      // Use current tabs state to avoid stale closure
+      setTabs(currentTabs => {
+        updateOrchestrationTab(currentTabs);
+        return currentTabs; // Return unchanged, updateOrchestrationTab will call setTabs
+      });
     };
     
     const serverListener = window.api.onServerConfigChanged(handleServerConfigChanged);

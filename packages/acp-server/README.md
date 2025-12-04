@@ -33,11 +33,25 @@ npm install @tsagent/acp-server
 The ACP server is designed to run as a subprocess invoked by ACP-compatible clients (like code editors):
 
 ```bash
-# Start ACP server with an agent
-npx @tsagent/acp-server /path/to/my-agent.yaml
+# Start ACP server with an agent (absolute path)
+tsagent-acp-server /path/to/my-agent.yaml
 
-# Start with verbose logging (for debugging)
-npx @tsagent/acp-server /path/to/my-agent.yaml --verbose
+# Or with relative filename
+tsagent-acp-server agent.yaml
+
+# Start with debug logging
+tsagent-acp-server /path/to/my-agent.yaml --debug
+tsagent-acp-server agent.yaml -d
+
+# Show help
+tsagent-acp-server --help
+```
+
+**Via CLI Launcher:**
+```bash
+# Launch ACP server via tsagent CLI
+tsagent --acp /path/to/agent.yaml
+tsagent --acp agent.yaml --debug
 ```
 
 ### Programmatic Usage
@@ -47,7 +61,7 @@ import { ACPServer } from '@tsagent/acp-server';
 
 // Create and start an ACP server for an agent
 const server = new ACPServer('/path/to/agent.yaml', {
-  verbose: false
+  verbose: false  // Use debug flag for verbose logging
 });
 
 await server.start();
@@ -55,6 +69,13 @@ await server.start();
 // Server is now ready to communicate via stdio
 // The SDK handles JSON-RPC communication automatically
 ```
+
+**Command Line Options:**
+- `<agent-path>`: Path to the agent file (`.yaml` or `.yml`) - required
+  - Absolute path: `/path/to/agent.yaml` - uses path as-is
+  - Relative filename: `agent.yaml` - looks in current working directory
+- `--debug, -d`: Enable debug/verbose logging
+- `--help, -h`: Show help message
 
 ## Agent Configuration
 
@@ -141,8 +162,20 @@ Example Zed configuration (if applicable):
 {
   "acp_agents": {
     "tsagent": {
-      "command": "npx",
-      "args": ["@tsagent/acp-server", "/path/to/agent.yaml"]
+      "command": "tsagent",
+      "args": ["--acp", "/path/to/agent.yaml"]
+    }
+  }
+}
+```
+
+Or using the server binary directly:
+```json
+{
+  "acp_agents": {
+    "tsagent": {
+      "command": "tsagent-acp-server",
+      "args": ["/path/to/agent.yaml"]
     }
   }
 }
@@ -158,9 +191,11 @@ npm run build
 
 # Run in development mode
 npm run dev /path/to/agent.yaml
+npm run dev agent.yaml  # Relative filename
 
 # Start server
 npm start /path/to/agent.yaml
+npm start agent.yaml  # Relative filename
 ```
 
 ## Implementation Status

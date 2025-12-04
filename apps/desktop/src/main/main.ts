@@ -979,10 +979,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       // Save the server configuration using AgentAPI
       await agent.saveMcpServer(server);
       
-      // Emit server change event
-      if (mainWindow) {
-        mainWindow.webContents.send('server-config-changed', { action: 'saved', serverName: server.name });
-      }
+      // Emit server change event to all windows
+      const windows = BrowserWindow.getAllWindows();
+      log.info(`[Main] Emitting server-config-changed event to ${windows.length} window(s) for server: ${server.name}`);
+      windows.forEach(window => {
+        window.webContents.send('server-config-changed', { action: 'saved', serverName: server.name });
+      });
     } catch (err) {
       log.error('Error saving server config:', err);
       throw err;
@@ -1000,10 +1002,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     try {
       await agent.deleteMcpServer(serverName);
       
-      // Emit server change event
-      if (mainWindow) {
-        mainWindow.webContents.send('server-config-changed', { action: 'deleted', serverName });
-      }
+      // Emit server change event to all windows
+      const windows = BrowserWindow.getAllWindows();
+      log.info(`[Main] Emitting server-config-changed event to ${windows.length} window(s) for deleted server: ${serverName}`);
+      windows.forEach(window => {
+        window.webContents.send('server-config-changed', { action: 'deleted', serverName });
+      });
     } catch (err) {
       log.error('Error deleting server config:', err);
       throw err;

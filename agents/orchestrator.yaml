@@ -1,0 +1,46 @@
+metadata:
+  name: Orchestrator Agent
+  version: 1.0.2
+  description: This is an intractive agent that can use other agents and tools
+  iconUrl: https://www.teamspark.ai/teamspark_icon.png
+  documentationUrl: https://www.teamspark.ai/workbench
+  provider:
+    organization: TeamSpark LLC
+    url: https://teamspark.ai
+  created: 2025-04-07T17:32:29.081Z
+  lastAccessed: 2025-04-07T17:32:29.081Z
+settings:
+  maxChatTurns: 20
+  maxOutputTokens: 4000
+  temperature: 0
+  topP: 0.05
+  theme: light
+  systemPath: /Users/bob/.nvm/versions/node/v20.10.0/bin:/bin:/usr/bin:/Users/bob/.local/bin/
+  model: gemini:gemini-2.5-flash
+  contextTopK: 20
+  contextTopN: 5
+  contextIncludeScore: 0.7
+  toolPermission: tool
+systemPrompt: You are an autonomous agent that can take actions and provide information in response to prompts from other agents.  You must provide complete answers without requesting any additional information!
+rules: []
+references: []
+providers:
+  ollama: {}
+  docker:
+    BASE_URL: http://localhost:12434/engines/v1
+  claude: {}
+  bedrock: {}
+  gemini: {}
+  openai: {}
+mcpServers:
+  a2a-mcp:
+    type: stdio
+    command: npx
+    args:
+      - -y
+      - "@tsagent/orchestrator"
+      - /Users/bob/Documents/GitHub/tsagent/agents/tspark.yaml
+      - /Users/bob/Documents/GitHub/tsagent/agents/bob.yaml
+    serverToolDefaults:
+      permissionRequired: true
+      include: always

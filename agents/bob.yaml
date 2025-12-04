@@ -1,0 +1,53 @@
+metadata:
+  name: Bob Agent
+  version: 1.0.2
+  description: This agent knows everything about Bob Dickinson
+  iconUrl: https://www.teamspark.ai/teamspark_icon.png
+  documentationUrl: https://www.teamspark.ai/workbench
+  provider:
+    organization: TeamSpark LLC
+    url: https://teamspark.ai
+  skills:
+    - id: skill_1764879581982
+      name: Bob facts
+      description: I can provode answers to any questions about Bob
+      tags:
+        - bob
+        - facts
+      examples:
+        - Where does Bob live?
+  created: 2025-04-07T17:32:29.081Z
+  lastAccessed: 2025-04-07T17:32:29.081Z
+settings:
+  maxChatTurns: 20
+  maxOutputTokens: 4000
+  temperature: 0
+  topP: 0.05
+  theme: light
+  systemPath: /Users/bob/.nvm/versions/node/v20.10.0/bin:/bin:/usr/bin:/Users/bob/.local/bin/
+  model: gemini:gemini-2.5-flash
+  contextTopK: 20
+  contextTopN: 5
+  contextIncludeScore: 0.7
+  toolPermission: tool
+systemPrompt: You are an autonomous agent that can take actions and provide information in response to prompts from other agents.  You must provide complete answers without requesting any additional information!
+rules: []
+references:
+  - name: about-bob
+    description: Information about Bob
+    priorityLevel: 500
+    text: |-
+      Full name is Bob Dickinson
+      Lives in Carnation, WA
+      Works at TeamsSpark, LLC
+      Can bench press 300 pounds
+    include: manual
+providers:
+  ollama: {}
+  docker:
+    BASE_URL: http://localhost:12434/engines/v1
+  claude: {}
+  bedrock: {}
+  gemini: {}
+  openai: {}
+mcpServers: {}

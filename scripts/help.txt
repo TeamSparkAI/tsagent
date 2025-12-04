@@ -1,0 +1,40 @@
+╔══════════════════════════════════════════════════════════════════════════════╗
+║                          TSAGENT NPM SCRIPTS                                 ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+
+📦 BUILD & DEVELOPMENT
+─────────────────────────────────────────────────────────────────────────────
+  npm run build               Build desktop and CLI apps
+  npm run build:desktop       Build desktop app only
+  npm run build:cli           Build CLI app only
+  npm run dev:desktop         Watch mode for desktop app development
+  npm run dev:cli             Run CLI in development mode
+  npm run start:desktop       Start desktop app
+  npm run start:cli           Start CLI app
+
+📤 PUBLISHING
+─────────────────────────────────────────────────────────────────────────────
+  npm run publish:all         Publish all packages
+  npm run publish:dry-run     Dry run of publish process
+
+🔗 DEPENDENCY MANAGEMENT
+─────────────────────────────────────────────────────────────────────────────
+  npm run deps:dev            Complete dev workflow: clean, convert to file://, install
+                               Use this when developing locally to link internal packages
+  
+  npm run deps:publish        Complete publish workflow: convert to npm, clean, install
+                               Use this when preparing to publish packages
+
+  npm run deps:to-file        Convert internal dependencies to file:// format (granular)
+  npm run deps:to-npm         Convert internal dependencies to npm versions (granular)
+  npm run deps:install        Install dependencies in dependency order (granular)
+  npm run deps:clean          Remove all node_modules and package-lock.json (granular)
+
+📝 VERSION MANAGEMENT
+─────────────────────────────────────────────────────────────────────────────
+  npm run version:bump <ver>  Bump version across all packages
+                              Example: npm run version:bump 1.4.0
+                              Updates all package.json versions and internal dependencies,
+                              then runs npm install to update lock files
+
+💡 TIP: Run 'npm run help' to see this documentation again

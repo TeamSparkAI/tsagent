@@ -28,7 +28,7 @@ export class WinstonLoggerAdapter implements Logger {
         */
         // File transport with rotation
         new winston.transports.File({ 
-          filename: 'tsagent-cli.log',
+          filename: 'tsagent.log',
           maxsize: 10 * 1024 * 1024, // 10MB
           maxFiles: 5,
           format: winston.format.combine(
@@ -38,7 +38,7 @@ export class WinstonLoggerAdapter implements Logger {
         }),
         // Error file transport
         new winston.transports.File({ 
-          filename: 'tsagent-cli-error.log',
+          filename: 'tsagent-error.log',
           level: 'error',
           maxsize: 10 * 1024 * 1024, // 10MB
           maxFiles: 5,

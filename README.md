@@ -27,7 +27,7 @@ TsAgent is a comprehensive platform that enables anyone to:
 |-----------|-------------|-----------------|-------------|
 | **Core API** | [`@tsagent/core`](https://www.npmjs.com/package/@tsagent/core) | TypeScript Library | TypeScript agent framework for building, testing, and running agents programmatically |
 | **Foundry** | *(no npm package)* | Desktop App | No-code desktop application for creating, testing, and managing agents |
-| **CLI** | [`@tsagent/cli`](https://www.npmjs.com/package/@tsagent/cli) | CLI Tool | Command-line interface for agent operations and automation <br>`tsagent-cli` |
+| **CLI** | [`@tsagent/cli`](https://www.npmjs.com/package/@tsagent/cli) | CLI Tool | Command-line interface for agent operations and automation <br>`tsagent` |
 | **A2A Server** | [`@tsagent/server`](https://www.npmjs.com/package/@tsagent/server) | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
 | **ACP Server** | [`@tsagent/acp-server`](https://www.npmjs.com/package/@tsagent/acp-server) | ACP Server | ACP (Agent Client Protocol) server for exposing agents via stdio for code editors <br>`tsagent-acp-server` |
 | **A2A Orchestrator** | [`@tsagent/orchestrator`](https://www.npmjs.com/package/@tsagent/orchestrator) | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
@@ -70,11 +70,12 @@ npm install @tsagent/agent-mcp  # MCP server for agent management
 
 Launch the TsAgent Foundry desktop app (after downloading and installing)
 
-Or create an agent via CLI by either running the CLI in the directory of the desired agent (or new agent)
-or passing the agent file path to the CLI as the `--agent` argument.  Use `--create` to create a new agent.
+Or create an agent via CLI by passing the agent file path as a positional argument. Use `--create` to create a new agent.
 
 ```bash
-npx @tsagent/cli --agent ./my-agent.yaml --create
+npx @tsagent/cli ./my-agent.yaml --create
+# or with the tsagent command if installed globally
+tsagent ./my-agent.yaml --create
 ```
 
 ### Use Agents Programmatically
@@ -97,9 +98,15 @@ console.log(response.updates[1].modelReply);
 
 ```bash
 # Start an A2A server (for Autonomous agents)
+# Option 1: Direct server binary
 npx @tsagent/server /path/to/agent.yaml --port 3000
 # or if installed globally
 tsagent-server /path/to/agent.yaml --port 3000
+
+# Option 2: Via CLI launcher
+tsagent --a2a /path/to/agent.yaml --port 3000
+# or with npx
+npx @tsagent/cli --a2a /path/to/agent.yaml --port 3000
 
 # Your agent is now available at http://localhost:3000
 ```
@@ -108,9 +115,15 @@ tsagent-server /path/to/agent.yaml --port 3000
 
 ```bash
 # Start an ACP server for code editor integration (like Zed)
+# Option 1: Direct server binary
 npx @tsagent/acp-server /path/to/agent.yaml
 # or if installed globally
 tsagent-acp-server /path/to/agent.yaml
+
+# Option 2: Via CLI launcher
+tsagent --acp /path/to/agent.yaml
+# or with npx
+npx @tsagent/cli --acp /path/to/agent.yaml
 
 # The agent is now available via stdio for ACP-compatible code editors
 # Configure in your code editor's ACP settings
@@ -120,9 +133,15 @@ tsagent-acp-server /path/to/agent.yaml
 
 ```bash
 # Start a Meta MCP server (for Tools agents)
+# Option 1: Direct server binary
 npx @tsagent/meta-mcp /path/to/tools-agent.yaml
 # or if installed globally
 tsagent-meta-mcp /path/to/tools-agent.yaml
+
+# Option 2: Via CLI launcher
+tsagent --mcp /path/to/tools-agent.yaml
+# or with npx
+npx @tsagent/cli --mcp /path/to/tools-agent.yaml
 
 # The agent's tools are now available as MCP tools
 # Configure in Claude Desktop or other MCP clients
@@ -143,7 +162,7 @@ tsagent-agent-mcp
 ### Secret Management & 1Password Support
 
 - Secret fields (and “credential” fields such as API key IDs) can store direct values, environment variables, or 1Password references.
-- `.env` files are loaded (with override priority) from both the current working directory and the agent directory, so you can keep provider-specific secrets near each agent if desired.
+- `.env` files are loaded from both the current working directory and the agent directory (agent directory `.env` takes priority over CWD `.env`, both override initial `process.env` values), so you can keep provider-specific secrets near each agent if desired.
 - 1Password support is automatically enabled when either `OP_SERVICE_ACCOUNT_TOKEN` or `OP_CONNECT_TOKEN` is present in the environment (you can also set `OP_CONNECT_HOST` when using Connect to override the default value of localhost:8080). These values can also live in the same `.env` files.
 - When 1Password is available, the desktop UI lets you choose **Direct**, **Environment Variable**, or **1Password** for each secret field, and provides a picker to browse vaults/items/fields (returning standard `op://` references).
 - At runtime and during provider validation TsAgent resolves `env://` and `op://` values before passing configs to providers

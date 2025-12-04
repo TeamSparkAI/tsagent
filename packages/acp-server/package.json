@@ -31,7 +31,8 @@
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.5.1",
-    "@tsagent/core": "^1.3.2"
+    "@tsagent/core": "^1.3.2",
+    "commander": "^11.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

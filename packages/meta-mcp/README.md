@@ -15,20 +15,33 @@ npm install -g @tsagent/meta-mcp
 ## Usage
 
 ```bash
-tsagent-meta-mcp [--debug|-d] <agent-path>
+tsagent-meta-mcp <agent-path> [options]
 ```
 
+**Arguments:**
+- `<agent-path>`: Path to the agent file (`.yaml` or `.yml`) - required
+  - Absolute path: `/path/to/agent.yaml` - uses path as-is
+  - Relative filename: `agent.yaml` - looks in current working directory
+
 **Options:**
-- `--debug` or `-d`: Enable debug mode. When enabled, tool calls return the full message payload (with all turns) instead of just the final message.
+- `--debug, -d`: Enable debug/verbose logging. When enabled, tool calls return the full message payload (with all turns) instead of just the final message.
+- `--help, -h`: Show help message
 
 **Examples:**
 ```bash
 # Normal mode (returns only final message)
 tsagent-meta-mcp /path/to/agent.yaml
 
+# With relative filename
+tsagent-meta-mcp agent.yaml
+
 # Debug mode (returns full message payload)
-tsagent-meta-mcp --debug /path/to/agent.yaml
-tsagent-meta-mcp -d /path/to/agent.yaml
+tsagent-meta-mcp /path/to/agent.yaml --debug
+tsagent-meta-mcp agent.yaml -d
+
+# Via CLI launcher
+tsagent --mcp /path/to/agent.yaml
+tsagent --mcp agent.yaml --debug
 ```
 
 The server will:
@@ -90,6 +103,7 @@ npm run dev <agent-path>
 Example:
 ```bash
 npm run dev /path/to/my-tools-agent.yaml
+npm run dev agent.yaml  # Relative filename
 ```
 
 #### Production Mode (after building)
@@ -101,7 +115,16 @@ node dist/index.js <agent-path>
 Or using the binary:
 ```bash
 npm link  # Link the package globally (if you want)
-tsagent-meta-mcp <agent-path>
+tsagent-meta-mcp /path/to/agent.yaml
+tsagent-meta-mcp agent.yaml  # Relative filename
+```
+
+#### Via CLI Launcher
+
+```bash
+# Using tsagent CLI
+tsagent --mcp /path/to/agent.yaml
+tsagent --mcp agent.yaml --debug
 ```
 
 
@@ -121,9 +144,23 @@ tsagent-meta-mcp <agent-path>
    {
      "mcpServers": {
        "my-tools-agent": {
-         "command": "node",
+         "command": "tsagent",
          "args": [
-           "/absolute/path/to/tsagent/packages/meta-mcp/dist/index.js",
+           "--mcp",
+           "/absolute/path/to/your/tools-agent.yaml"
+         ]
+       }
+     }
+   }
+   ```
+   
+   Or using the server binary directly:
+   ```json
+   {
+     "mcpServers": {
+       "my-tools-agent": {
+         "command": "tsagent-meta-mcp",
+         "args": [
            "/absolute/path/to/your/tools-agent.yaml"
          ]
        }
