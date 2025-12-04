@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/cli",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "TsAgent CLI",
   "type": "module",
   "main": "dist/main.js",
@@ -16,10 +16,10 @@
     "test": "jest"
   },
   "dependencies": {
-    "@tsagent/core": "^1.3.2",
-    "@tsagent/meta-mcp": "file:../../packages/meta-mcp",
-    "@tsagent/server": "file:../../packages/a2a-server",
-    "@tsagent/acp-server": "file:../../packages/acp-server",
+    "@tsagent/core": "^1.3.3",
+    "@tsagent/meta-mcp": "^1.3.3",
+    "@tsagent/server": "^1.3.3",
+    "@tsagent/acp-server": "^1.3.3",
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "ora": "^5.4.1",

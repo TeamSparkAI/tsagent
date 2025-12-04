@@ -1,6 +1,6 @@
 {
   "name": "tsagent",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -12,14 +12,14 @@
     "start:cli": "cd apps/cli && npm run start --",
     "dev:desktop": "cd apps/desktop && npm run watch",
     "dev:cli": "cd apps/cli && npm run dev",
-    "publish:all": "./scripts/publish.sh",
-    "publish:dry-run": "./scripts/publish.sh --dry-run",
-    "deps:dev": "node scripts/deps-manager.js dev",
-    "deps:publish": "node scripts/deps-manager.js publish",
-    "deps:to-file": "node scripts/deps-manager.js to-file",
-    "deps:to-npm": "node scripts/deps-manager.js to-npm",
-    "deps:install": "node scripts/deps-manager.js install",
-    "deps:clean": "node scripts/deps-manager.js clean",
-    "version:bump": "node scripts/deps-manager.js bump-version"
+    "publish:all": "node scripts/monorepo-manager.mjs publish-all",
+    "publish:dry-run": "node scripts/monorepo-manager.mjs publish-all --dry-run",
+    "deps:dev": "node scripts/monorepo-manager.mjs dev",
+    "deps:publish": "node scripts/monorepo-manager.mjs publish",
+    "deps:to-file": "node scripts/monorepo-manager.mjs to-file",
+    "deps:to-npm": "node scripts/monorepo-manager.mjs to-npm",
+    "deps:install": "node scripts/monorepo-manager.mjs install",
+    "deps:clean": "node scripts/monorepo-manager.mjs clean",
+    "version:bump": "node scripts/monorepo-manager.mjs bump-version"
   }
 }

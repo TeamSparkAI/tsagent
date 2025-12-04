@@ -14,16 +14,19 @@
 
 📤 PUBLISHING
 ─────────────────────────────────────────────────────────────────────────────
-  npm run publish:all         Publish all packages
-  npm run publish:dry-run     Dry run of publish process
+  npm run publish:all <ver>     Complete publishing workflow: convert to npm, bump version, publish
+                                Example: npm run publish:all 1.4.0
+  npm run publish:dry-run <ver>  Dry run of publish process
+                                Example: npm run publish:dry-run 1.4.0
 
 🔗 DEPENDENCY MANAGEMENT
 ─────────────────────────────────────────────────────────────────────────────
   npm run deps:dev            Complete dev workflow: clean, convert to file://, install
                                Use this when developing locally to link internal packages
   
-  npm run deps:publish        Complete publish workflow: convert to npm, clean, install
+  npm run deps:publish        Complete publish workflow: convert to npm, clean
                                Use this when preparing to publish packages
+                               (does not install - publish:all handles installation)
 
   npm run deps:to-file        Convert internal dependencies to file:// format (granular)
   npm run deps:to-npm         Convert internal dependencies to npm versions (granular)
@@ -32,9 +35,11 @@
 
 📝 VERSION MANAGEMENT
 ─────────────────────────────────────────────────────────────────────────────
-  npm run version:bump <ver>  Bump version across all packages
+  npm run version:bump <ver>  Bump version across all packages (granular command)
                               Example: npm run version:bump 1.4.0
-                              Updates all package.json versions and internal dependencies,
-                              then runs npm install to update lock files
+                              Updates all package.json versions and internal dependencies
+                              
+  Publishing workflow:
+    npm run publish:all 1.4.0       # Complete workflow: convert to npm, bump version, publish
 
 💡 TIP: Run 'npm run help' to see this documentation again
