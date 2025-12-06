@@ -1,6 +1,6 @@
 {
   "name": "@tsagent/cli",
-  "version": "1.3.4",
+  "version": "1.3.5",
   "description": "TsAgent CLI",
   "type": "module",
   "main": "dist/main.js",
@@ -16,10 +16,10 @@
     "test": "jest"
   },
   "dependencies": {
-    "@tsagent/core": "^1.3.4",
-    "@tsagent/meta-mcp": "^1.3.4",
-    "@tsagent/server": "^1.3.4",
-    "@tsagent/acp-server": "^1.3.4",
+    "@tsagent/core": "^1.3.5",
+    "@tsagent/meta-mcp": "^1.3.5",
+    "@tsagent/server": "^1.3.5",
+    "@tsagent/acp-server": "^1.3.5",
     "chalk": "^4.1.2",
     "commander": "^11.0.0",
     "ora": "^5.4.1",
@@ -46,6 +46,10 @@
   },
   "homepage": "https://teamspark.ai",
   "license": "MIT",
+  "files": [
+    "dist",
+    "README.md"
+  ],
   "publishConfig": {
     "access": "public"
   }
