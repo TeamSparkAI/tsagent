@@ -54,8 +54,21 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
       throw new Error(`Session already exists with id: ${sessionId}`);
     }
 
+    // Validate autonomous option against agent
+    if (this.agent.autonomous && options.autonomous === false) {
+      const errorMsg = `Cannot create non-autonomous session ${sessionId}: agent is autonomous and requires all sessions to be autonomous`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+
+    // Set default autonomous value
+    const autonomousValue = this.agent.autonomous 
+      ? true // Agent is autonomous, session must be autonomous
+      : (options.autonomous ?? false); // Agent is not autonomous, default to false
+
     const optionsWithRequiredSettings: ChatSessionOptionsWithRequiredSettings = {
       ...options,
+      autonomous: autonomousValue,
       maxChatTurns: this.getSettingsValue(options.maxChatTurns, 'maxChatTurns'),
       maxOutputTokens: this.getSettingsValue(options.maxOutputTokens, 'maxOutputTokens'),
       temperature: this.getSettingsValue(options.temperature, 'temperature'),

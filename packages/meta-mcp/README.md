@@ -1,10 +1,10 @@
 # @tsagent/meta-mcp
 
-MCP server that exposes TsAgent "Tools" agents as MCP tools with a cognitive layer.
+MCP server that exposes TsAgent agents with exported tools as MCP tools with a cognitive layer.
 
 ## Overview
 
-This package provides an MCP server that takes a TsAgent Tools agent path and exposes the agent's tool definitions as MCP tools. Each tool call processes a prompt template with parameter substitution and executes it via a headless AI chat session.
+This package provides an MCP server that takes a TsAgent agent path (with exported tools) and exposes the agent's tool definitions as MCP tools. Each tool call processes a prompt template with parameter substitution and executes it via a headless AI chat session.
 
 ## Installation
 
@@ -45,8 +45,8 @@ tsagent --mcp agent.yaml --debug
 ```
 
 The server will:
-1. Load the Tools agent from the specified path
-2. Verify it's a Tools agent (mode === 'tools')
+1. Load the agent from the specified path
+2. Verify the agent has exported tools (non-empty `tools` array in metadata)
 3. Convert agent tool definitions to MCP tools
 4. Start an MCP server on stdio
 5. Handle tool calls by processing prompt templates and executing via chat session
@@ -170,7 +170,7 @@ tsagent --mcp agent.yaml --debug
 
 3. **Restart Claude Desktop** to load the new MCP server
 
-4. **Test the tools** - The tools from your Tools agent should now be available in Claude Desktop
+4. **Test the tools** - The tools from your agent should now be available in Claude Desktop
 
 #### Using MCP Inspector (for testing)
 
@@ -188,17 +188,17 @@ npx @modelcontextprotocol/inspector \
 
 #### Manual Testing
 
-1. **Create a test Tools agent** with at least one tool defined
+1. **Create a test agent** with exported tools (at least one tool defined in the `tools` array)
 2. **Start the server:**
    ```bash
    npm run dev /path/to/test-agent.yaml
    ```
 3. **Send MCP requests via stdio** - The server communicates via stdio following the MCP protocol
 
-### Example: Creating a Test Tools Agent
+### Example: Creating a Test Agent with Exported Tools
 
-1. **Create a Tools agent** using the desktop app:
-   - Set agent mode to "Tools"
+1. **Create an agent with exported tools** using the desktop app:
+   - Enable "Exports Tools" checkbox in agent settings
    - Add a tool with:
      - Name: `test_tool`
      - Description: `A test tool`
@@ -215,7 +215,7 @@ npx @modelcontextprotocol/inspector \
 ### Troubleshooting
 
 - **"Agent not loaded" error**: Make sure the agent path is correct and the agent exists
-- **"Agent is not a Tools agent"**: Verify the agent mode is set to "Tools" in the agent metadata
+- **"Agent is not configured as a Tools agent"**: Verify the agent has exported tools (non-empty `tools` array in metadata)
 - **"No tools defined"**: Ensure the agent has at least one tool defined in its metadata
 - **Build errors**: Make sure `@tsagent/core` is built first:
   ```bash

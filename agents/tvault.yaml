@@ -7,6 +7,7 @@ metadata:
   provider:
     organization: TeamSpark LLC
     url: https://teamspark.ai
+  autonomous: true
   tools:
     - name: toolvault_status
       description: Determine if ToolVault is running, including the API port and gateway port

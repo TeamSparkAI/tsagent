@@ -31,7 +31,7 @@ TsAgent is a comprehensive platform that enables anyone to:
 | **A2A Server** | [`@tsagent/server`](https://www.npmjs.com/package/@tsagent/server) | API/CLI | A2A protocol server for exposing agents as HTTP endpoints <br>`tsagent-server` |
 | **ACP Server** | [`@tsagent/acp-server`](https://www.npmjs.com/package/@tsagent/acp-server) | ACP Server | ACP (Agent Client Protocol) server for exposing agents via stdio for code editors <br>`tsagent-acp-server` |
 | **A2A Orchestrator** | [`@tsagent/orchestrator`](https://www.npmjs.com/package/@tsagent/orchestrator) | MCP Server | MCP server for orchestrating A2A agent servers <br>`tsagent-orchestrator` |
-| **Meta MCP** | [`@tsagent/meta-mcp`](https://www.npmjs.com/package/@tsagent/meta-mcp) | MCP Server | MCP server that exposes Tools agents as MCP tools with cognitive layer <br>`tsagent-meta-mcp` |
+| **Meta MCP** | [`@tsagent/meta-mcp`](https://www.npmjs.com/package/@tsagent/meta-mcp) | MCP Server | MCP server that exposes agents with exported tools as MCP tools with cognitive layer <br>`tsagent-meta-mcp` |
 | **Agent Management MCP** | [`@tsagent/agent-mcp`](https://www.npmjs.com/package/@tsagent/agent-mcp) | MCP Server | MCP server for managing TsAgent agents (create, configure, manage rules, references, tools, providers, and MCP servers) <br>`tsagent-agent-mcp` |
 
 | TsAgent Foundry | TsAgent CLI |
@@ -168,15 +168,18 @@ tsagent-agent-mcp
 - At runtime and during provider validation TsAgent resolves `env://` and `op://` values before passing configs to providers
 - Credentials are never logged or stored in plain text.
 
-## Agent Types
+## Agent Properties and Capabilities
 
-TsAgent supports three types of agents:
+Agents have an `autonomous` property that determines their behavior:
 
-- **Interactive Agents**: Maintain conversation history and can ask for user permission to use tools
-- **Autonomous Agents**: Process requests independently and return complete results without user interaction (exposed via A2A protocol)
-- **Tools Agents**: Expose agent capabilities as MCP tools, where each tool call executes a prompt template via a headless chat session
+- **Interactive Agents** (`autonomous: false`): Maintain conversation history and can ask for user permission to use tools. Sessions can be switched between interactive and autonomous modes.
+- **Autonomous Agents** (`autonomous: true`): Process requests independently and return complete results without user interaction. All sessions must be autonomous. Exposed via A2A protocol for agent-to-agent communication.
 
-Also, any agent can orchestrate other agents (whether it is interactive or autonomous itself) via the TsAgent Orchestrator MCP server, and Tools agents can be exposed via the Meta MCP server to make them available as tools to other agents or MCP clients.
+Agents can also export capabilities:
+- **Exported Skills**: Makes the agent available via the A2A protocol for agent-to-agent communication
+- **Exported Tools**: Makes the agent's capabilities available as MCP tools via the Meta MCP server (each tool call executes a prompt template via a headless chat session)
+
+Any agent can orchestrate other agents (whether it is interactive or autonomous itself) via the TsAgent Orchestrator MCP server. Agents with exported tools can be exposed via the Meta MCP server to make them available as tools to other agents or MCP clients.
 
 
 ## Development Workflow

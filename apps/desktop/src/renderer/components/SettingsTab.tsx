@@ -6,7 +6,7 @@ import { ChatSettingsForm, ChatSettings } from './ChatSettingsForm';
 import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
 import './SettingsTab.css';
 import { 
-  SessionToolPermission, AgentMetadata, AgentSkill, AgentTool, AgentMode,
+  SessionToolPermission, AgentMetadata, AgentSkill, AgentTool,
   getDefaultSettings, AgentSettings, ProviderId, parseModelString,
 } from '@tsagent/core';
 import { ProviderIcon } from './ProviderIcon';
@@ -1392,10 +1392,9 @@ const ToolsSection: React.FC = () => {
 };
 
 interface AgentInfoSectionProps {
-  onModeChange?: (mode: AgentMode) => void;
 }
 
-const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => {
+const AgentInfoSection: React.FC<AgentInfoSectionProps> = () => {
   const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
   const [originalMetadata, setOriginalMetadata] = useState<AgentMetadata | null>(null);
   const [name, setName] = useState('');
@@ -1405,7 +1404,9 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
   const [documentationUrl, setDocumentationUrl] = useState('');
   const [providerOrg, setProviderOrg] = useState('');
   const [providerUrl, setProviderUrl] = useState('');
-  const [agentMode, setAgentMode] = useState<AgentMode>('interactive');
+  const [autonomous, setAutonomous] = useState<boolean>(false);
+  const [exportsSkills, setExportsSkills] = useState<boolean>(false);
+  const [exportsTools, setExportsTools] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1414,6 +1415,16 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
 
   useEffect(() => {
     loadAgentMetadata();
+    
+    // Listen for metadata-changed events to reload metadata after saves
+    const metadataListener = window.api.onMetadataChanged(async (data: any) => {
+      log.info('[AgentInfoSection] Metadata changed event received, reloading metadata');
+      await loadAgentMetadata();
+    });
+    
+    return () => {
+      window.api.offMetadataChanged(metadataListener);
+    };
   }, []);
 
   const loadAgentMetadata = async () => {
@@ -1431,17 +1442,11 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
         setDocumentationUrl(agentMetadata.documentationUrl || '');
         setProviderOrg(agentMetadata.provider?.organization || '');
         setProviderUrl(agentMetadata.provider?.url || '');
-        // Set initial mode based on tools/skills - if tools exist, it's tools
-        // If skills exist (and is array), it's autonomous
-        // Otherwise it's interactive
-        let detectedMode: AgentMode = 'interactive';
-        if (agentMetadata.tools && Array.isArray(agentMetadata.tools)) {
-          detectedMode = 'tools';
-        } else if (agentMetadata.skills && Array.isArray(agentMetadata.skills)) {
-          detectedMode = 'autonomous';
-        }
-        setAgentMode(detectedMode);
-        onModeChange?.(detectedMode);
+        // Load autonomous property (defaults to false)
+        setAutonomous(agentMetadata.autonomous ?? false);
+        // Load exports flags based on whether arrays exist (even if empty)
+        setExportsSkills(!!(agentMetadata.skills && Array.isArray(agentMetadata.skills)));
+        setExportsTools(!!(agentMetadata.tools && Array.isArray(agentMetadata.tools)));
       }
     } catch (err) {
       log.error('Error loading agent metadata:', err);
@@ -1462,6 +1467,10 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
       setError(null);
       setSuccess(null);
 
+      // Prepare skills and tools arrays based on export flags
+      const skillsArray = exportsSkills ? (metadata?.skills || []) : undefined;
+      const toolsArray = exportsTools ? (metadata?.tools || []) : undefined;
+
       const result = await window.api.updateAgentMetadata({
         name: name.trim(),
         description: description.trim() || undefined,
@@ -1472,39 +1481,16 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
           organization: providerOrg.trim(),
           url: providerUrl.trim()
         } : undefined,
-        skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined,
-        tools: agentMode === 'tools' ? (metadata?.tools || []) : undefined
+        autonomous: autonomous,
+        skills: skillsArray,
+        tools: toolsArray
       });
 
       if (result.success) {
         setSuccess('Agent information updated successfully');
-        // Update original metadata to reflect the saved state
-        const updatedMetadata: AgentMetadata = {
-          ...metadata!,
-          name: name.trim(),
-          description: description.trim() || undefined,
-          version: version.trim() || undefined,
-          iconUrl: iconUrl.trim() || undefined,
-          documentationUrl: documentationUrl.trim() || undefined,
-          provider: (providerOrg.trim() || providerUrl.trim()) ? {
-            organization: providerOrg.trim(),
-            url: providerUrl.trim()
-          } : undefined,
-          skills: agentMode === 'autonomous' ? (metadata?.skills || []) : undefined,
-          tools: agentMode === 'tools' ? (metadata?.tools || []) : undefined
-        };
-        setOriginalMetadata(JSON.parse(JSON.stringify(updatedMetadata)));
-        setMetadata(updatedMetadata);
-        
-        // Update mode if changed
-        let detectedMode: AgentMode = 'interactive';
-        if (updatedMetadata.tools && Array.isArray(updatedMetadata.tools)) {
-          detectedMode = 'tools';
-        } else if (updatedMetadata.skills && Array.isArray(updatedMetadata.skills)) {
-          detectedMode = 'autonomous';
-        }
-        setAgentMode(detectedMode);
-        onModeChange?.(detectedMode);
+        // Reload metadata from backend to ensure we have the persisted state (including empty arrays)
+        // The metadata-changed event will trigger a reload, but we also reload here to ensure state is updated
+        await loadAgentMetadata();
       } else {
         setError(result.error || 'Failed to update agent information');
       }
@@ -1524,8 +1510,9 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
     (documentationUrl || '') !== (originalMetadata.documentationUrl || '') ||
     (providerOrg || '') !== (originalMetadata.provider?.organization || '') ||
     (providerUrl || '') !== (originalMetadata.provider?.url || '') ||
-    agentMode !== (originalMetadata.tools && Array.isArray(originalMetadata.tools) ? 'tools' : 
-                   originalMetadata.skills && Array.isArray(originalMetadata.skills) ? 'autonomous' : 'interactive')
+    autonomous !== (originalMetadata.autonomous ?? false) ||
+    exportsSkills !== !!(originalMetadata.skills && Array.isArray(originalMetadata.skills)) ||
+    exportsTools !== !!(originalMetadata.tools && Array.isArray(originalMetadata.tools))
   );
 
 
@@ -1673,43 +1660,88 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
       <hr className="form-separator" />
 
       <div className="form-group">
-        <label>Agent Mode</label>
+        <label>Agent Type</label>
         <div className="agent-mode-selector">
           <button
-            className={`mode-button ${agentMode === 'interactive' ? 'active' : ''}`}
+            className={`mode-button ${!autonomous ? 'active' : ''}`}
             onClick={() => {
-              setAgentMode('interactive');
-              onModeChange?.('interactive');
+              setAutonomous(false);
             }}
           >
             Interactive
           </button>
           <button
-            className={`mode-button ${agentMode === 'autonomous' ? 'active' : ''}`}
+            className={`mode-button ${autonomous ? 'active' : ''}`}
             onClick={() => {
-              setAgentMode('autonomous');
-              onModeChange?.('autonomous');
+              setAutonomous(true);
             }}
           >
             Autonomous
           </button>
-          <button
-            className={`mode-button ${agentMode === 'tools' ? 'active' : ''}`}
-            onClick={() => {
-              setAgentMode('tools');
-              onModeChange?.('tools');
-            }}
-          >
-            Tools
-          </button>
         </div>
         <div className="agent-mode-description">
-          {agentMode === 'interactive' 
-            ? 'Interactive chat session with history, supports user interaction (clarifying questions, tool use permission)'
-            : agentMode === 'autonomous'
+          {autonomous 
             ? 'Autonomous agent without chat session history or user interaction, provides direct answers to calling agent'
-            : 'Tools agent exposed as MCP server with dynamically defined tools'
+            : 'Interactive chat session with history, supports user interaction (clarifying questions, tool use permission)'
           }
+        </div>
+      </div>
+
+      <div className="form-group">
+        <label>Exports</label>
+        <div style={{ display: 'flex', flexDirection: 'row', gap: '24px' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={exportsSkills}
+              onChange={async (e) => {
+                const newValue = e.target.checked;
+                if (!newValue && metadata?.skills && metadata.skills.length > 0) {
+                  const skillCount = metadata.skills.length;
+                  const skillText = skillCount === 1 ? 'skill' : 'skills';
+                  const confirmed = await window.api.showMessageBox({
+                    type: 'warning',
+                    title: 'Disable Skills Export',
+                    message: `This agent has ${skillCount} exported ${skillText}. Disabling skills export will DELETE exported ${skillText} permanently.`,
+                    buttons: ['Cancel', 'Continue'],
+                    defaultId: 0,
+                    cancelId: 0
+                  });
+                  if (confirmed.response !== 1) {
+                    return; // User cancelled
+                  }
+                }
+                setExportsSkills(newValue);
+              }}
+            />
+            <span>Skills</span>
+          </label>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={exportsTools}
+              onChange={async (e) => {
+                const newValue = e.target.checked;
+                if (!newValue && metadata?.tools && metadata.tools.length > 0) {
+                  const toolCount = metadata.tools.length;
+                  const toolText = toolCount === 1 ? 'tool' : 'tools';
+                  const confirmed = await window.api.showMessageBox({
+                    type: 'warning',
+                    title: 'Disable Tools Export',
+                    message: `This agent has ${toolCount} exported ${toolText}. Disabling tools export will DELETE exported ${toolText} permanently.`,
+                    buttons: ['Cancel', 'Continue'],
+                    defaultId: 0,
+                    cancelId: 0
+                  });
+                  if (confirmed.response !== 1) {
+                    return; // User cancelled
+                  }
+                }
+                setExportsTools(newValue);
+              }}
+            />
+            <span>Tools</span>
+          </label>
         </div>
       </div>
 
@@ -1734,14 +1766,9 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
                 setDocumentationUrl(originalMetadata.documentationUrl || '');
                 setProviderOrg(originalMetadata.provider?.organization || '');
                 setProviderUrl(originalMetadata.provider?.url || '');
-                let detectedMode: AgentMode = 'interactive';
-                if (originalMetadata.tools && Array.isArray(originalMetadata.tools)) {
-                  detectedMode = 'tools';
-                } else if (originalMetadata.skills && Array.isArray(originalMetadata.skills)) {
-                  detectedMode = 'autonomous';
-                }
-                setAgentMode(detectedMode);
-                onModeChange?.(detectedMode);
+                setAutonomous(originalMetadata.autonomous ?? false);
+                setExportsSkills(!!(originalMetadata.skills && Array.isArray(originalMetadata.skills)));
+                setExportsTools(!!(originalMetadata.tools && Array.isArray(originalMetadata.tools)));
               }
               setError(null);
               setSuccess(null);
@@ -1802,7 +1829,7 @@ const AgentInfoSection: React.FC<AgentInfoSectionProps> = ({ onModeChange }) => 
 
 export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
   const [activeSection, setActiveSection] = useState<string>('about');
-  const [agentMode, setAgentMode] = useState<AgentMode>('interactive');
+  const [metadata, setMetadata] = useState<AgentMetadata | null>(null);
   const [currentSystemPrompt, setCurrentSystemPrompt] = useState<string>('');
   const [initialSystemPrompt, setInitialSystemPrompt] = useState<string>('');
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -1921,16 +1948,10 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           }
         }
 
-        // Load agent metadata to determine mode
+        // Load agent metadata for sidebar visibility
         const agentMetadata = await window.api.getAgentMetadata();
         if (agentMetadata) {
-          if (agentMetadata.tools && Array.isArray(agentMetadata.tools)) {
-            setAgentMode('tools');
-          } else if (agentMetadata.skills && Array.isArray(agentMetadata.skills)) {
-            setAgentMode('autonomous');
-          } else {
-            setAgentMode('interactive');
-          }
+          setMetadata(agentMetadata);
         }
       } catch (error) {
         log.error('Error loading settings:', error);
@@ -1938,6 +1959,29 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
     };
 
     loadSettings();
+  }, []);
+
+  // Subscribe to metadata-changed event to update sidebar visibility
+  useEffect(() => {
+    const metadataListener = window.api.onMetadataChanged(async (data: any) => {
+      log.info('[SettingsTab] Metadata changed event received, reloading metadata');
+      try {
+        // Use metadata from event if available, otherwise fetch from backend
+        if (data.metadata) {
+          setMetadata(data.metadata);
+        } else {
+          const agentMetadata = await window.api.getAgentMetadata();
+          if (agentMetadata) {
+            setMetadata(agentMetadata);
+          }
+        }
+      } catch (error) {
+        log.error('[SettingsTab] Error reloading metadata:', error);
+      }
+    });
+    return () => {
+      window.api.offMetadataChanged(metadataListener);
+    };
   }, []);
 
   // Subscribe to settings-changed event to reload chat settings when defaults change
@@ -2120,7 +2164,7 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
   const renderContent = () => {
     switch (activeSection) {
       case 'agent-info':
-        return <AgentInfoSection onModeChange={setAgentMode} />;
+        return <AgentInfoSection />;
       case 'skills':
         return <SkillsSection />;
       case 'tools':
@@ -2373,15 +2417,15 @@ export const SettingsTab: React.FC<TabProps> = ({ id, activeTabId, name, type })
           >
             <span>Agent Info</span>
           </div>
-          {agentMode === 'autonomous' && (
+          {metadata?.skills && Array.isArray(metadata.skills) && (
             <div 
               className={`tab-items-item ${activeSection === 'skills' ? 'selected' : ''}`}
               onClick={() => setActiveSection('skills')}
             >
-              <span>A2A Skills</span>
+              <span>Exported Skills (A2A)</span>
             </div>
           )}
-          {agentMode === 'tools' && (
+          {metadata?.tools && Array.isArray(metadata.tools) && (
             <div 
               className={`tab-items-item ${activeSection === 'tools' ? 'selected' : ''}`}
               onClick={() => setActiveSection('tools')}

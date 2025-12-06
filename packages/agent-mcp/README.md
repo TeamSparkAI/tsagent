@@ -58,13 +58,13 @@ tsagent-agent-mcp [--debug|-d]
 - **`agent_update_reference`**: Update an existing reference
 - **`agent_delete_reference`**: Delete a reference from an agent
 
-### Tools Management (for Tools Mode Agents)
+### Tools Management (for Agents with Exported Tools)
 
-- **`agent_list_tools`**: List all exported tools for a tools-mode agent
+- **`agent_list_tools`**: List all exported tools for an agent
 - **`agent_get_tool`**: Get a specific tool by name
-- **`agent_add_tool`**: Add a new exported tool to a tools-mode agent
+- **`agent_add_tool`**: Add a new exported tool to an agent
 - **`agent_update_tool`**: Update an existing tool
-- **`agent_delete_tool`**: Delete a tool from a tools-mode agent
+- **`agent_delete_tool`**: Delete a tool from an agent
 
 ### Provider Management
 
@@ -100,7 +100,7 @@ The server maintains an internal registry of loaded agents to avoid repeated fil
 - **Contains**: 
   - Identity: `name`, `description`, `version`
   - Presentation: `iconUrl`, `documentationUrl`, `provider` info
-  - Mode-specific: `skills` (for autonomous agents), `tools` (for tools mode agents)
+  - Exported capabilities: `skills` (for A2A agents), `tools` (for agents exporting tools)
   - Timestamps: `created`, `lastAccessed`
 - **Usage**: Used to describe what the agent is and what it can do
 
@@ -126,7 +126,7 @@ The server maintains an internal registry of loaded agents to avoid repeated fil
     "agentPath": "./agents/my-new-agent.yaml",
     "name": "My New Agent",
     "description": "A helpful assistant",
-    "mode": "interactive",
+    "autonomous": false,
     "initialPrompt": "You are a helpful AI assistant."
   }
 }
@@ -285,7 +285,7 @@ npx @modelcontextprotocol/inspector \
 ## Troubleshooting
 
 - **"Failed to load agent" error**: Make sure the agent path is correct and the agent exists
-- **"Agent is not in tools mode"**: Some tools (like tool management) only work for agents in "tools" mode
+- **"Agent is not configured as a Tools agent"**: Tool management tools require the agent to have exported tools (non-empty `tools` array in metadata)
 - **Build errors**: Make sure `@tsagent/core` is built first:
   ```bash
   cd ../agent-api

@@ -205,7 +205,8 @@ function getAgentSettings(agent: Agent): ChatSessionOptionsWithRequiredSettings 
     toolPermission: merged.toolPermission!,
     contextTopK: merged.contextTopK!,
     contextTopN: merged.contextTopN!,
-    contextIncludeScore: merged.contextIncludeScore!
+    contextIncludeScore: merged.contextIncludeScore!,
+    autonomous: agent.autonomous ? true : false // CLI sessions default to agent's autonomous state
   };
 }
 

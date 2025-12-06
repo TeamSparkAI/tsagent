@@ -4,11 +4,13 @@ import { Agent, populateModelFromSettings } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { SessionToolPermission } from '../types/agent.js';
 import { isToolPermissionRequired, getToolEffectiveIncludeMode, getToolIncludeServerDefault } from '../mcp/types.js';
+import { ProviderHelper } from '../providers/provider-helper.js';
 import { SupervisionManager } from '../types/supervision.js';
 import { SessionContextItem, RequestContextItem, RequestContext } from '../types/context.js';
 
 export class ChatSessionImpl implements ChatSession {
   private _id: string;
+  private _autonomous: boolean;
   messages: ChatMessage[] = [];
   lastSyncId: number = 0;
   currentProvider?: ProviderId;
@@ -26,7 +28,11 @@ export class ChatSessionImpl implements ChatSession {
   contextIncludeScore: number;
   private approvedTools: Map<string, Set<string>> = new Map();
   private supervisionManager?: SupervisionManager;
-  private lastRequestContext?: RequestContext;
+  // Request context for the current prompt being processed. This persists across multiple
+  // turns (e.g., when yielding to user for tool approval and then continuing), but is
+  // reset when a new user message is received (new prompt). Contains semantically selected
+  // items (rules, references, tools) that were chosen for the current prompt.
+  private promptRequestContext?: RequestContext;
 
   constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, private logger: Logger) {
     this._id = id;
@@ -40,6 +46,22 @@ export class ChatSessionImpl implements ChatSession {
     } else {
       this.currentProvider = undefined;
       this.currentModelId = undefined;
+    }
+
+    // Determine autonomous state with validation
+    if (agent.autonomous) {
+      // Agent is autonomous, session must be autonomous
+      if (options.autonomous === false) {
+        const errorMsg = `Cannot create non-autonomous session ${id}: agent is autonomous and requires all sessions to be autonomous`;
+        logger.error(errorMsg);
+        throw new Error(errorMsg);
+      }
+      this._autonomous = true;
+      logger.debug(`Session ${id} created as autonomous (agent is autonomous)`);
+    } else {
+      // Agent is not autonomous, session can be autonomous or not (default to false)
+      this._autonomous = options.autonomous ?? false;
+      logger.debug(`Session ${id} created as ${this._autonomous ? 'autonomous' : 'interactive'} (agent is not autonomous)`);
     }
 
     this.maxChatTurns = options.maxChatTurns;
@@ -93,8 +115,23 @@ export class ChatSessionImpl implements ChatSession {
     return this._id;
   }
 
+  get autonomous(): boolean {
+    return this._autonomous;
+  }
+
   setSupervisionManager(supervisionManager: SupervisionManager): void {
     this.supervisionManager = supervisionManager;
+  }
+
+  setAutonomous(autonomous: boolean): boolean {
+    if (this.agent.autonomous && !autonomous) {
+      const errorMsg = `Cannot set session ${this._id} to non-autonomous: agent is autonomous and requires all sessions to be autonomous`;
+      this.logger.error(errorMsg);
+      throw new Error(errorMsg);
+    }
+    this._autonomous = autonomous;
+    this.logger.info(`Session ${this._id} autonomous state changed from ${!autonomous} to ${autonomous}`);
+    return true;
   }
 
   /**
@@ -127,6 +164,7 @@ export class ChatSessionImpl implements ChatSession {
       currentModelProvider: this.currentProvider,
       currentModelId: this.currentModelId,
       contextItems: [...this.contextItems],  // Include tracked context items
+      autonomous: this._autonomous,
       maxChatTurns: this.maxChatTurns,
       maxOutputTokens: this.maxOutputTokens,
       temperature: this.temperature,
@@ -139,7 +177,7 @@ export class ChatSessionImpl implements ChatSession {
   }
 
   getLastRequestContext(): RequestContext | undefined {
-    return this.lastRequestContext;
+    return this.promptRequestContext;
   }
 
   /**
@@ -221,7 +259,10 @@ export class ChatSessionImpl implements ChatSession {
 
   /**
    * Helper function to get agent mode items (items with include: 'agent' that are NOT in session context)
-   * Returns RequestContextItem[] for use in semantic search
+   * Returns RequestContextItem[] for use in semantic search.
+   * 
+   * For tools, filters based on autonomous state and permissions to ensure semantic search only
+   * considers tools that will actually be available (prevents selecting tools that will be filtered out later).
    */
   private getAgentModeItems(): RequestContextItem[] {
     const items: RequestContextItem[] = [];
@@ -261,6 +302,8 @@ export class ChatSessionImpl implements ChatSession {
     }
     
     // Get tools with include: 'agent'
+    // Filter based on autonomous state and permissions so semantic search only considers
+    // tools that will actually be available (prevents wasting topN slots on filtered tools)
     const mcpClients = this.agent.getAllMcpClientsSync();
     for (const [serverName, client] of Object.entries(mcpClients)) {
       const serverConfig = this.agent.getMcpServer(serverName)?.config;
@@ -269,18 +312,23 @@ export class ChatSessionImpl implements ChatSession {
       for (const tool of client.serverTools) {
         const effectiveMode = getToolEffectiveIncludeMode(serverConfig, tool.name);
         if (effectiveMode === 'agent') {
+          // Check if not already in session
           const inSession = this.contextItems.some(
             item => item.type === 'tool' && 
                     item.name === tool.name && 
                     item.serverName === serverName
           );
           if (!inSession) {
-            items.push({
-              name: tool.name,
-              type: 'tool',
-              serverName: serverName,
-              includeMode: 'agent',
-            });
+            // Check if tool would be available after autonomous/permission filtering
+            // This ensures semantic search only considers tools that will actually be included
+            if (ProviderHelper.isToolAvailableForSession(this, serverConfig, tool.name)) {
+              items.push({
+                name: tool.name,
+                type: 'tool',
+                serverName: serverName,
+                includeMode: 'agent',
+              });
+            }
           }
         }
       }
@@ -353,17 +401,26 @@ export class ChatSessionImpl implements ChatSession {
     }
 
     // Build request context (for this request/response pair)
-    // For approval messages, reuse the last request context from the initial user message
-    // to maintain consistent context across all turns of a multi-turn conversation
+    // 
+    // Request context contains:
+    //   - All session context items (always + manual)
+    //   - Semantically selected items (rules, references, tools with include: 'agent')
+    //
+    // For approval messages, reuse the prompt request context from the initial user message
+    // to maintain consistent context across all turns of a multi-turn conversation (even when
+    // yielding to user for tool approval and continuing with generateResponse calls).
+    // For new user messages, build a fresh request context (semantic search runs again).
     let requestContext: RequestContext;
-    if (message.role === 'approval' && this.lastRequestContext) {
-      // Reuse the original request context for approval messages (continuation of same conversation)
-      requestContext = this.lastRequestContext;
+    if (message.role === 'approval' && this.promptRequestContext) {
+      // Reuse the prompt request context for approval messages (continuation of same prompt)
+      // This ensures semantically selected tools/items persist across multiple turns
+      requestContext = this.promptRequestContext;
     } else {
-      // Build new request context for user messages (new conversation turn)
+      // Build new request context for user messages (new prompt)
+      // This triggers fresh semantic search and resets semantically selected items
       const userMessageContent = message.role === 'user' ? message.content : '';
       requestContext = await this.buildRequestContext(userMessageContent);
-      this.lastRequestContext = requestContext;
+      this.promptRequestContext = requestContext;
     }
 
     // Build messages array, starting with system prompt and existing non-system messages
@@ -755,6 +812,23 @@ export class ChatSessionImpl implements ChatSession {
   }
 
   public async isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean> {
+    // Safety check: In autonomous sessions, tool approval should never be required
+    // (filtering in ProviderHelper.getIncludedTools should prevent this, but add safety check)
+    if (this._autonomous) {
+      const serverConfig = this.agent.getMcpServer(serverId)?.config;
+      if (serverConfig) {
+        const requiresPermission = isToolPermissionRequired(serverConfig, toolId);
+        if (requiresPermission) {
+          this.logger.error(
+            `SAFETY CHECK FAILED: Tool ${serverId}:${toolId} requires permission but session is autonomous. ` +
+            `This should have been filtered out. Tool will be denied.`
+          );
+          // Return true to deny the tool as a safety measure
+          return true;
+        }
+      }
+    }
+
     // First check if the tool has already been approved for this session
     const serverApprovedTools = this.approvedTools.get(serverId);
     if (serverApprovedTools?.has(toolId)) {
@@ -783,7 +857,7 @@ export class ChatSessionImpl implements ChatSession {
     }
 
     // If the above logic fails to deliver a defintive result, then we default to always requiring tool approval
-            this.logger.info(`Tool ${toolId} - no definitive permission result, defaulting to true`);
+    this.logger.warn(`Tool ${toolId} - no definitive permission result, defaulting to true`);
     return true;
   }
 

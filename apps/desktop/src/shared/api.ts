@@ -21,6 +21,7 @@ export interface API {
     temperature: number;
     topP: number;
   }) => Promise<boolean>;
+  setChatAutonomous: (tabId: string, autonomous: boolean) => Promise<{ success: boolean; error?: string }>;
 
   // Chat context management
   addChatReference: (tabId: string, referenceName: string) => Promise<boolean>;
@@ -57,9 +58,9 @@ export interface API {
   toggleDevTools: () => Promise<boolean>;
   getSystemPrompt: () => Promise<string>;
   saveSystemPrompt: (prompt: string) => Promise<void>;
-  getAgentMetadata: () => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } | null>;
-  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[] }>) => Promise<{ success: boolean; error?: string }>;
-  getAgentMetadataByPath: (agentPath: string) => Promise<{ metadata: { name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[]; created: string; lastAccessed: string }; path: string } | null>;
+  getAgentMetadata: () => Promise<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; autonomous?: boolean; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } | null>;
+  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; autonomous?: boolean; skills?: any[]; tools?: any[] }>) => Promise<{ success: boolean; error?: string }>;
+  getAgentMetadataByPath: (agentPath: string) => Promise<{ metadata: { name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; autonomous?: boolean; skills?: any[]; tools?: any[]; created: string; lastAccessed: string }; path: string } | null>;
   showChatMenu: (hasSelection: boolean, x: number, y: number) => Promise<void>;
   showEditControlMenu: (editFlags: { 
     canUndo: boolean;
@@ -111,7 +112,7 @@ export interface API {
   deleteAgent: () => Promise<{ success: boolean; error?: string }>;
   onAgentSwitched: (callback: (data: { windowId: string, agentPath: string, targetWindowId: string }) => void) => (event: any, data: any) => void;
   offAgentSwitched: (listener: (event: any, data: any) => void) => void;
-  onMetadataChanged: (callback: (data: { agentPath: string; metadata?: { name: string } }) => void) => (event: any, data: any) => void;
+  onMetadataChanged: (callback: (data: { agentPath: string; metadata?: { name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; autonomous?: boolean; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } }) => void) => (event: any, data: any) => void;
   offMetadataChanged: (listener: (event: any, data: any) => void) => void;
   onAgentDeleted: (callback: (data: { agentPath: string }) => void) => (event: any, data: any) => void;
   offAgentDeleted: (listener: (event: any, data: any) => void) => void;

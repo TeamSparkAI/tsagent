@@ -4,7 +4,6 @@ import {
   Agent,
   AgentConfig,
   AgentMetadata,
-  AgentMode,
   AgentTool,
   AgentSettings,
   Logger,
@@ -104,7 +103,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
                 name: agent.name,
                 path: agent.path,
                 description: agent.description,
-                mode: agent.mode,
+                autonomous: agent.autonomous,
                 metadata,
               };
             });
@@ -152,7 +151,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
                         name: metadata.name || entry.name,
                         path: fullPath,
                         description: metadata.description,
-                        mode: (metadata.tools ? 'tools' : (metadata.skills ? 'autonomous' : 'interactive')) as AgentMode,
+                        autonomous: metadata.autonomous ?? false,
                         metadata,
                       });
                     } catch (error) {
@@ -211,7 +210,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             name: agent.name,
             path: agent.path,
             description: agent.description,
-            mode: agent.mode,
+            autonomous: agent.autonomous,
             metadata,
             installedProviders,
             mcpServerCount: Object.keys(mcpServers).length,
@@ -240,10 +239,9 @@ export class AgentManagementMCPServer extends BaseMCPServer {
                 type: 'string',
                 description: 'Agent description',
               },
-              mode: {
-                type: 'string',
-                enum: ['interactive', 'autonomous', 'tools'] as const satisfies readonly AgentMode[],
-                description: 'Agent mode',
+              autonomous: {
+                type: 'boolean',
+                description: 'Whether the agent is autonomous (defaults to false)',
               },
               initialSettings: {
                 type: 'object',
@@ -270,16 +268,8 @@ export class AgentManagementMCPServer extends BaseMCPServer {
             description: args.description,
             created: new Date().toISOString(),
             lastAccessed: new Date().toISOString(),
+            autonomous: args.autonomous ?? false,
           };
-
-          // Set mode by adding appropriate metadata fields
-          const mode = args.mode as AgentMode | undefined;
-          if (mode === 'tools') {
-            metadata.tools = [];
-          } else if (mode === 'autonomous') {
-            metadata.skills = [];
-          }
-          // 'interactive' is the default, no special metadata needed
 
           const config: Partial<AgentConfig> = {
             metadata: metadata as AgentMetadata,
@@ -851,11 +841,11 @@ export class AgentManagementMCPServer extends BaseMCPServer {
           };
         },
       },
-      // Tools Management (for Tools Mode Agents)
+      // Tools Management
       {
         tool: {
           name: 'agent_list_tools',
-          description: 'List all exported tools for a tools-mode agent.',
+          description: 'List all exported tools for an agent.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -869,9 +859,6 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          if (agent.mode !== 'tools') {
-            throw new Error(`Agent is not in tools mode. Current mode: ${agent.mode}`);
-          }
           const metadata = agent.getMetadata();
           const tools = metadata.tools || [];
           return {
@@ -901,9 +888,6 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          if (agent.mode !== 'tools') {
-            throw new Error(`Agent is not in tools mode. Current mode: ${agent.mode}`);
-          }
           const metadata = agent.getMetadata();
           const tools = metadata.tools || [];
           const tool = tools.find((t: AgentTool) => t.name === args.toolName);
@@ -915,7 +899,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
       {
         tool: {
           name: 'agent_add_tool',
-          description: 'Add a new exported tool to a tools-mode agent.',
+          description: 'Add a new exported tool to an agent.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -933,9 +917,6 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          if (agent.mode !== 'tools') {
-            throw new Error(`Agent is not in tools mode. Current mode: ${agent.mode}`);
-          }
           const metadata = agent.getMetadata();
           const tools = metadata.tools || [];
           
@@ -977,9 +958,6 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          if (agent.mode !== 'tools') {
-            throw new Error(`Agent is not in tools mode. Current mode: ${agent.mode}`);
-          }
           const metadata = agent.getMetadata();
           const tools = metadata.tools || [];
           
@@ -1004,7 +982,7 @@ export class AgentManagementMCPServer extends BaseMCPServer {
       {
         tool: {
           name: 'agent_delete_tool',
-          description: 'Delete a tool from a tools-mode agent.',
+          description: 'Delete a tool from an agent.',
           inputSchema: {
             type: 'object',
             properties: {
@@ -1022,9 +1000,6 @@ export class AgentManagementMCPServer extends BaseMCPServer {
         },
         handler: async (args) => {
           const agent = await this.resolveAgent(args.agentTarget);
-          if (agent.mode !== 'tools') {
-            throw new Error(`Agent is not in tools mode. Current mode: ${agent.mode}`);
-          }
           const metadata = agent.getMetadata();
           const tools = metadata.tools || [];
           

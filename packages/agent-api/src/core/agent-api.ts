@@ -3,9 +3,14 @@ import { v4 as uuidv4 } from 'uuid';
 import { EventEmitter } from 'events';
 import dotenv from 'dotenv';
 
-import { Agent, AgentConfig, AgentConfigSchema, AgentSettings, AgentSettingsSchema,
-  AgentMetadata, AgentMetadataSchema,
-  AgentMode,
+import { 
+  Agent, 
+  AgentConfig, 
+  AgentConfigSchema, 
+  AgentMetadata, 
+  AgentMetadataSchema,
+  AgentSettings, 
+  AgentSettingsSchema,
   SupervisorConfig
 } from '../types/agent.js';
 import { Logger } from '../types/common.js';
@@ -60,10 +65,8 @@ export class AgentImpl  extends EventEmitter implements Agent {
   get name(): string { return this._agentData?.metadata?.name || this._strategy?.getName() || this._id; }
   get path(): string { return this._strategy?.getName() || this._id; }
   get description(): string | undefined { return this._agentData?.metadata?.description; }
-  get mode(): AgentMode { 
-    if (this._agentData?.metadata?.tools) return 'tools';
-    if (this._agentData?.metadata?.skills) return 'autonomous';
-    return 'interactive';
+  get autonomous(): boolean {
+    return this._agentData?.metadata?.autonomous ?? false;
   }
 
   constructor(strategy: AgentStrategy | null, private logger: Logger) {

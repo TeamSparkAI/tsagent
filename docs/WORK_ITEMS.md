@@ -131,59 +131,6 @@ Improve MCP support and config/interaction (best of MCP Inspector and ToolVault)
 - **Passive observation**: Supervisor passed entire conversation after the fact (limited actions)
 - **Active interaction**: Supervisor in conversation loop in real-time (full control, subject to privileges)
 
-## Agent Creation
-
-### Agent Types/Modes
-
-We currently present (in the ux) an agent "mode" of interactive, autonomous (A2A), or tool providing (for meta-MCP)
-- Determined by the prescence of skills or tools
-- Naming is odd because tool providing agents are also autonomous
-- Operationally, if either skills or tools present, only present agent with tools not requiring approval
-- Does not support:
-  - An agent providing both skills and tools (supported in agent defintion, but not in ux)
-  - An interative agent providing either skills or tools
-  - An autonomous agent providing neither skills nor tools (possibly needed for ACP)
-
-Should you be able to use a skill or tool-providing agent interactively with MCP tools that require permission?
-- Only lock down the tools when in autonomous mode (how would we know)?
-  - We could tell the agent its in autonomous mode when we instatiate it (from the A2A or MCP server, for example)
-  - We could make the agent request processing be autonomous when we are in tool test mode
-  - We could establish a similar skill test mode (a little weird since skills aren't individually testable)
-  - Maybe an ephemeral session param to make session autonomous?
-  - This is all really about the use case of we want an agent we can interact with non-autonomously
-    - But when that agent is used via A2A or MCP we want it to be autonomous
-    - Which means we'd like to be able to test it in autonomous mode
-    - If not for the desire to have it also be non-autonomous, we could just use an agent setting (interactive/autonomous)
-- At least lock down tools in test mode (so you can simulate how it will work when autonomous)
-
-What if we had agent config "interactive" (default) or autonomous (or just an "interactive" bool that defaults to true)
-- If autonomous, all sessions are autonomous (attempts to create/set to interactive will fail)
-- If interactive, sessions default to interactive but can be created/set to autonomous
-  - This is how we would do tool test (and maybe "agent" test for skills agents?) - creating the test session as autonomous
-  - When a2a/mcp server instantiates agent/session, it sets the session to autonomous (think about this for ACP)
-  - Should we allow the user to set it in the desktop via session settings (show state, allow change if allowed)
-- We would let you create skills or tools in either mode
-  - This is already how it works at the config (agent file) level
-  - Think about the desktop ux for this (enable means create empty skills/tools element, then tabs show up)
-    - Checkbox for "Exports skills" and "Exports tools"
-    - When checked, we create emtpy skills/tools, tabs show up
-    - When unckeched, remove skills/tools (if any skills/tools defined, confirm that they will be deleted), and tabs
-  - Check logic for what happens if we have both (in ux and agent)
-    - "autonomous" would now be driven by specific attribute at the session level, not presensce of skills/tools
-- This also supports the idea of making an agent autonomous without any skills/tools (currently not a supported use case)
-  - Would we do this when building an ACP agent?
-- For now this is only used for tool presentation (suppress tools requiring approval), but might later be used to control elicitaton or other interactive behaviors
-  - If elicitation always directed at the user, or might it be directed at the agent?
-
-
-There is currently a bug with autonomous agents 
-- When they include tools via semantic inclusion, they don't filter out tools that require approval (easy fix)
-- If that happens, you get a tool call that can't be completed, resulting in an empty response and end of turn
-
-We should filter for tool permission when including tools by context (for both autonomous and tool providing modes)
-We should add some error logging or error response in the case that we encounter an tool permission requirement when in autonomous mode
-- Should never happen after fix, but still good to be safe
-
 ### MCP Server Config
 
 We should implement registry support and metadata-driven config (via ServerCard?) before we lock the mcpServers config down
@@ -245,3 +192,13 @@ How would we auth to exposed services (A2A, ACP, MCP)?
 
 For A2A, for AgentCard publishing, the agent card has to be on the root URL (so we'd need URL-per-agent)
 - myAgent.teamspark.ai (has .well-known/agent-card.json, server via A2A)
+
+### Test agent mode and tsagent
+
+Test global installs
+- Desktop app (autononmous UX, context inclusion, etc)
+- npm install -g @tsagent/cli
+
+Test tsagent --mcp with path to agent (tvault.yaml/optimizer.yaml), validate with MCP inspector
+Test tsagent --acp with Zed (tspark.yaml)
+Test tsagent --a2a with a root agent and orchestrator point to the running a2a agents (bob.yaml/tspark.yaml in autonomous mode)

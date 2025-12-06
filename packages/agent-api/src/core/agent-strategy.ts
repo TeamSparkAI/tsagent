@@ -647,12 +647,34 @@ export class FileBasedAgentStrategy implements AgentStrategy {
       this.agentFile = this.agentFile + '.yaml';
     }
     
+    // Prepare config for serialization - remove default/undefined values to keep YAML clean
+    const configForSerialization = { ...config };
+    if (configForSerialization.metadata) {
+      const metadata = { ...configForSerialization.metadata };
+      
+      // Remove autonomous: false (default value, will be inferred on load)
+      if (metadata.autonomous === false) {
+        delete metadata.autonomous;
+      }
+      
+      // Remove undefined properties (so they're omitted from YAML)
+      if (metadata.skills === undefined) {
+        delete metadata.skills;
+      }
+      if (metadata.tools === undefined) {
+        delete metadata.tools;
+      }
+      
+      configForSerialization.metadata = metadata;
+    }
+    
     // Validate before saving (includes embedded content)
-    const validatedConfig = AgentConfigSchema.parse(config);
+    // Note: We validate the original config, but serialize the cleaned version
+    AgentConfigSchema.parse(config);
     
     // Always save as YAML
     // Use Document API for fine-grained formatting control (flow style for embedding arrays)
-    const doc = yaml.parseDocument(yaml.stringify(validatedConfig));
+    const doc = yaml.parseDocument(yaml.stringify(configForSerialization));
     
     // Set flow style for embedding arrays (nested at depth 5: rules/references -> embeddings -> embedding)
     // We'll use a custom function to traverse and set flow style on embedding arrays

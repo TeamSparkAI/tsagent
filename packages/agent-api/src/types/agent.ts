@@ -20,15 +20,13 @@ export type ProviderConfig = z.infer<typeof ProviderConfigSchema>;
 export const SessionToolPermissionSchema = z.enum(['always', 'never', 'tool']);
 export type SessionToolPermission = z.infer<typeof SessionToolPermissionSchema>;
 
-export type AgentMode = 'interactive' | 'autonomous' | 'tools';
-
 // Core agent interface
 export interface Agent extends ProvidersManager, McpServerManager, ChatSessionManager {
   readonly id: string;
   readonly path: string;
   readonly name: string;
   readonly description?: string;
-  readonly mode: AgentMode;
+  readonly autonomous: boolean;
   
   // Agent lifecycle
   load(): Promise<void>; // strategy required
@@ -165,6 +163,7 @@ export const AgentMetadataSchema = z.object({
     organization: z.string(),
     url: z.string(),
   }).optional(),
+  autonomous: z.boolean().default(false).optional(),
   skills: z.array(AgentSkillSchema).optional(),
   tools: z.array(AgentToolSchema).optional(),
   created: z.string(),

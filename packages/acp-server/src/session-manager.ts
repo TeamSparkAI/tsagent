@@ -14,8 +14,8 @@ export class ACPSession {
     private logger: Logger
   ) {
     this.id = sessionId;
-    // Create a corresponding agent chat session
-    this.chatSession = agent.createChatSession(sessionId);
+    // Create an autonomous agent chat session (ACP always uses autonomous sessions)
+    this.chatSession = agent.createChatSession(sessionId, { autonomous: true });
     this.logger.debug(`Created ACP session ${sessionId} with chat session`);
   }
 

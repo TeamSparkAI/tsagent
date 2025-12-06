@@ -11,6 +11,7 @@ import {
   ListToolsRequestSchema,
   Tool,
 } from '@modelcontextprotocol/sdk/types.js';
+import { ConsoleLogger } from './logger.js';
 
 interface AgentEndpoint {
   originalUri: string;    // Original URI (for logging/debugging)
@@ -53,8 +54,11 @@ export class A2AMCPServer {
   private agentMap: Map<string, string> = new Map(); // agentId -> endpoint
   private embeddedServer: MultiA2AServer | null = null;
   private pendingUris: string[] = [];
+  private logger: ConsoleLogger;
 
   constructor(uris: string[] = []) {
+    // Create logger that writes to stderr (MCP stdio servers must not write to stdout)
+    this.logger = new ConsoleLogger(true); // Verbose during startup
     this.server = new Server(
       {
         name: '@tsagent/orchestrator',
@@ -101,8 +105,9 @@ export class A2AMCPServer {
 
   private async startEmbeddedServer(filePaths: string[]): Promise<void> {
     try {
-      console.error(`Starting embedded @tsagent/server with ${filePaths.length} file-based agents...`);
-      this.embeddedServer = new MultiA2AServer(0); // Dynamic port
+      this.logger.info(`Starting embedded @tsagent/server with ${filePaths.length} file-based agents...`);
+      // Pass MCP-compatible logger (writes to stderr, not stdout) to prevent protocol pollution
+      this.embeddedServer = new MultiA2AServer(0, this.logger); // Dynamic port
       
       // Register all file-based agents
       for (const filePath of filePaths) {
@@ -121,9 +126,9 @@ export class A2AMCPServer {
         });
       }
       
-      console.error(`Embedded @tsagent/server started on port ${result.port} with ${result.agents.length} agents`);
+      this.logger.info(`Embedded @tsagent/server started on port ${result.port} with ${result.agents.length} agents`);
     } catch (error) {
-      console.error('Failed to start embedded @tsagent/server:', error);
+      this.logger.error('Failed to start embedded @tsagent/server:', error);
       // Continue with HTTP-only agents
     }
   }
@@ -133,9 +138,9 @@ export class A2AMCPServer {
       try {
         await this.embeddedServer.shutdown();
         this.embeddedServer = null;
-        console.error('Embedded @tsagent/server shutdown complete');
+        this.logger.info('Embedded @tsagent/server shutdown complete');
       } catch (error) {
-        console.error('Error shutting down embedded @tsagent/server:', error);
+        this.logger.error('Error shutting down embedded @tsagent/server:', error);
       }
     }
   }
@@ -284,11 +289,11 @@ export class A2AMCPServer {
           }
         });
       } catch (error) {
-        console.error(`Failed to get agent card from ${endpoint.httpEndpoint} (original: ${endpoint.originalUri}):`, error);
+        this.logger.error(`Failed to get agent card from ${endpoint.httpEndpoint} (original: ${endpoint.originalUri}):`, error);
       }
     }
 
-    console.error('@tsagent/orchestrator agents:', { agents });
+    // Removed verbose logging - logs to stdout would break MCP protocol
 
     // Because we provide outputSchema for the tools, we are required to produce structuredContent that fulfills that schema
     // (some models will produce an error if there is an outputSchema and no structuredContent).  In practice, some models do
@@ -334,7 +339,7 @@ export class A2AMCPServer {
       this.clients.set(endpoint, client);
     }
     
-    console.error('Sending message to @tsagent/orchestrator client:', { client });
+    // Removed verbose logging - logs to stdout would break MCP protocol
 
     try {
       // Send message to agent
@@ -352,7 +357,7 @@ export class A2AMCPServer {
       let taskId = '';
       let status = 'unknown';
 
-      console.error('@tsagent/orchestrator response:', JSON.stringify(response, null, 2));
+      // Removed verbose logging - logs to stdout would break MCP protocol
       
       // Extract the actual result from the JSON-RPC response
       const result = 'result' in response ? response.result : null;
@@ -436,12 +441,12 @@ export class A2AMCPServer {
     
     // Set up graceful shutdown
     const gracefulShutdown = async (signal: string) => {
-      console.error(`Received ${signal}, shutting down gracefully...`);
+      this.logger.info(`Received ${signal}, shutting down gracefully...`);
       try {
         await this.shutdownEmbeddedServer();
-        console.error('@tsagent/orchestrator shutdown complete');
+        this.logger.info('@tsagent/orchestrator shutdown complete');
       } catch (error) {
-        console.error('Error during shutdown:', error);
+        this.logger.error('Error during shutdown:', error);
       }
       process.exit(0);
     };
@@ -449,10 +454,14 @@ export class A2AMCPServer {
     process.on('SIGINT', () => gracefulShutdown('SIGINT'));
     process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
-    // Start MCP server
+    // Start MCP server - after this point, stdout is used for MCP protocol
     const transport = new StdioServerTransport();
     await this.server.connect(transport);
-    console.error('@tsagent/orchestrator running on stdio');
+    
+    // After connecting to stdio, disable verbose logging
+    // Only critical errors will be logged to stderr
+    this.logger.setVerbose(false);
+    this.logger.info('@tsagent/orchestrator running on stdio');
   }
 }
 
@@ -460,13 +469,19 @@ export class A2AMCPServer {
 const args = process.argv.slice(2);
 const uris = args.length > 0 ? args : null;
 if (!uris) {
+  // Use console.error for startup errors before logger is created
   console.error('Error: A2A endpoints or file paths are required');
   process.exit(1);
 }
 
+// Use console.error for startup logging before MCP server connects to stdio
+// After connection, all logging goes through logger which writes to stderr
 console.error('@tsagent/orchestrator starting with URIs:', uris);
 
 const server = new A2AMCPServer(uris);
-server.start().catch(console.error);
+server.start().catch((error) => {
+  console.error('Failed to start @tsagent/orchestrator:', error);
+  process.exit(1);
+});
 
 export default A2AMCPServer;

@@ -71,21 +71,28 @@ Agent Client Protocol server for code editor integration:
 
 ## Agent Architecture
 
-### Agent Types
+### Agent Properties
 
-TsAgent supports three types of agents:
+Agents have an `autonomous` property that determines their behavior:
 
-1. **Interactive Agents**: Maintain conversation history and can ask for user permission to use tools. Designed for human-agent interactions.
+1. **Interactive Agents** (`autonomous: false`): Maintain conversation history and can ask for user permission to use tools. Designed for human-agent interactions. Sessions can be switched between interactive and autonomous modes.
 
-2. **Autonomous Agents**: Process requests independently and return complete results without user interaction. Exposed via A2A protocol for agent-to-agent communication.
+2. **Autonomous Agents** (`autonomous: true`): Process requests independently and return complete results without user interaction. All sessions for autonomous agents must be autonomous. Exposed via A2A protocol for agent-to-agent communication.
 
-3. **Tools Agents**: Expose agent capabilities as MCP tools, where each tool call executes a prompt template via a headless chat session. Enables agents to be used as tools by other agents or MCP clients.
+### Agent Capabilities
+
+Agents can export capabilities that make them available to other systems:
+
+- **Exported Skills** (`skills` array): Makes the agent available via the A2A (Agent-to-Agent) protocol. Each skill defines how other agents can interact with this agent.
+- **Exported Tools** (`tools` array): Makes the agent's capabilities available as MCP tools via the Meta MCP server. Each tool call executes a prompt template via a headless chat session, enabling agents to be used as tools by other agents or MCP clients.
+
+These capabilities are independent properties - an agent can export skills, tools, both, or neither, regardless of whether it is interactive or autonomous.
 
 ### Agent Configuration
 
 Agents are configured using a single YAML file (`.yaml` or `.yml`) containing all agent configuration and content:
 
-- **Metadata**: Name, description, version, timestamps
+- **Metadata**: Name, description, version, timestamps, autonomous property, exported skills/tools
 - **System Prompt**: Core instructions for the agent
 - **Settings**: Chat parameters (max turns, tokens, temperature, etc.)
 - **Rules**: Prompt guidance items with include modes

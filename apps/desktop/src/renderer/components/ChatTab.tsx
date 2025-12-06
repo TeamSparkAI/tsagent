@@ -30,6 +30,7 @@ interface ClientChatState {
   currentModelId?: string;
   pendingToolCalls?: ToolCallRequest[];
   contextItems?: SessionContextItem[];  // Session context items for deriving active references, rules, and tools
+  autonomous?: boolean;  // Session autonomous state
 }
 
 // Handle external links safely
@@ -84,6 +85,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
   const [currentProviderName, setCurrentProviderName] = useState<string | null>(null);
   const [isNewSession, setIsNewSession] = useState(true);
   const [expandedToolServers, setExpandedToolServers] = useState<Set<string>>(new Set());
+  const [agentAutonomous, setAgentAutonomous] = useState<boolean>(false);
   const [chatSettings, setChatSettings] = useState<ChatSettings>(() => {
     const defaults = getDefaultSettings();
     return {
@@ -258,7 +260,8 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               selectedModel: modelProvider,
               selectedModelName: modelName,
               currentModelId: modelId,
-              contextItems: state.contextItems
+              contextItems: state.contextItems,
+              autonomous: state.autonomous
             };
 
             setChatState(newChatState);
@@ -277,6 +280,16 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
             });
             
             setIsInitialized(true);
+
+            // Load agent metadata to check if agent is autonomous
+            try {
+              const agentMetadata = await window.api.getAgentMetadata();
+              if (agentMetadata) {
+                setAgentAutonomous(agentMetadata.autonomous ?? false);
+              }
+            } catch (error) {
+              log.error('Error loading agent metadata:', error);
+            }
 
             // Only show model picker if no model was specified and not read-only
             setShowModelPickerModal(!modelProvider && !isReadOnly);
@@ -875,6 +888,21 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
     }
   };
 
+  const handleAutonomousChange = async (autonomous: boolean) => {
+    const result = await window.api.setChatAutonomous(id, autonomous);
+    if (result.success) {
+      // Reload chat state to get updated autonomous value
+      const updatedState = await window.api.getChatState(id);
+      if (updatedState) {
+        setChatState(prev => ({
+          ...prev,
+          autonomous: updatedState.autonomous
+        }));
+      }
+    }
+    return result;
+  };
+
   const refreshContextData = async () => {
     if (chatApiRef.current) {
       try {
@@ -1360,6 +1388,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
               : undefined}
             onModelChange={handleModelSelect}
             onSaveToDefaults={handleSaveToDefaults}
+            sessionAutonomous={chatState.autonomous}
+            agentAutonomous={agentAutonomous}
+            onAutonomousChange={handleAutonomousChange}
+            tabId={id}
           />
         </div>
       )}

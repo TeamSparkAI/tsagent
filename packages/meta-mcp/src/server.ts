@@ -73,9 +73,10 @@ export class MetaMCPServer {
     this.agent = await loadAndInitializeAgent(this.agentPath, this.logger);
     this.logger.info(`Agent loaded successfully: ${this.agent.name}`);
     
-    // Verify this is a Tools agent
-    if (this.agent.mode !== 'tools') {
-      throw new Error(`Agent is not a Tools agent. Mode: ${this.agent.mode}`);
+    // Verify this agent exports tools (has a non-empty tools array)
+    const metadata = this.agent.getMetadata();
+    if (!metadata.tools || !Array.isArray(metadata.tools) || metadata.tools.length === 0) {
+      throw new Error(`Agent does not export tools. Expected a non-empty tools array in metadata.`);
     }
 
     const tools = this.getAgentTools();
@@ -280,10 +281,8 @@ export class MetaMCPServer {
     // Create unique context ID for this tool call
     const contextId = uuidv4();
 
-    // Create chat session with headless configuration
-    const chatSession = this.agent.createChatSession(contextId, {
-      toolPermission: 'never', // No approval required for headless execution
-    });
+    // Create autonomous chat session with headless configuration (Meta MCP always uses autonomous sessions)
+    const chatSession = this.agent.createChatSession(contextId, { autonomous: true });
 
     try {
       // Handle message and get response

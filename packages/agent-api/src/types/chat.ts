@@ -28,6 +28,7 @@ export interface ChatState {
   currentModelProvider?: ProviderId;
   currentModelId?: string;
   contextItems: SessionContextItem[];  // Tracked context items with include modes
+  autonomous: boolean;
   maxChatTurns: number;
   maxOutputTokens: number;
   temperature: number;
@@ -58,6 +59,7 @@ export interface ChatSessionOptions {
   modelProvider?: ProviderId;
   modelId?: string;
   initialMessages?: ChatMessage[];
+  autonomous?: boolean;
   maxChatTurns?: number;
   maxOutputTokens?: number;
   temperature?: number;
@@ -68,7 +70,7 @@ export interface ChatSessionOptions {
   contextIncludeScore?: number;
 }
 
-type RequiredSettings = Required<Pick<ChatSessionOptions, 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission' | 'contextTopK' | 'contextTopN' | 'contextIncludeScore'>>;
+type RequiredSettings = Required<Pick<ChatSessionOptions, 'autonomous' | 'maxChatTurns' | 'maxOutputTokens' | 'temperature' | 'topP' | 'toolPermission' | 'contextTopK' | 'contextTopN' | 'contextIncludeScore'>>;
 export type ChatSessionOptionsWithRequiredSettings = Omit<ChatSessionOptions, keyof RequiredSettings> & RequiredSettings;
 
 export interface ChatSessionResponse {
@@ -117,9 +119,12 @@ export interface ToolCallResult extends ToolCallRequest {
 
 export interface ChatSession {
   get id(): string;
+  get autonomous(): boolean;
   getState(): ChatState;
   getLastRequestContext(): RequestContext | undefined;
   handleMessage(message: string | ChatMessage): Promise<MessageUpdate>;
+  
+  setAutonomous(autonomous: boolean): boolean;
 
   clearModel(): MessageUpdate;
   switchModel(modelType: ProviderId, modelId: string): MessageUpdate;

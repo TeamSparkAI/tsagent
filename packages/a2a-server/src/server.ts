@@ -16,6 +16,7 @@ import { Agent } from '@tsagent/core';
 import { loadAndInitializeAgent } from '@tsagent/core/runtime';
 
 import { ConsoleLogger } from './logger.js';
+import { Logger } from '@tsagent/core';
 
 export class SimpleAgentExecutor implements AgentExecutor {
   constructor(private agent: Agent, private logger: ConsoleLogger) {}
@@ -32,8 +33,8 @@ export class SimpleAgentExecutor implements AgentExecutor {
       .map((part: any) => part.text)
       .join(' ');
     
-    // Create a chat session for this task
-    const chatSession = this.agent.createChatSession(contextId);
+    // Create an autonomous chat session for this task (A2A always uses autonomous sessions)
+    const chatSession = this.agent.createChatSession(contextId, { autonomous: true });
     
     // Handle the message
     const response = await chatSession.handleMessage(messageText);
@@ -123,9 +124,9 @@ export class MultiA2AServer {
   private server: any = null;
   private isShuttingDown = false;
 
-  constructor(port: number = 4000) {
+  constructor(port: number = 4000, logger?: Logger) {
     this.port = port;
-    this.logger = new ConsoleLogger();
+    this.logger = logger ?? new ConsoleLogger();
     this.expressApp = express();
     this.setupGlobalMiddleware();
     this.setupDiscoveryEndpoint();
@@ -412,8 +413,8 @@ export class A2AServer {
   private isShuttingDown = false;
   private agentCard!: AgentCard;
 
-  constructor(agentPath: string, private port: number = 4000) {
-    this.logger = new ConsoleLogger();
+  constructor(agentPath: string, private port: number = 4000, logger?: Logger) {
+    this.logger = logger ?? new ConsoleLogger();
     this.initialize(agentPath);
   }
 

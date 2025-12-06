@@ -54,6 +54,7 @@ const api: API = {
     temperature: number;
     topP: number;
   }) => ipcRenderer.invoke('chat:update-settings', tabId, settings),
+  setChatAutonomous: (tabId: string, autonomous: boolean) => ipcRenderer.invoke('chat:set-autonomous', tabId, autonomous),
   
   // Chat context management
   addChatReference: (tabId: string, referenceName: string) => ipcRenderer.invoke('chat:add-reference', tabId, referenceName),
@@ -69,7 +70,7 @@ const api: API = {
   getSystemPrompt: () => ipcRenderer.invoke('get-system-prompt'),
   saveSystemPrompt: (prompt: string) => ipcRenderer.invoke('save-system-prompt', prompt),
   getAgentMetadata: () => ipcRenderer.invoke('get-agent-metadata'),
-  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[] }>) => ipcRenderer.invoke('update-agent-metadata', metadata),
+  updateAgentMetadata: (metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; autonomous?: boolean; skills?: any[]; tools?: any[] }>) => ipcRenderer.invoke('update-agent-metadata', metadata),
   getAgentMetadataByPath: (agentPath: string) => ipcRenderer.invoke('get-agent-metadata-by-path', agentPath),
   
   // Other existing methods
@@ -110,7 +111,7 @@ const api: API = {
   offAgentSwitched: (listener: (event: any, data: any) => void) => {
     ipcRenderer.removeListener('agent:switched', listener);
   },
-  onMetadataChanged: (callback: (data: { agentPath: string; metadata?: { name: string } }) => void) => {
+  onMetadataChanged: (callback: (data: { agentPath: string; metadata?: { name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; autonomous?: boolean; skills?: any[]; tools?: any[]; created: string; lastAccessed: string } }) => void) => {
     const wrappedCallback = (_event: any, data: any) => callback(data);
     ipcRenderer.on('metadata-changed', wrappedCallback);
     return wrappedCallback;

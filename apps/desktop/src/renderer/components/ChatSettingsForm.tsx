@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import log from 'electron-log';
 import './ChatSettingsForm.css';
+import './SettingsTab.css';
 import { SessionToolPermission, getDefaultSettings, ProviderId, parseModelString } from '@tsagent/core';
 import { ModelPickerModal, ModelDetails } from './ModelPickerModal';
 import { ProviderIcon } from './ProviderIcon';
@@ -27,6 +28,11 @@ interface ChatSettingsFormProps {
   currentModelDetails?: ModelDetails; // Optional model details to avoid fetching all models
   onModelChange?: (model: string | undefined, details?: ModelDetails) => void;
   onSaveToDefaults?: () => Promise<void>;
+  // Autonomous props (optional - only used in session settings)
+  sessionAutonomous?: boolean;
+  agentAutonomous?: boolean;
+  onAutonomousChange?: (autonomous: boolean) => Promise<{ success: boolean; error?: string }>;
+  tabId?: string;
 }
 
 export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
@@ -37,7 +43,11 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
   currentModel,
   currentModelDetails,
   onModelChange,
-  onSaveToDefaults
+  onSaveToDefaults,
+  sessionAutonomous,
+  agentAutonomous,
+  onAutonomousChange,
+  tabId
 }) => {
   const [agentSettings, setAgentSettings] = useState<ChatSettings>(() => {
     const defaults = getDefaultSettings();
@@ -287,6 +297,90 @@ export const ChatSettingsForm: React.FC<ChatSettingsFormProps> = ({
               </button>
             </div>
           </div>
+        </>
+      )}
+      {tabId && (
+        <>
+          <div className="setting-item" style={{ gridColumn: '1 / -1', marginBottom: '20px' }}>
+            <label>Session Type</label>
+            <div className="agent-mode-selector">
+              {(() => {
+                const isTestTab: boolean = tabId.startsWith('test-');
+                const isDisabled = agentAutonomous || isTestTab || readOnly;
+                const effectiveAutonomous = isTestTab ? true : (sessionAutonomous !== undefined ? sessionAutonomous : false);
+                return (
+                  <>
+                    <button
+                      className={`mode-button ${!effectiveAutonomous ? 'active' : ''}`}
+                      onClick={async () => {
+                        if (agentAutonomous || isTestTab) {
+                          await window.api.showMessageBox({
+                            type: 'error',
+                            title: 'Cannot Change Session Type',
+                            message: isTestTab
+                              ? 'Test sessions are always autonomous and cannot be changed.'
+                              : 'This agent is configured as autonomous. All sessions must be autonomous.',
+                            buttons: ['OK']
+                          });
+                          return;
+                        }
+                        if (!onAutonomousChange) return;
+                        const result = await onAutonomousChange(false);
+                        if (!result.success) {
+                          await window.api.showMessageBox({
+                            type: 'error',
+                            title: 'Failed to Change Session Type',
+                            message: result.error || 'Unknown error',
+                            buttons: ['OK']
+                          });
+                        }
+                      }}
+                      disabled={isDisabled}
+                    >
+                      Interactive
+                    </button>
+                    <button
+                      className={`mode-button ${effectiveAutonomous ? 'active' : ''}`}
+                      onClick={async () => {
+                        if (!onAutonomousChange) return;
+                        const result = await onAutonomousChange(true);
+                        if (!result.success) {
+                          await window.api.showMessageBox({
+                            type: 'error',
+                            title: 'Failed to Change Session Type',
+                            message: result.error || 'Unknown error',
+                            buttons: ['OK']
+                          });
+                        }
+                      }}
+                      disabled={isDisabled}
+                    >
+                      Autonomous
+                    </button>
+                  </>
+                );
+              })()}
+            </div>
+            <div className="agent-mode-description">
+              {(() => {
+                const isTestTab: boolean = tabId.startsWith('test-');
+                
+                if (isTestTab) {
+                  return 'When testing exported tools, agents run autonomously. This allows tools to be executed automatically without user interaction.';
+                }
+                
+                if (agentAutonomous) {
+                  return 'This agent is configured as autonomous. All sessions must be autonomous and run without user interaction.';
+                }
+                
+                const effectiveAutonomous = sessionAutonomous !== undefined ? sessionAutonomous : false;
+                return effectiveAutonomous
+                  ? 'Autonomous session runs without user interaction. Tools requiring approval are filtered out.'
+                  : 'Interactive session supports user interaction including clarifying questions and tool use permission requests.';
+              })()}
+            </div>
+          </div>
+          <hr className="setting-group-divider" style={{ gridColumn: '1 / -1' }} />
         </>
       )}
       <div className="settings-grid">

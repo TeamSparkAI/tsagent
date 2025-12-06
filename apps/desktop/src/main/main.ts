@@ -363,9 +363,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       return { success: false };
     }
     try {
+      // Tool test tabs (tabId starts with "test-") should always be autonomous
+      const isTestTab = tabId.startsWith('test-');
       agent.createChatSession(tabId, {
         modelProvider: modelProvider,
-        modelId: modelId
+        modelId: modelId,
+        autonomous: isTestTab ? true : undefined
       });
       return { success: true };
     } catch (error) {
@@ -808,7 +811,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('update-agent-metadata', async (event, metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; skills?: any[]; tools?: any[] }>) => {
+  ipcMain.handle('update-agent-metadata', async (event, metadata: Partial<{ name: string; description?: string; version?: string; iconUrl?: string; documentationUrl?: string; provider?: { organization: string; url: string }; autonomous?: boolean; skills?: any[]; tools?: any[] }>) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     if (!agent) {
@@ -1503,6 +1506,29 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     } catch (error) {
       log.error('Error updating chat settings:', error);
       throw error;
+    }
+  });
+
+  ipcMain.handle('chat:set-autonomous', (event, tabId: string, autonomous: boolean) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      log.warn(`Agent not found for window: ${windowId}`);
+      return { success: false, error: 'Agent not found' };
+    }
+    try {
+      const session = agent.getChatSession(tabId);
+      if (!session) {
+        throw new Error(`No chat session found for tab ${tabId}`);
+      }
+      session.setAutonomous(autonomous);
+      return { success: true };
+    } catch (error) {
+      log.error('Error setting session autonomous state:', error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   });
 
