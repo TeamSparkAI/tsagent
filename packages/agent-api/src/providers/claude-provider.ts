@@ -15,6 +15,9 @@ const ClaudeConfigSchema = z.object({
   ANTHROPIC_API_KEY: z.string().default('env://ANTHROPIC_API_KEY'),
 });
 
+// Extract defaults from schema
+const schemaDefaults = ProviderDescriptor.getSchemaDefaults(ClaudeConfigSchema);
+
 // Internal type (not exported - provider details stay encapsulated)
 type ClaudeConfig = z.infer<typeof ClaudeConfigSchema>;
 
@@ -33,6 +36,7 @@ export default class ClaudeProviderDescriptor extends ProviderDescriptor {
         key: "ANTHROPIC_API_KEY",
         secret: true,
         required: true,
+        default: schemaDefaults.ANTHROPIC_API_KEY,
       }
     ]
   };

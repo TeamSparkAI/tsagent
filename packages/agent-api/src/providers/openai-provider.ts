@@ -16,6 +16,9 @@ const OpenAIConfigSchema = z.object({
   OPENAI_API_KEY: z.string().default('env://OPENAI_API_KEY'),
 });
 
+// Extract defaults from schema
+const schemaDefaults = ProviderDescriptor.getSchemaDefaults(OpenAIConfigSchema);
+
 // Internal type (not exported - provider details stay encapsulated)
 type OpenAIConfig = z.infer<typeof OpenAIConfigSchema>;
 
@@ -34,10 +37,11 @@ export default class OpenAIProviderDescriptor extends ProviderDescriptor {
         key: "OPENAI_API_KEY",
         secret: true,
         required: true,
+        default: schemaDefaults.OPENAI_API_KEY,
       }
     ]
   };
-  
+
   readonly configSchema = OpenAIConfigSchema;
   
   constructor(packageRoot: string) {

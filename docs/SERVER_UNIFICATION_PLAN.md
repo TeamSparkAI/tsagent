@@ -478,13 +478,12 @@ The publish script (`scripts/publish.sh`) already has the correct dependency ord
 
 # Testing
 
-## CLI
+## CLI (local build)
 
-Tested --mcp, --acp, --a2a, and no server with -h to verify command routing and programName
-Tested tsagent with fully specified path to agent
-
-Test tsagent with agent filename in local dir (including non-existent)
-Test tsagent with --create path/to/agent and filename (local dir)
+Test --mcp, --acp, --a2a, and no server with -h to verify command routing and programName
+Test with fully specified path to agent
+Test with agent filename in local dir (including non-existent)
+Test with --create path/to/agent and filename (local dir)
 
 ## Orchestration servers
 
@@ -500,26 +499,22 @@ A2A agents
   - bob.yaml - Bob expert
   - Other demo was tspark in "Autonomous" mode as TeamSpark expert (no skills, uses default skill)
 
-Test tsagent --mcp with path to agent (create tool exporting agent, validate with MCP inspector)
-Test tsagent --acp with Zed
-Test tsagent --a2a with a root agent and orchestrator point to the running a2a agent (create appropriate "skills" agent)
+Test tsagent --mcp with path to agent (tvault.yaml/optimizer.yaml), validate with MCP inspector
+Test tsagent --acp with Zed (tspark.yaml)
+Test tsagent --a2a with a root agent and orchestrator point to the running a2a agents (bob.yaml/tspark.yaml in autonomous mode)
 
 ## Ship and validate
 
-Bump versions
-Set cli deps to npm, clear package-lock.json and node_modules, run npm install
-publish
+Test global installs
+- Desktop app
+- npm install -g @tsagent/cli
 
-Restest with local CLI and remote deps (servers)
+## Notes
 
-Install -g from npm, retest as "tsagent"
+### Desktop
 
-Push, build desktop
+Allow empty required config only when default is env:// and the env var is present (show required * appropriately)
 
-Prompt:
+### Finalize 
 
-You are an autonomous agent that can take actions and provide information in response to prompts from other agents.  You must provide complete answers without requesting any additional information!
-
-## Misc
-
-If on startup recent agent includes files that don't exist, remove them
+Delete this file

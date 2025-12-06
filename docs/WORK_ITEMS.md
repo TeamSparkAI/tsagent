@@ -75,7 +75,8 @@ Claude APIs don't provide useful metadata about max output tokens. Known limits:
 
 ### Agent Management
 
-- **Recent agents overflow**: Determine behavior when recent agents list overflows (how many to keep, UX implications)
+- **Non-existent agents**: If on startup recent agent includes files that don't exist, remove them
+- **Recent agents overflow**: Currently keep last 10
 
 ### Distribution
 
@@ -132,23 +133,48 @@ Improve MCP support and config/interaction (best of MCP Inspector and ToolVault)
 
 ## Agent Creation
 
-### Agent Types
+### Agent Types/Modes
 
-We currently have interactive, autonomous (A2A), and tool providing (for meta-MCP)
-
-This is odd in part because tool-providing agents are also autonomous (at least currently)
-- In terms of how they operate, only presenting MPC tools that don't require approval, for example
-
-It's also possible that an agent could provide both skills and tools
+We currently present (in the ux) an agent "mode" of interactive, autonomous (A2A), or tool providing (for meta-MCP)
+- Determined by the prescence of skills or tools
+- Naming is odd because tool providing agents are also autonomous
+- Operationally, if either skills or tools present, only present agent with tools not requiring approval
+- Does not support:
+  - An agent providing both skills and tools (supported in agent defintion, but not in ux)
+  - An interative agent providing either skills or tools
+  - An autonomous agent providing neither skills nor tools (possibly needed for ACP)
 
 Should you be able to use a skill or tool-providing agent interactively with MCP tools that require permission?
 - Only lock down the tools when in autonomous mode (how would we know)?
+  - We could tell the agent its in autonomous mode when we instatiate it (from the A2A or MCP server, for example)
+  - We could make the agent request processing be autonomous when we are in tool test mode
+  - We could establish a similar skill test mode (a little weird since skills aren't individually testable)
+  - Maybe an ephemeral session param to make session autonomous?
+  - This is all really about the use case of we want an agent we can interact with non-autonomously
+    - But when that agent is used via A2A or MCP we want it to be autonomous
+    - Which means we'd like to be able to test it in autonomous mode
+    - If not for the desire to have it also be non-autonomous, we could just use an agent setting (interactive/autonomous)
 - At least lock down tools in test mode (so you can simulate how it will work when autonomous)
 
-One path could agent mode is interactive or autonomous
-- This determines whether tools require permission can be used by the agent (anything else?)
-- If autonomous, you are allowed to define skills and/or tools (or neither)
-- For example, you might make an autonomous agent with no skills or tools for an ACP deployment
+What if we had agent config "interactive" (default) or autonomous (or just an "interactive" bool that defaults to true)
+- If autonomous, all sessions are autonomous (attempts to create/set to interactive will fail)
+- If interactive, sessions default to interactive but can be created/set to autonomous
+  - This is how we would do tool test (and maybe "agent" test for skills agents?) - creating the test session as autonomous
+  - When a2a/mcp server instantiates agent/session, it sets the session to autonomous (think about this for ACP)
+  - Should we allow the user to set it in the desktop via session settings (show state, allow change if allowed)
+- We would let you create skills or tools in either mode
+  - This is already how it works at the config (agent file) level
+  - Think about the desktop ux for this (enable means create empty skills/tools element, then tabs show up)
+    - Checkbox for "Exports skills" and "Exports tools"
+    - When checked, we create emtpy skills/tools, tabs show up
+    - When unckeched, remove skills/tools (if any skills/tools defined, confirm that they will be deleted), and tabs
+  - Check logic for what happens if we have both (in ux and agent)
+    - "autonomous" would now be driven by specific attribute at the session level, not presensce of skills/tools
+- This also supports the idea of making an agent autonomous without any skills/tools (currently not a supported use case)
+  - Would we do this when building an ACP agent?
+- For now this is only used for tool presentation (suppress tools requiring approval), but might later be used to control elicitaton or other interactive behaviors
+  - If elicitation always directed at the user, or might it be directed at the agent?
+
 
 There is currently a bug with autonomous agents 
 - When they include tools via semantic inclusion, they don't filter out tools that require approval (easy fix)

@@ -18,6 +18,9 @@ const BedrockConfigSchema = z.object({
   AWS_SECRET_ACCESS_KEY: z.string().default('env://AWS_SECRET_ACCESS_KEY'),
 });
 
+// Extract defaults from schema
+const schemaDefaults = ProviderDescriptor.getSchemaDefaults(BedrockConfigSchema);
+
 // Internal type (not exported - provider details stay encapsulated)  
 type BedrockConfig = z.infer<typeof BedrockConfigSchema>;
 
@@ -36,12 +39,14 @@ export default class BedrockProviderDescriptor extends ProviderDescriptor {
         key: "AWS_ACCESS_KEY_ID",
         credential: true,
         required: true,
+        default: schemaDefaults.AWS_ACCESS_KEY_ID,
       },
       {
         caption: "AWS secret access key to use for Bedrock",
         key: "AWS_SECRET_ACCESS_KEY",
         secret: true,
         required: true,
+        default: schemaDefaults.AWS_SECRET_ACCESS_KEY,
       }
     ]
   };

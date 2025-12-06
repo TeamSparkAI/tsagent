@@ -15,6 +15,9 @@ const GeminiConfigSchema = z.object({
   GOOGLE_API_KEY: z.string().default('env://GOOGLE_API_KEY'),
 });
 
+// Extract defaults from schema
+const schemaDefaults = ProviderDescriptor.getSchemaDefaults(GeminiConfigSchema);
+
 // Internal type (not exported - provider details stay encapsulated)
 type GeminiConfig = z.infer<typeof GeminiConfigSchema>;
 
@@ -33,6 +36,7 @@ export default class GeminiProviderDescriptor extends ProviderDescriptor {
         key: "GOOGLE_API_KEY",
         secret: true,
         required: true,
+        default: schemaDefaults.GOOGLE_API_KEY,
       }
     ]
   };

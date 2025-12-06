@@ -326,17 +326,115 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
                 console.log(chalk.yellow(`  ${providerInfo.name}`));
                 console.log(chalk.yellow(`  ${providerInfo.description}`));
                 const configValues: Record<string, string> = {};
+                
+                // Helper to extract env var name from env://VAR_NAME format
+                const extractEnvVarName = (defaultValue: string | undefined): string | null => {
+                  if (defaultValue && defaultValue.startsWith('env://')) {
+                    return defaultValue.substring(6); // Remove 'env://' prefix
+                  }
+                  return null;
+                };
+                
+                // Collect config values
                 for (const configValue of providerInfo.configValues || []) {
+                  const envVarName = extractEnvVarName(configValue.default);
+                  let promptText = `    ${configValue.key}:`;
+                  let isRequired = configValue.required;
+                  let allowEmpty = !configValue.required;
+                  
+                  // Check if env var exists when we have an env:// default
+                  if (envVarName) {
+                    const envVarExists = process.env[envVarName] !== undefined;
+                    if (envVarExists) {
+                      // Env var exists - allow empty to use it
+                      promptText += chalk.gray(` (press Enter to use env var ${envVarName})`);
+                      allowEmpty = true;
+                      isRequired = false; // Not required if env var exists
+                    } else {
+                      // Env var doesn't exist - require a value
+                      promptText += chalk.gray(` (required - env var ${envVarName} not found)`);
+                      isRequired = true;
+                      allowEmpty = false;
+                    }
+                  } else if (configValue.required) {
+                    promptText += chalk.gray(' (required)');
+                    isRequired = true;
+                    allowEmpty = false;
+                  } else {
+                    promptText += chalk.gray(' (optional)');
+                    allowEmpty = true;
+                  }
+                  
                   console.log(chalk.yellow(`    ${configValue.key}: ${configValue.caption}`));
-                  const value = await collectInput(chalk.green(`    ${configValue.key}:`), { isCommand: false, isPassword: configValue.secret, defaultValue: configValue.default });
-                  if (configValue.required && !value) {
-                    console.log(chalk.red('Required value not supplied, provider not added'));
+                  
+                  // Only pass defaultValue if it's not an env:// default (we show that in the prompt text)
+                  // If it's a secret with a non-env default, collectInput will show (<default hidden>)
+                  const defaultValue = envVarName ? undefined : configValue.default;
+                  
+                  let value = await collectInput(chalk.green(promptText), { 
+                    isCommand: false, 
+                    isPassword: configValue.secret, 
+                    defaultValue 
+                  });
+                  
+                  // Require value if needed
+                  if (isRequired && (!value || !value.trim())) {
+                    console.log(chalk.red(`✗ ${configValue.key} is required`));
                     return true;
                   }
-                  configValues[configValue.key] = value;
+                  
+                  // Only include non-empty values (like desktop app does)
+                  // This allows Zod defaults (like env://VAR_NAME) to apply when env var exists
+                  if (value && value.trim()) {
+                    configValues[configValue.key] = value.trim();
+                  }
                 }
+                
+                // Validate configuration before installing
+                console.log(chalk.cyan('\nValidating configuration...'));
+                const validation = await agent.validateProviderConfiguration(provider, configValues);
+                
+                if (!validation.isValid) {
+                  console.log(chalk.red('✗ Configuration invalid:'), chalk.yellow(validation.error || 'Unknown error'));
+                  console.log('');
+                  console.log(chalk.yellow('Please either:'));
+                  console.log(chalk.gray('  1. Set the required environment variable(s), or'));
+                  console.log(chalk.gray('  2. Re-run this command and provide a value when prompted'));
+                  return true;
+                }
+                
+                // Install provider
                 await agent.installProvider(provider, configValues);
-                console.log(chalk.green('Provider added:'), chalk.yellow(providerName));
+                console.log(chalk.green('✓ Provider added:'), chalk.yellow(providerName));
+                
+                // If no provider is currently selected, automatically select the newly installed provider
+                const existingSession = agent.getChatSession('cli-session');
+                if (existingSession) {
+                  const sessionState = existingSession.getState();
+                  if (!sessionState.currentModelProvider) {
+                    // No provider selected - auto-select the newly installed provider with default model
+                    try {
+                      const models = await agent.getProviderModels(provider);
+                      if (models.length > 0) {
+                        const defaultModel = models[0];
+                        currentProvider = provider;
+                        currentModelId = defaultModel.id;
+                        chatSession.switchModel(provider, defaultModel.id);
+                        await updatedMostRecentProvider(provider, defaultModel.id);
+                        console.log(chalk.green(`Switched to ${providerName} using default model: ${defaultModel.name}`));
+                      }
+                    } catch (error) {
+                      logger.error('Error auto-selecting provider after installation:', error);
+                      // Still update the session state even if auto-selection fails
+                      currentProvider = sessionState.currentModelProvider;
+                      currentModelId = sessionState.currentModelId;
+                    }
+                  } else {
+                    // Provider already selected - just refresh the state
+                    currentProvider = sessionState.currentModelProvider;
+                    currentModelId = sessionState.currentModelId;
+                  }
+                }
               } else {
                 console.log(chalk.red('Provider not found by name:'), chalk.yellow(providerName));
               }

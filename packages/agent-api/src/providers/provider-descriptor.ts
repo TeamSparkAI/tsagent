@@ -18,6 +18,17 @@ export abstract class ProviderDescriptor {
   }
   
   /**
+   * Extract default values from a Zod schema by parsing an empty object
+   * Uses partial() to avoid validation errors for required fields
+   */
+  static getSchemaDefaults(schema: z.ZodObject<any>): Record<string, string | undefined> {
+    const partialSchema = schema.partial();
+    const empty = {};
+    const parsed = partialSchema.parse(empty);
+    return parsed as Record<string, string | undefined>;
+  }
+  
+  /**
    * Get provider information (name, description, config fields, etc.)
    */
   getInfo(): ProviderInfo {
