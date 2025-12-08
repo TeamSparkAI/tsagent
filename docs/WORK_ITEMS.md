@@ -192,13 +192,3 @@ How would we auth to exposed services (A2A, ACP, MCP)?
 
 For A2A, for AgentCard publishing, the agent card has to be on the root URL (so we'd need URL-per-agent)
 - myAgent.teamspark.ai (has .well-known/agent-card.json, server via A2A)
-
-### Test agent mode and tsagent
-
-Test global installs
-- Desktop app (autononmous UX, context inclusion, etc)
-- npm install -g @tsagent/cli
-
-Test tsagent --mcp with path to agent (tvault.yaml/optimizer.yaml), validate with MCP inspector
-Test tsagent --acp with Zed (tspark.yaml)
-Test tsagent --a2a with a root agent and orchestrator point to the running a2a agents (bob.yaml/tspark.yaml in autonomous mode)

@@ -646,12 +646,18 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
       }));
     } catch (error) {
       log.error('Failed to get response:', error);
-      // Remove the optimistic message on error
+      
+      // Add error message to chat with error styling (keep the user message)
+      const errorMessage = error instanceof Error ? error.message : String(error);
       setChatState(prev => ({
         ...prev,
-        messages: prev.messages.filter((msg, idx) => 
-          !(msg.type === 'user' && msg.content === messageToSend && idx === prev.messages.length - 1)
-        )
+        messages: [
+          ...prev.messages,
+          {
+            type: 'error',
+            content: errorMessage
+          }
+        ]
       }));
     } finally {
       setIsLoading(false);

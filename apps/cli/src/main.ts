@@ -3,12 +3,18 @@
 import { program } from 'commander';
 import path from 'path';
 import * as fs from 'fs';
+import { fileURLToPath } from 'url';
 import chalk from 'chalk';
 import { agentExists, loadAndInitializeAgent, createAgent } from '@tsagent/core/runtime';
 import { Agent } from '@tsagent/core';
 import { WinstonLoggerAdapter } from './logger.js';
 import { setupCLI } from './cli.js';
-import packageJson from '../package.json' with { type: 'json' };
+
+// Read package.json synchronously to avoid experimental JSON import warning
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const packageJsonPath = path.join(__dirname, '../package.json');
+const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 
 export const PRODUCT_NAME = 'TsAgent CLI';
 
