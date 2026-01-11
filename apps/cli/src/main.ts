@@ -166,8 +166,12 @@ For more information, visit https://github.com/TeamSparkAI/tsagent`)
   // Get version from package.json
   const version = packageJson.version;
 
-  // Start the CLI
-  setupCLI(agent, version, logger);
+  // Start the CLI (now async due to welcome banner)
+  setupCLI(agent, version, logger).catch((error) => {
+    console.error(chalk.red('Error starting CLI:'), error);
+    logger.error('Error starting CLI:', error);
+    process.exit(1);
+  });
 }
 
 // Handle uncaught exceptions and unhandled rejections

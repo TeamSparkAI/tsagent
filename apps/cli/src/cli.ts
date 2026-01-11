@@ -5,6 +5,9 @@ import path from 'path';
 import * as fs from 'fs';
 
 import { PRODUCT_NAME } from './main.js';
+import { renderCommandInput } from './tui/CommandInputApp.js';
+import type { Command } from './tui/CommandInput.js';
+import { showWelcomeBanner } from './tui/WelcomeBannerApp.js';
 
 import { 
   Agent,
@@ -44,6 +47,26 @@ const COMMANDS = {
   STATS: '/stats',
   AGENT: '/agent'
 };
+
+// Command list for TUI autocomplete
+const COMMAND_LIST: Command[] = [
+  { name: '/help', description: 'Show this help menu' },
+  { name: '/license', description: 'Show the license agreement' },
+  { name: '/providers', description: 'List available providers (* active)' },
+  { name: '/provider', description: 'Switch to specified provider, model is optional' },
+  { name: '/models', description: 'List available models (* active)' },
+  { name: '/model', description: 'Switch to specified model' },
+  { name: '/settings', description: 'List available settings' },
+  { name: '/setting', description: 'Update setting' },
+  { name: '/tools', description: 'List available tools from all configured MCP servers' },
+  { name: '/rules', description: 'List all rules (* active, - inactive)' },
+  { name: '/references', description: 'List all references (* active, - inactive)' },
+  { name: '/stats', description: 'Display statistics for the current chat session' },
+  { name: '/agent', description: 'Display the current agent path' },
+  { name: '/clear', description: 'Clear the chat history' },
+  { name: '/quit', description: 'Exit the application' },
+  { name: '/exit', description: 'Exit the application' },
+];
 
 const MAIN_SETTING_KEYS = ['maxChatTurns', 'maxOutputTokens', 'temperature', 'topP'] as const;
 const CONTEXT_SETTING_KEYS = ['contextTopK', 'contextTopN', 'contextIncludeScore'] as const;
@@ -215,10 +238,15 @@ const isProviderInstalled = (agent: Agent, providerName: string): boolean => {
   return providerType ? agent.isProviderInstalled(providerType) : false;
 };
 
-export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAdapter) {
-  // Get version from package.json
-  console.log(chalk.green(`Welcome to ${PRODUCT_NAME} v${version}!`));
-  showHelp();
+export async function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAdapter) {
+  // Show welcome banner
+  try {
+    await showWelcomeBanner(version, agent.path, agent.name);
+  } catch (error) {
+    logger.warn('Failed to show welcome banner:', error);
+    // Fallback to simple welcome message
+    console.log(chalk.green(`Welcome to ${PRODUCT_NAME} v${version}!`));
+  }
 
   const updatedMostRecentProvider = async (provider: ProviderId, modelId: string) => {
     await agent.updateSettings({
@@ -1085,6 +1113,19 @@ export function setupCLI(agent: Agent, version: string, logger: WinstonLoggerAda
 
   async function collectInput(prompt: string, options: { isCommand?: boolean; isPassword?: boolean; defaultValue?: string } = {}): Promise<string> {
     const { isCommand = true, isPassword = false, defaultValue = '' } = options;
+    
+    // For command inputs, use Ink TUI with command autocomplete
+    if (isCommand && !isPassword && defaultValue === '') {
+      try {
+        const input = await renderCommandInput(prompt, COMMAND_LIST);
+        return input;
+      } catch (error) {
+        // Fall back to read if Ink fails
+        logger.warn('Ink command input failed, falling back to read:', error);
+      }
+    }
+    
+    // For non-command inputs (passwords, default values, etc), use read package
     // We track command history and we want "read" to show those commands, but we don't want "read" to add to them (including collected params, passwords, etc)
     // And we don't want to show the command history in the prompt if we're not collecting a command
     const disposableHistory = isCommand ? [...commandHistory] : []; 
