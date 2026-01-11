@@ -82,10 +82,6 @@ Claude APIs don't provide useful metadata about max output tokens. Known limits:
 
 - **File access permissions**: In install/run, wants access to Documents? (macOS permission issue)
 
-## CLI Enhancements
-
-- **Provider management**: No way to install/uninstall providers or tools via CLI
-
 ## MCP Functionality
 
 Improve MCP support and config/interaction (best of MCP Inspector and ToolVault)
@@ -192,3 +188,38 @@ How would we auth to exposed services (A2A, ACP, MCP)?
 
 For A2A, for AgentCard publishing, the agent card has to be on the root URL (so we'd need URL-per-agent)
 - myAgent.teamspark.ai (has .well-known/agent-card.json, server via A2A)
+
+## CLI
+
+Reworking CLI to be a TUI
+
+Welcome box resizing (pain in the ass, many agent failures)
+- Claude does it, so it can be done (but no source to look at)
+
+Rules/References - two pane display so you can see rules/refs details?
+
+Current CLI only allows servers/tools to be manually added/removed from session
+- Does not allow viewing/setting server/tool inclusion setting
+  - Tool include (always, manual, agent) 
+- Does not allow viewing/setting server/tool permission setting
+  - Tool permission (always, never, server default)
+
+Tools needs major rework
+- List servers
+  - See server details (name/version/instructions, maybe config?)
+  - Add/remove all tools from session
+  - View/set tool include / permission at server level
+  - List tools
+    - See tool details (name, descriptions which can be long)
+    - Add/remove tool from session
+    - View/set tool include  / permission
+
+Test flow of no provider, add provider, select model, go...
+
+Manually test all commands
+
+Unit tests for commands (should be testable?)
+
+## Sub-agents, New commands, slash commands, AGENTS.md, SKILL.md
+
+Implement in core, expose via API, expose to CLI (and Desktop)
