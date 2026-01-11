@@ -150,14 +150,14 @@ export function CommandInput({ prompt, commands, onSubmit, onCancel }: CommandIn
           })}
           {filteredCommands.length > maxVisible && (
             <Box paddingX={1} paddingY={0}>
-              <Text color="gray" dimColor>
+              <Text color="cyan">
                 {selectedIndex + 1} of {filteredCommands.length} (↑↓ to navigate, Enter to select, Esc to cancel)
               </Text>
             </Box>
           )}
           {filteredCommands.length <= maxVisible && (
             <Box paddingX={1} paddingY={0}>
-              <Text color="gray" dimColor>
+              <Text color="cyan">
                 ↑↓ to navigate, Enter to select, Esc to cancel
               </Text>
             </Box>

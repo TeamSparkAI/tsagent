@@ -8,6 +8,18 @@ import { PRODUCT_NAME } from './main.js';
 import { renderCommandInput } from './tui/CommandInputApp.js';
 import type { Command } from './tui/CommandInput.js';
 import { showWelcomeBanner } from './tui/WelcomeBannerApp.js';
+import { renderSelectionList } from './tui/SelectionListApp.js';
+import type { SelectableItem } from './tui/SelectionList.js';
+import { renderModelSelectList } from './tui/ModelSelectListApp.js';
+import type { ModelItem } from './tui/ModelSelectListApp.js';
+import { renderProviderSelectList } from './tui/ProviderSelectListApp.js';
+import type { ProviderItem } from './tui/ProviderSelectListApp.js';
+import { renderProviderManagement } from './tui/ProviderManagementApp.js';
+import type { ProviderItem as ProviderManagementItem } from './tui/ProviderManagementList.js';
+import { renderConfirmPrompt } from './tui/ConfirmPromptApp.js';
+import { renderSettingsList } from './tui/SettingsListApp.js';
+import type { SettingItem } from './tui/SettingsList.js';
+import { renderToolPermissionSelect } from './tui/ToolPermissionSelectApp.js';
 
 import { 
   Agent,
@@ -34,10 +46,8 @@ const COMMANDS = {
   LICENSE: '/license',
   PROVIDERS: '/providers',
   PROVIDER: '/provider',
-  MODELS: '/models',
   MODEL: '/model',
   SETTINGS: '/settings',
-  SETTING: '/setting',
   CLEAR: '/clear',
   QUIT: '/quit',
   EXIT: '/exit',
@@ -52,15 +62,13 @@ const COMMANDS = {
 const COMMAND_LIST: Command[] = [
   { name: '/help', description: 'Show this help menu' },
   { name: '/license', description: 'Show the license agreement' },
-  { name: '/providers', description: 'List available providers (* active)' },
-  { name: '/provider', description: 'Switch to specified provider, model is optional' },
-  { name: '/models', description: 'List available models (* active)' },
-  { name: '/model', description: 'Switch to specified model' },
-  { name: '/settings', description: 'List available settings' },
-  { name: '/setting', description: 'Update setting' },
+  { name: '/providers', description: 'Manage providers (install, reconfigure, remove)' },
+  { name: '/provider', description: 'Select a provider' },
+  { name: '/model', description: 'Select a model' },
+  { name: '/settings', description: 'Manage settings (edit, reset, save)' },
   { name: '/tools', description: 'List available tools from all configured MCP servers' },
-  { name: '/rules', description: 'List all rules (* active, - inactive)' },
-  { name: '/references', description: 'List all references (* active, - inactive)' },
+  { name: '/rules', description: 'Select rules to include in session' },
+  { name: '/references', description: 'Select references to include in session' },
   { name: '/stats', description: 'Display statistics for the current chat session' },
   { name: '/agent', description: 'Display the current agent path' },
   { name: '/clear', description: 'Clear the chat history' },
@@ -169,25 +177,15 @@ function showHelp() {
   console.log(chalk.cyan('\nAvailable commands:'));
   console.log(chalk.yellow('  /help') + ' - Show this help menu');
   console.log(chalk.yellow('  /license') + ' - Show the license agreement');
-  console.log(chalk.yellow('  /providers') + ' - List available providers (* active)');
-  console.log(chalk.yellow('  /providers add <provider>') + ' - Add a provider');
-  console.log(chalk.yellow('  /providers remove <provider>') + ' - Remove a provider');
-  console.log(chalk.yellow('  /provider <provider> <model>') + ' - Switch to specified provider, model is optional');
-  console.log(chalk.yellow('  /models') + ' - List available models (* active)');
-  console.log(chalk.yellow('  /model <model>') + ' - Switch to specified model');
-  console.log(chalk.yellow('  /settings') + ' - List available settings');
-  console.log(chalk.yellow('  /setting <setting> <value>') + ' - Update setting');
-  console.log(chalk.yellow('  /settings reset') + ' - Reset settings to agent defaults');
-  console.log(chalk.yellow('  /settings save') + ' - Save current settings as agent defaults');
+  console.log(chalk.yellow('  /providers') + ' - Manage providers (install, reconfigure, remove)');
+  console.log(chalk.yellow('  /provider') + ' - Select a provider');
+  console.log(chalk.yellow('  /model') + ' - Select a model');
+  console.log(chalk.yellow('  /settings') + ' - Manage settings (edit, reset, save)');
   console.log(chalk.yellow('  /tools') + ' - List available tools from all configured MCP servers');
   console.log(chalk.yellow('  /tools include --server <name> [--tool <name>]') + ' - Include tool(s) in session context');
   console.log(chalk.yellow('  /tools exclude --server <name> [--tool <name>]') + ' - Exclude tool(s) from session context');
-  console.log(chalk.yellow('  /rules') + ' - List all rules (* active, - inactive)');
-  console.log(chalk.yellow('  /rules include <name>') + ' - Include rule in session context');
-  console.log(chalk.yellow('  /rules exclude <name>') + ' - Exclude rule from session context');
-  console.log(chalk.yellow('  /references') + ' - List all references (* active, - inactive)');
-  console.log(chalk.yellow('  /references include <name>') + ' - Include reference in session context');
-  console.log(chalk.yellow('  /references exclude <name>') + ' - Exclude reference from session context');
+  console.log(chalk.yellow('  /rules') + ' - Select rules to include in session');
+  console.log(chalk.yellow('  /references') + ' - Select references to include in session');
   console.log(chalk.yellow('  /stats') + ' - Display statistics for the current chat session');
   console.log(chalk.yellow('  /agent') + ' - Display the current agent path');
   console.log(chalk.yellow('  /clear') + ' - Clear the chat history');
@@ -245,7 +243,7 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
   } catch (error) {
     logger.warn('Failed to show welcome banner:', error);
     // Fallback to simple welcome message
-    console.log(chalk.green(`Welcome to ${PRODUCT_NAME} v${version}!`));
+  console.log(chalk.green(`Welcome to ${PRODUCT_NAME} v${version}!`));
   }
 
   const updatedMostRecentProvider = async (provider: ProviderId, modelId: string) => {
@@ -275,6 +273,91 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
     }
   }
 
+  // Helper function to collect provider configuration
+  async function collectProviderConfig(provider: ProviderId, existingConfig?: Record<string, string>): Promise<Record<string, string> | null> {
+                const providerInfo = agent.getProviderInfo(provider);
+    console.log(chalk.cyan(`\n${providerInfo.name}`));
+                console.log(chalk.yellow(`  ${providerInfo.description}`));
+    const configValues: Record<string, string> = existingConfig ? { ...existingConfig } : {};
+                
+                // Helper to extract env var name from env://VAR_NAME format
+                const extractEnvVarName = (defaultValue: string | undefined): string | null => {
+                  if (defaultValue && defaultValue.startsWith('env://')) {
+                    return defaultValue.substring(6); // Remove 'env://' prefix
+                  }
+                  return null;
+                };
+                
+                // Collect config values
+                for (const configValue of providerInfo.configValues || []) {
+                  const envVarName = extractEnvVarName(configValue.default);
+      const existingValue = existingConfig?.[configValue.key];
+                  let promptText = `    ${configValue.key}:`;
+                  let isRequired = configValue.required;
+                  
+                  // Check if env var exists when we have an env:// default
+                  if (envVarName) {
+                    const envVarExists = process.env[envVarName] !== undefined;
+                    if (envVarExists) {
+                      // Env var exists - allow empty to use it
+                      promptText += chalk.gray(` (press Enter to use env var ${envVarName})`);
+                      isRequired = false; // Not required if env var exists
+                    } else {
+                      // Env var doesn't exist - require a value
+                      promptText += chalk.gray(` (required - env var ${envVarName} not found)`);
+                      isRequired = true;
+                    }
+                  } else if (configValue.required) {
+                    promptText += chalk.gray(' (required)');
+                    isRequired = true;
+                  } else {
+                    promptText += chalk.gray(' (optional)');
+                  }
+                  
+                  console.log(chalk.yellow(`    ${configValue.key}: ${configValue.caption}`));
+                  
+                  // Only pass defaultValue if it's not an env:// default (we show that in the prompt text)
+      // Use existing value as default if available, otherwise use the default value
+      const defaultValue = envVarName ? undefined : (existingValue || configValue.default);
+                  
+                  let value = await collectInput(chalk.green(promptText), { 
+                    isCommand: false, 
+                    isPassword: configValue.secret, 
+                    defaultValue 
+                  });
+                  
+                  // Require value if needed
+                  if (isRequired && (!value || !value.trim())) {
+                    console.log(chalk.red(`✗ ${configValue.key} is required`));
+        return null;
+                  }
+                  
+                  // Only include non-empty values (like desktop app does)
+                  // This allows Zod defaults (like env://VAR_NAME) to apply when env var exists
+                  if (value && value.trim()) {
+                    configValues[configValue.key] = value.trim();
+      } else if (existingValue && !value) {
+        // Keep existing value if user just pressed Enter and no new value provided
+        configValues[configValue.key] = existingValue;
+                  }
+                }
+                
+    // Validate configuration
+                console.log(chalk.cyan('\nValidating configuration...'));
+                const validation = await agent.validateProviderConfiguration(provider, configValues);
+                
+                if (!validation.isValid) {
+                  console.log(chalk.red('✗ Configuration invalid:'), chalk.yellow(validation.error || 'Unknown error'));
+                  console.log('');
+                  console.log(chalk.yellow('Please either:'));
+                  console.log(chalk.gray('  1. Set the required environment variable(s), or'));
+                  console.log(chalk.gray('  2. Re-run this command and provide a value when prompted'));
+      return null;
+    }
+    
+    return configValues;
+  }
+
   // Process input and return true to continue, false to exit
   async function processInput(input: string): Promise<boolean> {
     const command = input.trim();
@@ -282,9 +365,9 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
     // If just / is typed, show help
     if (command === '/') {
       showHelp();
-      return true;
-    }
-
+                  return true;
+                }
+                
     // Check if the input is a command
     if (command.startsWith('/')) {
       const commandParts = command.split(' ');
@@ -304,7 +387,7 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
             const licensePath = path.join(process.cwd(), 'LICENSE.md');
             const licenseText = await fs.promises.readFile(licensePath, 'utf-8');
             console.log(chalk.yellow(licenseText));
-          } catch (error) {
+                    } catch (error) {
             console.log(chalk.red('Could not load license file. Please ensure LICENSE.md exists in the current directory.'));
             logger.error('Error loading license file:', error);
           }
@@ -316,245 +399,142 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
           return false; // Signal to stop the loop
 
         case COMMANDS.PROVIDERS:
-          if (args.length === 0) {
+          {
             const installedProviders = agent.getInstalledProviders();
             const availableProviders = agent.getAvailableProviders();
-            const nonInstalledProviders = availableProviders.filter((p: ProviderId) => !installedProviders.includes(p));
+            const allProviders = new Set([...installedProviders, ...availableProviders]);
             
-            if (installedProviders.length === 0) {
-              console.log(chalk.cyan('No providers installed'));
-            } else {
-              console.log(chalk.cyan(`Providers installed and available:`));
-              installedProviders.forEach((provider: ProviderId) => {
-                const indicator = provider === currentProvider ? chalk.green('* ') : '  ';
-                const providerInfo = agent.getProviderInfo(provider);
-                console.log(chalk.yellow(`${indicator}${provider}: ${providerInfo.name}`));
-              });
+            const providerItems: ProviderManagementItem[] = Array.from(allProviders).map((providerId: ProviderId) => {
+              const providerInfo = agent.getProviderInfo(providerId);
+              return {
+                id: providerId,
+                name: providerInfo.name,
+                isInstalled: agent.isProviderInstalled(providerId),
+              };
+            });
+
+            const result = await renderProviderManagement('Providers', providerItems);
+            
+            if (!result) {
+              // Cancelled
+              break;
             }
-            if (nonInstalledProviders.length === 0) {
-              console.log(chalk.cyan('No providers available to install'));
-            } else {
-              console.log(chalk.cyan(`Providers available to install:`));
-              nonInstalledProviders.forEach((provider: ProviderId) => {
-                const providerInfo = agent.getProviderInfo(provider);
-                console.log(chalk.yellow(`  ${provider}: ${providerInfo.name}`));
-              });
-            }
-            console.log('');
-          } else if (args[0] == 'add') {
-            const providerName = args[1];
-            if (providerName) {
-              const provider = getProviderByName(providerName);
-              if (provider) {
-                if (agent.isProviderInstalled(provider)) {
-                  console.log(chalk.red('Provider already installed:'), chalk.yellow(providerName));
-                  break;
+
+            const { providerId, action } = result;
+            const provider = providerId as ProviderId;
+            const providerInfo = agent.getProviderInfo(provider);
+
+            try {
+              if (action === 'install') {
+                const configValues = await collectProviderConfig(provider);
+                if (!configValues) {
+                  break; // User cancelled or validation failed
                 }
-                console.log(chalk.cyan('\nAdd provider:'), chalk.yellow(providerName));
-                const providerInfo = agent.getProviderInfo(provider);
-                console.log(chalk.yellow(`  ${providerInfo.name}`));
-                console.log(chalk.yellow(`  ${providerInfo.description}`));
-                const configValues: Record<string, string> = {};
-                
-                // Helper to extract env var name from env://VAR_NAME format
-                const extractEnvVarName = (defaultValue: string | undefined): string | null => {
-                  if (defaultValue && defaultValue.startsWith('env://')) {
-                    return defaultValue.substring(6); // Remove 'env://' prefix
-                  }
-                  return null;
-                };
-                
-                // Collect config values
-                for (const configValue of providerInfo.configValues || []) {
-                  const envVarName = extractEnvVarName(configValue.default);
-                  let promptText = `    ${configValue.key}:`;
-                  let isRequired = configValue.required;
-                  let allowEmpty = !configValue.required;
-                  
-                  // Check if env var exists when we have an env:// default
-                  if (envVarName) {
-                    const envVarExists = process.env[envVarName] !== undefined;
-                    if (envVarExists) {
-                      // Env var exists - allow empty to use it
-                      promptText += chalk.gray(` (press Enter to use env var ${envVarName})`);
-                      allowEmpty = true;
-                      isRequired = false; // Not required if env var exists
-                    } else {
-                      // Env var doesn't exist - require a value
-                      promptText += chalk.gray(` (required - env var ${envVarName} not found)`);
-                      isRequired = true;
-                      allowEmpty = false;
-                    }
-                  } else if (configValue.required) {
-                    promptText += chalk.gray(' (required)');
-                    isRequired = true;
-                    allowEmpty = false;
-                  } else {
-                    promptText += chalk.gray(' (optional)');
-                    allowEmpty = true;
-                  }
-                  
-                  console.log(chalk.yellow(`    ${configValue.key}: ${configValue.caption}`));
-                  
-                  // Only pass defaultValue if it's not an env:// default (we show that in the prompt text)
-                  // If it's a secret with a non-env default, collectInput will show (<default hidden>)
-                  const defaultValue = envVarName ? undefined : configValue.default;
-                  
-                  let value = await collectInput(chalk.green(promptText), { 
-                    isCommand: false, 
-                    isPassword: configValue.secret, 
-                    defaultValue 
-                  });
-                  
-                  // Require value if needed
-                  if (isRequired && (!value || !value.trim())) {
-                    console.log(chalk.red(`✗ ${configValue.key} is required`));
-                    return true;
-                  }
-                  
-                  // Only include non-empty values (like desktop app does)
-                  // This allows Zod defaults (like env://VAR_NAME) to apply when env var exists
-                  if (value && value.trim()) {
-                    configValues[configValue.key] = value.trim();
-                  }
-                }
-                
-                // Validate configuration before installing
-                console.log(chalk.cyan('\nValidating configuration...'));
-                const validation = await agent.validateProviderConfiguration(provider, configValues);
-                
-                if (!validation.isValid) {
-                  console.log(chalk.red('✗ Configuration invalid:'), chalk.yellow(validation.error || 'Unknown error'));
-                  console.log('');
-                  console.log(chalk.yellow('Please either:'));
-                  console.log(chalk.gray('  1. Set the required environment variable(s), or'));
-                  console.log(chalk.gray('  2. Re-run this command and provide a value when prompted'));
-                  return true;
-                }
-                
-                // Install provider
                 await agent.installProvider(provider, configValues);
-                console.log(chalk.green('✓ Provider added:'), chalk.yellow(providerName));
-                
-                // If no provider is currently selected, automatically select the newly installed provider
-                const existingSession = agent.getChatSession('cli-session');
-                if (existingSession) {
-                  const sessionState = existingSession.getState();
-                  if (!sessionState.currentModelProvider) {
-                    // No provider selected - auto-select the newly installed provider with default model
-                    try {
-                      const models = await agent.getProviderModels(provider);
-                      if (models.length > 0) {
-                        const defaultModel = models[0];
-                        currentProvider = provider;
-                        currentModelId = defaultModel.id;
-                        chatSession.switchModel(provider, defaultModel.id);
-                        await updatedMostRecentProvider(provider, defaultModel.id);
-                        console.log(chalk.green(`Switched to ${providerName} using default model: ${defaultModel.name}`));
-                      }
-                    } catch (error) {
-                      logger.error('Error auto-selecting provider after installation:', error);
-                      // Still update the session state even if auto-selection fails
-                      currentProvider = sessionState.currentModelProvider;
-                      currentModelId = sessionState.currentModelId;
-                    }
-                  } else {
-                    // Provider already selected - just refresh the state
-                    currentProvider = sessionState.currentModelProvider;
-                    currentModelId = sessionState.currentModelId;
-                  }
-                }
-              } else {
-                console.log(chalk.red('Provider not found by name:'), chalk.yellow(providerName));
+                console.log(chalk.green('✓ Provider installed:'), chalk.yellow(providerInfo.name));
+              } else if (action === 'view') {
+                const config = agent.getInstalledProviderConfig(provider);
+                console.log(chalk.cyan(`\n${providerInfo.name}`));
+                console.log(chalk.yellow(`  ${providerInfo.description}`));
+                if (config) {
+                  console.log(chalk.cyan('\nConfiguration:'));
+                  for (const [key, value] of Object.entries(config)) {
+                    const configValue = providerInfo.configValues?.find(cv => cv.key === key);
+                    const displayValue = configValue?.secret ? '***' : value;
+                    console.log(chalk.yellow(`  ${key}:`), displayValue);
               }
             } else {
-              console.log(chalk.red('No provider name given'));
-            }
-          } else if (args[0] == 'remove') {
-            const providerName = args[1];
-            if (providerName) {
-              const provider = getProviderByName(providerName);
-              if (provider && agent.isProviderInstalled(provider)) {
-                console.log(chalk.cyan('\nRemove provider:'), chalk.yellow(providerName));
+                  console.log(chalk.yellow('  No configuration stored (using defaults)'));
+                }
+                console.log('');
+              } else if (action === 'reconfigure') {
+                const existingConfig = agent.getInstalledProviderConfig(provider) || {};
+                const configValues = await collectProviderConfig(provider, existingConfig);
+                if (!configValues) {
+                  break; // User cancelled or validation failed
+                }
+                await agent.updateProvider(provider, configValues);
+                console.log(chalk.green('✓ Provider reconfigured:'), chalk.yellow(providerInfo.name));
+              } else if (action === 'remove') {
+                const confirmed = await renderConfirmPrompt(`Are you sure you want to remove ${providerInfo.name}?`);
+                if (confirmed) {
                 await agent.uninstallProvider(provider);
-                if (currentProvider === providerName) {
+                  if (currentProvider === provider) {
                   currentProvider = undefined;
                   currentModelId = undefined;
                   chatSession.clearModel();
-                  console.log(chalk.green('Active provider removed:'), chalk.yellow(providerName));
+                    console.log(chalk.green('Provider removed and cleared from session'));
                 } else {
-                  console.log(chalk.green('Provider removed:'), chalk.yellow(providerName));
+                    console.log(chalk.green('✓ Provider removed:'), chalk.yellow(providerInfo.name));
                 }
-              } else {
-                console.log(chalk.red('Provider not installed:'), chalk.yellow(providerName));
               }
-            } else {
-              console.log(chalk.red('No provider name given'));
             }
+            } catch (error: unknown) {
+              if (error instanceof Error) {
+                console.log(chalk.red('Error:'), error.message);
           } else {
-            console.log(chalk.cyan('\nUnknown providers command: '), chalk.yellow(args[1]));
+                console.log(chalk.red('Error performing action'));
+              }
+              logger.error('Error in providers command:', error);
+            }
           }
           break;
 
         case COMMANDS.PROVIDER:
-          // Select provider
-          //   args[0] (required) provider name
-          //   args[1] (optional) is model name, if not provided, use default model for provider
-          const providerName = args[0];
-          if (providerName) {
-            const provider = getProviderByName(providerName);
-            if (provider) {
+          {
+            const installedProviders = agent.getInstalledProviders();
+            if (installedProviders.length === 0) {
+              console.log(chalk.red('No providers installed. Use "/providers" to add a provider.'));
+              break;
+            }
+            try {
+              const providerItems: ProviderItem[] = installedProviders.map((providerId: ProviderId) => {
+                const providerInfo = agent.getProviderInfo(providerId);
+                return {
+                  id: providerId,
+                  name: providerInfo.name,
+                };
+              });
+
+              const selectedProviderId = await renderProviderSelectList('Providers', providerItems, currentProvider || undefined);
+              
+              if (selectedProviderId) {
+                const provider = selectedProviderId as ProviderId;
               const models = await agent.getProviderModels(provider);
-              let modelId = args[1];
-              let modelDescription = '';
-              if (modelId) {
-                // validate modelId is a valid model for the provider
-                const model = models.find((m: any) => m.id.toLowerCase() === modelId.toLowerCase());
-                if (model) {
-                  currentModelId = model.id;
-                  modelDescription = `specified model: ${model.name}`;
+                let modelId: string;
+                let modelDescription: string;
+                
+                // If switching to the same provider, keep current model if it's valid for that provider
+                if (currentProvider === provider && currentModelId) {
+                  const currentModel = models.find((m: any) => m.id === currentModelId);
+                  if (currentModel) {
+                    modelId = currentModelId;
+                    modelDescription = `model: ${currentModel.name}`;
                 } else {
-                  console.log(chalk.red('Model not found by name:'), chalk.yellow(modelId));
-                  break;
+                    // Current model not available, use default
+                    const defaultModel = models[0];
+                    modelId = defaultModel.id;
+                    modelDescription = `default model: ${defaultModel.name}`;
                 }
               } else {
-                // get default model for provider
+                  // Switching to different provider, use default model
                 const defaultModel = models[0];
                 modelId = defaultModel.id;
                 modelDescription = `default model: ${defaultModel.name}`;
               }
+                
               currentProvider = provider;
               currentModelId = modelId;
-              if (currentProvider && currentModelId) {
-                chatSession.switchModel(currentProvider, currentModelId);
-                await updatedMostRecentProvider(currentProvider, currentModelId);
+                chatSession.switchModel(provider, modelId);
+                await updatedMostRecentProvider(provider, modelId);
+                console.log(chalk.green(`Switched to ${provider} using ${modelDescription}`));
               }
-              console.log(chalk.green(`Switched to ${providerName} using ${modelDescription}`));
+            } catch (error: unknown) {
+              if (error instanceof Error) {
+                console.log(chalk.red('Error selecting provider:'), error.message);
             } else {
-              console.log(chalk.red('Provider not found by name:'), chalk.yellow(providerName));
+                console.log(chalk.red('Error selecting provider'));
             }
-          } else {
-            console.log(chalk.red('No provider name given'));
-          }
-          break;
-
-        case COMMANDS.MODELS:
-          if (!currentProvider) {
-            console.log(chalk.red('No current provider, select a provider before listing models'));
-            break;
-          }
-          console.log(chalk.cyan('\nAvailable models:'));
-          try {
-            const models = await agent.getProviderModels(currentProvider);
-            for (const model of models) {
-              const indicator = model.id === currentModelId ? chalk.green('* ') : '  ';
-              console.log(chalk.green(`${indicator}${model.id}: ${model.name}`));
-            }
-          } catch (error: unknown) {
-            if (error instanceof Error) {
-              console.log(chalk.red('Error listing models:'), error.message);
-            } else {
-              console.log(chalk.red('Error listing models'));
             }
           }
           break;
@@ -564,117 +544,152 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
             console.log(chalk.red('No current provider, select a provider before selecting a model'));
             break;
           }
-          const models = await agent.getProviderModels(currentProvider);
-          const modelName = args[0];
-          if (modelName) {
-            const model = models.find((m: any) => m.id.toLowerCase() === modelName.toLowerCase());
-            if (model && currentProvider) {
-              currentModelId = model.id;
-              chatSession.switchModel(currentProvider, currentModelId!);
-              await updatedMostRecentProvider(currentProvider, currentModelId!);
-              console.log(chalk.green(`Switched to ${modelName} on ${currentProvider}`));
-            } else {
-              console.log(chalk.red('Model not found by name:'), chalk.yellow(modelName));
+          try {
+            const models = await agent.getProviderModels(currentProvider);
+            const modelItems: ModelItem[] = models.map((m: any) => ({
+              id: m.id,
+              name: m.name,
+            }));
+
+            const selectedModelId = await renderModelSelectList(`Models (${currentProvider})`, modelItems, currentModelId || undefined);
+            
+            if (selectedModelId && currentProvider) {
+              currentModelId = selectedModelId;
+              chatSession.switchModel(currentProvider, currentModelId);
+              await updatedMostRecentProvider(currentProvider, currentModelId);
+              console.log(chalk.green(`Switched to ${selectedModelId} on ${currentProvider}`));
             }
-          } else {
-            console.log(chalk.red('No model name given'));
+          } catch (error: unknown) {
+            if (error instanceof Error) {
+              console.log(chalk.red('Error selecting model:'), error.message);
+            } else {
+              console.log(chalk.red('Error selecting model'));
+            }
           }
           break;
 
         case COMMANDS.SETTINGS:
-          if (args.length === 0) {
-            const sessionSettings = chatSession.getState();
-            const agentSettings = getAgentSettings(agent);
-            
-            console.log(chalk.cyan('\nSettings:'));
-            
-            // Helper to format setting display
-            const formatSetting = (sessionValue: any, agentValue: any): string => {
-              return sessionValue === agentValue 
-                ? String(sessionValue)
-                : `${sessionValue} (overrides agent default: ${agentValue})`;
-            };
-            
-            // Display main settings
-            MAIN_SETTING_KEYS.forEach((settingKey) => {
-              console.log(
-                chalk.yellow(`  ${settingKey}: ${formatSetting(sessionSettings[settingKey], agentSettings[settingKey])}`)
-              );
-            });
-            console.log(
-              chalk.yellow(`  ${TOOL_PERMISSION_KEY}: ${formatSetting(sessionSettings.toolPermission, agentSettings.toolPermission)}`)
-            );
-            
-            // Display context settings
-            console.log(chalk.cyan('\n  Agent Context Selection:'));
-            CONTEXT_SETTING_KEYS.forEach((settingKey) => {
-              console.log(
-                chalk.yellow(`    ${settingKey}: ${formatSetting(sessionSettings[settingKey], agentSettings[settingKey])}`)
-              );
-            });
-            console.log('');
-          } else if (args[0] == 'clear') {
-            const settings = getAgentSettings(agent);
-            chatSession.updateSettings(settings);
-            console.log(chalk.cyan('\nChat session settings restored to agent defaults'));
-          } else if (args[0] == 'save') {
-            const settings = chatSession.getState();
-            await agent.updateSettings({
-              maxChatTurns: settings.maxChatTurns,
-              maxOutputTokens: settings.maxOutputTokens,
-              temperature: settings.temperature,
-              topP: settings.topP,
-              toolPermission: settings.toolPermission,
-              contextTopK: settings.contextTopK,
-              contextTopN: settings.contextTopN,
-              contextIncludeScore: settings.contextIncludeScore
-            });
-            console.log(chalk.cyan('\nChat session settings saved to agent'));
-          } else {
-            console.log(chalk.cyan('\nUnknown settings command: '), chalk.yellow(args[1]));
-          }
-          break;
-
-        case COMMANDS.SETTING:
           {
-            const keyInput = args[0];
-            const valueInput = args[1];
-            if (!keyInput || valueInput === undefined) {
-              console.log(chalk.red('Usage: /setting <key> <value>'));
-              break;
-            }
+            // Helper to edit a numeric setting
+            const editNumericSetting = async (settingKey: NumericSettingKey): Promise<boolean> => {
+              const constraint = numericSettingConstraints[settingKey];
+              const sessionSettings = chatSession.getState();
+              const currentValue = sessionSettings[settingKey];
+              const prompt = `${settingKey} (${constraint.min}-${constraint.max}):`;
+              
+              const valueInput = await collectInput(chalk.green(prompt), {
+                isCommand: false,
+                defaultValue: String(currentValue),
+              });
 
-            const parsedKey = parseSettingKey(keyInput);
-            if (!parsedKey) {
-              console.log(chalk.red('Unknown setting: '), chalk.yellow(keyInput));
-              break;
-            }
+              if (!valueInput) {
+                return false; // Cancelled
+              }
 
-            const settings = chatSession.getState();
-
-            if (isNumericSettingKey(parsedKey)) {
-              const constraint = numericSettingConstraints[parsedKey];
               const parsedValue = constraint.parse(valueInput);
               if (isNaN(parsedValue) || parsedValue < constraint.min || parsedValue > constraint.max) {
                 console.log(chalk.red(`${constraint.error}: `), chalk.yellow(valueInput));
+                return false;
+              }
+
+              chatSession.updateSettings({ ...sessionSettings, [settingKey]: parsedValue });
+              console.log(chalk.green(`Set ${settingKey} to`), chalk.yellow(valueInput));
+              return true;
+            };
+
+            // Helper to edit toolPermission setting
+            const editToolPermission = async (): Promise<boolean> => {
+            const sessionSettings = chatSession.getState();
+              const currentValue = sessionSettings.toolPermission;
+              const newValue = await renderToolPermissionSelect(currentValue);
+              
+              if (!newValue) {
+                return false; // Cancelled
+              }
+
+              chatSession.updateSettings({ ...sessionSettings, toolPermission: newValue as SessionToolPermission });
+              console.log(chalk.green(`Set toolPermission to`), chalk.yellow(newValue));
+              return true;
+            };
+
+            // Main settings management loop
+            while (true) {
+              // Refresh agent settings each iteration (in case they changed)
+              const agentSettings = getAgentSettings(agent);
+              const sessionSettings = chatSession.getState();
+
+              // Create setting items from current state
+              const settingItems: SettingItem[] = [
+                ...MAIN_SETTING_KEYS.map((key): SettingItem => {
+                  const sessionValue = sessionSettings[key];
+                  const agentValue = agentSettings[key];
+                  return {
+                    key,
+                    label: key,
+                    value: String(sessionValue),
+                    defaultValue: String(agentValue),
+                    isOverridden: sessionValue !== agentValue,
+                    type: 'numeric',
+                  };
+                }),
+                {
+                  key: TOOL_PERMISSION_KEY,
+                  label: TOOL_PERMISSION_KEY,
+                  value: sessionSettings.toolPermission,
+                  defaultValue: agentSettings.toolPermission,
+                  isOverridden: sessionSettings.toolPermission !== agentSettings.toolPermission,
+                  type: 'enum',
+                },
+                ...CONTEXT_SETTING_KEYS.map((key): SettingItem => {
+                  const sessionValue = sessionSettings[key];
+                  const agentValue = agentSettings[key];
+                  return {
+                    key,
+                    label: key,
+                    value: String(sessionValue),
+                    defaultValue: String(agentValue),
+                    isOverridden: sessionValue !== agentValue,
+                    type: 'numeric',
+                  };
+                }),
+              ];
+
+              const result = await renderSettingsList('Settings', settingItems);
+              
+              if (!result) {
+                // Cancelled
                 break;
               }
-              chatSession.updateSettings({ ...settings, [parsedKey]: parsedValue });
-            } else if (parsedKey === TOOL_PERMISSION_KEY) {
-              const parseResult = SessionToolPermissionSchema.safeParse(valueInput);
-              if (!parseResult.success) {
-                // Extract valid values from the schema enum definition
-                const validValues = (SessionToolPermissionSchema._def as any).values.join(', ');
-                console.log(
-                  chalk.red('Invalid tool permission: '),
-                  chalk.yellow(valueInput),
-                  chalk.dim(` (must be one of: ${validValues})`)
-                );
-                break;
+
+              if (result.action === 'reset') {
+            const settings = getAgentSettings(agent);
+            chatSession.updateSettings(settings);
+                console.log(chalk.green('Settings reset to agent defaults'));
+                // Loop will continue and refresh items
+              } else if (result.action === 'save') {
+                const currentSettings = chatSession.getState();
+            await agent.updateSettings({
+                  maxChatTurns: currentSettings.maxChatTurns,
+                  maxOutputTokens: currentSettings.maxOutputTokens,
+                  temperature: currentSettings.temperature,
+                  topP: currentSettings.topP,
+                  toolPermission: currentSettings.toolPermission,
+                  contextTopK: currentSettings.contextTopK,
+                  contextTopN: currentSettings.contextTopN,
+                  contextIncludeScore: currentSettings.contextIncludeScore
+                });
+                console.log(chalk.green('Settings saved as agent defaults'));
+                // Loop will continue and refresh items
+              } else if (result.action === 'edit' && result.settingKey) {
+                const settingKey = result.settingKey as ChatSettingKey;
+                const success = isNumericSettingKey(settingKey)
+                  ? await editNumericSetting(settingKey)
+                  : settingKey === TOOL_PERMISSION_KEY
+                  ? await editToolPermission()
+                  : false;
+                // Loop will continue and refresh items
               }
-              chatSession.updateSettings({ ...settings, toolPermission: parseResult.data });
             }
-            console.log(chalk.green(`Set ${parsedKey} to`), chalk.yellow(valueInput));
           }
           break;
 
@@ -860,104 +875,62 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
           break;
 
         case COMMANDS.RULES:
-          if (args.length === 0) {
-            // Show all rules with asterisk for active ones and dash for inactive ones
+          {
             const allRules = agent.getAllRules();
-            console.log(chalk.cyan('\nRules:'));
             if (allRules.length === 0) {
               console.log(chalk.yellow('No rules available.'));
             } else {
-              allRules.forEach((rule: any) => {
                 const state = chatSession.getState();
-                const isActive = state.contextItems.some(item => item.type === 'rule' && item.name === rule.name);
-                const marker = isActive ? chalk.green('* ') : chalk.dim('- ');
-                console.log(`${marker}${chalk.yellow(rule.name)} (priority: ${rule.priorityLevel})`);
-              });
-              console.log('');
-            }
-          } else if (args[0] === 'include') {
-            const ruleName = args[1];
-            if (ruleName) {
-              const rule = agent.getRule(ruleName);
-              if (rule) {
-                const success = chatSession.addRule(ruleName);
-                if (success) {
-                  console.log(chalk.green(`Rule "${ruleName}" included in session context`));
+              const selectableItems: SelectableItem[] = allRules.map((rule: any) => ({
+                name: rule.name,
+                description: `priority: ${rule.priorityLevel}`,
+                isSelected: state.contextItems.some(item => item.type === 'rule' && item.name === rule.name),
+              }));
+
+              const updatedItems = await renderSelectionList('Rules', selectableItems);
+              
+              // Apply changes
+              for (const item of updatedItems) {
+                const rule = selectableItems.find(r => r.name === item.name);
+                if (rule && rule.isSelected !== item.isSelected) {
+                  if (item.isSelected) {
+                    chatSession.addRule(item.name);
                 } else {
-                  console.log(chalk.yellow(`Rule "${ruleName}" is already in session context`));
+                    chatSession.removeRule(item.name);
+                  }
                 }
-              } else {
-                console.log(chalk.red(`Rule not found: ${ruleName}`));
               }
-            } else {
-              console.log(chalk.red('No rule name provided'));
             }
-          } else if (args[0] === 'exclude') {
-            const ruleName = args[1];
-            if (ruleName) {
-              const success = chatSession.removeRule(ruleName);
-              if (success) {
-                console.log(chalk.green(`Rule "${ruleName}" excluded from session context`));
-              } else {
-                console.log(chalk.yellow(`Rule "${ruleName}" is not in session context`));
-              }
-            } else {
-              console.log(chalk.red('No rule name provided'));
-            }
-          } else {
-            console.log(chalk.red(`Unknown command: /rules ${args[0]}`));
-            console.log(chalk.cyan('Use "/rules include <name>" or "/rules exclude <name>"'));
           }
           break;
 
         case COMMANDS.REFERENCES:
-          if (args.length === 0) {
-            // Show all references with asterisk for active ones and dash for inactive ones
+          {
             const allReferences = agent.getAllReferences();
-            console.log(chalk.cyan('\nReferences:'));
             if (allReferences.length === 0) {
               console.log(chalk.yellow('No references available.'));
             } else {
-              allReferences.forEach((reference: any) => {
                 const state = chatSession.getState();
-                const isActive = state.contextItems.some(item => item.type === 'reference' && item.name === reference.name);
-                const marker = isActive ? chalk.green('* ') : chalk.dim('- ');
-                console.log(`${marker}${chalk.yellow(reference.name)} (priority: ${reference.priorityLevel})`);
-              });
-              console.log('');
-            }
-          } else if (args[0] === 'include') {
-            const referenceName = args[1];
-            if (referenceName) {
-              const reference = agent.getReference(referenceName);
-              if (reference) {
-                const success = chatSession.addReference(referenceName);
-                if (success) {
-                  console.log(chalk.green(`Reference "${referenceName}" included in session context`));
+              const selectableItems: SelectableItem[] = allReferences.map((reference: any) => ({
+                name: reference.name,
+                description: `priority: ${reference.priorityLevel}`,
+                isSelected: state.contextItems.some(item => item.type === 'reference' && item.name === reference.name),
+              }));
+
+              const updatedItems = await renderSelectionList('References', selectableItems);
+              
+              // Apply changes
+              for (const item of updatedItems) {
+                const reference = selectableItems.find(r => r.name === item.name);
+                if (reference && reference.isSelected !== item.isSelected) {
+                  if (item.isSelected) {
+                    chatSession.addReference(item.name);
                 } else {
-                  console.log(chalk.yellow(`Reference "${referenceName}" is already in session context`));
+                    chatSession.removeReference(item.name);
+                  }
                 }
-              } else {
-                console.log(chalk.red(`Reference not found: ${referenceName}`));
               }
-            } else {
-              console.log(chalk.red('No reference name provided'));
             }
-          } else if (args[0] === 'exclude') {
-            const referenceName = args[1];
-            if (referenceName) {
-              const success = chatSession.removeReference(referenceName);
-              if (success) {
-                console.log(chalk.green(`Reference "${referenceName}" excluded from session context`));
-              } else {
-                console.log(chalk.yellow(`Reference "${referenceName}" is not in session context`));
-              }
-            } else {
-              console.log(chalk.red('No reference name provided'));
-            }
-          } else {
-            console.log(chalk.red(`Unknown command: /references ${args[0]}`));
-            console.log(chalk.cyan('Use "/references include <name>" or "/references exclude <name>"'));
           }
           break;
 
