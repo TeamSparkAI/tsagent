@@ -9,7 +9,7 @@ import { renderCommandInput } from './tui/CommandInputApp.js';
 import type { Command } from './tui/CommandInput.js';
 import { showWelcomeBanner } from './tui/WelcomeBannerApp.js';
 import { renderSelectionList } from './tui/SelectionListApp.js';
-import type { SelectableItem } from './tui/SelectionList.js';
+import type { SelectableItem as MultiSelectItem } from './tui/SelectionList.js';
 import { renderModelSelectList } from './tui/ModelSelectListApp.js';
 import type { ModelItem } from './tui/ModelSelectListApp.js';
 import { renderProviderSelectList } from './tui/ProviderSelectListApp.js';
@@ -20,6 +20,16 @@ import { renderConfirmPrompt } from './tui/ConfirmPromptApp.js';
 import { renderSettingsList } from './tui/SettingsListApp.js';
 import type { SettingItem } from './tui/SettingsList.js';
 import { renderToolPermissionSelect } from './tui/ToolPermissionSelectApp.js';
+import { renderSingleSelectList } from './tui/SingleSelectListApp.js';
+import type { SelectableItem } from './tui/SingleSelectList.js';
+import { renderMcpServerDetails } from './tui/McpServerDetailsApp.js';
+import type { McpServerDetailsData } from './tui/McpServerDetails.js';
+import { renderToolDetails } from './tui/ToolDetailsApp.js';
+import type { ToolDetailsData } from './tui/ToolDetails.js';
+import { renderPromptDetails } from './tui/PromptDetailsApp.js';
+import type { PromptDetailsData } from './tui/PromptDetails.js';
+import { renderResourceDetails } from './tui/ResourceDetailsApp.js';
+import type { ResourceDetailsData } from './tui/ResourceDetails.js';
 
 import { 
   Agent,
@@ -52,6 +62,7 @@ const COMMANDS = {
   QUIT: '/quit',
   EXIT: '/exit',
   TOOLS: '/tools',
+  MCP: '/mcp',
   RULES: '/rules',
   REFERENCES: '/references',
   STATS: '/stats',
@@ -67,6 +78,7 @@ const COMMAND_LIST: Command[] = [
   { name: '/model', description: 'Select a model' },
   { name: '/settings', description: 'Manage settings (edit, reset, save)' },
   { name: '/tools', description: 'List available tools from all configured MCP servers' },
+  { name: '/mcp', description: 'Manage MCP servers' },
   { name: '/rules', description: 'Select rules to include in session' },
   { name: '/references', description: 'Select references to include in session' },
   { name: '/stats', description: 'Display statistics for the current chat session' },
@@ -184,6 +196,7 @@ function showHelp() {
   console.log(chalk.yellow('  /tools') + ' - List available tools from all configured MCP servers');
   console.log(chalk.yellow('  /tools include --server <name> [--tool <name>]') + ' - Include tool(s) in session context');
   console.log(chalk.yellow('  /tools exclude --server <name> [--tool <name>]') + ' - Exclude tool(s) from session context');
+  console.log(chalk.yellow('  /mcp') + ' - Manage MCP servers');
   console.log(chalk.yellow('  /rules') + ' - Select rules to include in session');
   console.log(chalk.yellow('  /references') + ' - Select references to include in session');
   console.log(chalk.yellow('  /stats') + ' - Display statistics for the current chat session');
@@ -573,7 +586,7 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
             // Helper to edit a numeric setting
             const editNumericSetting = async (settingKey: NumericSettingKey): Promise<boolean> => {
               const constraint = numericSettingConstraints[settingKey];
-              const sessionSettings = chatSession.getState();
+            const sessionSettings = chatSession.getState();
               const currentValue = sessionSettings[settingKey];
               const prompt = `${settingKey} (${constraint.min}-${constraint.max}):`;
               
@@ -658,8 +671,8 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
               
               if (!result) {
                 // Cancelled
-                break;
-              }
+              break;
+            }
 
               if (result.action === 'reset') {
             const settings = getAgentSettings(agent);
@@ -874,6 +887,379 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
           }
           break;
 
+        case COMMANDS.MCP:
+          {
+            const mcpServers = await agent.getAllMcpServers();
+            const serverNames = Object.keys(mcpServers);
+            
+            if (serverNames.length === 0) {
+              console.log(chalk.yellow('No MCP servers configured.'));
+              break;
+            }
+
+            // Create server items for selection
+            const serverItems: SelectableItem[] = serverNames.map(name => ({
+              id: name,
+              name: name,
+            }));
+
+            // Select a server
+            const selectedServerName = await renderSingleSelectList('MCP Servers', serverItems);
+            
+            if (!selectedServerName) {
+              // Cancelled
+              break;
+            }
+
+            const serverEntry = mcpServers[selectedServerName];
+            if (!serverEntry) {
+              console.log(chalk.red(`Server not found: ${selectedServerName}`));
+              break;
+            }
+
+            // Get client to check connection status and get tools
+            const mcpClient = await agent.getMcpClient(selectedServerName);
+            const isConnected = mcpClient?.isConnected() ?? false;
+            const toolCount = mcpClient?.serverTools.length ?? 0;
+            const serverVersion = mcpClient?.serverVersion;
+
+            // Build server details
+            const serverName = serverVersion?.name || selectedServerName;
+            const config = serverEntry.config;
+
+            // Extract command and args for stdio servers
+            let command: string | undefined;
+            let args: string[] | undefined;
+            if (config.type === 'stdio') {
+              command = config.command;
+              args = config.args;
+            }
+
+            // Determine capabilities and get counts for prompts/resources
+            const capabilities: string[] = ['tools'];
+            let promptCount: number | undefined;
+            let resourceCount: number | undefined;
+
+            if (mcpClient && isConnected) {
+              // Try to get prompts and resources if the server supports them
+              try {
+                const baseClient = mcpClient as any;
+                if (baseClient.mcp) {
+                  // Try to list prompts
+                  try {
+                    const promptsResult = await baseClient.mcp.listPrompts();
+                    if (promptsResult && promptsResult.prompts) {
+                      const count = promptsResult.prompts.length;
+                      promptCount = count;
+                      if (count > 0 && !capabilities.includes('prompts')) {
+                        capabilities.push('prompts');
+                      }
+                    }
+                  } catch (error) {
+                    // Server doesn't support prompts
+                  }
+
+                  // Try to list resources
+                  try {
+                    const resourcesResult = await baseClient.mcp.listResources();
+                    if (resourcesResult && resourcesResult.resources) {
+                      const count = resourcesResult.resources.length;
+                      resourceCount = count;
+                      if (count > 0 && !capabilities.includes('resources')) {
+                        capabilities.push('resources');
+                      }
+                    }
+                  } catch (error) {
+                    // Server doesn't support resources
+                  }
+                }
+              } catch (error) {
+                // Ignore errors when checking capabilities
+              }
+            }
+
+            const serverDetails: McpServerDetailsData = {
+              name: serverName,
+              serverName: selectedServerName,
+              status: isConnected ? 'connected' : 'disconnected',
+              command,
+              args,
+              capabilities,
+              toolCount,
+              promptCount,
+              resourceCount,
+            };
+
+            // Show server details and handle actions
+            while (true) {
+              // Refresh client info before showing details
+              const currentClient = await agent.getMcpClient(selectedServerName);
+              const isCurrentlyConnected = currentClient?.isConnected() ?? false;
+              const currentToolCount = currentClient?.serverTools.length ?? 0;
+              const currentServerVersion = currentClient?.serverVersion;
+              
+              // Update server details with current info
+              serverDetails.status = isCurrentlyConnected ? 'connected' : 'disconnected';
+              serverDetails.toolCount = currentToolCount;
+              serverDetails.name = currentServerVersion?.name || selectedServerName;
+
+              // Try to get prompts and resources counts if the server supports them
+              if (currentClient && isCurrentlyConnected) {
+                try {
+                  const baseClient = currentClient as any;
+                  if (baseClient.mcp) {
+                    // Try to list prompts
+                    try {
+                      const promptsResult = await baseClient.mcp.listPrompts();
+                      if (promptsResult && promptsResult.prompts) {
+                        const count = promptsResult.prompts.length;
+                        serverDetails.promptCount = count;
+                        if (count > 0 && !serverDetails.capabilities.includes('prompts')) {
+                          serverDetails.capabilities.push('prompts');
+                        }
+                      }
+                    } catch (error) {
+                      // Server doesn't support prompts
+                      serverDetails.promptCount = undefined;
+                    }
+
+                    // Try to list resources
+                    try {
+                      const resourcesResult = await baseClient.mcp.listResources();
+                      if (resourcesResult && resourcesResult.resources) {
+                        const count = resourcesResult.resources.length;
+                        serverDetails.resourceCount = count;
+                        if (count > 0 && !serverDetails.capabilities.includes('resources')) {
+                          serverDetails.capabilities.push('resources');
+                        }
+                      }
+                    } catch (error) {
+                      // Server doesn't support resources
+                      serverDetails.resourceCount = undefined;
+                    }
+                  }
+                } catch (error) {
+                  // Ignore errors when checking capabilities
+                }
+              }
+
+              const action = await renderMcpServerDetails(serverDetails);
+              
+              if (!action) {
+                // Cancelled/back
+                break;
+              }
+
+              if (action === 'view-tools') {
+                // Tools list loop - allows going back from tool details to tools list
+                while (true) {
+                  // Refresh client to get latest tools
+                  const currentClient = await agent.getMcpClient(selectedServerName);
+                  if (!currentClient || currentClient.serverTools.length === 0) {
+                    console.log(chalk.yellow('No tools available for this server.'));
+                    break; // Exit tools loop, back to server details
+                  }
+
+                  const toolItems: SelectableItem[] = currentClient.serverTools.map(tool => ({
+                    id: tool.name,
+                    name: tool.name,
+                  }));
+
+                  const selectedToolName = await renderSingleSelectList(
+                    `Tools for ${selectedServerName} (${currentClient.serverTools.length} tools)`,
+                    toolItems
+                  );
+
+                  if (!selectedToolName) {
+                    // Back to server details
+                    break; // Exit tools loop, back to server details
+                  }
+
+                  // Show tool details
+                  const tool = currentClient.serverTools.find(t => t.name === selectedToolName);
+                  if (tool) {
+                    const toolDetails: ToolDetailsData = {
+                      name: tool.name,
+                      fullName: `mcp__${selectedServerName}__${tool.name}`,
+                      description: tool.description,
+                      serverName: selectedServerName,
+                    };
+
+                    await renderToolDetails(toolDetails);
+                    // After tool details, continue tools loop to show tools list again
+                    continue;
+                  }
+                }
+                // After exiting tools loop, continue server details loop
+                continue;
+              } else if (action === 'view-prompts') {
+                // Prompts list loop - allows going back from prompt details to prompts list
+                while (true) {
+                  // Refresh client to get latest prompts
+                  const currentClient = await agent.getMcpClient(selectedServerName);
+                  if (!currentClient || !currentClient.isConnected()) {
+                    console.log(chalk.yellow('Server not connected.'));
+                    break;
+                  }
+
+                  try {
+                    const baseClient = currentClient as any;
+                    if (!baseClient.mcp) {
+                      console.log(chalk.yellow('Unable to access MCP client.'));
+                      break;
+                    }
+
+                    const promptsResult = await baseClient.mcp.listPrompts();
+                    if (!promptsResult || !promptsResult.prompts || promptsResult.prompts.length === 0) {
+                      console.log(chalk.yellow('No prompts available for this server.'));
+                      break;
+                    }
+
+                    const promptItems: SelectableItem[] = promptsResult.prompts.map((prompt: any) => ({
+                      id: prompt.name,
+                      name: prompt.name,
+                    }));
+
+                    const selectedPromptName = await renderSingleSelectList(
+                      `Prompts for ${selectedServerName} (${promptsResult.prompts.length} prompts)`,
+                      promptItems
+                    );
+
+                    if (!selectedPromptName) {
+                      // Back to server details
+                      break;
+                    }
+
+                    // Show prompt details
+                    const prompt = promptsResult.prompts.find((p: any) => p.name === selectedPromptName);
+                    if (prompt) {
+                      const promptDetails: PromptDetailsData = {
+                        name: prompt.name,
+                        description: prompt.description,
+                        arguments: prompt.arguments,
+                        serverName: selectedServerName,
+                      };
+
+                      await renderPromptDetails(promptDetails);
+                      // After prompt details, continue prompts loop to show prompts list again
+                      continue;
+                    }
+                  } catch (error) {
+                    console.log(chalk.red(`Error listing prompts: ${error instanceof Error ? error.message : String(error)}`));
+                    logger.error('Error listing prompts:', error);
+                    break;
+                  }
+                }
+                // After exiting prompts loop, continue server details loop
+                continue;
+              } else if (action === 'view-resources') {
+                // Resources list loop - allows going back from resource details to resources list
+                while (true) {
+                  // Refresh client to get latest resources
+                  const currentClient = await agent.getMcpClient(selectedServerName);
+                  if (!currentClient || !currentClient.isConnected()) {
+                    console.log(chalk.yellow('Server not connected.'));
+                    break;
+                  }
+
+                  try {
+                    const baseClient = currentClient as any;
+                    if (!baseClient.mcp) {
+                      console.log(chalk.yellow('Unable to access MCP client.'));
+                      break;
+                    }
+
+                    const resourcesResult = await baseClient.mcp.listResources();
+                    if (!resourcesResult || !resourcesResult.resources || resourcesResult.resources.length === 0) {
+                      console.log(chalk.yellow('No resources available for this server.'));
+                      break;
+                    }
+
+                    const resourceItems: SelectableItem[] = resourcesResult.resources.map((resource: any) => ({
+                      id: resource.uri,
+                      name: resource.name || resource.uri,
+                    }));
+
+                    const selectedResourceUri = await renderSingleSelectList(
+                      `Resources for ${selectedServerName} (${resourcesResult.resources.length} resources)`,
+                      resourceItems
+                    );
+
+                    if (!selectedResourceUri) {
+                      // Back to server details
+                      break;
+                    }
+
+                    // Show resource details
+                    const resource = resourcesResult.resources.find((r: any) => r.uri === selectedResourceUri);
+                    if (resource) {
+                      const resourceDetails: ResourceDetailsData = {
+                        uri: resource.uri,
+                        name: resource.name || resource.uri,
+                        description: resource.description,
+                        mimeType: resource.mimeType,
+                        serverName: selectedServerName,
+                      };
+
+                      await renderResourceDetails(resourceDetails);
+                      // After resource details, continue resources loop to show resources list again
+                      continue;
+                    }
+                  } catch (error) {
+                    console.log(chalk.red(`Error listing resources: ${error instanceof Error ? error.message : String(error)}`));
+                    logger.error('Error listing resources:', error);
+                    break;
+                  }
+                }
+                // After exiting resources loop, continue server details loop
+                continue;
+              } else if (action === 'reconnect') {
+                // Reconnect the server
+                try {
+                  if (mcpClient) {
+                    await mcpClient.disconnect();
+                  }
+                  // Force reconnect by getting client again (which will reconnect if needed)
+                  const newClient = await agent.getMcpClient(selectedServerName);
+                  if (newClient && newClient.isConnected()) {
+                    console.log(chalk.green(`Server "${selectedServerName}" reconnected`));
+                    // Update server details
+                    serverDetails.status = 'connected';
+                    serverDetails.toolCount = newClient.serverTools.length;
+                    serverDetails.name = newClient.serverVersion?.name || selectedServerName;
+                  } else {
+                    console.log(chalk.red(`Failed to reconnect server "${selectedServerName}"`));
+                  }
+                } catch (error) {
+                  console.log(chalk.red(`Error reconnecting server: ${error instanceof Error ? error.message : String(error)}`));
+                  logger.error('Error reconnecting MCP server:', error);
+                }
+                // Continue loop to show updated server details
+                continue;
+              } else if (action === 'disable') {
+                // Disable the server (delete it)
+                const confirmed = await renderConfirmPrompt(`Are you sure you want to disable "${selectedServerName}"?`);
+                if (confirmed) {
+                  try {
+                    const success = await agent.deleteMcpServer(selectedServerName);
+                    if (success) {
+                      console.log(chalk.green(`Server "${selectedServerName}" disabled`));
+                      break; // Exit to server list
+                    } else {
+                      console.log(chalk.red(`Failed to disable server "${selectedServerName}"`));
+                    }
+                  } catch (error) {
+                    console.log(chalk.red(`Error disabling server: ${error instanceof Error ? error.message : String(error)}`));
+                    logger.error('Error disabling MCP server:', error);
+                  }
+                }
+                // Continue loop to show server details
+                continue;
+              }
+            }
+          }
+          break;
+
         case COMMANDS.RULES:
           {
             const allRules = agent.getAllRules();
@@ -881,7 +1267,7 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
               console.log(chalk.yellow('No rules available.'));
             } else {
                 const state = chatSession.getState();
-              const selectableItems: SelectableItem[] = allRules.map((rule: any) => ({
+              const selectableItems: MultiSelectItem[] = allRules.map((rule: any) => ({
                 name: rule.name,
                 description: `priority: ${rule.priorityLevel}`,
                 isSelected: state.contextItems.some(item => item.type === 'rule' && item.name === rule.name),
@@ -911,7 +1297,7 @@ export async function setupCLI(agent: Agent, version: string, logger: WinstonLog
               console.log(chalk.yellow('No references available.'));
             } else {
                 const state = chatSession.getState();
-              const selectableItems: SelectableItem[] = allReferences.map((reference: any) => ({
+              const selectableItems: MultiSelectItem[] = allReferences.map((reference: any) => ({
                 name: reference.name,
                 description: `priority: ${reference.priorityLevel}`,
                 isSelected: state.contextItems.some(item => item.type === 'reference' && item.name === reference.name),

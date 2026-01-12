@@ -88,7 +88,6 @@ export function SingleSelectList({ title, items, currentItemId, onSubmit, onCanc
 
   return (
     <Box flexDirection="column">
-      <Box height={1} />
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" position="relative">
         <Box position="absolute" marginTop={-1} marginLeft={2}>
           <Text bold color="cyan">{title}</Text>
@@ -97,20 +96,14 @@ export function SingleSelectList({ title, items, currentItemId, onSubmit, onCanc
         {visibleItems.map((item, idx) => {
           const isSelected = idx === visibleSelectedIndex;
           const isCurrent = item.id === currentItemId;
-          const marker = isCurrent ? '*' : ' ';
           
           return (
             <Box key={item.id} paddingX={1} paddingY={0}>
-              <Text inverse={isSelected}>
-                {isSelected ? '▶ ' : '  '}
-                <Text color={isCurrent ? 'green' : (isSelected ? undefined : 'yellow')} bold={isSelected || isCurrent}>
-                  {marker} {item.id}
+              <Text>
+                {isSelected ? '❯ ' : '  '}
+                <Text inverse={isSelected} bold={isSelected || isCurrent} color={isCurrent ? 'green' : (isSelected ? undefined : 'yellow')}>
+                  {item.name}
                 </Text>
-                {item.name && (
-                  <Text color={isSelected ? undefined : 'gray'}>
-                    {' - '}{item.name}
-                  </Text>
-                )}
               </Text>
             </Box>
           );

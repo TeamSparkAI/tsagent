@@ -1,6 +1,7 @@
-import React from 'react';
-import { render, useApp } from 'ink';
+import React, { useRef } from 'react';
+import { render } from 'ink';
 import { ConfirmPrompt } from './ConfirmPrompt.js';
+import { useCleanExit } from './useCleanExit.js';
 
 interface ConfirmPromptAppProps {
   message: string;
@@ -9,17 +10,31 @@ interface ConfirmPromptAppProps {
 }
 
 function ConfirmPromptAppInner({ message, onConfirm, onCancel }: ConfirmPromptAppProps) {
-  const { exit } = useApp();
+  const actionRef = useRef<'confirm' | 'cancel' | null>(null);
+
+  const handleFinished = () => {
+    if (actionRef.current === 'confirm') {
+      onConfirm();
+    } else if (actionRef.current === 'cancel') {
+      onCancel();
+    }
+  };
+
+  const { isExiting, triggerExit } = useCleanExit(handleFinished);
 
   const handleConfirm = () => {
-    exit();
-    onConfirm();
+    actionRef.current = 'confirm';
+    triggerExit();
   };
 
   const handleCancel = () => {
-    exit();
-    onCancel();
+    actionRef.current = 'cancel';
+    triggerExit();
   };
+
+  if (isExiting) {
+    return null;
+  }
 
   return (
     <ConfirmPrompt

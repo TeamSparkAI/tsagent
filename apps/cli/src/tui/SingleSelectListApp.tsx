@@ -1,7 +1,8 @@
-import React from 'react';
-import { render, useApp } from 'ink';
+import React, { useRef } from 'react';
+import { render } from 'ink';
 import { SingleSelectList } from './SingleSelectList.js';
 import type { SelectableItem } from './SingleSelectList.js';
+import { useCleanExit } from './useCleanExit.js';
 
 interface SingleSelectListAppProps {
   title: string;
@@ -12,17 +13,33 @@ interface SingleSelectListAppProps {
 }
 
 function SingleSelectListAppInner({ title, items, currentItemId, onComplete, onCancel }: SingleSelectListAppProps) {
-  const { exit } = useApp();
+  const resultRef = useRef<string | null>(null);
+  const actionRef = useRef<'submit' | 'cancel' | null>(null);
+
+  const handleFinished = () => {
+    if (actionRef.current === 'submit' && resultRef.current !== null) {
+      onComplete(resultRef.current);
+    } else if (actionRef.current === 'cancel') {
+      onCancel();
+    }
+  };
+
+  const { isExiting, triggerExit } = useCleanExit(handleFinished);
 
   const handleSubmit = (itemId: string) => {
-    exit();
-    onComplete(itemId);
+    resultRef.current = itemId;
+    actionRef.current = 'submit';
+    triggerExit();
   };
 
   const handleCancel = () => {
-    exit();
-    onCancel();
+    actionRef.current = 'cancel';
+    triggerExit();
   };
+
+  if (isExiting) {
+    return null;
+  }
 
   return (
     <SingleSelectList

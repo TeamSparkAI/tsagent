@@ -120,7 +120,6 @@ export function ProviderManagementList({ title, providers, onSubmit, onCancel }:
     // Show action menu
     return (
       <Box flexDirection="column">
-        <Box height={1} />
         <Box flexDirection="column" borderStyle="round" borderColor="cyan" position="relative">
           <Box position="absolute" marginTop={-1} marginLeft={2}>
             <Text bold color="cyan">{title} - {selectedProvider.name}</Text>
@@ -150,7 +149,6 @@ export function ProviderManagementList({ title, providers, onSubmit, onCancel }:
   // Show main provider list
   return (
     <Box flexDirection="column">
-      <Box height={1} />
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" position="relative">
         <Box position="absolute" marginTop={-1} marginLeft={2}>
           <Text bold color="cyan">{title}</Text>

@@ -101,7 +101,6 @@ export function SettingsList({ title, settings, onSubmit, onCancel }: SettingsLi
 
   return (
     <Box flexDirection="column">
-      <Box height={1} />
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" position="relative">
         <Box position="absolute" marginTop={-1} marginLeft={2}>
           <Text bold color="cyan">{title}</Text>

@@ -1,6 +1,7 @@
-import React from 'react';
-import { render, useApp } from 'ink';
+import React, { useRef } from 'react';
+import { render } from 'ink';
 import { ToolPermissionSelect } from './ToolPermissionSelect.js';
+import { useCleanExit } from './useCleanExit.js';
 
 interface ToolPermissionSelectAppProps {
   currentValue: string;
@@ -9,17 +10,33 @@ interface ToolPermissionSelectAppProps {
 }
 
 function ToolPermissionSelectAppInner({ currentValue, onComplete, onCancel }: ToolPermissionSelectAppProps) {
-  const { exit } = useApp();
+  const resultRef = useRef<string | null>(null);
+  const actionRef = useRef<'submit' | 'cancel' | null>(null);
+
+  const handleFinished = () => {
+    if (actionRef.current === 'submit' && resultRef.current !== null) {
+      onComplete(resultRef.current);
+    } else if (actionRef.current === 'cancel') {
+      onCancel();
+    }
+  };
+
+  const { isExiting, triggerExit } = useCleanExit(handleFinished);
 
   const handleSubmit = (value: string) => {
-    exit();
-    onComplete(value);
+    resultRef.current = value;
+    actionRef.current = 'submit';
+    triggerExit();
   };
 
   const handleCancel = () => {
-    exit();
-    onCancel();
+    actionRef.current = 'cancel';
+    triggerExit();
   };
+
+  if (isExiting) {
+    return null;
+  }
 
   return (
     <ToolPermissionSelect

@@ -92,7 +92,6 @@ export function SelectionList({ title, items, onSubmit, onCancel }: SelectionLis
 
   return (
     <Box flexDirection="column">
-      <Box height={1} />
       <Box flexDirection="column" borderStyle="round" borderColor="cyan" position="relative">
         <Box position="absolute" marginTop={-1} marginLeft={2}>
           <Text bold color="cyan">{title}</Text>
@@ -105,9 +104,9 @@ export function SelectionList({ title, items, onSubmit, onCancel }: SelectionLis
           
           return (
             <Box key={item.name} paddingX={1} paddingY={0}>
-              <Text inverse={isSelected}>
-                {isSelected ? '▶ ' : '  '}
-                <Text color={item.isSelected ? 'green' : (isSelected ? undefined : 'yellow')} bold={isSelected || item.isSelected}>
+              <Text>
+                {isSelected ? '❯ ' : '  '}
+                <Text inverse={isSelected} bold={isSelected || item.isSelected} color={item.isSelected ? 'green' : (isSelected ? undefined : 'yellow')}>
                   {checkbox} {item.name}
                 </Text>
                 {item.description && (

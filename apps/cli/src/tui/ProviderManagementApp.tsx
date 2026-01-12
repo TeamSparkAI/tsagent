@@ -1,7 +1,8 @@
-import React from 'react';
-import { render, useApp } from 'ink';
+import React, { useRef } from 'react';
+import { render } from 'ink';
 import { ProviderManagementList } from './ProviderManagementList.js';
 import type { ProviderItem } from './ProviderManagementList.js';
+import { useCleanExit } from './useCleanExit.js';
 
 interface ProviderManagementAppProps {
   title: string;
@@ -11,17 +12,33 @@ interface ProviderManagementAppProps {
 }
 
 function ProviderManagementAppInner({ title, providers, onComplete, onCancel }: ProviderManagementAppProps) {
-  const { exit } = useApp();
+  const resultRef = useRef<{ providerId: string; action: 'install' | 'view' | 'reconfigure' | 'remove' } | null>(null);
+  const actionRef = useRef<'submit' | 'cancel' | null>(null);
+
+  const handleFinished = () => {
+    if (actionRef.current === 'submit' && resultRef.current !== null) {
+      onComplete(resultRef.current.providerId, resultRef.current.action);
+    } else if (actionRef.current === 'cancel') {
+      onCancel();
+    }
+  };
+
+  const { isExiting, triggerExit } = useCleanExit(handleFinished);
 
   const handleSubmit = (providerId: string, action: 'install' | 'view' | 'reconfigure' | 'remove') => {
-    exit();
-    onComplete(providerId, action);
+    resultRef.current = { providerId, action };
+    actionRef.current = 'submit';
+    triggerExit();
   };
 
   const handleCancel = () => {
-    exit();
-    onCancel();
+    actionRef.current = 'cancel';
+    triggerExit();
   };
+
+  if (isExiting) {
+    return null;
+  }
 
   return (
     <ProviderManagementList
