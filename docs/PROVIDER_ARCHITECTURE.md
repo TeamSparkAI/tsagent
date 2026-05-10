@@ -41,6 +41,7 @@ The `ProviderDescriptor` abstract class (`packages/agent-api/src/providers/provi
 - Internal typing handled by each descriptor (casts to typed config internally)
 - Provider-specific validation hooks via `validateProvider()` method (no-op by default)
 - Abstract `createProvider()` method must be implemented by each descriptor
+- Abstract `buildChatModel()` constructs the LangChain `BaseChatModel` from **resolved** config; public `createChatModel()` on the base descriptor runs the same resolve/validate path as `create()` without building a `Provider` instance (`ProviderFactory.createChatModel` delegates here)
 - Package root passed to constructor allows descriptor to resolve icon paths relative to its package location
 - Icon resolution works identically for built-in and external providers
 
@@ -50,7 +51,7 @@ The `BaseProvider<ConfigType>` abstract class (`packages/agent-api/src/providers
 
 - **Shared properties**: `config`, `modelName`, `agent`, `logger`, `providerId` (protected readonly)
 - **Constructor pattern**: Ensures consistent constructor signature across all providers
-- **Abstract methods**: Enforces `getModels()` and `generateResponse()` (Provider interface)
+- **Abstract methods**: Enforces `getModels()` (Provider interface; chat uses LangChain via `ProviderFactory.createChatModel` → descriptor `createChatModel` / `buildChatModel`)
 - **Provider ID**: Providers receive `providerId` from their descriptor and use it when creating `ProviderModel` instances
 
 **Note**: This class is a convenience to avoid repeating property declarations in each provider. It could be replaced with an interface, but would require each provider to declare the 5 properties themselves.
@@ -115,6 +116,7 @@ The `ProviderFactory` (`packages/agent-api/src/providers/provider-factory.ts`) m
 - Creates and registers all built-in provider descriptors with package root
 - Delegates all operations to descriptors:
   - `create()` → `descriptor.create()`
+  - `createChatModel()` → `descriptor.createChatModel()` (reads sync installed config from the agent, then descriptor resolves secrets + validates + `buildChatModel`)
   - `validateConfiguration()` → `descriptor.validateConfiguration()`
   - `getProviderInfo()` → `descriptor.getInfo()`
   - `getProviderIcon()` → `descriptor.getIcon()`
@@ -150,9 +152,8 @@ All providers use Zod schemas with environment variable defaults:
 
 - **Bedrock**: `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` (both default to `env://`)
 - **Claude**: `ANTHROPIC_API_KEY` (defaults to `env://ANTHROPIC_API_KEY`)
-- **Docker**: `BASE_URL` (required, no default)
+- **Docker** (Docker Model Runner): `BASE_URL` (required, no default — engines OpenAI-compatible URL)
 - **Gemini**: `GOOGLE_API_KEY` (defaults to `env://GOOGLE_API_KEY`)
-- **Local**: No config required (empty schema)
 - **Ollama**: `OLLAMA_HOST` (defaults to `env://OLLAMA_HOST`)
 - **OpenAI**: `OPENAI_API_KEY` (defaults to `env://OPENAI_API_KEY`)
 - **Test**: No config required (empty schema)
@@ -163,9 +164,8 @@ The following providers are built-in:
 
 - Bedrock
 - Claude
-- Docker
+- Docker (Docker Model Runner)
 - Gemini
-- Local
 - Ollama
 - OpenAI
 - Test
@@ -181,7 +181,6 @@ packages/agent-api/
 │       ├── docker.png
 │       ├── frosty.png
 │       ├── gemini.png
-│       ├── local.png
 │       ├── ollama.png
 │       └── openai.png
 └── src/
@@ -193,7 +192,6 @@ packages/agent-api/
         ├── claude-provider.ts               # ClaudeDescriptor + ClaudeProvider
         ├── docker-provider.ts               # DockerDescriptor + DockerProvider
         ├── gemini-provider.ts               # GeminiDescriptor + GeminiProvider
-        ├── local-provider.ts                # LocalDescriptor + LocalProvider
         ├── ollama-provider.ts               # OllamaDescriptor + OllamaProvider
         ├── openai-provider.ts               # OpenAIDescriptor + OpenAIProvider
         └── test-provider.ts                 # TestDescriptor + TestProvider

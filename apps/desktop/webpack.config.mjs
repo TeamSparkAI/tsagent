@@ -56,7 +56,6 @@ const mainConfig = {
   },
   externals: {
     electron: 'module electron',
-    'node-llama-cpp': 'module node-llama-cpp',
     '@tsagent/core': 'module @tsagent/core',
     '@tsagent/core/runtime': 'module @tsagent/core/runtime',
     '@teamsparkai/1password': 'module @teamsparkai/1password',

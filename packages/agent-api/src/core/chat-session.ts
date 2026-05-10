@@ -1,5 +1,8 @@
 import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession, ChatSessionOptionsWithRequiredSettings } from '../types/chat.js';
-import { Provider, ProviderId } from '../providers/types.js';
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { MemorySaver } from '@langchain/langgraph';
+import { ProviderId } from '../providers/types.js';
+import { runLangGraphChat, type RunLangGraphChatOptions } from '../providers/langchain/langgraph-chat-runner.js';
 import { Agent, populateModelFromSettings } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { SessionToolPermission } from '../types/agent.js';
@@ -15,7 +18,7 @@ export class ChatSessionImpl implements ChatSession {
   lastSyncId: number = 0;
   currentProvider?: ProviderId;
   currentModelId?: string;
-  provider?: Provider;
+  private chatModel?: BaseChatModel;
   agent: Agent;
   contextItems: SessionContextItem[] = [];  // Tracked context items with include modes
   maxChatTurns: number;
@@ -33,6 +36,9 @@ export class ChatSessionImpl implements ChatSession {
   // reset when a new user message is received (new prompt). Contains semantically selected
   // items (rules, references, tools) that were chosen for the current prompt.
   private promptRequestContext?: RequestContext;
+
+  /** In-memory LangGraph checkpoints for this session (`thread_id` = session id; cleared each generation). */
+  private readonly _langGraphCheckpointer = new MemorySaver();
 
   constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, private logger: Logger) {
     this._id = id;
@@ -135,10 +141,10 @@ export class ChatSessionImpl implements ChatSession {
   }
 
   /**
-   * Ensure provider is created (lazy initialization)
+   * Ensure LangChain chat model is created (lazy initialization)
    */
-  private async ensureProvider(): Promise<void> {
-    if (this.provider) {
+  private async ensureChatModel(): Promise<void> {
+    if (this.chatModel) {
       return;
     }
 
@@ -146,11 +152,7 @@ export class ChatSessionImpl implements ChatSession {
       throw new Error('No provider configured for this session');
     }
 
-    const llm = await this.agent.createProvider(this.currentProvider, this.currentModelId);
-    if (!llm) {
-      throw new Error(`Failed to create LLM instance for model ${this.currentProvider}`);
-    }
-    this.provider = llm;
+    this.chatModel = await this.agent.createChatModel(this.currentProvider, this.currentModelId);
   }
 
   getState(): ChatState {
@@ -354,11 +356,6 @@ export class ChatSessionImpl implements ChatSession {
   // - Sometimes we get explanatory text with a tool call (or multiple tool calls)
   //
   async handleMessage(message: string | ChatMessage): Promise<MessageUpdate> {
-    await this.ensureProvider();
-    if (!this.provider) {
-      throw new Error('No LLM instance available');
-    }
-
     if (typeof message === 'string') {
       message = {
         role: 'user',
@@ -408,7 +405,7 @@ export class ChatSessionImpl implements ChatSession {
     //
     // For approval messages, reuse the prompt request context from the initial user message
     // to maintain consistent context across all turns of a multi-turn conversation (even when
-    // yielding to user for tool approval and continuing with generateResponse calls).
+    // yielding to user for tool approval and continuing with further LangChain invocations).
     // For new user messages, build a fresh request context (semantic search runs again).
     let requestContext: RequestContext;
     if (message.role === 'approval' && this.promptRequestContext) {
@@ -423,50 +420,42 @@ export class ChatSessionImpl implements ChatSession {
       this.promptRequestContext = requestContext;
     }
 
-    // Build messages array, starting with system prompt and existing non-system messages
     const systemPrompt = await this.agent.getSystemPrompt();
     const messages: ChatMessage[] = [
       { role: 'system', content: systemPrompt },
-      ...this.messages.filter(m => m.role !== 'system')
+      ...this.messages.filter((m) => m.role !== 'system'),
     ];
-    
-    // Add the references to the messages array (from request context)
+
     for (const item of requestContext.items) {
       if (item.type === 'reference') {
         const reference = this.agent.getReference(item.name);
-      if (reference) {
-        messages.push({
-          role: 'user',
-          content: `Reference: ${reference.text}`
-        }); 
+        if (reference) {
+          messages.push({
+            role: 'user',
+            content: `Reference: ${reference.text}`,
+          });
         }
       }
     }
-    
-    // Add the rules to the messages array (from request context)
     for (const item of requestContext.items) {
       if (item.type === 'rule') {
         const rule = this.agent.getRule(item.name);
-      if (rule) {
-        messages.push({
-          role: 'user',
-          content: `Rule: ${rule.text}`
-        });
+        if (rule) {
+          messages.push({
+            role: 'user',
+            content: `Rule: ${rule.text}`,
+          });
         }
       }
     }
 
-    // Add the user message to the messages array
     this.messages.push(message);
     messages.push(message);
 
     // Apply supervision with full context right before model call
     if (this.supervisionManager) {
       try {
-        const result = await this.supervisionManager.processRequest(
-          this, 
-          messages  // Pass the full context that will be sent to the model
-        );
+        const result = await this.supervisionManager.processRequest(this, messages);
         
         // Handle the supervision result
         if (result.action === 'block') {
@@ -484,11 +473,12 @@ export class ChatSessionImpl implements ChatSession {
         // Use the final message (modified or original)
         if (result.action === 'modify' && result.finalMessage) {
           message = result.finalMessage;
-          // Update the messages array with the modified message
+          this.messages[this.messages.length - 1] = result.finalMessage;
           messages[messages.length - 1] = result.finalMessage;
           this.logger.info(`Message modified by supervisor: ${result.reasons?.join('; ') || 'No reason provided'}`);
         } else if (result.action === 'allow' && result.finalMessage) {
           message = result.finalMessage;
+          this.messages[this.messages.length - 1] = result.finalMessage;
           messages[messages.length - 1] = result.finalMessage;
         }
       } catch (error) {
@@ -499,12 +489,21 @@ export class ChatSessionImpl implements ChatSession {
 
     try {
       // Log the model being used for this request
-      this.logger.info(`[ChatSession] Generating response using model ${this.currentProvider}${this.currentModelId ? ` with ID: ${this.currentModelId}` : ''}`);      
-      await this.ensureProvider();
-      if (!this.provider) {
-        throw new Error('Provider not initialized');
+      this.logger.info(
+        `[ChatSession] LangGraph chat path: generating response (model ${this.currentProvider}${this.currentModelId ? ` / ${this.currentModelId}` : ''}; tool approvals use graph interrupt + Command.resume when the thread is paused)`
+      );
+      await this.ensureChatModel();
+      if (!this.chatModel) {
+        throw new Error('Chat model not initialized');
       }
-      const modelResponse = await this.provider.generateResponse(this, messages);
+      const graphOpts: RunLangGraphChatOptions = {
+        checkpointer: this._langGraphCheckpointer,
+        useMessageDeltas: true,
+      };
+      if (message.role === 'user') {
+        graphOpts.graphAppendChatMessages = this.buildGraphAppendMessages(requestContext, message);
+      }
+      const modelResponse = await runLangGraphChat(this, this.agent, this.logger, this.chatModel, messages, graphOpts);
       if (!modelResponse) {
         throw new Error(`Failed to generate response from ${this.currentProvider}`);
       }
@@ -566,10 +565,42 @@ export class ChatSessionImpl implements ChatSession {
     }
   }
 
+  private resetLangGraphThread(): void {
+    void this._langGraphCheckpointer.deleteThread(this._id).catch((err) =>
+      this.logger.warn(`LangGraph deleteThread: ${err instanceof Error ? err.message : String(err)}`)
+    );
+  }
+
+  /**
+   * LangGraph delta: reference/rule lines for this request plus the new user message (not used for approval turns).
+   */
+  private buildGraphAppendMessages(requestContext: RequestContext, message: ChatMessage): ChatMessage[] {
+    const append: ChatMessage[] = [];
+    for (const item of requestContext.items) {
+      if (item.type === 'reference') {
+        const reference = this.agent.getReference(item.name);
+        if (reference) {
+          append.push({ role: 'user', content: `Reference: ${reference.text}` });
+        }
+      }
+    }
+    for (const item of requestContext.items) {
+      if (item.type === 'rule') {
+        const rule = this.agent.getRule(item.name);
+        if (rule) {
+          append.push({ role: 'user', content: `Rule: ${rule.text}` });
+        }
+      }
+    }
+    append.push(message);
+    return append;
+  }
+
   clearModel(): MessageUpdate {
+    this.resetLangGraphThread();
     this.currentProvider = undefined;
     this.currentModelId = undefined;
-    this.provider = undefined;
+    this.chatModel = undefined;
 
     const systemMessage: ChatMessage = {
       role: 'system',
@@ -586,17 +617,10 @@ export class ChatSessionImpl implements ChatSession {
 
   switchModel(modelType: ProviderId, modelId: string): MessageUpdate {
     try {
-      // Create new LLM instance
-      const llm = this.agent.createProvider(modelType, modelId);
-      if (!llm) {
-        throw new Error(`Failed to create LLM instance for model ${modelType}`);
-      }
-
-      // Update session with new model and LLM
+      this.resetLangGraphThread();
       this.currentProvider = modelType;
       this.currentModelId = modelId;
-      // Provider will be created lazily on next use
-      this.provider = undefined;
+      this.chatModel = undefined;
 
       // Generate a display model name - either the model ID or a descriptive name for the model type
       let displayName = modelId || modelType;
@@ -879,7 +903,8 @@ export class ChatSessionImpl implements ChatSession {
     this.contextTopK = settings.contextTopK;
     this.contextTopN = settings.contextTopN;
     this.contextIncludeScore = settings.contextIncludeScore;
-    
+    this.chatModel = undefined;
+
     // Use debug level to avoid log spam when sliders are dragged
     this.logger.debug(`Updated chat session settings:`, settings);
     return true;

@@ -1,5 +1,5 @@
 import { Agent } from '../types/agent.js';
-import { ChatSession, ChatMessage, ToolCallRequest, ToolCallResult, Turn } from '../types/chat.js';
+import { ToolCallRequest, ToolCallResult, Turn } from '../types/chat.js';
 
 // Provider ID type - just a string identifier
 export type ProviderId = string;
@@ -26,10 +26,9 @@ export interface ProviderStatic {
   getInfo(): ProviderInfo;
 }
 
-// Interface for instance methods
+// Interface for instance methods (model listing only; chat uses LangChain via ProviderFactory.createChatModel)
 export interface Provider {
   getModels(): Promise<ProviderModel[]>;
-  generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply>;
 }
 
 // Constructor type with static methods

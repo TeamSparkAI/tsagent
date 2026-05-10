@@ -1,5 +1,6 @@
 import { Rule } from '../types/rules.js';
 import { Reference } from '../types/references.js';
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { ProviderId, ProviderInfo, Provider, ProviderModel } from '../providers/types.js';
 import { McpServerEntry } from '../mcp/types.js';
 import { ChatSession, ChatMessage, ChatSessionOptions } from '../types/chat.js';
@@ -40,6 +41,7 @@ export interface ProvidersManager {
   getAvailableProviders(): ProviderId[];
   getAvailableProvidersInfo(): Partial<Record<ProviderId, ProviderInfo>>;
   createProvider(provider: ProviderId, modelId?: string): Promise<Provider>; // Not serializable
+  createChatModel(provider: ProviderId, modelId?: string): Promise<BaseChatModel>;
   getProviderInfo(providerType: ProviderId): ProviderInfo;
   getProviderIcon(providerType: ProviderId): string | null;
   getProviderModels(providerType: ProviderId): Promise<ProviderModel[]>;

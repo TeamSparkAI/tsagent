@@ -1,11 +1,12 @@
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
+import { FakeListChatModel } from '@langchain/core/utils/testing';
 import { z } from 'zod';
-import { ChatMessage, ChatSession } from '../types/chat.js';
 import { ProviderModel, ProviderId, ProviderInfo, Provider } from './types.js';
-import { ModelReply } from './types.js';
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { BaseProvider } from './base-provider.js';
 import { ProviderDescriptor } from './provider-descriptor.js';
+import { ScriptedFixtureChatModel } from '../test-fixtures/scripted-fixture-chat-model.js';
 
 const TestConfigSchema = z.object({}).default({});
 
@@ -32,7 +33,30 @@ export default class TestProviderDescriptor extends ProviderDescriptor {
   getDefaultModelId(): string {
     return 'frosty1.0';
   }
-  
+
+  protected async buildChatModel(
+    _agent: Agent,
+    _logger: Logger,
+    _finalConfig: Record<string, string>,
+    modelName: string
+  ): Promise<BaseChatModel> {
+    if (modelName.startsWith('fixture:')) {
+      const mode = modelName.slice('fixture:'.length);
+      if (mode === 'echo_last_human' || mode === 'tool_then_done') {
+        return new ScriptedFixtureChatModel({ mode });
+      }
+      throw new Error(
+        `Unknown test fixture model "${modelName}". Use fixture:echo_last_human or fixture:tool_then_done.`
+      );
+    }
+    return new FakeListChatModel({
+      responses: [
+        'Test provider (LangChain FakeListChatModel): hello from TsAgent.',
+        'Second canned reply.',
+      ],
+    });
+  }
+
   protected async createProvider(
     modelName: string,
     agent: Agent,
@@ -71,23 +95,5 @@ class TestProvider extends BaseProvider<TestConfig> {
   ): Promise<{ isValid: boolean, error?: string }> {
     // Test provider always validates successfully
     return { isValid: true };
-  }
-
-  async generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply> {
-    this.logger.info('Generating response with Test Provider');
-    const state = session.getState();
-    return {
-      timestamp: Date.now(),
-      turns: [
-        {
-          results: [{
-            type: 'text',
-            text: `Happy Birthday! (maxChatTurns: ${state.maxChatTurns}, maxOutputTokens: ${state.maxOutputTokens}, temperature: ${state.temperature.toFixed(2)}, topP: ${state.topP.toFixed(2)})`
-          }],
-          inputTokens: 420,
-          outputTokens: 69
-        }
-      ]
-    };
   }
 }

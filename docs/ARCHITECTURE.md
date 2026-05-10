@@ -7,7 +7,7 @@ TsAgent is a TypeScript-first platform for building, testing, running, and orche
 ### Core Goals
 
 - **No-Code Agent Creation**: Enable users to build sophisticated AI agents without writing code
-- **Multi-Provider Support**: Work seamlessly with all major LLM providers (OpenAI, Anthropic, Google, AWS Bedrock, Ollama, local models)
+- **Multi-Provider Support**: Work seamlessly with all major LLM providers (OpenAI, Anthropic, Google, AWS Bedrock, Ollama, and Docker Model Runner)
 - **Context Management**: Provide persistent knowledge through rules (prompt guidance) and references (memory, ground truth)
 - **Tool Integration**: Connect thousands of tools via Model Context Protocol (MCP) support
 - **Agent Orchestration*
@@ -215,8 +215,7 @@ TsAgent supports multiple LLM providers through a unified abstraction layer:
 - **Google**: Gemini 2.0, Gemini 1.5, and other Gemini models
 - **AWS Bedrock**: Access to Bedrock models (Claude, Llama, Mistral, etc.)
 - **Ollama**: Local models via Ollama
-- **Docker**: OpenAI-compatible API running in Docker containers (e.g., LocalAI, vLLM)
-- **Local**: Direct integration with local LLM libraries (node-llama-cpp)
+- **Docker**: [Docker Model Runner](https://docs.docker.com/ai/model-runner/) — OpenAI-compatible API (`providerId` **`docker`**, `BASE_URL` in agent config)
 
 ### Secret Management
 

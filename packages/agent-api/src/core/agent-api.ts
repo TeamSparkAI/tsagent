@@ -443,6 +443,10 @@ export class AgentImpl  extends EventEmitter implements Agent {
     return await this.providerFactory.create(provider, modelId);
   }
 
+  async createChatModel(provider: ProviderId, modelId?: string) {
+    return await this.providerFactory.createChatModel(provider, modelId);
+  }
+
   async installProvider(provider: ProviderId, config: Record<string, string>): Promise<void> {
     if (!this._agentData) {
       throw new Error('Cannot install provider: agent not loaded');

@@ -1,8 +1,6 @@
 import { Agent } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { Provider, ProviderModel, ProviderId } from './types.js';
-import { ChatSession, ChatMessage } from '../types/chat.js';
-import { ModelReply } from './types.js';
 
 export abstract class BaseProvider<ConfigType> implements Provider {
   protected readonly config: ConfigType;
@@ -25,8 +23,6 @@ export abstract class BaseProvider<ConfigType> implements Provider {
     this.providerId = providerId;
   }
   
-  // Abstract methods - must be implemented by derived classes
   abstract getModels(): Promise<ProviderModel[]>;
-  abstract generateResponse(session: ChatSession, messages: ChatMessage[]): Promise<ModelReply>;
 }
 

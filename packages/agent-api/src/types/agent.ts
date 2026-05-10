@@ -3,6 +3,7 @@ import { Rule, RuleSchema } from '../types/rules.js';
 import { Reference, ReferenceSchema } from '../types/references.js';
 import { ProvidersManager, McpServerManager, ChatSessionManager } from '../managers/types.js';
 import { McpClient, McpServerEntry, McpServerConfig, McpServerConfigSchema } from '../mcp/types.js';
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { Provider, ProviderInfo, ProviderModel, ProviderId } from '../providers/types.js';
 import { ChatSession, ChatSessionOptions } from './chat.js';
 import { SupervisionManager, Supervisor, SupervisorConfig, SupervisorConfigSchema } from './supervision.js';
@@ -71,6 +72,7 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   getAvailableProviders(): ProviderId[];
   getAvailableProvidersInfo(): Partial<Record<ProviderId, ProviderInfo>>;
   createProvider(provider: ProviderId, modelId?: string): Promise<Provider>; // Not serializable
+  createChatModel(provider: ProviderId, modelId?: string): Promise<BaseChatModel>;
   getProviderInfo(providerType: ProviderId): ProviderInfo;
   getProviderIcon(providerType: ProviderId): string | null;
   getProviderModels(providerType: ProviderId): Promise<ProviderModel[]>;

@@ -1,3 +1,4 @@
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { 
   Provider, 
   ProviderId, 
@@ -13,7 +14,6 @@ import OpenAIProviderDescriptor from './openai-provider.js';
 import DockerProviderDescriptor from './docker-provider.js';
 import GeminiProviderDescriptor from './gemini-provider.js';
 import OllamaProviderDescriptor from './ollama-provider.js';
-import LocalProviderDescriptor from './local-provider.js';
 
 export class ProviderFactory {
   private agent: Agent;
@@ -39,7 +39,6 @@ export class ProviderFactory {
     this.register(new DockerProviderDescriptor(agentApiRoot));
     this.register(new GeminiProviderDescriptor(agentApiRoot));
     this.register(new OllamaProviderDescriptor(agentApiRoot));
-    this.register(new LocalProviderDescriptor(agentApiRoot));
   }
   
   /**
@@ -127,9 +126,24 @@ export class ProviderFactory {
     }
     
     // Get raw config (descriptor's create method will handle schema validation and secret resolution)
-    const rawConfig = await this.agent.getInstalledProviderConfig(providerId) || {};
+    const rawConfig = this.agent.getInstalledProviderConfig(providerId) || {};
     const modelName = modelId || descriptor.getDefaultModelId();
     
     return descriptor.create(modelName, this.agent, this.logger, rawConfig);
+  }
+
+  /**
+   * Build the LangChain chat model for the given provider and model id (validated + resolved config).
+   */
+  async createChatModel(providerId: ProviderId, modelId?: string): Promise<BaseChatModel> {
+    if (!this.agent) {
+      throw new Error('ProviderFactory not initialized with Agent');
+    }
+    const descriptor = this.descriptors.get(providerId);
+    if (!descriptor) {
+      throw new Error(`Unknown provider: ${providerId}`);
+    }
+    const rawConfig = this.agent.getInstalledProviderConfig(providerId) || {};
+    return descriptor.createChatModel(this.agent, this.logger, rawConfig, modelId);
   }
 }

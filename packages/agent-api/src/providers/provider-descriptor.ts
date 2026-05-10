@@ -1,3 +1,4 @@
+import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
 import { z } from 'zod';
 import path from 'path';
 import { Agent } from '../types/agent.js';
@@ -85,7 +86,21 @@ export abstract class ProviderDescriptor {
   }
   
   /**
-   * Create a provider instance
+   * Schema-validate and resolve secrets for installed provider config (shared by {@link create} and {@link createChatModel}).
+   */
+  async resolveInstalledConfig(
+    agent: Agent,
+    logger: Logger,
+    rawConfig: Record<string, string>
+  ): Promise<Record<string, string>> {
+    const validatedConfig = this.configSchema.parse(rawConfig || {});
+    const secretManager = new SecretManager(agent, logger);
+    const resolvedConfig = await secretManager.resolveProviderConfig(validatedConfig as Record<string, string>);
+    return this.configSchema.parse(resolvedConfig) as Record<string, string>;
+  }
+
+  /**
+   * Create a provider instance (for getModels(), etc.)
    * Public interface uses Record<string, string> - descriptor handles internal typing
    */
   async create(
@@ -94,27 +109,46 @@ export abstract class ProviderDescriptor {
     logger: Logger,
     rawConfig: Record<string, string>
   ): Promise<Provider> {
-    // Step 1: Schema validation (applies defaults like env://VAR_NAME)
-    const validatedConfig = this.configSchema.parse(rawConfig || {});
-    
-    // Step 2: Resolve secrets (env://, op:// references)
-    const secretManager = new SecretManager(agent, logger);
-    const resolvedConfig = await secretManager.resolveProviderConfig(validatedConfig as Record<string, string>);
-    
-    // Step 3: Parse resolved config again to ensure it's still valid
-    const finalConfig = this.configSchema.parse(resolvedConfig);
-    
-    // Step 4: Call provider-specific validation hook (if overridden)
+    const finalConfig = await this.resolveInstalledConfig(agent, logger, rawConfig);
+    await this.assertRuntimeConfigValid(agent, logger, finalConfig);
+
+    return this.createProvider(modelName, agent, logger, finalConfig as Record<string, string>);
+  }
+
+  /** Run {@link validateProvider} and throw if invalid (used by {@link create} and LangChain factory). */
+  async assertRuntimeConfigValid(agent: Agent, logger: Logger, finalConfig: Record<string, string>): Promise<void> {
     const validationResult = await this.validateProvider(agent, finalConfig as Record<string, string>);
     if (validationResult && !validationResult.isValid) {
       throw new Error(validationResult.error || 'Provider validation failed');
     }
-    
-    // Step 5: Create provider instance (implemented by derived classes)
-    // Pass as Record<string, string> - descriptor will cast to typed config internally
-    return this.createProvider(modelName, agent, logger, finalConfig as Record<string, string>);
   }
-  
+
+  /**
+   * Build a LangChain {@link BaseChatModel} from installed provider config (schema + secret resolution + runtime validation).
+   * Same validation path as {@link create}; does not construct a {@link Provider} instance.
+   */
+  async createChatModel(
+    agent: Agent,
+    logger: Logger,
+    rawConfig: Record<string, string>,
+    modelId?: string
+  ): Promise<BaseChatModel> {
+    const modelName = modelId ?? this.getDefaultModelId();
+    const finalConfig = await this.resolveInstalledConfig(agent, logger, rawConfig);
+    await this.assertRuntimeConfigValid(agent, logger, finalConfig);
+    return this.buildChatModel(agent, logger, finalConfig, modelName);
+  }
+
+  /**
+   * Construct the vendor-specific chat model from **already resolved and validated** config.
+   */
+  protected abstract buildChatModel(
+    agent: Agent,
+    logger: Logger,
+    finalConfig: Record<string, string>,
+    modelName: string
+  ): Promise<BaseChatModel>;
+
   /**
    * Hook for provider-specific semantic/live validation (no-op by default)
    * Override in derived classes for API connectivity checks, etc.

@@ -162,5 +162,8 @@ yarn-error.log*
 config/
 settings/
 
+# macOS (local Electron copy for dev; see apps/desktop/scripts/run-electron-dev.mjs)
+apps/desktop/.electron-dist/
+
 # macOS
 .DS_Store
