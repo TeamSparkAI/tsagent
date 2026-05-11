@@ -2,6 +2,7 @@ import type { BaseChatModel } from '@langchain/core/language_models/chat_models'
 import { AIMessage, type BaseMessage, ToolMessage } from '@langchain/core/messages';
 import {
   Annotation,
+  BaseCheckpointSaver,
   Command,
   END,
   MemorySaver,
@@ -36,7 +37,7 @@ export type RunLangGraphChatOptions = {
    * graph-native tool approval: pending tools pause via `interrupt`, then an approval message
    * resumes with `Command({ resume })` on the same thread.
    */
-  checkpointer?: MemorySaver;
+  checkpointer?: BaseCheckpointSaver;
   /**
    * When true with a shared checkpointer: append only new LangChain messages for this turn
    * (see `graphAppendChatMessages`), except the first turn (empty checkpoint) which still primes
@@ -80,7 +81,7 @@ type TsAgentLangGraphChatRunInit = {
   rawChatModel: BaseChatModel;
   isApproval: boolean;
   useDelta: boolean;
-  checkpointer: MemorySaver;
+  checkpointer: BaseCheckpointSaver;
   runnable: BaseChatModel;
   sessionState: ChatSessionState;
   messageWindowMax: number;
@@ -101,7 +102,7 @@ class TsAgentLangGraphChatRun {
   private readonly rawChatModel: BaseChatModel;
   private readonly isApproval: boolean;
   private readonly useDelta: boolean;
-  private readonly checkpointer: MemorySaver;
+  private readonly checkpointer: BaseCheckpointSaver;
   private readonly runnable: BaseChatModel;
   private readonly sessionState: ChatSessionState;
   private readonly messageWindowMax: number;

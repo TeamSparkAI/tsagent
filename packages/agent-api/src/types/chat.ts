@@ -1,3 +1,4 @@
+import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { ModelReply, Provider, ProviderId } from '../providers/types.js';
 import { SessionToolPermission } from './agent.js';
 import { RequestContext, SessionContextItem } from './context.js';
@@ -58,6 +59,12 @@ export interface ChatSessionSettings {
 export interface ChatSessionOptions {
   modelProvider?: ProviderId;
   modelId?: string;
+  /**
+   * LangGraph checkpoint store for this session’s graph thread (`thread_id` = session id).
+   * Omit for an in-memory saver per session. Pass a shared saver (e.g. durable) to reuse
+   * checkpoint state across session objects when thread ids align.
+   */
+  langGraphCheckpointer?: BaseCheckpointSaver;
   initialMessages?: ChatMessage[];
   autonomous?: boolean;
   maxChatTurns?: number;

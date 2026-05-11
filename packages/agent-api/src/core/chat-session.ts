@@ -1,6 +1,6 @@
 import { ChatMessage, ChatState, MessageUpdate, ChatSessionOptions, ChatSession, ChatSessionOptionsWithRequiredSettings } from '../types/chat.js';
 import type { BaseChatModel } from '@langchain/core/language_models/chat_models';
-import { MemorySaver } from '@langchain/langgraph';
+import { MemorySaver, type BaseCheckpointSaver } from '@langchain/langgraph';
 import { ProviderId } from '../providers/types.js';
 import { runLangGraphChat, type RunLangGraphChatOptions } from '../providers/langchain/langgraph-chat-runner.js';
 import { Agent, populateModelFromSettings } from '../types/agent.js';
@@ -37,8 +37,8 @@ export class ChatSessionImpl implements ChatSession {
   // items (rules, references, tools) that were chosen for the current prompt.
   private promptRequestContext?: RequestContext;
 
-  /** In-memory LangGraph checkpoints for this session (`thread_id` = session id; cleared each generation). */
-  private readonly _langGraphCheckpointer = new MemorySaver();
+  /** LangGraph checkpoints for this session (`thread_id` = session id; thread cleared on model clear/switch). */
+  private readonly _langGraphCheckpointer: BaseCheckpointSaver;
 
   constructor(agent: Agent, id: string, options: ChatSessionOptionsWithRequiredSettings, private logger: Logger) {
     this._id = id;
@@ -69,6 +69,8 @@ export class ChatSessionImpl implements ChatSession {
       this._autonomous = options.autonomous ?? false;
       logger.debug(`Session ${id} created as ${this._autonomous ? 'autonomous' : 'interactive'} (agent is not autonomous)`);
     }
+
+    this._langGraphCheckpointer = options.langGraphCheckpointer ?? new MemorySaver();
 
     this.maxChatTurns = options.maxChatTurns;
     this.maxOutputTokens = options.maxOutputTokens;
