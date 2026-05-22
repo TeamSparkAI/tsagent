@@ -662,7 +662,7 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
   });
 
-  ipcMain.handle('get-mcp-client', async (event, serverName: string) => {
+  ipcMain.handle('get-mcp-client', async (event, serverName: string, connect = true) => {
     const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
     const agent = getAgentForWindow(windowId);
     if (!agent) {
@@ -671,6 +671,28 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
+      if (connect === false) {
+        const client = agent.getAllMcpClientsSync()[serverName];
+        if (!client) {
+          return {
+            serverVersion: null,
+            serverTools: [],
+            errorLog: [],
+            isConnected: false,
+            serverType: 'stdio',
+          };
+        }
+        return {
+          serverVersion: client.serverVersion
+            ? { name: client.serverVersion.name, version: client.serverVersion.version }
+            : null,
+          serverTools: client.serverTools,
+          errorLog: client.getErrorLog(),
+          isConnected: client.isConnected(),
+          serverType: 'stdio',
+        };
+      }
+
       let client = await agent.getMcpClient(serverName);
       let serverType = 'stdio';
       
@@ -753,6 +775,28 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       throw new Error(`No MCP client found for server ${serverName}`);
     }
     return client.ping();
+  });
+
+  ipcMain.handle('connect-mcp-server', async (event, serverName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      throw new Error('No agent found for window');
+    }
+    const connected = await agent.connectMcpServer(serverName);
+    if (!connected) {
+      throw new Error(`Failed to connect to server: ${serverName}`);
+    }
+    return connected;
+  });
+
+  ipcMain.handle('disconnect-mcp-server', async (event, serverName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      throw new Error('No agent found for window');
+    }
+    await agent.disconnectMcpServer(serverName);
   });
 
   ipcMain.handle('get-system-prompt', async (event) => {

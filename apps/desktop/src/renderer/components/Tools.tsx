@@ -16,6 +16,9 @@ import {
 import { TabProps } from '../types/TabProps';
 import { TabState, TabMode } from '../types/TabState';
 import { AboutView } from './AboutView';
+import { HideReveal } from './common/HideReveal';
+import { SecretEditField } from './common/SecretEditField';
+import { isSecretFieldName } from '../utils/secretField';
 import log from 'electron-log';
 
 interface ServerInfo {
@@ -629,15 +632,24 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                             }}
                                             style={{ width: '40%', padding: '4px 8px' }}
                                         />
-                                        <input
-                                            type="text"
-                                            value={value as string}
-                                            placeholder="Value"
-                                            onChange={(e) => {
-                                                setEnv(JSON.stringify({ ...JSON.parse(env), [key]: e.target.value }));
-                                            }}
-                                            style={{ flex: 1, padding: '4px 8px' }}
-                                        />
+                                        {isSecretFieldName(key) ? (
+                                            <SecretEditField
+                                                value={value as string}
+                                                onChange={(v) => {
+                                                    setEnv(JSON.stringify({ ...JSON.parse(env), [key]: v }));
+                                                }}
+                                            />
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={value as string}
+                                                placeholder="Value"
+                                                onChange={(e) => {
+                                                    setEnv(JSON.stringify({ ...JSON.parse(env), [key]: e.target.value }));
+                                                }}
+                                                style={{ flex: 1, padding: '4px 8px' }}
+                                            />
+                                        )}
                                         <button className="btn remove-button" onClick={() => {
                                             const newEnv = { ...JSON.parse(env) };
                                             delete newEnv[key];
@@ -687,15 +699,24 @@ const EditServerModal: React.FC<EditServerModalProps> = ({ server, onSave, onCan
                                             }}
                                             style={{ width: '40%', padding: '4px 8px' }}
                                         />
-                                        <input
-                                            type="text"
-                                            value={value}
-                                            placeholder="Value"
-                                            onChange={(e) => {
-                                                setHeaders({ ...headers, [key]: e.target.value });
-                                            }}
-                                            style={{ flex: 1, padding: '4px 8px' }}
-                                        />
+                                        {isSecretFieldName(key) ? (
+                                            <SecretEditField
+                                                value={value}
+                                                onChange={(v) => {
+                                                    setHeaders({ ...headers, [key]: v });
+                                                }}
+                                            />
+                                        ) : (
+                                            <input
+                                                type="text"
+                                                value={value}
+                                                placeholder="Value"
+                                                onChange={(e) => {
+                                                    setHeaders({ ...headers, [key]: e.target.value });
+                                                }}
+                                                style={{ flex: 1, padding: '4px 8px' }}
+                                            />
+                                        )}
                                         <button className="btn remove-button" onClick={() => {
                                             const newHeaders = { ...headers };
                                             delete newHeaders[key];
@@ -964,6 +985,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
     const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
     const [testResults, setTestResults] = useState<ToolTestResult | null>(null);
+    const [connectionBusy, setConnectionBusy] = useState(false);
     const [testParams, setTestParams] = useState<Record<string, unknown>>({});
     const [isTesting, setIsTesting] = useState(false);
     const [showErrorDialog, setShowErrorDialog] = useState(false);
@@ -1038,14 +1060,57 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
 
     const loadServerInfo = async (serverName: string) => {
         try {
-            const info = await window.api.getMCPClient(serverName) as ServerInfo;
+            const info = await window.api.getMCPClient(serverName, false) as ServerInfo;
             setServerInfo(prev => ({
                 ...prev,
                 [serverName]: info
             }));
         } catch (err) {
+            log.error(`Failed to load server info for ${serverName}:`, err);
+            setServerInfo(prev => ({
+                ...prev,
+                [serverName]: {
+                    serverVersion: null,
+                    serverTools: [],
+                    errorLog: [err instanceof Error ? err.message : String(err)],
+                    isConnected: false,
+                },
+            }));
+        }
+    };
+
+    const handleConnectServer = async (serverName: string) => {
+        setConnectionBusy(true);
+        try {
+            await window.api.connectMcpServer(serverName);
+            await loadServerInfo(serverName);
+        } catch (err) {
             log.error(`Failed to connect to server ${serverName}:`, err);
-            // Just log the error, don't show any dialogs
+            await loadServerInfo(serverName);
+            alert(`Connect failed: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setConnectionBusy(false);
+        }
+    };
+
+    const handleDisconnectServer = async (serverName: string) => {
+        setConnectionBusy(true);
+        try {
+            await window.api.disconnectMcpServer(serverName);
+            setServerInfo(prev => ({
+                ...prev,
+                [serverName]: {
+                    serverVersion: null,
+                    serverTools: [],
+                    errorLog: prev[serverName]?.errorLog ?? [],
+                    isConnected: false,
+                },
+            }));
+        } catch (err) {
+            log.error(`Failed to disconnect from server ${serverName}:`, err);
+            alert(`Disconnect failed: ${err instanceof Error ? err.message : String(err)}`);
+        } finally {
+            setConnectionBusy(false);
         }
     };
 
@@ -1677,16 +1742,37 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     <div style={{ marginBottom: '20px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
                                             <h3 style={{ margin: 0 }}>Details:</h3>
-                                            <span style={{ 
-                                                padding: '4px 10px', 
-                                                backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
-                                                color: 'white',
-                                                borderRadius: '16px',
-                                                fontSize: '12px',
-                                                fontWeight: 'bold'
-                                            }}>
-                                                {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
-                                            </span>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                <span style={{ 
+                                                    padding: '4px 10px', 
+                                                    backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
+                                                    color: 'white',
+                                                    borderRadius: '16px',
+                                                    fontSize: '12px',
+                                                    fontWeight: 'bold'
+                                                }}>
+                                                    {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
+                                                </span>
+                                                {serverInfo[selectedServer.name]?.isConnected ? (
+                                                    <button
+                                                        type="button"
+                                                        className="btn configure-button"
+                                                        disabled={connectionBusy}
+                                                        onClick={() => void handleDisconnectServer(selectedServer.name)}
+                                                    >
+                                                        Disconnect
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        type="button"
+                                                        className="btn configure-button"
+                                                        disabled={connectionBusy}
+                                                        onClick={() => void handleConnectServer(selectedServer.name)}
+                                                    >
+                                                        Connect
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                         <div style={{ 
                                             padding: '12px',
@@ -1753,7 +1839,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                             <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Environment Variables:</strong>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                                 {Object.entries(selectedServer.config.env).map(([key, value]) => (
-                                                                    <div key={key} style={{ fontSize: '13px' }}>
+                                                                    <div key={key} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                                                                         <code style={{ 
                                                                             padding: '2px 6px',
                                                                             backgroundColor: '#fff',
@@ -1761,12 +1847,16 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                                             fontFamily: 'monospace'
                                                                         }}>{key}</code>
                                                                         <span style={{ margin: '0 4px' }}>=</span>
-                                                                        <code style={{ 
-                                                                            padding: '2px 6px',
-                                                                            backgroundColor: '#fff',
-                                                                            borderRadius: '4px',
-                                                                            fontFamily: 'monospace'
-                                                                        }}>{value as string}</code>
+                                                                        {isSecretFieldName(key) ? (
+                                                                            <HideReveal value={value as string} />
+                                                                        ) : (
+                                                                            <code style={{ 
+                                                                                padding: '2px 6px',
+                                                                                backgroundColor: '#fff',
+                                                                                borderRadius: '4px',
+                                                                                fontFamily: 'monospace'
+                                                                            }}>{value as string}</code>
+                                                                        )}
                                                                     </div>
                                                                 ))}
                                                             </div>
@@ -1807,7 +1897,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                             <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Headers:</strong>
                                                             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                                                 {Object.entries(selectedServer.config.headers).map(([key, value]) => (
-                                                                    <div key={key} style={{ fontSize: '13px' }}>
+                                                                    <div key={key} style={{ fontSize: '13px', display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 4 }}>
                                                                         <code style={{ 
                                                                             padding: '2px 6px',
                                                                             backgroundColor: '#fff',
@@ -1815,12 +1905,16 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                                             fontFamily: 'monospace'
                                                                         }}>{key}</code>
                                                                         <span style={{ margin: '0 4px' }}>:</span>
-                                                                        <code style={{ 
-                                                                            padding: '2px 6px',
-                                                                            backgroundColor: '#fff',
-                                                                            borderRadius: '4px',
-                                                                            fontFamily: 'monospace'
-                                                                        }}>{value as string}</code>
+                                                                        {isSecretFieldName(key) ? (
+                                                                            <HideReveal value={value as string} />
+                                                                        ) : (
+                                                                            <code style={{ 
+                                                                                padding: '2px 6px',
+                                                                                backgroundColor: '#fff',
+                                                                                borderRadius: '4px',
+                                                                                fontFamily: 'monospace'
+                                                                            }}>{value as string}</code>
+                                                                        )}
                                                                     </div>
                                                                 ))}
                                                             </div>

@@ -16,7 +16,7 @@
     "start": "npm run build && node ./scripts/run-electron-dev.mjs . --ignore-certificate-errors",
     "build": "rm -rf dist && tsc -p tsconfig.json && webpack --config webpack.config.mjs && cp src/renderer/index.html dist/",
     "watch": "tsc -w -p tsconfig.json & webpack --watch --config webpack.config.mjs",
-    "test": "jest",
+    "test": "jest --config jest.config.cjs",
     "pack": "electron-builder --dir",
     "dist": "npm run build && npx electron-builder"
   },

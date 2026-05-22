@@ -75,7 +75,10 @@ const api: API = {
   
   // Other existing methods
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
-  getMCPClient: (serverName: string) => ipcRenderer.invoke('get-mcp-client', serverName),
+  getMCPClient: (serverName: string, connect?: boolean) =>
+    ipcRenderer.invoke('get-mcp-client', serverName, connect),
+  connectMcpServer: (serverName: string) => ipcRenderer.invoke('connect-mcp-server', serverName),
+  disconnectMcpServer: (serverName: string) => ipcRenderer.invoke('disconnect-mcp-server', serverName),
   callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => 
     ipcRenderer.invoke('call-tool', serverName, toolName, args),
   toggleDevTools: () => ipcRenderer.invoke('toggle-dev-tools'),

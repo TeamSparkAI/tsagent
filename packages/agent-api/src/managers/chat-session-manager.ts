@@ -94,6 +94,17 @@ export class ChatSessionManagerImpl implements ChatSessionManager {
     return session;
   }
 
+  async syncAlwaysIncludeToolsForAllSessions(): Promise<void> {
+    const sessions = this.getAllChatSessions();
+    await Promise.all(
+      sessions.map((session) =>
+        session.syncAlwaysIncludeTools().catch((error) => {
+          this.logger.warn(`Error syncing always-include tools for session ${session.id}:`, error);
+        })
+      )
+    );
+  }
+
   async deleteChatSession(sessionId: string): Promise<boolean> {
     const deleted = this.sessions.delete(sessionId);
     return deleted;

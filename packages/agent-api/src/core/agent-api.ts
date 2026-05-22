@@ -557,10 +557,29 @@ export class AgentImpl  extends EventEmitter implements Agent {
   getAllMcpClientsSync(): Record<string, McpClient> {
     return this.mcpManager.getAllMcpClientsSync();
   }
-  getMcpClient(name: string): Promise<McpClient | undefined> {
+  getMcpClient(name: string, options?: { connect?: boolean }): Promise<McpClient | undefined> {
+    if (options?.connect === false) {
+      return Promise.resolve(this.mcpManager.getAllMcpClientsSync()[name]);
+    }
     return this.mcpManager.getMcpClient(name);
   }
-  
+
+  async connectMcpServer(serverName: string): Promise<boolean> {
+    const existing = this.mcpManager.getAllMcpClientsSync()[serverName];
+    if (existing) {
+      if (existing.isConnected()) {
+        return true;
+      }
+      return existing.connect();
+    }
+    const client = await this.mcpManager.getMcpClient(serverName);
+    return client?.isConnected() ?? false;
+  }
+
+  async disconnectMcpServer(serverName: string): Promise<void> {
+    await this.mcpManager.unloadMcpClient(serverName);
+  }
+
   // ChatSessionManager methods
   //
 
@@ -572,6 +591,9 @@ export class AgentImpl  extends EventEmitter implements Agent {
   }
   createChatSession(sessionId: string, options?: ChatSessionOptions): ChatSession {
     return this.chatSessions.createChatSession(sessionId, options);
+  }
+  syncAlwaysIncludeToolsForAllSessions(): Promise<void> {
+    return this.chatSessions.syncAlwaysIncludeToolsForAllSessions();
   }
   deleteChatSession(sessionId: string): Promise<boolean> {
     return this.chatSessions.deleteChatSession(sessionId);

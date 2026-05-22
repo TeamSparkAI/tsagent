@@ -48,14 +48,17 @@ export class McpServerManagerImpl implements McpServerManager {
     // If they changed, the existing client is invalid and must be reloaded
     const connectionSettingsChanged = this.haveConnectionSettingsChanged(oldConfig, server.config);
     
-    if (connectionSettingsChanged) {
+    if (!oldConfig) {
+      await this.mcpManager.getMcpClient(server.name);
+    } else if (connectionSettingsChanged) {
       // Connection settings changed - unload old client and reload with new settings
       await this.mcpManager.unloadMcpClient(server.name);
-      // Reload immediately so client is available
       await this.mcpManager.getMcpClient(server.name);
     }
     // If only tool-level settings changed (embeddings, permissions, include modes),
     // client stays loaded - no reload needed
+
+    await this.agent.syncAlwaysIncludeToolsForAllSessions();
   }
 
   /**
@@ -115,7 +118,9 @@ export class McpServerManagerImpl implements McpServerManager {
 
     // Delete the client (if any)
     await this.mcpManager.unloadMcpClient(serverName);
-    
+
+    await this.agent.syncAlwaysIncludeToolsForAllSessions();
+
     return true;
   }
 }

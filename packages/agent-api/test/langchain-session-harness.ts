@@ -141,6 +141,8 @@ export class LangChainTestSession implements ChatSession {
     return [{ serverName: 'fixture', toolName: 'echo' }];
   }
 
+  async syncAlwaysIncludeTools(): Promise<void> {}
+
   async isToolApprovalRequired(_serverId: string, _toolId: string): Promise<boolean> {
     if (this.autonomous) return false;
     if (this.opts.toolPermission === 'always') return true;

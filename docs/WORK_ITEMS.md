@@ -2,6 +2,10 @@
 
 This document tracks open issues, future enhancements, and work items for the TsAgent platform.
 
+## Nisc
+
+Change References and Rules to Insights and Skills
+
 ## Platform Improvements
 
 ### Package Management

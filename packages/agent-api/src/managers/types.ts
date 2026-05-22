@@ -11,6 +11,7 @@ export interface ChatSessionManager {
   getAllChatSessions(): ChatSession[];
   getChatSession(sessionId: string): ChatSession | null;
   createChatSession(sessionId: string, options?: ChatSessionOptions): ChatSession;
+  syncAlwaysIncludeToolsForAllSessions(): Promise<void>;
   deleteChatSession(sessionId: string): Promise<boolean>;
 }
 

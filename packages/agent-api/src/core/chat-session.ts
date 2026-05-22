@@ -112,8 +112,9 @@ export class ChatSessionImpl implements ChatSession {
       }
     } 
 
-    // Add "always" include tools to the session
-    this.initializeAlwaysIncludeTools();
+    void this.syncAlwaysIncludeTools().catch((error) => {
+      this.logger.warn(`Error syncing always-include tools for new session ${this._id}:`, error);
+    });
 
     this.logger.info(`Created new chat session with name ${this.agent.name} at path ${this.agent.path}`);    
     this.logger.info(`Created new chat session with model ${this.currentProvider}${this.currentModelId ? ` (${this.currentModelId})` : ''}`);
@@ -790,12 +791,16 @@ export class ChatSessionImpl implements ChatSession {
       .map(item => ({ serverName: item.serverName!, toolName: item.name }));
   }
 
-  private initializeAlwaysIncludeTools(): void {
-    try {
-      const mcpServers = this.agent.getAgentMcpServers();
-      if (!mcpServers) return;
+  /**
+   * Align session `always` tool pins with current agent MCP config.
+   * Manual tool pins are left unchanged. Uses async client load so new servers are visible.
+   */
+  async syncAlwaysIncludeTools(): Promise<void> {
+    const mcpServers = this.agent.getAgentMcpServers();
+    const currentAlwaysKeys = new Set<string>();
 
-      const mcpClients = this.agent.getAllMcpClientsSync();
+    if (mcpServers) {
+      const mcpClients = await this.agent.getAllMcpClients();
 
       for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
         const client = mcpClients[serverName];
@@ -803,26 +808,51 @@ export class ChatSessionImpl implements ChatSession {
 
         for (const tool of client.serverTools) {
           if (getToolEffectiveIncludeMode(serverConfig, tool.name) === 'always') {
-            const alreadyIncluded = this.contextItems.some(
-              item =>
-                item.type === 'tool' &&
-                item.name === tool.name &&
-                item.serverName === serverName
-            );
-            if (alreadyIncluded) continue;
-
-            this.contextItems.push({
-              type: 'tool',
-              name: tool.name,
-              serverName: serverName,
-              includeMode: 'always',
-            });
-            this.logger.info(`Added always-include tool '${serverName}:${tool.name}' to session`);
+            currentAlwaysKeys.add(`${serverName}:${tool.name}`);
           }
         }
       }
-    } catch (error) {
-      this.logger.warn('Error initializing always-include tools:', error);
+    }
+
+    const beforeCount = this.contextItems.length;
+    this.contextItems = this.contextItems.filter((item) => {
+      if (item.type !== 'tool' || item.includeMode !== 'always') {
+        return true;
+      }
+      const key = `${item.serverName}:${item.name}`;
+      if (currentAlwaysKeys.has(key)) {
+        return true;
+      }
+      this.logger.info(
+        `Removed stale always-include tool '${item.serverName}:${item.name}' from session ${this._id}`
+      );
+      return false;
+    });
+
+    let added = 0;
+    for (const key of currentAlwaysKeys) {
+      const colon = key.indexOf(':');
+      const serverName = key.slice(0, colon);
+      const toolName = key.slice(colon + 1);
+
+      const alreadyIncluded = this.contextItems.some(
+        (item) =>
+          item.type === 'tool' && item.name === toolName && item.serverName === serverName
+      );
+      if (alreadyIncluded) continue;
+
+      this.contextItems.push({
+        type: 'tool',
+        name: toolName,
+        serverName,
+        includeMode: 'always',
+      });
+      added++;
+      this.logger.info(`Added always-include tool '${serverName}:${toolName}' to session ${this._id}`);
+    }
+
+    if (this.contextItems.length !== beforeCount || added > 0) {
+      this.lastSyncId++;
     }
   }
 

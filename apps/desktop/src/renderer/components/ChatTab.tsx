@@ -342,11 +342,28 @@ export const ChatTab: React.FC<ChatTabProps> = ({ id, activeTabId, name, type, s
       const rulesListener = window.api.onRulesChanged(() => {
         loadAvailableContext();
       });
+
+      const refreshSessionContextItems = async () => {
+        try {
+          const state = await window.api.getChatState(id);
+          if (state) {
+            setChatState((prev) => (prev ? { ...prev, contextItems: state.contextItems } : prev));
+          }
+        } catch (error) {
+          log.error('Error refreshing session context after MCP config change:', error);
+        }
+      };
+
+      const serverListener = window.api.onServerConfigChanged(() => {
+        void loadAvailableContext();
+        void refreshSessionContextItems();
+      });
       
       // Return cleanup function
       return () => {
         window.api.offReferencesChanged(refsListener);
         window.api.offRulesChanged(rulesListener);
+        window.api.offServerConfigChanged(serverListener);
         
         // Clean up the chat API reference
         chatApiRef.current = null;

@@ -146,6 +146,9 @@ export interface ChatSession {
   removeTool(serverName: string, toolName: string): boolean;
   getIncludedTools(): Array<{serverName: string, toolName: string}>;
 
+  /** Reconcile session tool pins with current agent `always`-include tools (does not remove manual pins). */
+  syncAlwaysIncludeTools(): Promise<void>;
+
   toolIsApprovedForSession(serverId: string, toolId: string): void;
   isToolApprovalRequired(serverId: string, toolId: string): Promise<boolean>;
 

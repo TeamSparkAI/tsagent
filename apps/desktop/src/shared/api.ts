@@ -49,11 +49,14 @@ export interface API {
 
   // Other existing methods
   getServerConfigs: () => Promise<McpServerEntry[]>;
-  getMCPClient: (serverName: string) => Promise<{
+  getMCPClient: (serverName: string, connect?: boolean) => Promise<{
     serverVersion: { name: string; version: string } | null;
     serverTools: any[];
     errorLog: string[];
+    isConnected: boolean;
   }>;
+  connectMcpServer: (serverName: string) => Promise<boolean>;
+  disconnectMcpServer: (serverName: string) => Promise<void>;
   callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => Promise<CallToolResultWithElapsedTime>;
   toggleDevTools: () => Promise<boolean>;
   getSystemPrompt: () => Promise<string>;
