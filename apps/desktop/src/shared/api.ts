@@ -1,11 +1,28 @@
 import { Rule, Reference } from '@tsagent/core';
-import { McpServerEntry, CallToolResultWithElapsedTime } from '@tsagent/core';
+import { McpServerEntry, CallToolResultWithElapsedTime, InterceptorHostInfo, McpServerRole } from '@tsagent/core';
 import { ChatSessionResponse, ChatState, MessageUpdate, ChatMessage } from '@tsagent/core';
 import { AgentSettings } from '@tsagent/core';
 import { AgentWindow } from '../main/agents-manager';
 import { ProviderId } from '@tsagent/core';
 import type { ProviderInfo as LLMProviderInfo, ProviderModel as ILLMModel } from '@tsagent/core';
 import { OpenDialogOptions, SaveDialogOptions, MessageBoxOptions } from 'electron';
+
+export interface McpClientInfo {
+  serverVersion: {
+    name: string;
+    version: string;
+    title?: string;
+    description?: string;
+    websiteUrl?: string;
+  } | null;
+  serverInstructions: string | null;
+  serverTools: any[];
+  errorLog: string[];
+  isConnected: boolean;
+  serverType?: string;
+  interceptorHost?: InterceptorHostInfo | null;
+  serverRole?: McpServerRole;
+}
 
 export interface API {
   // Chat session management
@@ -49,12 +66,9 @@ export interface API {
 
   // Other existing methods
   getServerConfigs: () => Promise<McpServerEntry[]>;
-  getMCPClient: (serverName: string, connect?: boolean) => Promise<{
-    serverVersion: { name: string; version: string } | null;
-    serverTools: any[];
-    errorLog: string[];
-    isConnected: boolean;
-  }>;
+  getMCPClient: (serverName: string, connect?: boolean) => Promise<McpClientInfo>;
+  refreshInterceptorList: (serverName: string) => Promise<InterceptorHostInfo | null>;
+  refreshMcpServer: (serverName: string) => Promise<McpClientInfo>;
   connectMcpServer: (serverName: string) => Promise<boolean>;
   disconnectMcpServer: (serverName: string) => Promise<void>;
   callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => Promise<CallToolResultWithElapsedTime>;

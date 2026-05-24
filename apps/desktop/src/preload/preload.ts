@@ -77,6 +77,10 @@ const api: API = {
   getServerConfigs: () => ipcRenderer.invoke('get-server-configs'),
   getMCPClient: (serverName: string, connect?: boolean) =>
     ipcRenderer.invoke('get-mcp-client', serverName, connect),
+  refreshInterceptorList: (serverName: string) =>
+    ipcRenderer.invoke('refresh-interceptor-list', serverName),
+  refreshMcpServer: (serverName: string) =>
+    ipcRenderer.invoke('refresh-mcp-server', serverName),
   connectMcpServer: (serverName: string) => ipcRenderer.invoke('connect-mcp-server', serverName),
   disconnectMcpServer: (serverName: string) => ipcRenderer.invoke('disconnect-mcp-server', serverName),
   callTool: (serverName: string, toolName: string, args: Record<string, unknown>) => 

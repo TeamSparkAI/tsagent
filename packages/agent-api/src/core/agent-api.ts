@@ -22,7 +22,8 @@ import { MCPClientManagerImpl } from '../mcp/client-manager.js';
 import { SupervisionManagerImpl } from '../managers/supervision-manager.js';
 import { SupervisorFactory } from '../supervisors/supervisor-factory.js';
 import { SupervisionManager, Supervisor } from '../types/supervision.js';
-import { McpClient, MCPClientManager, McpServerEntry, McpServerConfig } from '../mcp/types.js';
+import { McpClient, MCPClientManager, McpServerEntry, McpServerConfig, CallToolResultWithElapsedTime } from '../mcp/types.js';
+import { ProviderHelper } from '../providers/provider-helper.js';
 import { ProviderFactory } from '../providers/provider-factory.js';
 import { Provider, ProviderInfo, ProviderModel, ProviderId } from '../providers/types.js';
 import { Reference } from '../types/references.js';
@@ -578,6 +579,22 @@ export class AgentImpl  extends EventEmitter implements Agent {
 
   async disconnectMcpServer(serverName: string): Promise<void> {
     await this.mcpManager.unloadMcpClient(serverName);
+  }
+
+  async refreshMcpServer(serverName: string) {
+    return this.mcpManager.refreshMcpServer(serverName);
+  }
+
+  refreshInterceptorList(serverName: string) {
+    return this.mcpManager.refreshInterceptorList(serverName);
+  }
+
+  callQualifiedTool(
+    qualifiedToolName: string,
+    args?: Record<string, unknown>,
+    session?: ChatSession
+  ): Promise<CallToolResultWithElapsedTime> {
+    return ProviderHelper.callTool(this, qualifiedToolName, args, session);
   }
 
   // ChatSessionManager methods

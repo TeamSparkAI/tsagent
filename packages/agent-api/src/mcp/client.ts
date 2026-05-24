@@ -9,14 +9,23 @@ import { McpClient, McpServerEntry } from './types.js';
 import { CallToolResultWithElapsedTime } from './types.js';
 import { ChatSession } from '../types/chat.js';
 import { Logger } from '../types/common.js';
+import type { InterceptorHostInfo } from './interceptor-types.js';
+
+/** JSON-RPC -32601 or MCP client "Method not found" (interceptor-only hosts omit tools/list). */
+function isUnsupportedMcpMethodError(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err);
+    return message.includes('-32601') || /method not found/i.test(message);
+}
 
 export abstract class McpClientBase {
     protected mcp: Client;
     protected transport: Transport | null = null;
     protected errorLog: string[] = [];
     protected readonly MAX_LOG_ENTRIES = 100;  // Keep last 100 error messages
-    serverVersion: { name: string; version: string } | null = null;
+    serverVersion: { name: string; version: string; title?: string; description?: string; websiteUrl?: string } | null = null;
+    serverInstructions: string | null = null;
     serverTools: Tool[] = [];
+    interceptorHost: InterceptorHostInfo | null = null;
     protected connected: boolean = false;
     protected logger: Logger;
 
@@ -50,6 +59,10 @@ export abstract class McpClientBase {
 
     isConnected(): boolean {
         return this.connected;
+    }
+
+    getMcpSdkClient(): Client {
+        return this.mcp;
     }
 
     async connect(): Promise<boolean> {
@@ -86,14 +99,37 @@ export abstract class McpClientBase {
             const serverVersion = this.mcp.getServerVersion();
             this.serverVersion = serverVersion ? { 
                 name: serverVersion.name, 
-                version: serverVersion.version 
+                version: serverVersion.version,
+                title: serverVersion.title,
+                description: serverVersion.description,
+                websiteUrl: serverVersion.websiteUrl,
             } : null;
+            this.serverInstructions = this.mcp.getInstructions() ?? null;
             this.logger.info(`[MCP CLIENT] connected, got version: ${JSON.stringify(this.serverVersion)}`);
 
-            this.logger.info(`[MCP CLIENT] connected, getting tools`);  
-            const toolsResult = await this.mcp.listTools();
-            this.logger.info(`[MCP CLIENT] connected, got tools: ${JSON.stringify(toolsResult)}`);
-            this.serverTools = toolsResult.tools;
+            this.logger.info(`[MCP CLIENT] connected, getting tools`);
+            try {
+                const toolsResult = await this.mcp.listTools();
+                this.logger.info(`[MCP CLIENT] connected, got tools: ${JSON.stringify(toolsResult)}`);
+                this.serverTools = toolsResult.tools;
+            } catch (toolsErr) {
+                if (isUnsupportedMcpMethodError(toolsErr)) {
+                    this.serverTools = [];
+                    this.logger.info(
+                        '[MCP CLIENT] tools/list not supported (interceptor-only or minimal host); using empty tool list'
+                    );
+                } else {
+                    throw toolsErr;
+                }
+            }
+
+            const { probeInterceptorHost } = await import('./interceptor-discovery.js');
+            this.interceptorHost = await probeInterceptorHost(this.mcp);
+            if (this.interceptorHost?.isInterceptorHost) {
+                this.logger.info(
+                    `[MCP CLIENT] ${this.interceptorHost.interceptors.length} interceptor(s) on host`
+                );
+            }
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             this.logger.error(`Error connecting to MCP server: ${message}`);
@@ -109,6 +145,8 @@ export abstract class McpClientBase {
         this.transport?.close();
         this.transport = null;
         this.connected = false;
+        this.interceptorHost = null;
+        this.serverInstructions = null;
     }
 
     async callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime> {

@@ -8,6 +8,7 @@ module.exports = {
   moduleNameMapper: {
     '^(\\.{1,2}/.*)\\.js$': '$1',
     '^@teamsparkai/1password$': '<rootDir>/test/__mocks__/teamsparkai-1password.ts',
+    '^@ext-modelcontextprotocol/interceptors$': '<rootDir>/test/__mocks__/ext-interceptors.ts',
   },
   transform: {
     '^.+\\.tsx?$': [

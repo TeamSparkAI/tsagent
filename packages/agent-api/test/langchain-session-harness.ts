@@ -1,7 +1,7 @@
 import type { McpClient } from '../src/mcp/types.js';
 import type { Tool } from '../src/mcp/types.js';
 import type { Agent } from '../src/types/agent.js';
-import type { McpServerEntry } from '../src/mcp/types.js';
+import type { McpServerEntry, McpServerConfig } from '../src/mcp/types.js';
 import type { ChatSession, ChatMessage, ChatState, MessageUpdate } from '../src/types/chat.js';
 import type { SessionToolPermission } from '../src/types/agent.js';
 import type { Logger } from '../src/types/common.js';
@@ -68,7 +68,10 @@ export type HarnessOptions = {
 /**
  * Minimal {@link Agent} for LangGraph chat / `ProviderHelper` tests.
  */
-export class LangChainTestAgent implements Pick<Agent, 'getAllMcpClients' | 'getMcpClient' | 'getMcpServer'> {
+export class LangChainTestAgent implements Pick<
+  Agent,
+  'getAllMcpClients' | 'getAllMcpClientsSync' | 'getMcpClient' | 'getMcpServer' | 'getAgentMcpServers'
+> {
   readonly client: FixtureEchoMcpClient;
 
   constructor(client: FixtureEchoMcpClient = new FixtureEchoMcpClient()) {
@@ -77,6 +80,15 @@ export class LangChainTestAgent implements Pick<Agent, 'getAllMcpClients' | 'get
 
   async getAllMcpClients(): Promise<Record<string, McpClient>> {
     return { fixture: this.client };
+  }
+
+  getAllMcpClientsSync(): Record<string, McpClient> {
+    return { fixture: this.client };
+  }
+
+  getAgentMcpServers(): Record<string, McpServerConfig> | null {
+    const entry = this.getMcpServer('fixture');
+    return entry ? { fixture: entry.config } : null;
   }
 
   async getMcpClient(name: string): Promise<McpClient | undefined> {

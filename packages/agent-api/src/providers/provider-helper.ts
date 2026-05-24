@@ -3,6 +3,8 @@ import { Tool } from "../mcp/types.js";
 import { CallToolResultWithElapsedTime, isToolPermissionRequired, getToolEffectiveIncludeMode, McpServerConfig } from "../mcp/types.js";
 import { ChatSession } from "../types/chat.js";
 import { Agent } from "../types/agent.js";
+import { isInterceptorOnlyHost } from "../mcp/interceptor-host.js";
+import { runToolCallWithInterceptors } from "../mcp/interceptor-orchestrator.js";
 
 export class ProviderHelper {
 
@@ -81,6 +83,10 @@ export class ProviderHelper {
 
         for (const [clientName, client] of Object.entries(mcpClients)) {
             try {
+                if (isInterceptorOnlyHost(client)) {
+                    continue;
+                }
+
                 const serverConfig = agent.getMcpServer(clientName)?.config;
 
                 // Filter tools based on session context and request context
@@ -129,6 +135,13 @@ export class ProviderHelper {
         if (!tool) {
             throw new Error(`Tool not found: ${toolName}`);
         }
-        return client.callTool(tool, args, session);
+        return runToolCallWithInterceptors(
+            agent,
+            clientName,
+            tool,
+            client,
+            args,
+            session
+        );
     }
 }

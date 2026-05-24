@@ -7,6 +7,7 @@ import { Agent, populateModelFromSettings } from '../types/agent.js';
 import { Logger } from '../types/common.js';
 import { SessionToolPermission } from '../types/agent.js';
 import { isToolPermissionRequired, getToolEffectiveIncludeMode, getToolIncludeServerDefault } from '../mcp/types.js';
+import { isInterceptorOnlyHost } from '../mcp/interceptor-host.js';
 import { ProviderHelper } from '../providers/provider-helper.js';
 import { SupervisionManager } from '../types/supervision.js';
 import { SessionContextItem, RequestContextItem, RequestContext } from '../types/context.js';
@@ -313,7 +314,8 @@ export class ChatSessionImpl implements ChatSession {
     for (const [serverName, client] of Object.entries(mcpClients)) {
       const serverConfig = this.agent.getMcpServer(serverName)?.config;
       if (!serverConfig) continue;
-      
+      if (isInterceptorOnlyHost(client)) continue;
+
       for (const tool of client.serverTools) {
         const effectiveMode = getToolEffectiveIncludeMode(serverConfig, tool.name);
         if (effectiveMode === 'agent') {
@@ -805,6 +807,7 @@ export class ChatSessionImpl implements ChatSession {
       for (const [serverName, serverConfig] of Object.entries(mcpServers)) {
         const client = mcpClients[serverName];
         if (!client?.serverTools?.length) continue;
+        if (isInterceptorOnlyHost(client)) continue;
 
         for (const tool of client.serverTools) {
           if (getToolEffectiveIncludeMode(serverConfig, tool.name) === 'always') {

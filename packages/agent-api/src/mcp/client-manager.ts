@@ -8,6 +8,8 @@ import { McpClientInternalSupervision } from './client-supervision.js';
 import { McpClientInternalTools } from './client-tools.js';
 import { MCPClientManager } from './types.js';
 import { computeTextHash } from '../managers/semantic-indexer.js';
+import { probeInterceptorHost } from './interceptor-discovery.js';
+import type { InterceptorHostInfo } from './interceptor-types.js';
 
 export class MCPClientManagerImpl implements MCPClientManager {
     private clients: Map<string, McpClient>;
@@ -312,5 +314,25 @@ export class MCPClientManagerImpl implements MCPClientManager {
         
         await this.loadMcpClient(this.agent, name, serverConfig);
         return this.clients.get(name);
+    }
+
+    async refreshMcpServer(serverName: string): Promise<McpClient | undefined> {
+        await this.unloadMcpClient(serverName);
+        return this.getMcpClient(serverName);
+    }
+
+    async refreshInterceptorList(serverName: string): Promise<InterceptorHostInfo | null> {
+        const client = await this.getMcpClient(serverName);
+        if (!client?.isConnected()) {
+            return null;
+        }
+        const sdk = client.getMcpSdkClient?.();
+        if (!sdk) {
+            client.interceptorHost = null;
+            return null;
+        }
+        const info = await probeInterceptorHost(sdk);
+        client.interceptorHost = info;
+        return info;
     }
 } 

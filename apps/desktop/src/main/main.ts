@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import { McpServerEntry } from '@tsagent/core';
 import { AgentsManager } from './agents-manager';
 import { agentExists, loadAgent, loadAndInitializeAgent, cloneAgent, createAgent } from '@tsagent/core/runtime';
-import { Agent } from '@tsagent/core';
+import { Agent, getMcpServerRole, McpClient } from '@tsagent/core';
 import { ElectronLoggerAdapter } from './logger-adapter';
 import { SessionToolPermission, ChatMessage, AgentSettings } from '@tsagent/core';
 import { createOnePasswordClient } from '@teamsparkai/1password';
@@ -17,6 +17,27 @@ const __dirname = path.dirname(__filename);
 let agentsManager: AgentsManager;
 const PRODUCT_NAME = 'TsAgent Foundry';
 const DEFAULT_PROMPT = "You are a helpful AI assistant that can use tools to help accomplish tasks.";
+
+function buildMcpClientInfo(client: McpClient, serverType = 'stdio') {
+  return {
+    serverVersion: client.serverVersion
+      ? {
+          name: client.serverVersion.name,
+          version: client.serverVersion.version,
+          title: client.serverVersion.title,
+          description: client.serverVersion.description,
+          websiteUrl: client.serverVersion.websiteUrl,
+        }
+      : null,
+    serverInstructions: client.serverInstructions ?? null,
+    serverTools: client.serverTools,
+    errorLog: client.getErrorLog(),
+    isConnected: client.isConnected(),
+    serverType,
+    interceptorHost: client.interceptorHost ?? null,
+    serverRole: getMcpServerRole(client),
+  };
+}
 
 async function createWindow(agent?: Agent): Promise<BrowserWindow> {
   // Get the current window's position if it exists
@@ -671,30 +692,27 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
     }
 
     try {
+      const entry = agent.getMcpServer(serverName);
+      const serverType = entry?.config?.type ?? 'stdio';
+
       if (connect === false) {
         const client = agent.getAllMcpClientsSync()[serverName];
         if (!client) {
           return {
             serverVersion: null,
+            serverInstructions: null,
             serverTools: [],
             errorLog: [],
             isConnected: false,
-            serverType: 'stdio',
+            serverType,
+            interceptorHost: null,
+            serverRole: 'tools' as const,
           };
         }
-        return {
-          serverVersion: client.serverVersion
-            ? { name: client.serverVersion.name, version: client.serverVersion.version }
-            : null,
-          serverTools: client.serverTools,
-          errorLog: client.getErrorLog(),
-          isConnected: client.isConnected(),
-          serverType: 'stdio',
-        };
+        return buildMcpClientInfo(client, serverType);
       }
 
       let client = await agent.getMcpClient(serverName);
-      let serverType = 'stdio';
       
       if (!client) {
         const mcpServers = await agent.getAllMcpServers();
@@ -727,20 +745,38 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
         throw new Error(`Failed to get client for server: ${serverName}`);
       }
       
-      return {
-        serverVersion: client.serverVersion ? {
-          name: client.serverVersion.name,
-          version: client.serverVersion.version
-        } : null,
-        serverTools: client.serverTools,
-        errorLog: client.getErrorLog(),
-        isConnected: client.isConnected(),
-        serverType: serverType
-      };
+      return buildMcpClientInfo(client, serverType);
     } catch (err) {
       log.error('Error getting MCP client:', err);
       throw err;
     }
+  });
+
+  ipcMain.handle('refresh-interceptor-list', async (event, serverName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      throw new Error('No agent found for window');
+    }
+    return agent.refreshInterceptorList(serverName);
+  });
+
+  ipcMain.handle('refresh-mcp-server', async (event, serverName: string) => {
+    const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
+    const agent = getAgentForWindow(windowId);
+    if (!agent) {
+      throw new Error('No agent found for window');
+    }
+
+    const entry = agent.getMcpServer(serverName);
+    const serverType = entry?.config?.type ?? 'stdio';
+
+    await agent.refreshMcpServer(serverName);
+    const client = await agent.getMcpClient(serverName);
+    if (!client) {
+      throw new Error(`Failed to refresh server: ${serverName}`);
+    }
+    return buildMcpClientInfo(client, serverType);
   });
 
   ipcMain.handle('call-tool', async (event, serverName: string, toolName: string, args: Record<string, unknown>) => {
@@ -748,16 +784,12 @@ function setupIpcHandlers(mainWindow: BrowserWindow | null) {
       log.info('Calling tool:', { serverName, toolName, args });
       const windowId = BrowserWindow.fromWebContents(event.sender)?.id.toString();
       const agent = getAgentForWindow(windowId);
+      if (!agent) {
+        throw new Error('No agent found for window');
+      }
 
-      const client = await agent?.getMcpClient(serverName);
-      if (!client) {
-        throw new Error(`No MCP client found for server ${serverName}`);
-      }
-      const tool = client.serverTools.find((t: any) => t.name === toolName);
-      if (!tool) {
-        throw new Error(`Tool ${toolName} not found in server ${serverName}`);
-      }
-      const result = await client.callTool(tool, args);
+      const qualifiedName = `${serverName}_${toolName}`;
+      const result = await agent.callQualifiedTool(qualifiedName, args);
       log.info('Tool call completed:', result);
       return result;
     } catch (err) {

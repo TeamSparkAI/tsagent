@@ -20,5 +20,7 @@ export const loadAgent = runtimeImpl.loadAgent;
 export const loadAndInitializeAgent = runtimeImpl.loadAndInitializeAgent;
 export const cloneAgent = runtimeImpl.cloneAgent;
 export const agentExists = runtimeImpl.agentExists;
+export { ProviderHelper } from './providers/provider-helper.js';
+export { getMcpServerRole, isInterceptorOnlyHost } from './mcp/interceptor-host.js';
 
 

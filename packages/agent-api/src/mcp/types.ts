@@ -2,6 +2,8 @@ import { CallToolResultSchema, ToolSchema } from "@modelcontextprotocol/sdk/type
 import { z } from "zod";
 
 import { ChatSession } from "../types/chat.js";
+import type { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import type { InterceptorHostInfo } from './interceptor-types.js';
 
 // Generate our own types from the MCP SDK Zod schemas
 // This ensures TypeScript resolves these types from our package, not from the consumer's node_modules
@@ -206,9 +208,22 @@ export interface ToolParameter {
   required?: boolean;
 }
 
+export interface McpServerRuntimeInfo {
+  name: string;
+  version: string;
+  title?: string;
+  description?: string;
+  websiteUrl?: string;
+}
+
 export interface McpClient {
-  serverVersion: { name: string; version: string } | null;
+  serverVersion: McpServerRuntimeInfo | null;
+  serverInstructions?: string | null;
   serverTools: Tool[];
+  /** Set after connect when `interceptors/list` succeeds. */
+  interceptorHost?: InterceptorHostInfo | null;
+  /** Underlying MCP SDK client (stdio/SSE/HTTP only). */
+  getMcpSdkClient?(): Client;
   connect(): Promise<boolean>;
   disconnect(): Promise<void>;
   callTool(tool: Tool, args?: Record<string, unknown>, session?: ChatSession): Promise<CallToolResultWithElapsedTime>;
@@ -225,4 +240,6 @@ export interface MCPClientManager {
   getAllMcpClients(): Promise<Record<string, McpClient>>;
   getAllMcpClientsSync(): Record<string, McpClient>;
   getMcpClient(name: string): Promise<McpClient | undefined>;
+  refreshMcpServer(serverName: string): Promise<McpClient | undefined>;
+  refreshInterceptorList(serverName: string): Promise<InterceptorHostInfo | null>;
 }

@@ -72,6 +72,9 @@ export {
   isToolAvailableForAgent
 } from './mcp/types.js';
 
+export type { Interceptor, InterceptorHostInfo, McpServerRole } from './mcp/interceptor-types.js';
+export { isInterceptorOnlyHost, getMcpServerRole, formatInterceptorHooks } from './mcp/interceptor-host.js';
+
 // Export constants and validation functions that are needed by implementation
 export {
   getDefaultSettings,

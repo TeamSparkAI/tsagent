@@ -89,6 +89,14 @@ export interface Agent extends ProvidersManager, McpServerManager, ChatSessionMa
   getMcpClient(name: string, options?: { connect?: boolean }): Promise<McpClient | undefined>;
   connectMcpServer(serverName: string): Promise<boolean>;
   disconnectMcpServer(serverName: string): Promise<void>;
+  refreshMcpServer(serverName: string): Promise<McpClient | undefined>;
+  refreshInterceptorList(serverName: string): Promise<import('../mcp/interceptor-types.js').InterceptorHostInfo | null>;
+  /** Invoke a tool by qualified name (`serverName_toolName`), including interceptor chains. */
+  callQualifiedTool(
+    qualifiedToolName: string,
+    args?: Record<string, unknown>,
+    session?: import('./chat.js').ChatSession
+  ): Promise<import('../mcp/types.js').CallToolResultWithElapsedTime>;
 
   // Internal methods for MCP server access
   getAgentMcpServers(): Record<string, McpServerConfig> | null;

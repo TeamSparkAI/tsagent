@@ -9,6 +9,7 @@
       "require": "./dist/cjs/index.js"
     },
     "./runtime": {
+      "types": "./dist/esm/runtime-esm.d.ts",
       "import": "./dist/esm/runtime-esm.js",
       "require": "./dist/cjs/runtime-cjs.js"
     }
@@ -36,6 +37,7 @@
     "test": "jest"
   },
   "dependencies": {
+    "@ext-modelcontextprotocol/interceptors": "file:../../../experimental-ext-interceptors/typescript/sdk",
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-bedrock": "^3.787.0",
     "@aws-sdk/client-bedrock-runtime": "^3.785.0",
@@ -58,6 +60,11 @@
     "uuid": "^11.1.0",
     "yaml": "^2.8.1",
     "zod": "^4.1.13"
+  },
+  "overrides": {
+    "@ext-modelcontextprotocol/interceptors": {
+      "@modelcontextprotocol/sdk": "$@modelcontextprotocol/sdk"
+    }
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",

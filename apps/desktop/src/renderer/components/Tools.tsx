@@ -3,7 +3,10 @@ import type {
     McpServerEntry, 
     ServerDefaultPermission, 
     ToolPermissionSetting,
-    Tool
+    Tool,
+    InterceptorHostInfo,
+    McpServerRole,
+    Interceptor,
 } from "@tsagent/core";
 import { 
     isToolPermissionServerDefaultRequired,
@@ -22,10 +25,51 @@ import { isSecretFieldName } from '../utils/secretField';
 import log from 'electron-log';
 
 interface ServerInfo {
-    serverVersion: { name: string; version: string } | null;
+    serverVersion: {
+        name: string;
+        version: string;
+        title?: string;
+        description?: string;
+        websiteUrl?: string;
+    } | null;
+    serverInstructions: string | null;
     serverTools: any[];
     errorLog: string[];
     isConnected: boolean;
+    serverType?: string;
+    interceptorHost?: InterceptorHostInfo | null;
+    serverRole?: McpServerRole;
+}
+
+const INTERCEPTOR_BADGE_COLOR = '#7c4dff';
+
+function serverRoleLabel(role: McpServerRole | undefined): string | null {
+    if (role === 'interceptor') return 'Interceptor host';
+    if (role === 'tools_and_interceptor') return 'Tools + interceptors';
+    return null;
+}
+
+function formatHookSummary(interceptor: Interceptor): string {
+    return interceptor.hooks
+        .map((h) => `${h.events.join(', ')} · ${h.phase}`)
+        .join('; ');
+}
+
+function formatPriorityHint(hint: Interceptor['priorityHint']): string {
+    if (hint === undefined) {
+        return '—';
+    }
+    if (typeof hint === 'number') {
+        return String(hint);
+    }
+    const parts: string[] = [];
+    if (hint.request !== undefined) {
+        parts.push(`request: ${hint.request}`);
+    }
+    if (hint.response !== undefined) {
+        parts.push(`response: ${hint.response}`);
+    }
+    return parts.length > 0 ? parts.join(', ') : '—';
 }
 
 interface ErrorAnalysis {
@@ -984,6 +1028,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [serverInfo, setServerInfo] = useState<Record<string, ServerInfo>>({});
     const [tabState, setTabState] = useState<TabState>({ mode: 'about' });
     const [selectedTool, setSelectedTool] = useState<Tool | null>(null);
+    const [selectedInterceptor, setSelectedInterceptor] = useState<Interceptor | null>(null);
     const [testResults, setTestResults] = useState<ToolTestResult | null>(null);
     const [connectionBusy, setConnectionBusy] = useState(false);
     const [testParams, setTestParams] = useState<Record<string, unknown>>({});
@@ -993,6 +1038,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
     const [currentErrorLog, setCurrentErrorLog] = useState<string[]>([]);
     const [selectedToolPermission, setSelectedToolPermission] = useState<ToolPermissionSetting>('server_default');
     const [selectedToolEnabled, setSelectedToolEnabled] = useState<'server_default' | 'always' | 'manual' | 'agent'>('server_default');
+    const [refreshBusy, setRefreshBusy] = useState(false);
 
     useEffect(() => {
         loadServers();
@@ -1071,9 +1117,12 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                 ...prev,
                 [serverName]: {
                     serverVersion: null,
+                    serverInstructions: null,
                     serverTools: [],
                     errorLog: [err instanceof Error ? err.message : String(err)],
                     isConnected: false,
+                    interceptorHost: null,
+                    serverRole: 'tools',
                 },
             }));
         }
@@ -1101,11 +1150,15 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                 ...prev,
                 [serverName]: {
                     serverVersion: null,
+                    serverInstructions: null,
                     serverTools: [],
                     errorLog: prev[serverName]?.errorLog ?? [],
                     isConnected: false,
+                    interceptorHost: null,
+                    serverRole: 'tools',
                 },
             }));
+            setSelectedInterceptor(null);
         } catch (err) {
             log.error(`Failed to disconnect from server ${serverName}:`, err);
             alert(`Disconnect failed: ${err instanceof Error ? err.message : String(err)}`);
@@ -1120,6 +1173,29 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
             loadServerInfo(selectedServer.name);
         }
     }, [selectedServer]);
+
+    const handleRefreshServer = async (serverName: string) => {
+        setRefreshBusy(true);
+        try {
+            const info = await window.api.refreshMcpServer(serverName) as ServerInfo;
+            setServerInfo(prev => ({
+                ...prev,
+                [serverName]: info,
+            }));
+            if (selectedTool && !info.serverTools?.some((t) => t.name === selectedTool.name)) {
+                setSelectedTool(null);
+            }
+            if (selectedInterceptor && !info.interceptorHost?.interceptors?.some((i) => i.name === selectedInterceptor.name)) {
+                setSelectedInterceptor(null);
+            }
+        } catch (error) {
+            log.error('Error refreshing MCP server:', error);
+            await loadServerInfo(serverName);
+            alert(`Refresh failed: ${error instanceof Error ? error.message : String(error)}`);
+        } finally {
+            setRefreshBusy(false);
+        }
+    };
 
     const handleAddServer = () => {
         setEditingServer(undefined);
@@ -1460,6 +1536,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                             setTabState({ mode: 'about' });
                             setSelectedServer(null);
                             setSelectedTool(null);
+                            setSelectedInterceptor(null);
                         }}
                     >
                         <span className="info-icon">ℹ️</span>
@@ -1474,11 +1551,24 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     setSelectedServer(server);
                                     setTabState({ mode: 'item', selectedItemId: server.name });
                                     setSelectedTool(null);
+                                    setSelectedInterceptor(null);
                                 }
                             }}
                         >
                             <span style={{ color: 'var(--text-primary)' }}>{server.name}</span>
-                            <span style={{ color: 'var(--text-secondary)' }}> ({server.config.type ?? "stdio"})</span>
+                            {serverInfo[server.name]?.interceptorHost?.isInterceptorHost && (
+                                <span style={{
+                                    padding: '2px 6px',
+                                    backgroundColor: INTERCEPTOR_BADGE_COLOR,
+                                    color: 'white',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: 'bold',
+                                    marginLeft: '6px',
+                                }}>
+                                    Interceptor
+                                </span>
+                            )}
                         </div>
                     ))}
                 </div>
@@ -1533,51 +1623,215 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                         <div style={{ width: '50%', borderRight: '1px solid #ccc', overflow: 'auto' }}>
                             <div style={{ padding: '20px', paddingBottom: '40px' }}>
                                 <div 
-                                    className={`tab-items-item ${selectedServer && !selectedTool ? 'selected' : ''}`}
-                                    onClick={() => setSelectedTool(null)}
+                                    className={`tab-items-item ${selectedServer && !selectedTool && !selectedInterceptor ? 'selected' : ''}`}
+                                    onClick={() => {
+                                        setSelectedTool(null);
+                                        setSelectedInterceptor(null);
+                                    }}
                                     style={{ marginBottom: '16px' }}
                                 >
                                     <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
                                 </div>
                                 <div>
-                                    {serverInfo[selectedServer.name]?.serverTools.map((tool: Tool) => {
-                                        const includeMode = getToolEffectiveIncludeMode(selectedServer.config, tool.name);
-                                        const includeModeLabel = includeMode === 'manual' ? 'Manual' : includeMode === 'agent' ? 'Agent' : null;
-                                        const includeModeColor = includeMode === 'manual' ? '#ff9800' : '#1890ff';
+                                    {(() => {
+                                        const info = serverInfo[selectedServer.name];
+                                        const tools = info?.serverTools ?? [];
+                                        const interceptors = info?.interceptorHost?.interceptors ?? [];
+                                        const hasTools = tools.length > 0;
+                                        const hasInterceptors = interceptors.length > 0;
 
                                         return (
-                                            <div 
-                                                key={tool.name}
-                                                className={`tab-items-item ${selectedTool?.name === tool.name ? 'selected' : ''}`}
-                                                onClick={() => setSelectedTool(tool)}
-                                                style={{ display: 'block' }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-                                                    <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{tool.name}</h3>
-                                                    {includeModeLabel && (
-                                                        <span style={{ 
-                                                            padding: '2px 6px', 
-                                                            backgroundColor: includeModeColor,
-                                                            color: 'white',
-                                                            borderRadius: '4px',
-                                                            fontSize: '12px',
-                                                            fontWeight: 'bold'
-                                                        }}>
-                                                            {includeModeLabel}
-                                                        </span>
-                                                    )}
-                                                </div>
-                                                <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>{tool.description || 'No description'}</p>
-                                            </div>
+                                            <>
+                                                {!hasTools && !hasInterceptors && info?.serverRole === 'interceptor' && (
+                                                    <p style={{ color: 'var(--text-secondary)', marginBottom: '16px' }}>
+                                                        This server provides interceptors, not LLM tools. Interceptors run automatically when other servers&apos; tools are called.
+                                                    </p>
+                                                )}
+                                                {hasTools && (
+                                                    <>
+                                                        <h3 style={{ margin: '0 0 12px 0', color: 'var(--text-primary)' }}>Tools</h3>
+                                                        {tools.map((tool: Tool) => {
+                                                            const includeMode = getToolEffectiveIncludeMode(selectedServer.config, tool.name);
+                                                            const includeModeLabel = includeMode === 'manual' ? 'Manual' : includeMode === 'agent' ? 'Agent' : null;
+                                                            const includeModeColor = includeMode === 'manual' ? '#ff9800' : '#1890ff';
+
+                                                            return (
+                                                                <div 
+                                                                    key={tool.name}
+                                                                    className={`tab-items-item ${selectedTool?.name === tool.name ? 'selected' : ''}`}
+                                                                    onClick={() => {
+                                                                        setSelectedTool(tool);
+                                                                        setSelectedInterceptor(null);
+                                                                    }}
+                                                                    style={{ display: 'block' }}
+                                                                >
+                                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                                        <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>{tool.name}</h4>
+                                                                        {includeModeLabel && (
+                                                                            <span style={{ 
+                                                                                padding: '2px 6px', 
+                                                                                backgroundColor: includeModeColor,
+                                                                                color: 'white',
+                                                                                borderRadius: '4px',
+                                                                                fontSize: '12px',
+                                                                                fontWeight: 'bold'
+                                                                            }}>
+                                                                                {includeModeLabel}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>{tool.description || 'No description'}</p>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </>
+                                                )}
+                                                {hasInterceptors && (
+                                                    <>
+                                                        <h3 style={{ margin: hasTools ? '24px 0 12px 0' : '0 0 12px 0', color: 'var(--text-primary)' }}>Interceptors</h3>
+                                                        {interceptors.map((ic) => (
+                                                            <div
+                                                                key={ic.name}
+                                                                className={`tab-items-item ${selectedInterceptor?.name === ic.name ? 'selected' : ''}`}
+                                                                onClick={() => {
+                                                                    setSelectedInterceptor(ic);
+                                                                    setSelectedTool(null);
+                                                                }}
+                                                                style={{ display: 'block' }}
+                                                            >
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                                                                    <h4 style={{ margin: 0, color: 'var(--text-primary)' }}>{ic.name}</h4>
+                                                                    <span style={{
+                                                                        padding: '2px 6px',
+                                                                        backgroundColor: INTERCEPTOR_BADGE_COLOR,
+                                                                        color: 'white',
+                                                                        borderRadius: '4px',
+                                                                        fontSize: '11px',
+                                                                        fontWeight: 'bold',
+                                                                    }}>
+                                                                        {ic.type}
+                                                                    </span>
+                                                                </div>
+                                                                <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)' }}>
+                                                                    {ic.description || formatHookSummary(ic)}
+                                                                </p>
+                                                            </div>
+                                                        ))}
+                                                    </>
+                                                )}
+                                            </>
                                         );
-                                    })}
+                                    })()}
                                 </div>
                             </div>
                         </div>
 
-                        {/* Right side - Tool Details */}
+                        {/* Right side - Tool / Interceptor / Server Details */}
                         <div style={{ width: '50%', overflow: 'auto' }}>
-                            {selectedTool ? (
+                            {selectedInterceptor ? (
+                                <div style={{ padding: '20px', paddingBottom: '40px' }}>
+                                    <h2 style={{ margin: 0, marginBottom: '12px' }}>{selectedInterceptor.name}</h2>
+                                    {selectedInterceptor.description && (
+                                        <p style={{ color: '#666', marginBottom: '20px' }}>{selectedInterceptor.description}</p>
+                                    )}
+
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Type:</strong>
+                                        <span style={{
+                                            padding: '4px 8px',
+                                            backgroundColor: INTERCEPTOR_BADGE_COLOR,
+                                            color: 'white',
+                                            borderRadius: '4px',
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                            display: 'inline-block',
+                                        }}>
+                                            {selectedInterceptor.type}
+                                        </span>
+                                    </div>
+
+                                    {selectedInterceptor.version && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Version:</strong>
+                                            <span>{selectedInterceptor.version}</span>
+                                        </div>
+                                    )}
+
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Mode:</strong>
+                                        <span>{selectedInterceptor.mode ?? 'enforce'}</span>
+                                    </div>
+
+                                    {selectedInterceptor.failOpen !== undefined && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Fail open:</strong>
+                                            <span>{selectedInterceptor.failOpen ? 'Yes' : 'No'}</span>
+                                        </div>
+                                    )}
+
+                                    {selectedInterceptor.priorityHint !== undefined && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Priority hint:</strong>
+                                            <span>{formatPriorityHint(selectedInterceptor.priorityHint)}</span>
+                                        </div>
+                                    )}
+
+                                    {selectedInterceptor.compat && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Protocol compatibility:</strong>
+                                            <span>
+                                                {selectedInterceptor.compat.minProtocol}
+                                                {selectedInterceptor.compat.maxProtocol
+                                                    ? ` – ${selectedInterceptor.compat.maxProtocol}`
+                                                    : '+'}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    <div style={{ marginBottom: '16px' }}>
+                                        <strong style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Hooks:</strong>
+                                        {selectedInterceptor.hooks.length === 0 ? (
+                                            <span style={{ color: '#666' }}>None</span>
+                                        ) : (
+                                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                                                <thead>
+                                                    <tr style={{ textAlign: 'left', borderBottom: '1px solid #ddd' }}>
+                                                        <th style={{ padding: '6px 8px' }}>Events</th>
+                                                        <th style={{ padding: '6px 8px' }}>Phase</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {selectedInterceptor.hooks.map((hook, idx) => (
+                                                        <tr key={idx} style={{ borderBottom: '1px solid #eee' }}>
+                                                            <td style={{ padding: '6px 8px' }}>{hook.events.join(', ')}</td>
+                                                            <td style={{ padding: '6px 8px' }}>{hook.phase}</td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        )}
+                                    </div>
+
+                                    {selectedInterceptor.configSchema !== undefined && (
+                                        <div style={{ marginBottom: '16px' }}>
+                                            <strong style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Config schema:</strong>
+                                            <pre style={{
+                                                margin: 0,
+                                                padding: '8px',
+                                                backgroundColor: '#1e1e1e',
+                                                color: '#fff',
+                                                borderRadius: '4px',
+                                                overflow: 'auto',
+                                                fontFamily: 'monospace',
+                                                fontSize: '12px',
+                                                whiteSpace: 'pre-wrap',
+                                            }}>
+                                                {JSON.stringify(selectedInterceptor.configSchema, null, 2)}
+                                            </pre>
+                                        </div>
+                                    )}
+                                </div>
+                            ) : selectedTool ? (
                                 <div style={{ padding: '20px', paddingBottom: '40px' }}>
                                     <h2 style={{ margin: 0, marginBottom: '20px' }}>{selectedTool.name}</h2>
                                     <p style={{ color: '#666', marginBottom: '20px' }}>{selectedTool.description || 'No description'}</p>
@@ -1715,13 +1969,35 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                 </div>
                             ) : selectedServer ? (
                                 <div style={{ padding: '20px', paddingBottom: '40px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                            <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: '0px' }}>
-                                            {serverInfo[selectedServer.name]?.isConnected && (
-                                                <button 
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '12px' }}>
+                                        <h2 style={{ margin: 0 }}>{selectedServer.name}</h2>
+                                        <span style={{
+                                            padding: '4px 10px',
+                                            backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
+                                            color: 'white',
+                                            borderRadius: '16px',
+                                            fontSize: '12px',
+                                            fontWeight: 'bold',
+                                        }}>
+                                            {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
+                                        </span>
+                                    </div>
+                                    <div style={{
+                                        display: 'flex',
+                                        justifyContent: 'center',
+                                        alignItems: 'center',
+                                        flexWrap: 'wrap',
+                                        gap: '8px',
+                                        marginBottom: '20px',
+                                        padding: '12px',
+                                        backgroundColor: '#f5f5f5',
+                                        borderRadius: '4px',
+                                        border: '1px solid #ddd',
+                                    }}>
+                                        {serverInfo[selectedServer.name]?.isConnected && (
+                                            <>
+                                                <button
+                                                    type="button"
                                                     className="btn configure-button"
                                                     onClick={async () => {
                                                         try {
@@ -1734,47 +2010,45 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                                 >
                                                     Ping
                                                 </button>
-                                            )}
-                                            <button className="btn configure-button" onClick={() => handleEditServer(selectedServer)}>Edit</button>
-                                            <button className="btn remove-button" onClick={() => handleDeleteServer(selectedServer)}>Delete</button>
-                                        </div>
+                                                <button
+                                                    type="button"
+                                                    className="btn configure-button"
+                                                    disabled={refreshBusy}
+                                                    onClick={() => void handleRefreshServer(selectedServer.name)}
+                                                >
+                                                    {refreshBusy ? 'Refreshing…' : 'Refresh'}
+                                                </button>
+                                            </>
+                                        )}
+                                        {serverInfo[selectedServer.name]?.isConnected ? (
+                                            <button
+                                                type="button"
+                                                className="btn configure-button"
+                                                disabled={connectionBusy}
+                                                onClick={() => void handleDisconnectServer(selectedServer.name)}
+                                            >
+                                                Disconnect
+                                            </button>
+                                        ) : (
+                                            <button
+                                                type="button"
+                                                className="btn configure-button"
+                                                disabled={connectionBusy}
+                                                onClick={() => void handleConnectServer(selectedServer.name)}
+                                            >
+                                                Connect
+                                            </button>
+                                        )}
                                     </div>
                                     <div style={{ marginBottom: '20px' }}>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                                            <h3 style={{ margin: 0 }}>Details:</h3>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                <span style={{ 
-                                                    padding: '4px 10px', 
-                                                    backgroundColor: serverInfo[selectedServer.name]?.isConnected ? '#4CAF50' : '#ff4444',
-                                                    color: 'white',
-                                                    borderRadius: '16px',
-                                                    fontSize: '12px',
-                                                    fontWeight: 'bold'
-                                                }}>
-                                                    {serverInfo[selectedServer.name]?.isConnected ? 'Connected' : 'Disconnected'}
-                                                </span>
-                                                {serverInfo[selectedServer.name]?.isConnected ? (
-                                                    <button
-                                                        type="button"
-                                                        className="btn configure-button"
-                                                        disabled={connectionBusy}
-                                                        onClick={() => void handleDisconnectServer(selectedServer.name)}
-                                                    >
-                                                        Disconnect
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        className="btn configure-button"
-                                                        disabled={connectionBusy}
-                                                        onClick={() => void handleConnectServer(selectedServer.name)}
-                                                    >
-                                                        Connect
-                                                    </button>
-                                                )}
+                                            <h3 style={{ margin: 0 }}>Configuration:</h3>
+                                            <div style={{ display: 'flex', gap: '0px' }}>
+                                                <button className="btn configure-button" onClick={() => handleEditServer(selectedServer)}>Edit</button>
+                                                <button className="btn remove-button" onClick={() => handleDeleteServer(selectedServer)}>Delete</button>
                                             </div>
                                         </div>
-                                        <div style={{ 
+                                        <div style={{
                                             padding: '12px',
                                             backgroundColor: '#f5f5f5',
                                             borderRadius: '4px',
@@ -1982,6 +2256,104 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                             </div>
                                         </div>
                                     </div>
+                                    <div style={{ marginBottom: '20px' }}>
+                                        <h3 style={{ margin: '0 0 10px 0' }}>Details:</h3>
+                                        <div style={{
+                                            padding: '12px',
+                                            backgroundColor: '#f5f5f5',
+                                            borderRadius: '4px',
+                                            border: '1px solid #ddd'
+                                        }}>
+                                            {(() => {
+                                                const info = serverInfo[selectedServer.name];
+                                                if (!info?.isConnected) {
+                                                    return (
+                                                        <p style={{ margin: 0, color: '#666' }}>
+                                                            Connect to the server to view runtime details from the MCP host.
+                                                        </p>
+                                                    );
+                                                }
+
+                                                const version = info.serverVersion;
+                                                const hasDetails = Boolean(
+                                                    version?.title ||
+                                                    version?.name ||
+                                                    version?.version ||
+                                                    version?.description ||
+                                                    version?.websiteUrl ||
+                                                    info.serverInstructions
+                                                );
+
+                                                if (!hasDetails) {
+                                                    return (
+                                                        <p style={{ margin: 0, color: '#666' }}>
+                                                            No runtime details reported by this server.
+                                                        </p>
+                                                    );
+                                                }
+
+                                                return (
+                                                    <>
+                                                        {version?.title && (
+                                                            <div style={{ marginBottom: '16px' }}>
+                                                                <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Title:</strong>
+                                                                <span>{version.title}</span>
+                                                            </div>
+                                                        )}
+                                                        {version?.name && (
+                                                            <div style={{ marginBottom: '16px' }}>
+                                                                <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Server name:</strong>
+                                                                <span>{version.name}</span>
+                                                            </div>
+                                                        )}
+                                                        {version?.version && (
+                                                            <div style={{ marginBottom: '16px' }}>
+                                                                <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Version:</strong>
+                                                                <span>{version.version}</span>
+                                                            </div>
+                                                        )}
+                                                        {version?.description && (
+                                                            <div style={{ marginBottom: '16px' }}>
+                                                                <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Description:</strong>
+                                                                <p style={{ margin: 0, color: '#555', whiteSpace: 'pre-wrap' }}>{version.description}</p>
+                                                            </div>
+                                                        )}
+                                                        {version?.websiteUrl && (
+                                                            <div style={{ marginBottom: '16px' }}>
+                                                                <strong style={{ display: 'block', marginBottom: '4px', color: '#333' }}>Website:</strong>
+                                                                <a
+                                                                    href={version.websiteUrl}
+                                                                    onClick={handleLinkClick}
+                                                                    style={{ color: '#007bff', cursor: 'pointer', wordBreak: 'break-all' }}
+                                                                >
+                                                                    {version.websiteUrl}
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                        {info.serverInstructions && (
+                                                            <div style={{ marginBottom: 0 }}>
+                                                                <strong style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Instructions:</strong>
+                                                                <pre style={{
+                                                                    margin: 0,
+                                                                    padding: '8px',
+                                                                    backgroundColor: '#fff',
+                                                                    borderRadius: '4px',
+                                                                    overflow: 'auto',
+                                                                    fontFamily: 'inherit',
+                                                                    fontSize: '13px',
+                                                                    whiteSpace: 'pre-wrap',
+                                                                    color: '#333',
+                                                                    border: '1px solid #e0e0e0',
+                                                                }}>
+                                                                    {info.serverInstructions}
+                                                                </pre>
+                                                            </div>
+                                                        )}
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
                                     {serverInfo[selectedServer.name]?.errorLog && serverInfo[selectedServer.name].errorLog.length > 0 && (
                                         <div style={{ marginBottom: '20px' }}>
                                             <h3 style={{ margin: '0 0 10px 0' }}>Server Log:</h3>
@@ -2023,7 +2395,7 @@ export const Tools: React.FC<TabProps> = ({ id, activeTabId, name, type }) => {
                                     )}
                                     {serverInfo[selectedServer.name]?.isConnected && (
                                         <div style={{ color: '#666', textAlign: 'center', padding: '20px' }}>
-                                            Select a tool from the list on the left to view its details and test it.
+                                            Select a tool or interceptor from the list on the left to view its details.
                                         </div>
                                     )}
                                 </div>
